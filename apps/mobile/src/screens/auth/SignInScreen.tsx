@@ -8,8 +8,8 @@ import { useTranslation } from "../../i18n";
 import type { AuthParams } from "../../navigation/types";
 import { FAILURE_TEXT } from "../../session/failureText";
 import { AuthFailure, useSession } from "../../session/SessionProvider";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Banner } from "../../ui/Banner";
 import { Button } from "../../ui/Button";
 import { Screen } from "../../ui/Screen";
@@ -29,6 +29,7 @@ import { hostOf, ServerField } from "./ServerField";
 export function SignInScreen() {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const session = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<AuthParams>>();
   const server = "server" in session.state ? session.state.server : null;
@@ -116,18 +117,20 @@ export function SignInScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  head: { gap: 14, paddingTop: 12 },
-  markTile: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.l,
-    borderWidth: hairline,
-    backgroundColor: "#f7f3ed",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mark: { width: 34, height: 34, marginTop: 4 },
-  signup: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, paddingTop: 4 },
-  inlineLink: { alignSelf: "center", paddingVertical: 0 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    head: { gap: 14, paddingTop: 12 },
+    markTile: {
+      width: 56,
+      height: 56,
+      borderRadius: shape.radius.l,
+      borderWidth: shape.hairline,
+      backgroundColor: "#f7f3ed",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    mark: { width: 34, height: 34, marginTop: 4 },
+    signup: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, paddingTop: 4 },
+    inlineLink: { alignSelf: "center", paddingVertical: 0 },
+  }),
+);

@@ -17,7 +17,7 @@ function files(dir: string): string[] {
 
 const RUCHOIR_SHAPE = /import\s*\{[^}]*\b(radius|hairline)\b[^}]*\}\s*from\s*"[./]*\/?theme\/tokens"/;
 
-test("no_screen_draws_the_ruchoir_shape_by_hand", { todo: true }, () => {
+test("no_screen_draws_the_ruchoir_shape_by_hand", () => {
   const offenders = files(SRC)
     .filter((path) => {
       const text = readFileSync(path, "utf8");

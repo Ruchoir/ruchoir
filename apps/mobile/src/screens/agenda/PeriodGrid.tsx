@@ -5,14 +5,15 @@ import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { weekdayOrder } from "../../logic/agenda";
 import { usePrefs } from "../../prefs/store";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Text } from "../../ui/Text";
 
 /** The period's name with the arrows that move it. */
 export function PeriodHeader({ title, onMove }: { title: string; onMove: (direction: 1 | -1) => void }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.header}>
       <Text variant="bodyStrong" style={styles.flex}>
@@ -58,6 +59,7 @@ export function DayCell({
   onPress: () => void;
 }) {
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -82,12 +84,14 @@ export function DayCell({
   );
 }
 
-const styles = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", gap: 4 },
-  flex: { flex: 1 },
-  arrow: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  tall: { minHeight: 70 },
-  cell: { flex: 1, alignSelf: "stretch", minHeight: 50, alignItems: "center", justifyContent: "center", gap: 3, borderRadius: radius.m, borderWidth: hairline, borderColor: "transparent" },
-  dots: { flexDirection: "row", gap: 3, height: 5 },
-  dot: { width: 5, height: 5, borderRadius: 3 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    header: { flexDirection: "row", alignItems: "center", gap: 4 },
+    flex: { flex: 1 },
+    arrow: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+    tall: { minHeight: 70 },
+    cell: { flex: 1, alignSelf: "stretch", minHeight: 50, alignItems: "center", justifyContent: "center", gap: 3, borderRadius: shape.radius.m, borderWidth: shape.hairline, borderColor: "transparent" },
+    dots: { flexDirection: "row", gap: 3, height: 5 },
+    dot: { width: 5, height: 5, borderRadius: 3 },
+  }),
+);

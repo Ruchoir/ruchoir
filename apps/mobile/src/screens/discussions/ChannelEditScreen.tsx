@@ -15,8 +15,8 @@ import { channelHandle } from "../../logic/handle";
 import type { RootParams } from "../../navigation/types";
 import { useRealtimeActions } from "../../realtime/RealtimeProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Button } from "../../ui/Button";
 import { feel } from "../../ui/haptics";
@@ -41,6 +41,7 @@ export function ChannelEditScreen() {
   const channel = channels.data?.find((ch) => ch.id === params.channelId);
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   if (!channel) {
     return (
       <View style={[styles.fill, { backgroundColor: c.surface }]}>
@@ -58,6 +59,7 @@ function Form({ channelId, name: initialName, topic: initialTopic, type, taken }
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const { current } = useSpace();
   const { emit } = useRealtimeActions();
@@ -146,10 +148,12 @@ function Form({ channelId, name: initialName, topic: initialTopic, type, taken }
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  form: { gap: 20, paddingBottom: 24 },
-  gutter: { paddingHorizontal: 16 },
-  block: { gap: 8 },
-  foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    form: { gap: 20, paddingBottom: 24 },
+    gutter: { paddingHorizontal: 16 },
+    block: { gap: 8 },
+    foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: shape.hairline },
+  }),
+);

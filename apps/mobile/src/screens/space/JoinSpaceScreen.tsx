@@ -13,8 +13,9 @@ import { useTranslation } from "../../i18n";
 import type { InvitationChoice } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { lift } from "../../theme/lift";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Banner } from "../../ui/Banner";
 import { Button } from "../../ui/Button";
 import { feel } from "../../ui/haptics";
@@ -35,7 +36,9 @@ type Mode = "join" | "create";
 export function JoinSpaceScreen({ gate = false }: { gate?: boolean }) {
   const { acceptInvitation, createSpace } = useApi();
   const { t } = useTranslation();
-  const { c } = useTheme();
+  const theme = useTheme();
+  const { c, s } = theme;
+  const styles = useThemedStyles(makeStyles);
   const { spaces, select } = useSpace();
   const session = useSession();
   const accounts = useAccounts();
@@ -103,8 +106,10 @@ export function JoinSpaceScreen({ gate = false }: { gate?: boolean }) {
         }}
         style={[
           styles.option,
-          { backgroundColor: c.surface, borderColor: on ? c.ink : c.lineStrong, shadowColor: c.ink },
-          on && styles.lifted,
+          // The chosen way in: an edge in the focus colour (the ink in Ruchoir), lifted unless flat.
+          { backgroundColor: c.surface, borderColor: on ? s.focus : c.lineStrong },
+          on && styles.chosen,
+          on && lift(theme, 4, 4, c.ink),
         ]}
       >
         <View style={[styles.tile, { backgroundColor: tint }]}>
@@ -190,15 +195,17 @@ export function JoinSpaceScreen({ gate = false }: { gate?: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  flex: { flex: 1, minWidth: 0 },
-  content: { paddingBottom: 24 },
-  pad: { paddingHorizontal: 20, paddingTop: 16, gap: 16 },
-  head: { gap: 6, paddingTop: 8, paddingBottom: 4 },
-  option: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, borderRadius: radius.l, borderWidth: hairline },
-  lifted: { borderWidth: 2, shadowOffset: { width: 4, height: 4 }, shadowOpacity: 1, shadowRadius: 0, elevation: 4 },
-  tile: { width: 40, height: 40, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-  preview: { gap: 4, padding: 16, borderRadius: radius.m, borderWidth: hairline },
-  footer: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, gap: 10 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    flex: { flex: 1, minWidth: 0 },
+    content: { paddingBottom: 24 },
+    pad: { paddingHorizontal: 20, paddingTop: 16, gap: 16 },
+    head: { gap: 6, paddingTop: 8, paddingBottom: 4 },
+    option: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, borderRadius: shape.radius.l, borderWidth: shape.hairline },
+    chosen: { borderWidth: 2 },
+    tile: { width: 40, height: 40, borderRadius: shape.radius.m, alignItems: "center", justifyContent: "center" },
+    preview: { gap: 4, padding: 16, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    footer: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, gap: 10 },
+  }),
+);

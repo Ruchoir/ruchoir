@@ -3,8 +3,8 @@ import { StyleSheet, View } from "react-native";
 
 import { parseInline } from "../../logic/inline";
 import { fonts } from "../../theme/fonts";
-import { radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Text } from "../../ui/Text";
 import { CodeBlock } from "./CodeBlock";
 
@@ -14,6 +14,7 @@ import { CodeBlock } from "./CodeBlock";
  */
 export function RichText({ body, mentionNames }: { body: string; mentionNames: string[] }) {
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const blocks: { kind: "line" | "quote" | "item" | "code"; text: string; lang?: string }[] = [];
   let fence: string[] | null = null;
   let lang: string | undefined;
@@ -86,11 +87,13 @@ export function RichText({ body, mentionNames }: { body: string; mentionNames: s
   );
 }
 
-const styles = StyleSheet.create({
-  body: { gap: 2 },
-  line: { fontSize: 16, lineHeight: 23 },
-  quote: { borderLeftWidth: 3, paddingLeft: 10 },
-  mention: { fontFamily: fonts.sansSemibold, borderRadius: radius.s },
-  italic: { fontStyle: "italic" },
-  link: { textDecorationLine: "underline" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    body: { gap: 2 },
+    line: { fontSize: 16, lineHeight: 23 },
+    quote: { borderLeftWidth: 3, paddingLeft: 10 },
+    mention: { fontFamily: fonts.sansSemibold, borderRadius: shape.radius.s },
+    italic: { fontStyle: "italic" },
+    link: { textDecorationLine: "underline" },
+  }),
+);

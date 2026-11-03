@@ -26,8 +26,8 @@ import { key, useTranslation } from "../../i18n";
 import { canAdminister } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Avatar } from "../../ui/Avatar";
 import { BackHeader } from "../../ui/BackHeader";
@@ -70,6 +70,7 @@ export function ConversationDetails() {
   const { conversationId, channelId, title } = params;
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const { current } = useSpace();
   const space = current?.id;
@@ -382,6 +383,7 @@ export function ConversationDetails() {
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.section}>
       <Text variant="label" tone="muted">
@@ -392,15 +394,17 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  page: { gap: 20, paddingHorizontal: 16, paddingBottom: 32 },
-  hero: { alignItems: "center", gap: 8, paddingTop: 8 },
-  center: { textAlign: "center" },
-  section: { gap: 8 },
-  card: { borderWidth: hairline, borderRadius: radius.l, paddingHorizontal: 12, paddingVertical: 4 },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
-  grow: { flex: 1, minWidth: 0, gap: 2 },
-  shrink: { flexShrink: 1 },
-  role: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.s, overflow: "hidden" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    page: { gap: 20, paddingHorizontal: 16, paddingBottom: 32 },
+    hero: { alignItems: "center", gap: 8, paddingTop: 8 },
+    center: { textAlign: "center" },
+    section: { gap: 8 },
+    card: { borderWidth: shape.hairline, borderRadius: shape.radius.l, paddingHorizontal: 12, paddingVertical: 4 },
+    radio: { width: 22, height: 22, borderRadius: 11, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center" },
+    grow: { flex: 1, minWidth: 0, gap: 2 },
+    shrink: { flexShrink: 1 },
+    role: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: shape.radius.s, overflow: "hidden" },
+  }),
+);

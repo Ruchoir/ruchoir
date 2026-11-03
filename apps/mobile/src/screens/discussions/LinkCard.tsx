@@ -4,8 +4,8 @@ import * as WebBrowser from "expo-web-browser";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { authHeadersFor, useApi } from "../../api/useApi";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Text } from "../../ui/Text";
 
 /**
@@ -17,6 +17,7 @@ export function LinkCard({ link }: { link: LinkPreview }) {
   const api = useApi();
   const { absoluteUrl } = api;
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const image = link.imageUrl ? absoluteUrl(link.imageUrl) : undefined;
   return (
     <Pressable
@@ -55,9 +56,11 @@ export function LinkCard({ link }: { link: LinkPreview }) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: { flexDirection: "row", borderWidth: hairline, borderRadius: radius.m, overflow: "hidden", maxWidth: 340 },
-  edge: { width: 4 },
-  body: { flex: 1, minWidth: 0, gap: 3, padding: 10 },
-  image: { width: "100%", borderRadius: radius.s, marginTop: 6 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    card: { flexDirection: "row", borderWidth: shape.hairline, borderRadius: shape.radius.m, overflow: "hidden", maxWidth: 340 },
+    edge: { width: 4 },
+    body: { flex: 1, minWidth: 0, gap: 3, padding: 10 },
+    image: { width: "100%", borderRadius: shape.radius.s, marginTop: 6 },
+  }),
+);

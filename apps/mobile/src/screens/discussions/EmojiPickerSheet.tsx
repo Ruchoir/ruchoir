@@ -13,8 +13,8 @@ import { useReact } from "../../compose/useReact";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import type { RootParams } from "../../navigation/types";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { SearchField } from "../../ui/SearchField";
 import { EmptyState } from "../../ui/States";
 import { Text } from "../../ui/Text";
@@ -39,6 +39,7 @@ export function EmojiPickerSheet() {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale } = useLocale();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -119,16 +120,18 @@ export function EmojiPickerSheet() {
   );
 }
 
-const styles = StyleSheet.create({
-  head: { paddingTop: 24, paddingBottom: 4, gap: 12 },
-  gutter: { paddingHorizontal: 16 },
-  // A little air between the sheet's title and its search field.
-  title: { paddingHorizontal: 16, marginBottom: 6 },
-  tabsScroll: { flexGrow: 0 },
-  tabs: { gap: 4, paddingHorizontal: 16 },
-  tab: { width: 44, height: 44, borderRadius: radius.m, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
-  tabGlyph: { fontSize: 22, lineHeight: 28 },
-  row: { paddingHorizontal: 16 },
-  cell: { width: CELL, height: CELL, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-  glyph: { fontSize: 28, lineHeight: 34 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    head: { paddingTop: 24, paddingBottom: 4, gap: 12 },
+    gutter: { paddingHorizontal: 16 },
+    // A little air between the sheet's title and its search field.
+    title: { paddingHorizontal: 16, marginBottom: 6 },
+    tabsScroll: { flexGrow: 0 },
+    tabs: { gap: 4, paddingHorizontal: 16 },
+    tab: { width: 44, height: 44, borderRadius: shape.radius.m, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center" },
+    tabGlyph: { fontSize: 22, lineHeight: 28 },
+    row: { paddingHorizontal: 16 },
+    cell: { width: CELL, height: CELL, borderRadius: shape.radius.m, alignItems: "center", justifyContent: "center" },
+    glyph: { fontSize: 28, lineHeight: 34 },
+  }),
+);

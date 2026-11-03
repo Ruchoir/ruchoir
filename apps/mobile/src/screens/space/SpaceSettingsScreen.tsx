@@ -24,8 +24,8 @@ import type { RootParams } from "../../navigation/types";
 import { affects } from "../../realtime/events";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Avatar } from "../../ui/Avatar";
 import { BackHeader } from "../../ui/BackHeader";
@@ -46,6 +46,7 @@ type Tab = "general" | "members";
 export function SpaceSettingsScreen() {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { current } = useSpace();
   const [tab, setTab] = useState<Tab>("general");
   // The members are administration: a caller demoted while here keeps the general tab only.
@@ -75,6 +76,7 @@ function General({ space }: { space: Workspace }) {
   const { clearSpaceIcon, getChannels, renameSpace, setSpaceIcon } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const session = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
@@ -197,6 +199,7 @@ function Members({ space }: { space: Workspace }) {
   const { getSpaceMembers } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const session = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const members = useLoad(`members:${space.id}`, (signal) => getSpaceMembers(space.id, signal));
@@ -261,16 +264,18 @@ function Members({ space }: { space: Workspace }) {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  tabs: { marginTop: 4, marginBottom: 8 },
-  page: { paddingHorizontal: 16, paddingBottom: 32 },
-  identity: { flexDirection: "row", alignItems: "center", gap: 16 },
-  iconActions: { flex: 1, alignItems: "flex-start", gap: 4 },
-  grow: { flex: 1 },
-  nameForm: { gap: 10, alignItems: "stretch" },
-  list: { paddingHorizontal: 16, paddingBottom: 32 },
-  head: { gap: 10, paddingTop: 8, paddingBottom: 4 },
-  empty: { paddingVertical: 16, textAlign: "center" },
-  role: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.s, overflow: "hidden" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    tabs: { marginTop: 4, marginBottom: 8 },
+    page: { paddingHorizontal: 16, paddingBottom: 32 },
+    identity: { flexDirection: "row", alignItems: "center", gap: 16 },
+    iconActions: { flex: 1, alignItems: "flex-start", gap: 4 },
+    grow: { flex: 1 },
+    nameForm: { gap: 10, alignItems: "stretch" },
+    list: { paddingHorizontal: 16, paddingBottom: 32 },
+    head: { gap: 10, paddingTop: 8, paddingBottom: 4 },
+    empty: { paddingVertical: 16, textAlign: "center" },
+    role: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: shape.radius.s, overflow: "hidden" },
+  }),
+);

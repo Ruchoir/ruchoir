@@ -9,8 +9,8 @@ import { useTranslation } from "../../../i18n";
 import { useLocale } from "../../../i18n/useLocale";
 import { setWhen, type EventDraft, type WhenField } from "../../../logic/eventForm";
 import type { RootParams } from "../../../navigation/types";
-import { hairline, radius } from "../../../theme/tokens";
-import { useTheme } from "../../../theme/useTheme";
+import { styleCache } from "../../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../../theme/useTheme";
 import { Text } from "../../../ui/Text";
 import { updateDraft } from "./draftStore";
 import { FormRow } from "./FormRow";
@@ -25,6 +25,7 @@ import { Toggle } from "../../../ui/Toggle";
 export function WhenRows({ formKey, draft, error }: { formKey: string; draft: EventDraft; error?: string }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale } = useLocale();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const [labelWidth, setLabelWidth] = useState(0);
@@ -118,12 +119,14 @@ export function WhenRows({ formKey, draft, error }: { formKey: string; draft: Ev
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  line: { flexDirection: "row", alignItems: "center", gap: 8 },
-  label: { flexShrink: 0 },
-  day: { flex: 1, minHeight: 40, justifyContent: "center", borderWidth: hairline, borderRadius: radius.m, paddingHorizontal: 12 },
-  box: { minWidth: 76, minHeight: 40, alignItems: "center", justifyContent: "center", borderWidth: hairline, borderRadius: radius.m, paddingHorizontal: 10 },
-  clock: { fontSize: 17, lineHeight: 22 },
-  switchLine: { flexDirection: "row", alignItems: "center", gap: 12 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    flex: { flex: 1 },
+    line: { flexDirection: "row", alignItems: "center", gap: 8 },
+    label: { flexShrink: 0 },
+    day: { flex: 1, minHeight: 40, justifyContent: "center", borderWidth: shape.hairline, borderRadius: shape.radius.m, paddingHorizontal: 12 },
+    box: { minWidth: 76, minHeight: 40, alignItems: "center", justifyContent: "center", borderWidth: shape.hairline, borderRadius: shape.radius.m, paddingHorizontal: 10 },
+    clock: { fontSize: 17, lineHeight: 22 },
+    switchLine: { flexDirection: "row", alignItems: "center", gap: 12 },
+  }),
+);

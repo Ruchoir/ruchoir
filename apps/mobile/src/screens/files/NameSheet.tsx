@@ -8,8 +8,8 @@ import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
-import { hairline } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { KeyboardForm } from "../../ui/KeyboardForm";
 import { Text } from "../../ui/Text";
@@ -26,6 +26,7 @@ export function NameSheet() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const [name, setName] = useState(params.name ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +102,9 @@ export function NameSheet() {
   );
 }
 
-const styles = StyleSheet.create({
-  form: { gap: 16, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 },
-  foot: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8, borderTopWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    form: { gap: 16, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 16 },
+    foot: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8, borderTopWidth: shape.hairline },
+  }),
+);

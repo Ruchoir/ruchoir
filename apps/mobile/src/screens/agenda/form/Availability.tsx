@@ -10,8 +10,9 @@ import { useLocale } from "../../../i18n/useLocale";
 import { busyDuring, placeOnStrip, stripWindow } from "../../../logic/availability";
 import { draftSpan, hhmm, type EventDraft } from "../../../logic/eventForm";
 import { timeOf } from "../../../logic/format";
-import { hairline, mix, radius } from "../../../theme/tokens";
-import { useTheme } from "../../../theme/useTheme";
+import { mix } from "../../../theme/tokens";
+import { styleCache } from "../../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../../theme/useTheme";
 import { Button } from "../../../ui/Button";
 import { Text } from "../../../ui/Text";
 import { updateDraft } from "./draftStore";
@@ -46,6 +47,7 @@ export function Availability({
   const { freeBusy } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale } = useLocale();
   const [busy, setBusy] = useState<BusyTimes[] | null>(null);
   // The slots found, for the people and times they were looked for: a change shows none.
@@ -175,13 +177,15 @@ export function Availability({
   );
 }
 
-const styles = StyleSheet.create({
-  block: { gap: 6 },
-  line: { flexDirection: "row", alignItems: "center", gap: 8 },
-  name: { width: 72 },
-  track: { flex: 1, height: 22, borderRadius: 6, borderWidth: 1, overflow: "hidden" },
-  busy: { position: "absolute", top: 3, bottom: 3, borderRadius: 4 },
-  event: { position: "absolute", top: 1, bottom: 1, borderRadius: 4, borderWidth: hairline },
-  slots: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6, paddingTop: 4 },
-  slot: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.l, borderWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    block: { gap: 6 },
+    line: { flexDirection: "row", alignItems: "center", gap: 8 },
+    name: { width: 72 },
+    track: { flex: 1, height: 22, borderRadius: 6, borderWidth: 1, overflow: "hidden" },
+    busy: { position: "absolute", top: 3, bottom: 3, borderRadius: 4 },
+    event: { position: "absolute", top: 1, bottom: 1, borderRadius: 4, borderWidth: shape.hairline },
+    slots: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6, paddingTop: 4 },
+    slot: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: shape.radius.l, borderWidth: shape.hairline },
+  }),
+);

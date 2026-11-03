@@ -19,8 +19,9 @@ import { listStamp } from "../../logic/format";
 import type { RootParams, TabParams } from "../../navigation/types";
 import { fonts } from "../../theme/fonts";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { lift } from "../../theme/lift";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
 import { AvatarStack } from "../../ui/AvatarStack";
 import { Badge } from "../../ui/Badge";
@@ -56,7 +57,9 @@ export function DiscussionsScreen() {
   const api = useApi();
   const { getSpacePresence } = api;
   const { t } = useTranslation();
-  const { c } = useTheme();
+  const theme = useTheme();
+  const { c, s, shape } = theme;
+  const styles = useThemedStyles(makeStyles);
   const navigation = useNavigation();
   const tablet = useTabletLayout();
   const wide = tablet !== null;
@@ -150,7 +153,7 @@ export function DiscussionsScreen() {
             accessibilityRole="button"
             accessibilityLabel={t("newMessage.title")}
             onPress={() => navigation.navigate("newMessage")}
-            style={({ pressed }) => [styles.compose, { borderColor: c.acc, backgroundColor: c.surface, shadowColor: c.acc }, pressed && { opacity: 0.7 }]}
+            style={({ pressed }) => [styles.compose, { borderColor: shape.flat ? s.edge : c.acc, backgroundColor: c.surface }, lift(theme, 3, 3, c.acc), pressed && { opacity: 0.7 }]}
           >
             <SquarePen size={20} color={c.ink} />
           </Pressable>
@@ -224,6 +227,7 @@ export function DiscussionsScreen() {
 function PickOne() {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.pick}>
       <View style={[styles.pickTile, { backgroundColor: c.sky }]}>
@@ -262,6 +266,7 @@ export function ConversationRow({
 }) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const tablet = variant === "tablet";
   const stamp = item.at ? listStamp(item.at, new Date(), locale, timeZone) : null;
@@ -359,46 +364,44 @@ export function ConversationRow({
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  split: { flex: 1, flexDirection: "row" },
-  // The tablet mockups' list: 24/20/12 around its head, a title of 32, the rows inset by 8.
-  wideHead: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingTop: 24, paddingHorizontal: 20, paddingBottom: 12 },
-  wideTitles: { flex: 1, minWidth: 0, gap: 2 },
-  wideTitle: { fontSize: 32, lineHeight: 38, fontFamily: fonts.sansBold, letterSpacing: -1.1 },
-  compose: {
-    marginTop: 4,
-    width: 48,
-    height: 48,
-    borderRadius: radius.m,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
-  },
-  topWide: { paddingTop: 0, paddingBottom: 4 },
-  wideGutter: { marginHorizontal: 20 },
-  listWide: { paddingHorizontal: 8, paddingBottom: 16 },
-  rowTablet: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: radius.m },
-  nameTablet: { fontSize: 16, lineHeight: 21 },
-  timeTablet: { fontSize: 13, lineHeight: 17 },
-  previewTablet: { fontSize: 14, lineHeight: 19 },
-  pick: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14, padding: 40 },
-  pickTile: { width: 72, height: 72, borderRadius: radius.l, alignItems: "center", justifyContent: "center" },
-  pickTitle: { fontSize: 22, lineHeight: 28, fontFamily: fonts.sansBold, textAlign: "center" },
-  pickText: { fontSize: 15, lineHeight: 21, maxWidth: 320, textAlign: "center" },
-  side: { width: 380, borderRightWidth: hairline },
-  pane: { flex: 1, justifyContent: "center" },
-  list: { paddingBottom: 88 },
-  // The tab's head stays above the list (it does not scroll away); the gap it had below it, here.
-  top: { gap: 12, paddingTop: 12, paddingBottom: 8 },
-  row: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingVertical: 10, alignItems: "flex-start" },
-  single: { alignItems: "center" },
-  body: { flex: 1, minWidth: 0, gap: 2 },
-  line: { flexDirection: "row", alignItems: "center", gap: 8 },
-  name: { flex: 1, minWidth: 0 },
-  meta: { flexDirection: "row", alignItems: "center", gap: 4 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    split: { flex: 1, flexDirection: "row" },
+    // The tablet mockups' list: 24/20/12 around its head, a title of 32, the rows inset by 8.
+    wideHead: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingTop: 24, paddingHorizontal: 20, paddingBottom: 12 },
+    wideTitles: { flex: 1, minWidth: 0, gap: 2 },
+    wideTitle: { fontSize: 32, lineHeight: 38, fontFamily: fonts.sansBold, letterSpacing: -1.1 },
+    compose: {
+      marginTop: 4,
+      width: 48,
+      height: 48,
+      borderRadius: shape.radius.m,
+      borderWidth: shape.edgeWidth,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    topWide: { paddingTop: 0, paddingBottom: 4 },
+    wideGutter: { marginHorizontal: 20 },
+    listWide: { paddingHorizontal: 8, paddingBottom: 16 },
+    rowTablet: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: shape.radius.m },
+    nameTablet: { fontSize: 16, lineHeight: 21 },
+    timeTablet: { fontSize: 13, lineHeight: 17 },
+    previewTablet: { fontSize: 14, lineHeight: 19 },
+    pick: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14, padding: 40 },
+    pickTile: { width: 72, height: 72, borderRadius: shape.radius.l, alignItems: "center", justifyContent: "center" },
+    pickTitle: { fontSize: 22, lineHeight: 28, fontFamily: fonts.sansBold, textAlign: "center" },
+    pickText: { fontSize: 15, lineHeight: 21, maxWidth: 320, textAlign: "center" },
+    side: { width: 380, borderRightWidth: shape.hairline },
+    pane: { flex: 1, justifyContent: "center" },
+    list: { paddingBottom: 88 },
+    // The tab's head stays above the list (it does not scroll away); the gap it had below it, here.
+    top: { gap: 12, paddingTop: 12, paddingBottom: 8 },
+    row: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingVertical: 10, alignItems: "flex-start" },
+    single: { alignItems: "center" },
+    body: { flex: 1, minWidth: 0, gap: 2 },
+    line: { flexDirection: "row", alignItems: "center", gap: 8 },
+    name: { flex: 1, minWidth: 0 },
+    meta: { flexDirection: "row", alignItems: "center", gap: 4 },
+  }),
+);

@@ -10,8 +10,8 @@ import { dayStamp } from "../../logic/format";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
 import { fonts } from "../../theme/fonts";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { FileIcon } from "../../ui/FileIcon";
 import { feel } from "../../ui/haptics";
 import { Text } from "../../ui/Text";
@@ -111,6 +111,7 @@ export function FolderCard({ folder, index }: { folder: SpaceFile; index: number
   const api = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const cards = useThemedStyles(makeCards);
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const { current } = useSpace();
   return (
@@ -147,6 +148,7 @@ export function FileCardWide({ file, line, path }: { file: SpaceFile; line?: str
   const api = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const cards = useThemedStyles(makeCards);
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const { current } = useSpace();
@@ -183,11 +185,13 @@ export function FileCardWide({ file, line, path }: { file: SpaceFile; line?: str
 }
 
 // The tablet mockup's cards: 16 around a folder, 18 around a file, rounded 10.
-const cards = StyleSheet.create({
-  folder: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, borderRadius: radius.m, borderWidth: hairline },
-  folderTile: { width: 44, height: 44, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-  file: { gap: 12, padding: 18, borderRadius: radius.m, borderWidth: hairline, minWidth: 0 },
-  text: { flex: 1, minWidth: 0, gap: 3 },
-  name: { fontSize: 15, lineHeight: 20, fontFamily: fonts.sansSemibold },
-  meta: { fontSize: 13, lineHeight: 17 },
-});
+const makeCards = styleCache((shape) =>
+  StyleSheet.create({
+    folder: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    folderTile: { width: 44, height: 44, borderRadius: shape.radius.m, alignItems: "center", justifyContent: "center" },
+    file: { gap: 12, padding: 18, borderRadius: shape.radius.m, borderWidth: shape.hairline, minWidth: 0 },
+    text: { flex: 1, minWidth: 0, gap: 3 },
+    name: { fontSize: 15, lineHeight: 20, fontFamily: fonts.sansSemibold },
+    meta: { fontSize: 13, lineHeight: 17 },
+  }),
+);

@@ -4,8 +4,8 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { key, useTranslation } from "../../../i18n";
 import type { DraftAttendee } from "../../../logic/eventForm";
-import { hairline } from "../../../theme/tokens";
-import { useTheme } from "../../../theme/useTheme";
+import { styleCache } from "../../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../../theme/useTheme";
 import { Avatar } from "../../../ui/Avatar";
 import { Text } from "../../../ui/Text";
 import { updateDraft } from "./draftStore";
@@ -22,6 +22,7 @@ const STATUS_TEXT: Record<AttendeeStatus, ReturnType<typeof key>> = {
 export function InviteeChips({ formKey, attendees }: { formKey: string; attendees: DraftAttendee[] }) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const look: Record<AttendeeStatus, { icon: typeof Check; color: string }> = {
     accepted: { icon: Check, color: c.lime },
     tentative: { icon: HelpCircle, color: c.sun },
@@ -65,10 +66,12 @@ export function InviteeChips({ formKey, attendees }: { formKey: string; attendee
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 6, paddingVertical: 4 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%", paddingLeft: 4, paddingRight: 10, paddingVertical: 4, borderRadius: 999, borderWidth: hairline },
-  mail: { marginLeft: 4 },
-  name: { flexShrink: 1 },
-  status: { width: 16, height: 16, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    wrap: { flexDirection: "row", flexWrap: "wrap", gap: 6, paddingVertical: 4 },
+    chip: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%", paddingLeft: 4, paddingRight: 10, paddingVertical: 4, borderRadius: 999, borderWidth: shape.hairline },
+    mail: { marginLeft: 4 },
+    name: { flexShrink: 1 },
+    status: { width: 16, height: 16, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  }),
+);

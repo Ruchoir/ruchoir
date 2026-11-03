@@ -36,8 +36,9 @@ import { useRealtimeActions, useRealtimeEvent } from "../../realtime/RealtimePro
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
 import { fonts } from "../../theme/fonts";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { soft } from "../../theme/lift";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
 import { AvatarStack } from "../../ui/AvatarStack";
 import { BackHeader } from "../../ui/BackHeader";
@@ -106,6 +107,7 @@ export function ConversationView({ params, onClose }: { params: RootParams["conv
   const { getChannels, listChannelMembers } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const tablet_ = useTabletLayout();
   const { current } = useSpace();
   const members = useSpaceMembers(current?.id);
@@ -300,7 +302,9 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
   const api = useApi();
   const { getChannelMessages, getReadCursors, joinChannel, setReadCursor } = api;
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const theme = useTheme();
+  const { c, s } = theme;
+  const styles = useThemedStyles(makeStyles);
   const tabletLayout = useTabletLayout();
   const { locale, timeZone } = useLocale();
   const { state } = useSession();
@@ -627,7 +631,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
         }}
       />
       {seeking ? (
-        <View style={[styles.seeking, { backgroundColor: c.surface, borderColor: c.line, shadowColor: s.shadow }]}>
+        <View style={[styles.seeking, { backgroundColor: c.surface, borderColor: c.line }, soft(theme, 3, 0.18, 8)]}>
           <ActivityIndicator color={c.ink} />
         </View>
       ) : null}
@@ -635,7 +639,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
         <Pressable
           accessibilityRole="button"
           onPress={toBottom}
-          style={({ pressed }) => [styles.pill, { backgroundColor: c.ink, shadowColor: s.shadow }, pressed && { opacity: 0.85 }]}
+          style={({ pressed }) => [styles.pill, { backgroundColor: c.ink }, soft(theme, 3, 0.18, 8), pressed && { opacity: 0.85 }]}
         >
           <ArrowDown size={16} color={c.onInk} />
           <Text variant="smallStrong" tone="onInk">
@@ -679,58 +683,52 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  // The tablet mockups' conversation head.
-  wideHead: { flexDirection: "row", alignItems: "center", gap: 14, minHeight: 76, paddingRight: 20, borderBottomWidth: hairline },
-  wideBack: { height: 44, flexDirection: "row", alignItems: "center", gap: 2, paddingLeft: 2, paddingRight: 8 },
-  wideBackText: { fontSize: 15, lineHeight: 20, fontFamily: fonts.sansSemibold },
-  wideWho: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 14 },
-  wideTitles: { flex: 1, minWidth: 0, gap: 2 },
-  wideTitle: { fontSize: 22, lineHeight: 28, fontFamily: fonts.sansBold, letterSpacing: -0.5 },
-  wideSub: { fontSize: 14, lineHeight: 19, fontFamily: fonts.sans },
-  widePills: { flexDirection: "row", gap: 8 },
-  widePill: { height: 36, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, borderRadius: 999, borderWidth: hairline },
-  wideInfo: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  wideColumn: { width: "100%", maxWidth: 820 + 32, alignSelf: "center" },
-  info: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  tabs: { paddingBottom: 8, borderBottomWidth: hairline },
-  more: { padding: 16 },
-  end: { height: 12 },
-  day: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
-  rule: { flex: 1, height: hairline },
-  unread: { fontFamily: fonts.sansSemibold },
-  seen: { flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 62, paddingBottom: 6 },
-  shrink: { flexShrink: 1 },
-  pill: {
-    position: "absolute",
-    bottom: 12,
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: radius.l,
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
-  },
-  // Fetching older pages for a message asked for: a round badge at the top of the feed.
-  seeking: {
-    position: "absolute",
-    top: 12,
-    alignSelf: "center",
-    padding: 10,
-    borderRadius: radius.l,
-    borderWidth: hairline,
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
-  },
-  closed: { borderTopWidth: hairline, paddingHorizontal: 16, paddingTop: 10 },
-  closedPill: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.m, marginBottom: 6 },
-  closedText: { flex: 1 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    // The tablet mockups' conversation head.
+    wideHead: { flexDirection: "row", alignItems: "center", gap: 14, minHeight: 76, paddingRight: 20, borderBottomWidth: shape.hairline },
+    wideBack: { height: 44, flexDirection: "row", alignItems: "center", gap: 2, paddingLeft: 2, paddingRight: 8 },
+    wideBackText: { fontSize: 15, lineHeight: 20, fontFamily: fonts.sansSemibold },
+    wideWho: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 14 },
+    wideTitles: { flex: 1, minWidth: 0, gap: 2 },
+    wideTitle: { fontSize: 22, lineHeight: 28, fontFamily: fonts.sansBold, letterSpacing: -0.5 },
+    wideSub: { fontSize: 14, lineHeight: 19, fontFamily: fonts.sans },
+    widePills: { flexDirection: "row", gap: 8 },
+    widePill: { height: 36, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, borderRadius: 999, borderWidth: shape.hairline },
+    wideInfo: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    wideColumn: { width: "100%", maxWidth: 820 + 32, alignSelf: "center" },
+    info: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    tabs: { paddingBottom: 8, borderBottomWidth: shape.hairline },
+    more: { padding: 16 },
+    end: { height: 12 },
+    day: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
+    rule: { flex: 1, height: shape.hairline },
+    unread: { fontFamily: fonts.sansSemibold },
+    seen: { flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 62, paddingBottom: 6 },
+    shrink: { flexShrink: 1 },
+    pill: {
+      position: "absolute",
+      bottom: 12,
+      alignSelf: "center",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: shape.radius.l,
+    },
+    // Fetching older pages for a message asked for: a round badge at the top of the feed.
+    seeking: {
+      position: "absolute",
+      top: 12,
+      alignSelf: "center",
+      padding: 10,
+      borderRadius: shape.radius.l,
+      borderWidth: shape.hairline,
+    },
+    closed: { borderTopWidth: shape.hairline, paddingHorizontal: 16, paddingTop: 10 },
+    closedPill: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, paddingHorizontal: 12, paddingVertical: 6, borderRadius: shape.radius.m, marginBottom: 6 },
+    closedText: { flex: 1 },
+  }),
+);

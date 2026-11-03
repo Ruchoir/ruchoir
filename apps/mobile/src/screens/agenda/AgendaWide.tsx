@@ -12,8 +12,10 @@ import { timeOf } from "../../logic/format";
 import type { RootParams } from "../../navigation/types";
 import { usePrefs } from "../../prefs/store";
 import { fonts } from "../../theme/fonts";
-import { hairline, mix, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { mix } from "../../theme/tokens";
+import { lift } from "../../theme/lift";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { LoadState } from "../../ui/States";
 import { SpaceSwitch } from "../../ui/TabHeader";
@@ -45,7 +47,9 @@ type Opened = { eventId: string; recurrenceId?: string; start: string };
  */
 export function AgendaWide({ view, onView, anchor, onAnchor, today, data, error, reload, layout }: Props) {
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const theme = useTheme();
+  const { c, s, shape } = theme;
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const [chosen, setChosen] = useState(today);
@@ -104,7 +108,7 @@ export function AgendaWide({ view, onView, anchor, onAnchor, today, data, error,
           <Pressable
             accessibilityRole="button"
             onPress={() => navigation.navigate("eventForm", { day: chosen })}
-            style={({ pressed }) => [styles.create, { borderColor: c.acc, backgroundColor: c.surface, shadowColor: c.acc }, pressed && { opacity: 0.7 }]}
+            style={({ pressed }) => [styles.create, { borderColor: shape.flat ? s.edge : c.acc, backgroundColor: c.surface }, lift(theme, 3, 3, c.acc), pressed && { opacity: 0.7 }]}
           >
             <CalendarPlus size={18} color={c.ink} />
             <Text variant="bodyStrong">{t("calendar.newEvent")}</Text>
@@ -177,6 +181,7 @@ function Month({
 }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale } = useLocale();
   const { weekStart } = usePrefs();
   const month = anchor.slice(0, 7);
@@ -266,6 +271,7 @@ function Week({
 }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const { weekStart } = usePrefs();
   const days = weekOf(anchor, weekStart);
@@ -345,6 +351,7 @@ function List({
 }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const label = useDayTitle();
   const days = [...byDay.entries()].filter(([day]) => day >= today).sort(([a], [b]) => a.localeCompare(b));
   if (!days.length) return <Text tone="muted">{t("agenda.nothingSoonHint")}</Text>;
@@ -396,6 +403,7 @@ function DayPanel({
 }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const label = useDayTitle();
@@ -444,6 +452,7 @@ function DayPanel({
 function Arrows({ onMove }: { onMove: (direction: 1 | -1) => void }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.arrows}>
       <Pressable accessibilityRole="button" accessibilityLabel={t("agenda.previous")} onPress={() => onMove(-1)} style={[styles.arrow, { borderColor: c.lineStrong }]}>
@@ -481,69 +490,67 @@ function useDayTitle(): (day: string, today: string) => string {
 }
 
 // The tablet mockups' agenda measures.
-const styles = StyleSheet.create({
-  head: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 14, paddingTop: 24, paddingHorizontal: 28, paddingBottom: 16 },
-  titles: { flex: 1, minWidth: 180, gap: 2 },
-  title: { fontSize: 32, lineHeight: 38, fontFamily: fonts.sansBold, letterSpacing: -1.1 },
-  views: { flexDirection: "row", width: 300, padding: 3, borderRadius: radius.m, borderWidth: hairline },
-  view: { flex: 1, height: 38, borderRadius: 7, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
-  viewText: { fontSize: 14, lineHeight: 19 },
-  create: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    height: 44,
-    paddingHorizontal: 16,
-    borderRadius: radius.m,
-    borderWidth: 2,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
-  },
-  body: { flex: 1, flexDirection: "row", borderTopWidth: hairline },
-  main: { flex: 1, minWidth: 0 },
-  mainContent: { paddingTop: 18, paddingHorizontal: 24, paddingBottom: 28 },
-  side: { borderLeftWidth: hairline },
-  periodHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingBottom: 10 },
-  periodTitle: { fontSize: 22, lineHeight: 28, fontFamily: fonts.sansBold },
-  arrows: { flexDirection: "row", gap: 4 },
-  arrow: { width: 44, height: 44, borderRadius: radius.m, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
-  weekdays: { flexDirection: "row", gap: 6, paddingBottom: 6 },
-  weekday: { flex: 1, paddingLeft: 8, fontSize: 13, lineHeight: 17, fontFamily: fonts.sansSemibold },
-  weeks: { gap: 6 },
-  weekRow: { flexDirection: "row", gap: 6 },
-  cell: { flex: 1, minWidth: 0, gap: 4, padding: 6, borderRadius: radius.m, borderWidth: hairline },
-  blank: { borderColor: "transparent" },
-  number: { alignSelf: "flex-start", minWidth: 26, height: 26, paddingHorizontal: 4, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  numberText: { fontSize: 14, lineHeight: 19 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, minWidth: 0 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  chipText: { flexShrink: 1, fontSize: 11.5, lineHeight: 15, fontFamily: fonts.sans },
-  more: { fontSize: 11, lineHeight: 14, paddingLeft: 6 },
-  weekColumns: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
-  weekColumn: { flex: 1, minWidth: 0, gap: 6 },
-  weekHead: { height: 60, borderRadius: radius.m, borderWidth: hairline, alignItems: "center", justifyContent: "center", gap: 2 },
-  weekDayName: { fontSize: 13, lineHeight: 17, fontFamily: fonts.sansMedium },
-  weekDayNumber: { fontSize: 22, lineHeight: 26, fontFamily: fonts.sansBold },
-  block: { gap: 2, padding: 8, borderRadius: radius.s, borderWidth: hairline },
-  blockTime: { fontSize: 11, lineHeight: 14, fontFamily: fonts.sansSemibold },
-  blockTitle: { fontSize: 13, lineHeight: 17, fontFamily: fonts.sansSemibold },
-  listDay: { paddingVertical: 8, fontSize: 15, lineHeight: 20, fontFamily: fonts.sansBold },
-  listItems: { gap: 8, paddingBottom: 12 },
-  listRow: { flexDirection: "row", gap: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: radius.m, borderWidth: hairline },
-  bar: { width: 4, borderRadius: 2 },
-  listTime: { width: 110, fontSize: 14, lineHeight: 20, fontFamily: fonts.sansSemibold, paddingTop: 1 },
-  listText: { flex: 1, minWidth: 0, gap: 3 },
-  listTitle: { fontSize: 16, lineHeight: 21, fontFamily: fonts.sansSemibold },
-  listWhere: { fontSize: 14, lineHeight: 19 },
-  panel: { paddingVertical: 22, paddingHorizontal: 20 },
-  panelTitle: { fontSize: 17, lineHeight: 22, fontFamily: fonts.sansBold, paddingBottom: 12 },
-  panelItems: { gap: 8 },
-  panelRow: { flexDirection: "row", gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.m, borderWidth: hairline },
-  panelTime: { fontSize: 13, lineHeight: 17, fontFamily: fonts.sansSemibold },
-  panelWhere: { fontSize: 13, lineHeight: 17 },
-  free: { paddingVertical: 22, paddingHorizontal: 14, borderRadius: radius.m, borderWidth: hairline, borderStyle: "dashed", alignItems: "center" },
-  freeText: { fontSize: 14, lineHeight: 19, textAlign: "center" },
-  ghost: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 40, paddingHorizontal: 8, borderRadius: radius.m, alignSelf: "flex-start" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    head: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 14, paddingTop: 24, paddingHorizontal: 28, paddingBottom: 16 },
+    titles: { flex: 1, minWidth: 180, gap: 2 },
+    title: { fontSize: 32, lineHeight: 38, fontFamily: fonts.sansBold, letterSpacing: -1.1 },
+    views: { flexDirection: "row", width: 300, padding: 3, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    view: { flex: 1, height: 38, borderRadius: 7, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center" },
+    viewText: { fontSize: 14, lineHeight: 19 },
+    create: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      height: 44,
+      paddingHorizontal: 16,
+      borderRadius: shape.radius.m,
+      borderWidth: shape.edgeWidth,
+    },
+    body: { flex: 1, flexDirection: "row", borderTopWidth: shape.hairline },
+    main: { flex: 1, minWidth: 0 },
+    mainContent: { paddingTop: 18, paddingHorizontal: 24, paddingBottom: 28 },
+    side: { borderLeftWidth: shape.hairline },
+    periodHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingBottom: 10 },
+    periodTitle: { fontSize: 22, lineHeight: 28, fontFamily: fonts.sansBold },
+    arrows: { flexDirection: "row", gap: 4 },
+    arrow: { width: 44, height: 44, borderRadius: shape.radius.m, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center" },
+    weekdays: { flexDirection: "row", gap: 6, paddingBottom: 6 },
+    weekday: { flex: 1, paddingLeft: 8, fontSize: 13, lineHeight: 17, fontFamily: fonts.sansSemibold },
+    weeks: { gap: 6 },
+    weekRow: { flexDirection: "row", gap: 6 },
+    cell: { flex: 1, minWidth: 0, gap: 4, padding: 6, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    blank: { borderColor: "transparent" },
+    number: { alignSelf: "flex-start", minWidth: 26, height: 26, paddingHorizontal: 4, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+    numberText: { fontSize: 14, lineHeight: 19 },
+    chip: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, minWidth: 0 },
+    dot: { width: 6, height: 6, borderRadius: 3 },
+    chipText: { flexShrink: 1, fontSize: 11.5, lineHeight: 15, fontFamily: fonts.sans },
+    more: { fontSize: 11, lineHeight: 14, paddingLeft: 6 },
+    weekColumns: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
+    weekColumn: { flex: 1, minWidth: 0, gap: 6 },
+    weekHead: { height: 60, borderRadius: shape.radius.m, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center", gap: 2 },
+    weekDayName: { fontSize: 13, lineHeight: 17, fontFamily: fonts.sansMedium },
+    weekDayNumber: { fontSize: 22, lineHeight: 26, fontFamily: fonts.sansBold },
+    block: { gap: 2, padding: 8, borderRadius: shape.radius.s, borderWidth: shape.hairline },
+    blockTime: { fontSize: 11, lineHeight: 14, fontFamily: fonts.sansSemibold },
+    blockTitle: { fontSize: 13, lineHeight: 17, fontFamily: fonts.sansSemibold },
+    listDay: { paddingVertical: 8, fontSize: 15, lineHeight: 20, fontFamily: fonts.sansBold },
+    listItems: { gap: 8, paddingBottom: 12 },
+    listRow: { flexDirection: "row", gap: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    bar: { width: 4, borderRadius: 2 },
+    listTime: { width: 110, fontSize: 14, lineHeight: 20, fontFamily: fonts.sansSemibold, paddingTop: 1 },
+    listText: { flex: 1, minWidth: 0, gap: 3 },
+    listTitle: { fontSize: 16, lineHeight: 21, fontFamily: fonts.sansSemibold },
+    listWhere: { fontSize: 14, lineHeight: 19 },
+    panel: { paddingVertical: 22, paddingHorizontal: 20 },
+    panelTitle: { fontSize: 17, lineHeight: 22, fontFamily: fonts.sansBold, paddingBottom: 12 },
+    panelItems: { gap: 8 },
+    panelRow: { flexDirection: "row", gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    panelTime: { fontSize: 13, lineHeight: 17, fontFamily: fonts.sansSemibold },
+    panelWhere: { fontSize: 13, lineHeight: 17 },
+    free: { paddingVertical: 22, paddingHorizontal: 14, borderRadius: shape.radius.m, borderWidth: shape.hairline, borderStyle: "dashed", alignItems: "center" },
+    freeText: { fontSize: 14, lineHeight: 19, textAlign: "center" },
+    ghost: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 40, paddingHorizontal: 8, borderRadius: shape.radius.m, alignSelf: "flex-start" },
+  }),
+);

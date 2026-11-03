@@ -11,8 +11,8 @@ import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { EmptyState, LoadState } from "../../ui/States";
@@ -30,6 +30,7 @@ export function MovePicker() {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const { current } = useSpace();
@@ -109,11 +110,13 @@ export function MovePicker() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  grow: { flex: 1, minWidth: 0 },
-  where: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: hairline },
-  list: { paddingBottom: 16, flexGrow: 1 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
-  foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    grow: { flex: 1, minWidth: 0 },
+    where: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: shape.hairline },
+    list: { paddingBottom: 16, flexGrow: 1 },
+    row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
+    foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: shape.hairline },
+  }),
+);

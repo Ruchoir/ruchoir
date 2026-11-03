@@ -18,3 +18,9 @@ export function lift(theme: Theme, x: number, y: number, color?: string): ViewSt
     elevation: Math.max(x, y),
   };
 }
+
+/** A soft shadow under what floats over a list (a pill, a notice): none in a flat style either. */
+export function soft(theme: Theme, y: number, opacity: number, blur: number): ViewStyle {
+  if (theme.shape.flat) return {};
+  return { shadowColor: theme.s.shadow, shadowOffset: { width: 0, height: y }, shadowOpacity: opacity, shadowRadius: blur, elevation: 4 };
+}

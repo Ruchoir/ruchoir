@@ -15,8 +15,8 @@ import { key, useTranslation } from "../../i18n";
 import { grantableRoles } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Avatar } from "../../ui/Avatar";
 import { feel } from "../../ui/haptics";
@@ -43,6 +43,7 @@ export function MemberSheet() {
   const { params } = useRoute<RouteProp<RootParams, "spaceMember">>();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const navigation = useNavigation();
   const { current, spaces } = useSpace();
@@ -161,10 +162,12 @@ export function MemberSheet() {
   );
 }
 
-const styles = StyleSheet.create({
-  who: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },
-  text: { flex: 1, minWidth: 0 },
-  section: { marginTop: 14, marginBottom: 2 },
-  gap: { height: 8 },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    who: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },
+    text: { flex: 1, minWidth: 0 },
+    section: { marginTop: 14, marginBottom: 2 },
+    gap: { height: 8 },
+    radio: { width: 22, height: 22, borderRadius: 11, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center" },
+  }),
+);

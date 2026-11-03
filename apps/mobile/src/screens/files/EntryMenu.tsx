@@ -19,8 +19,8 @@ import { fileSize } from "../../logic/format";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { FileIcon } from "../../ui/FileIcon";
 import { Sheet } from "../../ui/Sheet";
@@ -40,6 +40,7 @@ export function EntryMenu() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale } = useLocale();
   const toast = useToast();
   const { current } = useSpace();
@@ -160,8 +161,10 @@ export function EntryMenu() {
   );
 }
 
-const styles = StyleSheet.create({
-  head: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
-  grow: { flex: 1, minWidth: 0 },
-  danger: { marginTop: 6, paddingTop: 6, borderTopWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    head: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
+    grow: { flex: 1, minWidth: 0 },
+    danger: { marginTop: 6, paddingTop: 6, borderTopWidth: shape.hairline },
+  }),
+);

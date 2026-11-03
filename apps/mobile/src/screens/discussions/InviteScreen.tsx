@@ -15,8 +15,8 @@ import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { isEmail } from "../../logic/email";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Button } from "../../ui/Button";
 import { Segmented } from "../../ui/Segmented";
@@ -33,6 +33,7 @@ export function InviteScreen() {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { current } = useSpace();
   const [role, setRole] = useState<Role>("member");
   const [email, setEmail] = useState("");
@@ -199,14 +200,16 @@ export function InviteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  form: { gap: 16, paddingHorizontal: 16, paddingBottom: 24 },
-  block: { gap: 8 },
-  flush: { marginHorizontal: 0 },
-  sent: { flexDirection: "row", gap: 10, padding: 12, borderRadius: radius.m },
-  grow: { flex: 1, gap: 4 },
-  or: { flexDirection: "row", alignItems: "center", gap: 10 },
-  rule: { flex: 1, height: hairline },
-  pendingLabel: { marginTop: 8, marginBottom: 2 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    form: { gap: 16, paddingHorizontal: 16, paddingBottom: 24 },
+    block: { gap: 8 },
+    flush: { marginHorizontal: 0 },
+    sent: { flexDirection: "row", gap: 10, padding: 12, borderRadius: shape.radius.m },
+    grow: { flex: 1, gap: 4 },
+    or: { flexDirection: "row", alignItems: "center", gap: 10 },
+    rule: { flex: 1, height: shape.hairline },
+    pendingLabel: { marginTop: 8, marginBottom: 2 },
+  }),
+);

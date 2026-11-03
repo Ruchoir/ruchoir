@@ -3,8 +3,8 @@ import { Check, HelpCircle, X } from "lucide-react-native";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { feel } from "../../ui/haptics";
 import { Text } from "../../ui/Text";
 
@@ -14,6 +14,7 @@ export type Answer = Exclude<AttendeeStatus, "needs_action">;
 export function AnswerButtons({ value, disabled, onAnswer }: { value?: AttendeeStatus; disabled?: boolean; onAnswer: (answer: Answer) => void }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const answers = [
     { status: "accepted", label: t("calendar.answer.accepted"), icon: Check, color: c.lime },
     { status: "tentative", label: t("event.maybe"), icon: HelpCircle, color: c.sun },
@@ -50,7 +51,9 @@ export function AnswerButtons({ value, disabled, onAnswer }: { value?: AttendeeS
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", gap: 8 },
-  answer: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 40, borderRadius: radius.m, borderWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    row: { flexDirection: "row", gap: 8 },
+    answer: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 40, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+  }),
+);

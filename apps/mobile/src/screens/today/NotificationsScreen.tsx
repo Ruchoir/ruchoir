@@ -26,8 +26,8 @@ import { plainExcerpt } from "../../logic/inline";
 import type { RootParams } from "../../navigation/types";
 import { useRealtimeActions } from "../../realtime/RealtimeProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { Segmented } from "../../ui/Segmented";
 import { SheetHeader } from "../../ui/SheetHeader";
@@ -75,6 +75,7 @@ type Older = Record<string, { items: ApiNotification[]; next?: string }>;
 export function NotificationsScreen() {
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const now = useNow();
   const toast = useToast();
@@ -294,16 +295,18 @@ export function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  bar: { paddingBottom: 8 },
-  markAll: { paddingHorizontal: 16, paddingBottom: 8, alignItems: "flex-start" },
-  list: { paddingBottom: 32 },
-  row: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
-  tile: { width: 40, height: 40, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-  body: { flex: 1, minWidth: 0, gap: 2 },
-  line: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 },
-  shrink: { flexShrink: 1 },
-  dot: { width: 8, height: 8, borderRadius: 4, marginTop: 16 },
-  rule: { height: 1, marginLeft: 68 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    bar: { paddingBottom: 8 },
+    markAll: { paddingHorizontal: 16, paddingBottom: 8, alignItems: "flex-start" },
+    list: { paddingBottom: 32 },
+    row: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
+    tile: { width: 40, height: 40, borderRadius: shape.radius.m, alignItems: "center", justifyContent: "center" },
+    body: { flex: 1, minWidth: 0, gap: 2 },
+    line: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 },
+    shrink: { flexShrink: 1 },
+    dot: { width: 8, height: 8, borderRadius: 4, marginTop: 16 },
+    rule: { height: 1, marginLeft: 68 },
+  }),
+);

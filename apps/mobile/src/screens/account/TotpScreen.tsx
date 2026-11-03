@@ -13,8 +13,8 @@ import { groupedSecret, otpauthSecret } from "../../logic/otpauth";
 import { codeComplete, codeDigits } from "../../logic/signup";
 import type { RootParams } from "../../navigation/types";
 import { fonts } from "../../theme/fonts";
-import { radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Banner } from "../../ui/Banner";
 import { Button } from "../../ui/Button";
 import { feel } from "../../ui/haptics";
@@ -39,6 +39,7 @@ function TurnOn() {
   const { confirmTotp, enrollTotp, generateRecoveryCodes } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const [enrolment, setEnrolment] = useState<{ otpauthUrl: string; qrSvg: string } | null>(null);
@@ -152,6 +153,7 @@ function TurnOff() {
   const { disableTotp } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const navigation = useNavigation();
   const [password, setPassword] = useState("");
@@ -200,12 +202,14 @@ function TurnOff() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  content: { paddingBottom: 24 },
-  pad: { paddingHorizontal: 20, gap: 16 },
-  footer: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
-  secret: { gap: 4, padding: 14, borderRadius: radius.m, borderWidth: 1.5 },
-  mono: { fontFamily: fonts.monoSemibold, letterSpacing: 1 },
-  qr: { alignSelf: "center", padding: 12, borderRadius: radius.m, backgroundColor: "#ffffff" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    content: { paddingBottom: 24 },
+    pad: { paddingHorizontal: 20, gap: 16 },
+    footer: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+    secret: { gap: 4, padding: 14, borderRadius: shape.radius.m, borderWidth: 1.5 },
+    mono: { fontFamily: fonts.monoSemibold, letterSpacing: 1 },
+    qr: { alignSelf: "center", padding: 12, borderRadius: shape.radius.m, backgroundColor: "#ffffff" },
+  }),
+);

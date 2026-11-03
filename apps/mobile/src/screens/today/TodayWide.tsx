@@ -11,8 +11,10 @@ import { dayStamp, timeOf } from "../../logic/format";
 import type { ConversationItem } from "../../logic/conversations";
 import type { RootParams } from "../../navigation/types";
 import { fonts } from "../../theme/fonts";
-import { hairline, mix, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { mix } from "../../theme/tokens";
+import { lift } from "../../theme/lift";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { FileIcon } from "../../ui/FileIcon";
 import { EmptyState } from "../../ui/States";
@@ -53,6 +55,7 @@ type Props = {
 export function TodayWide(props: Props) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const [width, setWidth] = useState(0);
   // The mockup's grid: columns of at least 340 points, 24 apart, in a page 1040 wide at most.
@@ -169,6 +172,7 @@ function Card({
   children: ReactNode;
 }) {
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const Icon = tile?.icon;
   return (
     <View style={[styles.card, { borderColor: c.lineStrong, backgroundColor: c.surface }]}>
@@ -196,7 +200,9 @@ function Card({
 function MentionCard({ n, title, myUserId, onOpen }: { n: ApiNotification; title: string; myUserId?: string; onOpen: () => void }) {
   const { getChannelMessages, respondToEvent } = useApi();
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const theme = useTheme();
+  const { c, s } = theme;
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const toast = useToast();
   const where = n.channelName ? t("today.inChannel", { name: n.channelName }) : t("today.direct");
@@ -225,7 +231,7 @@ function MentionCard({ n, title, myUserId, onOpen }: { n: ApiNotification; title
     );
   };
   return (
-    <View style={[styles.mention, { borderColor: c.ink, backgroundColor: c.surface, shadowColor: s.shadow }]}>
+    <View style={[styles.mention, { borderColor: s.edge, backgroundColor: c.surface }, lift(theme, 3, 3)]}>
       <View style={styles.mentionTop}>
         <View style={[styles.mentionIcon, { backgroundColor: c.acc }]}>
           <AtSign size={24} color={c.onPastel} />
@@ -247,6 +253,7 @@ function MentionCard({ n, title, myUserId, onOpen }: { n: ApiNotification; title
 /** One of today's events: tinted with its calendar's colour, the time, title and place. */
 function EventRow({ occurrence: o, color }: { occurrence: Occurrence; color: string }) {
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation<NavigationProp<RootParams>>();
   return (
@@ -280,6 +287,7 @@ function FileRowWide({ file }: { file: SpaceFile }) {
   const { fileDownloadUrl } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const stamp = file.updatedAt ? dayStamp(file.updatedAt, new Date(), locale, timeZone) : null;
@@ -308,52 +316,50 @@ function FileRowWide({ file }: { file: SpaceFile }) {
 }
 
 // The tablet mockups' measures: a page 1040 wide at most, 36/44/48 around it, 28 between blocks.
-const styles = StyleSheet.create({
-  scroll: { flexGrow: 1 },
-  page: { width: "100%", maxWidth: 1040, alignSelf: "center", paddingTop: 36, paddingHorizontal: 44, paddingBottom: 48, gap: 28 },
-  head: { flexDirection: "row", alignItems: "flex-end", gap: 24 },
-  headStacked: { flexDirection: "column", alignItems: "stretch" },
-  titles: { flex: 1, minWidth: 260, gap: 4 },
-  date: { fontSize: 15, lineHeight: 20, fontFamily: fonts.sansMedium },
-  hello: { fontSize: 40, lineHeight: 48, fontFamily: fonts.sansBold, letterSpacing: -1.4 },
-  search: { width: 340, maxWidth: "100%", minHeight: 46, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, borderRadius: radius.m, borderWidth: hairline },
-  searchText: { fontSize: 15 },
-  columns: { flexDirection: "row", gap: 24, alignItems: "flex-start" },
-  column: { flex: 1, minWidth: 0, gap: 24 },
-  nowBlock: { gap: 12 },
-  sectionTitle: { fontSize: 22, lineHeight: 28, fontFamily: fonts.sansBold, letterSpacing: -0.5 },
-  card: { borderRadius: radius.l, borderWidth: hairline, overflow: "hidden" },
-  cardHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 16, paddingHorizontal: 20, paddingBottom: 8 },
-  cardHeadTile: { paddingBottom: 10 },
-  cardTitle: { flexDirection: "row", alignItems: "center", gap: 10 },
-  cardTitleText: { fontSize: 17, lineHeight: 22, fontFamily: fonts.sansBold },
-  cardFoot: { height: 8 },
-  tile: { width: 36, height: 36, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-  mention: {
-    gap: 16,
-    padding: 22,
-    borderRadius: radius.l,
-    borderWidth: 2,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
-  },
-  mentionTop: { flexDirection: "row", gap: 16, alignItems: "flex-start" },
-  mentionIcon: { width: 52, height: 52, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-  mentionText: { flex: 1, minWidth: 0, gap: 6 },
-  mentionTitle: { fontSize: 17, lineHeight: 22, fontFamily: fonts.sansBold },
-  quote: { fontSize: 16, lineHeight: 23, fontFamily: fonts.sans },
-  meta: { fontSize: 13, lineHeight: 17, fontFamily: fonts.sans },
-  mentionActions: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingLeft: 68 },
-  events: { gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
-  event: { flexDirection: "row", gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.m, borderWidth: hairline },
-  eventBar: { width: 4, borderRadius: 2 },
-  eventTime: { width: 56, fontSize: 14, lineHeight: 20, fontFamily: fonts.sansSemibold, paddingTop: 1 },
-  eventText: { flex: 1, minWidth: 0, gap: 3 },
-  eventTitle: { fontSize: 16, lineHeight: 21, fontFamily: fonts.sansSemibold },
-  ghost: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 40, paddingHorizontal: 8, borderRadius: radius.m, alignSelf: "flex-start" },
-  fileRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 60, paddingVertical: 8, paddingHorizontal: 20 },
-  fileName: { fontSize: 15, lineHeight: 20, fontFamily: fonts.sansSemibold },
-  none: { paddingHorizontal: 20, paddingBottom: 8 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    scroll: { flexGrow: 1 },
+    page: { width: "100%", maxWidth: 1040, alignSelf: "center", paddingTop: 36, paddingHorizontal: 44, paddingBottom: 48, gap: 28 },
+    head: { flexDirection: "row", alignItems: "flex-end", gap: 24 },
+    headStacked: { flexDirection: "column", alignItems: "stretch" },
+    titles: { flex: 1, minWidth: 260, gap: 4 },
+    date: { fontSize: 15, lineHeight: 20, fontFamily: fonts.sansMedium },
+    hello: { fontSize: 40, lineHeight: 48, fontFamily: fonts.sansBold, letterSpacing: -1.4 },
+    search: { width: 340, maxWidth: "100%", minHeight: 46, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    searchText: { fontSize: 15 },
+    columns: { flexDirection: "row", gap: 24, alignItems: "flex-start" },
+    column: { flex: 1, minWidth: 0, gap: 24 },
+    nowBlock: { gap: 12 },
+    sectionTitle: { fontSize: 22, lineHeight: 28, fontFamily: fonts.sansBold, letterSpacing: -0.5 },
+    card: { borderRadius: shape.radius.l, borderWidth: shape.hairline, overflow: "hidden" },
+    cardHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 16, paddingHorizontal: 20, paddingBottom: 8 },
+    cardHeadTile: { paddingBottom: 10 },
+    cardTitle: { flexDirection: "row", alignItems: "center", gap: 10 },
+    cardTitleText: { fontSize: 17, lineHeight: 22, fontFamily: fonts.sansBold },
+    cardFoot: { height: 8 },
+    tile: { width: 36, height: 36, borderRadius: shape.radius.m, alignItems: "center", justifyContent: "center" },
+    mention: {
+      gap: 16,
+      padding: 22,
+      borderRadius: shape.radius.l,
+      borderWidth: shape.edgeWidth,
+    },
+    mentionTop: { flexDirection: "row", gap: 16, alignItems: "flex-start" },
+    mentionIcon: { width: 52, height: 52, borderRadius: shape.radius.m, alignItems: "center", justifyContent: "center" },
+    mentionText: { flex: 1, minWidth: 0, gap: 6 },
+    mentionTitle: { fontSize: 17, lineHeight: 22, fontFamily: fonts.sansBold },
+    quote: { fontSize: 16, lineHeight: 23, fontFamily: fonts.sans },
+    meta: { fontSize: 13, lineHeight: 17, fontFamily: fonts.sans },
+    mentionActions: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingLeft: 68 },
+    events: { gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
+    event: { flexDirection: "row", gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    eventBar: { width: 4, borderRadius: 2 },
+    eventTime: { width: 56, fontSize: 14, lineHeight: 20, fontFamily: fonts.sansSemibold, paddingTop: 1 },
+    eventText: { flex: 1, minWidth: 0, gap: 3 },
+    eventTitle: { fontSize: 16, lineHeight: 21, fontFamily: fonts.sansSemibold },
+    ghost: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 40, paddingHorizontal: 8, borderRadius: shape.radius.m, alignSelf: "flex-start" },
+    fileRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 60, paddingVertical: 8, paddingHorizontal: 20 },
+    fileName: { fontSize: 15, lineHeight: 20, fontFamily: fonts.sansSemibold },
+    none: { paddingHorizontal: 20, paddingBottom: 8 },
+  }),
+);

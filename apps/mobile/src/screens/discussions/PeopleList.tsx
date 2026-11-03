@@ -4,8 +4,8 @@ import { FlatList, Pressable, StyleSheet, View, type FlatListProps } from "react
 
 import { useTranslation } from "../../i18n";
 import { matchPeople } from "../../logic/mentions";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
 import { EmptyState } from "../../ui/States";
 import { Text } from "../../ui/Text";
@@ -18,6 +18,7 @@ export function filterPeople(people: Member[], query: string): Member[] {
 /** One person to pick (a conversation, a group): face, name and title, a check when chosen. */
 export function PersonRow({ member, selected, onToggle }: { member: Member; selected: boolean; onToggle: (member: Member) => void }) {
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -75,8 +76,10 @@ export function PeopleList({
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 8, minHeight: 56 },
-  text: { flex: 1, minWidth: 0 },
-  box: { width: 24, height: 24, borderRadius: radius.s, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 8, minHeight: 56 },
+    text: { flex: 1, minWidth: 0 },
+    box: { width: 24, height: 24, borderRadius: shape.radius.s, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center" },
+  }),
+);
