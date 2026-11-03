@@ -8,7 +8,7 @@
 //! - **A calendar event grants reading the files it carries** to whoever sees the event, read only,
 //!   even from outside the file's own audience (`crate::calendar::attachments`).
 //! - **A file in a direct message** is the participants' (and stays so after one of them left the
-//!   space, as it always has).
+//!   space, as it always has). No file of a conversation is ever published by link.
 //!
 //! On a file or a calendar, nothing is granted without seeing it: every other right there was
 //! always checked after reading it. On a channel the rights stay independent of the view, because
@@ -414,6 +414,14 @@ async fn file_decision(
                 &mut decision,
                 Permission::FilesView,
                 view,
+                Source::Implicit("conversation"),
+                explain,
+            );
+            // A conversation's file belongs to its participants, never to whoever holds a link.
+            set(
+                &mut decision,
+                Permission::FilesPublicLink,
+                false,
                 Source::Implicit("conversation"),
                 explain,
             );

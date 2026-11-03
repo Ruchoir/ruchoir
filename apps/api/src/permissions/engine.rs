@@ -6,7 +6,7 @@
 //!
 //! The order (spec section 2, with lot 1's private lock):
 //!
-//! 1. An owner holds everything, whatever the rules.
+//! 1. An owner holds everything, whatever the rules (an archived channel stays read only).
 //! 2. The base role and every role held add up. A guest then loses the space-wide visibility and
 //!    everything above the ceiling.
 //! 3. On a channel, a membership row admits (a guest included).
@@ -182,8 +182,17 @@ pub fn resolve(subject: &Subject, chain: &[Level], facts: Facts, explain: bool) 
         granted: PermissionSet::EMPTY,
         trace: explain.then(Vec::new),
     };
+    let channel = chain.iter().find(|level| level.kind == LevelKind::Channel);
     if subject.standing == Standing::Owner {
         run.add(PermissionSet::ALL, Source::Implicit("owner"), None);
+        // An archived room is read only for its space's owner too: a property, not a rule.
+        if facts.archived {
+            run.take(
+                WRITING,
+                Source::Implicit("archived"),
+                channel.map(|c| (c.kind, c.id)),
+            );
+        }
         return Decision {
             granted: run.granted,
             trace: run.trace.unwrap_or_default(),
@@ -200,7 +209,6 @@ pub fn resolve(subject: &Subject, chain: &[Level], facts: Facts, explain: bool) 
         run.take(GUEST_CEILING, Source::Implicit("guest"), None);
     }
 
-    let channel = chain.iter().find(|level| level.kind == LevelKind::Channel);
     if let Some(channel) = channel {
         if facts.joined {
             run.add(
@@ -343,7 +351,6 @@ mod tests {
         ]);
         let facts = Facts {
             private_channel: true,
-            archived: true,
             ..Facts::default()
         };
         assert_eq!(granted(&owner, &chain, facts), PermissionSet::ALL);
@@ -567,6 +574,16 @@ mod tests {
         assert!(!got.contains(MessageAttach));
         assert!(got.contains(MessageReact));
         assert!(got.contains(ChannelView));
+        // A property of the room, not a rule: its owner reads it like everybody else.
+        let owner = Subject {
+            standing: Standing::Owner,
+            base: PermissionSet::EMPTY,
+            roles: Vec::new(),
+        };
+        let theirs = granted(&owner, &chain, archived);
+        assert!(!theirs.contains(MessageSend));
+        assert!(!theirs.contains(MessageAttach));
+        assert!(theirs.contains(ChannelManage));
     }
 
     #[test]
