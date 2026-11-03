@@ -17,6 +17,11 @@ import { multipartBody } from "./multipart.ts";
 import { toEventCard, type EventCardDto } from "./calendar.ts";
 import type { AccountPrefsDoc } from "./accountPrefs.ts";
 import type {
+  AuditPage,
+  AuditQuery,
+  LicenceView,
+  Refusal,
+  Role,
   BlankKind,
   Channel,
   ChannelType,
@@ -77,7 +82,85 @@ type SpaceDto = {
   default_channel_id?: string;
   notify_level?: string;
   my_permissions?: string[];
+  edition?: string;
+  licence?: { seats: number; used: number; valid_until: string; expires_in_days: number };
 };
+
+type RoleDto = {
+  id: string;
+  system_key?: "administrator" | "members" | "guests";
+  name: string;
+  colour?: string;
+  position: number;
+  permissions: string[];
+  holders: number;
+  manageable: boolean;
+};
+
+type AuditEntryDto = {
+  id: string;
+  at: string;
+  action: string;
+  category: string;
+  actor: { id: string; display_name: string; avatar_url?: string } | null;
+  target: { kind: string; id?: string; label?: string };
+  details: Record<string, unknown>;
+};
+
+type LicenceViewDto = {
+  licence_id: string;
+  organisation: string;
+  seats: number;
+  used: number;
+  valid_until: string;
+  edition: "enterprise" | "frozen";
+};
+
+function toRole(dto: RoleDto): Role {
+  return {
+    id: dto.id,
+    systemKey: dto.system_key,
+    name: dto.name,
+    colour: dto.colour,
+    position: dto.position,
+    permissions: dto.permissions,
+    holders: dto.holders,
+    manageable: dto.manageable,
+  };
+}
+
+function toLicenceView(dto: LicenceViewDto): LicenceView {
+  return {
+    licenceId: dto.licence_id,
+    organisation: dto.organisation,
+    seats: dto.seats,
+    used: dto.used,
+    validUntil: dto.valid_until,
+    edition: dto.edition,
+  };
+}
+
+const REFUSAL_CODES = new Set([
+  "seats_full", "licence_required", "licence_frozen", "licence_invalid", "licence_other_space",
+  "licence_expired", "role_above_you", "person_above_you", "permission_not_held",
+  "role_name_reserved", "role_name_taken", "role_has_rules", "beyond_guest_ceiling",
+  "make_them_a_member_first",
+]);
+
+/**
+ * The named refusal an API error carries (`error`, or for a `403` its `reason`), or `undefined` when
+ * it is not one this app knows: the screen then says what it says for any failure.
+ */
+export function refusalOf(err: unknown): Refusal | undefined {
+  if (!(err instanceof ApiError)) return undefined;
+  const body = (err.body ?? {}) as { error?: string; reason?: string; seats?: number; pricing_url?: string; organisation?: string };
+  const code = body.error === "forbidden" ? body.reason : body.error;
+  if (!code || !REFUSAL_CODES.has(code)) return undefined;
+  if (code === "seats_full") return { code, seats: body.seats ?? 0, pricingUrl: body.pricing_url ?? "" };
+  if (code === "licence_required") return { code, pricingUrl: body.pricing_url ?? "" };
+  if (code === "licence_other_space") return { code, organisation: body.organisation };
+  return { code } as Refusal;
+}
 
 type ChannelDto = {
   id: string;
@@ -360,6 +443,10 @@ function toWorkspace(dto: SpaceDto): Workspace {
     defaultChannelId: dto.default_channel_id,
     notifyLevel: toNotifyLevel(dto.notify_level),
     myPermissions: dto.my_permissions,
+    edition: dto.edition === "enterprise" || dto.edition === "frozen" ? dto.edition : "community",
+    licence: dto.licence
+      ? { seats: dto.licence.seats, used: dto.licence.used, validUntil: dto.licence.valid_until, expiresInDays: dto.licence.expires_in_days }
+      : undefined,
   };
 }
 
@@ -490,6 +577,8 @@ type MemberDto = {
   role: string;
   is_bot: boolean;
   avatar_url?: string;
+  role_ids?: string[];
+  manageable?: boolean;
 };
 
 /** A space member as the app holds it. Presence is overlaid separately (by user id). */
@@ -501,6 +590,10 @@ export type Member = {
   bot: boolean;
   /** Same-origin URL of the uploaded avatar; absent means the locally generated one. */
   avatarUrl?: string;
+  /** The roles assigned to them (Administrator included, base roles never), strongest first. */
+  roleIds?: string[];
+  /** Whether the caller may manage them (their roles, their removal). */
+  manageable?: boolean;
 };
 
 // --- Messages ---
@@ -1904,6 +1997,81 @@ export function createApi(transport: Transport) {
     await apiDelete<void>(`/spaces/${spaceId}/membership`);
   }
 
+  // --- Roles, audit log, licence (permissions lot 2) ---
+
+  /** `GET /spaces/{id}/roles`: the space's roles, strongest first (for whoever reads its directory). */
+  async function listRoles(spaceId: string): Promise<Role[]> {
+    return (await apiGet<RoleDto[]>(`/spaces/${spaceId}/roles`)).map(toRole);
+  }
+
+  /** `POST /spaces/{id}/roles`: a role directly below the caller's highest one (licensed spaces). */
+  async function createRole(spaceId: string, role: { name: string; colour?: string; copyFrom?: string }): Promise<Role> {
+    return toRole(await apiPost<RoleDto>(`/spaces/${spaceId}/roles`, { name: role.name, colour: role.colour, copy_from: role.copyFrom }));
+  }
+
+  /** `PATCH /spaces/{id}/roles/{roleId}`: its name, colour or permissions. */
+  async function updateRole(spaceId: string, roleId: string, change: { name?: string; colour?: string; permissions?: string[] }): Promise<Role> {
+    return toRole(await apiPatch<RoleDto>(`/spaces/${spaceId}/roles/${roleId}`, change));
+  }
+
+  /** `DELETE /spaces/{id}/roles/{roleId}`: refused for a system role, or one a rule names. */
+  async function deleteRole(spaceId: string, roleId: string): Promise<void> {
+    await apiDelete<void>(`/spaces/${spaceId}/roles/${roleId}`);
+  }
+
+  /** `PUT /spaces/{id}/roles/order`: every role above the base ones, strongest first. */
+  async function orderRoles(spaceId: string, roleIds: string[]): Promise<Role[]> {
+    return (await apiPut<RoleDto[]>(`/spaces/${spaceId}/roles/order`, { role_ids: roleIds })).map(toRole);
+  }
+
+  /** `PUT /spaces/{id}/members/{userId}/roles`: a person's roles; answers the roles they now hold. */
+  async function setMemberRoles(spaceId: string, userId: string, roleIds: string[]): Promise<string[]> {
+    const done = await apiPut<{ user_id: string; role_ids: string[] }>(`/spaces/${spaceId}/members/${userId}/roles`, { role_ids: roleIds });
+    return done.role_ids;
+  }
+
+  /** `GET /spaces/{id}/audit`: a page of the space's audit log, newest first. */
+  async function getAudit(spaceId: string, query: AuditQuery = {}): Promise<AuditPage> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== "") params.set(key, String(value));
+    }
+    const suffix = params.size > 0 ? `?${params}` : "";
+    const page = await apiGet<{ entries: AuditEntryDto[]; next?: string }>(`/spaces/${spaceId}/audit${suffix}`);
+    return {
+      next: page.next,
+      entries: page.entries.map((e) => ({
+        id: e.id,
+        at: e.at,
+        action: e.action,
+        category: e.category,
+        actor: e.actor ? { id: e.actor.id, name: e.actor.display_name, avatarUrl: e.actor.avatar_url } : undefined,
+        target: e.target,
+        details: e.details,
+      })),
+    };
+  }
+
+  /** `GET /spaces/{id}/licence`: the space's licence (owners), or `null` when it has none. */
+  async function getLicence(spaceId: string): Promise<LicenceView | null> {
+    try {
+      return toLicenceView(await apiGet<LicenceViewDto>(`/spaces/${spaceId}/licence`));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    }
+  }
+
+  /** `PUT /spaces/{id}/licence`: install a licence; refusals read with {@link refusalOf}. */
+  async function putLicence(spaceId: string, licence: string): Promise<LicenceView> {
+    return toLicenceView(await apiPut<LicenceViewDto>(`/spaces/${spaceId}/licence`, { licence }));
+  }
+
+  /** `DELETE /spaces/{id}/licence`: back to the community edition; nothing configured is removed. */
+  async function deleteLicence(spaceId: string): Promise<void> {
+    await apiDelete<void>(`/spaces/${spaceId}/licence`);
+  }
+
   /**
    * `DELETE /spaces/{id}/members/{userId}`: take someone out of a space.
    *
@@ -2311,6 +2479,8 @@ export function createApi(transport: Transport) {
       title: m.title,
       bot: m.is_bot,
       avatarUrl: m.avatar_url,
+      roleIds: m.role_ids,
+      manageable: m.manageable,
     }));
   }
 
@@ -3788,7 +3958,8 @@ export function createApi(transport: Transport) {
     resetPasswordWithRecoveryCode, getInstanceCapabilities, searchAccounts, issuePasswordResetLink,
     getInstanceSettings, updateInstanceSettings, verifyTotp, verifyRecoveryCode, saveSpaceNotify,
     getWorkspaces, createSpace, renameSpace, setChannelOrder, setDefaultChannel, setMemberRole,
-    leaveSpace, removeMember, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
+    leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
+    setMemberRoles, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
     getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
     uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
     createChannel, setChannelFavorite, deleteChannel, updateChannel, joinChannel, leaveChannel,
@@ -3822,7 +3993,8 @@ export const {
   resetPasswordWithRecoveryCode, getInstanceCapabilities, searchAccounts, issuePasswordResetLink,
   getInstanceSettings, updateInstanceSettings, verifyTotp, verifyRecoveryCode, saveSpaceNotify,
   getWorkspaces, createSpace, renameSpace, setChannelOrder, setDefaultChannel, setMemberRole,
-  leaveSpace, removeMember, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
+  leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
+    setMemberRoles, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
   getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
   uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
   createChannel, setChannelFavorite, deleteChannel, updateChannel, joinChannel, leaveChannel,
