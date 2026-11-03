@@ -565,19 +565,29 @@ pub async fn update_member_role(
     if user_id == session.user_id {
         return Err(ApiError::Forbidden);
     }
-    super::authz::ensure_permission(
-        &state.db,
-        space_id,
-        session.user_id,
-        crate::permissions::check::Resource::Space,
-        crate::permissions::catalogue::Permission::RolesManage,
-    )
-    .await?;
+    // A standing (guest or member) is the people's business, `members.manage`; Administrator and
+    // the owner's role are roles, `roles.manage` (spec, the catalogue). Someone holding neither is
+    // refused before anything about the target is read.
+    use crate::permissions::catalogue::Permission;
+    let rights =
+        crate::permissions::check::space_rights(&state.db, space_id, session.user_id).await?;
+    if !rights.contains(Permission::MembersManage) && !rights.contains(Permission::RolesManage) {
+        return Err(ApiError::Forbidden);
+    }
 
     let target = space_members::Entity::find_by_id((space_id, user_id))
         .one(&state.db)
         .await?
         .ok_or(ApiError::NotFound)?;
+    let a_role = |role: &str| role == "admin" || role == "owner";
+    let needed = if a_role(&wanted) || a_role(&target.role) {
+        Permission::RolesManage
+    } else {
+        Permission::MembersManage
+    };
+    if !rights.contains(needed) {
+        return Err(ApiError::Forbidden);
+    }
     if target.role == wanted {
         // Nothing to write, and nothing to announce. Answering `200` with an empty list keeps the
         // call idempotent instead of making a second press an error.
