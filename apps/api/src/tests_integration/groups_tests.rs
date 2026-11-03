@@ -391,7 +391,7 @@ async fn the_groups_migration_round_trips() {
     .await
     .expect("group audit");
 
-    Migrator::down(db, Some(1)).await.expect("down");
+    Migrator::down(db, Some(2)).await.expect("down");
     assert_eq!(count(db, tables, vec![]).await, 0);
     assert_eq!(
         count(

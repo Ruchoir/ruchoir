@@ -12170,6 +12170,9 @@ mod group_routes_tests;
 /// Mentioning a group: who is told, and who is not.
 mod group_mentions_tests;
 
+/// Rules aimed at a group or at the readers of a channel: the schema and the loader.
+mod rules_tests;
+
 /// The preferences that follow an account, and hidden direct conversations, in their own file.
 mod preferences_tests;
 

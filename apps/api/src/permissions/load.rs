@@ -44,6 +44,19 @@ pub(super) struct Person {
     pub subject: Subject,
     /// The base role their standing implies (`@members` or `@guests`), which rules may target.
     pub base_role: Option<Uuid>,
+    // The engine reads these from the next task on.
+    /// The groups they belong to.
+    #[allow(dead_code)]
+    pub groups: Vec<Uuid>,
+    /// Each role they hold through a group, with the groups of theirs that carry it.
+    #[allow(dead_code)]
+    pub role_groups: HashMap<Uuid, Vec<Uuid>>,
+    /// The channels whose readers they are (filled by the caller that needs it, empty at load).
+    #[allow(dead_code)]
+    pub readable_audiences: HashSet<Uuid>,
+    /// The ceiling of a preview (none until a preview sets it).
+    #[allow(dead_code)]
+    pub ceiling: Option<Subject>,
 }
 
 /// A rule as stored, before it is matched to a person.
@@ -54,6 +67,10 @@ pub(super) struct StoredRule {
     pub calendar_id: Option<Uuid>,
     pub role_id: Option<Uuid>,
     pub user_id: Option<Uuid>,
+    #[allow(dead_code)]
+    pub group_id: Option<Uuid>,
+    #[allow(dead_code)]
+    pub audience_channel_id: Option<Uuid>,
     pub allow: PermissionSet,
     pub deny: PermissionSet,
 }
@@ -245,6 +262,10 @@ async fn people_where<C: ConnectionTrait>(
                     roles: Vec::new(),
                 },
                 base_role: None,
+                groups: Vec::new(),
+                role_groups: HashMap::new(),
+                readable_audiences: HashSet::new(),
+                ceiling: None,
             });
             let (Some(role_id), Some(names)) = (row.role_id, row.permissions) else {
                 continue;
@@ -261,6 +282,7 @@ async fn people_where<C: ConnectionTrait>(
         read_people(space_id, people.len());
         let broken = drifted || people.values().any(|person| person.base_role.is_none());
         if !broken || repaired {
+            attach_groups(db, space_id, &users, &mut people).await?;
             return Ok(people);
         }
         tracing::warn!(%space_id, "space without its system roles: deriving them again");
@@ -273,6 +295,65 @@ async fn people_where<C: ConnectionTrait>(
         .await?;
         repaired = true;
     }
+}
+
+#[derive(FromQueryResult)]
+struct GroupRow {
+    user_id: Uuid,
+    group_id: Uuid,
+    role_id: Option<Uuid>,
+}
+
+/// The groups of these people and the roles those groups carry, in one query whatever the count.
+async fn attach_groups<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    users: &sea_orm::Value,
+    people: &mut BTreeMap<Uuid, Person>,
+) -> Result<(), DbErr> {
+    if people.is_empty() {
+        return Ok(());
+    }
+    issued(space_id);
+    let rows = GroupRow::find_by_statement(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT m.user_id, m.group_id, r.role_id \
+           FROM space_group_members m \
+           LEFT JOIN space_group_roles r ON r.group_id = m.group_id \
+          WHERE m.space_id = $1 AND ($2::uuid[] IS NULL OR m.user_id = ANY($2))",
+        [space_id.into(), users.clone()],
+    ))
+    .all(db)
+    .await?;
+    for row in rows {
+        // Somebody the first query left out (an expired guest) has no groups here either.
+        let Some(person) = people.get_mut(&row.user_id) else {
+            continue;
+        };
+        if !person.groups.contains(&row.group_id) {
+            person.groups.push(row.group_id);
+        }
+        if let Some(role) = row.role_id {
+            let carriers = person.role_groups.entry(role).or_default();
+            if !carriers.contains(&row.group_id) {
+                carriers.push(row.group_id);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Each person of the space with their groups and the roles those carry (tests only).
+#[cfg(test)]
+pub async fn people_groups_for_test<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+) -> Result<HashMap<Uuid, (Vec<Uuid>, HashMap<Uuid, Vec<Uuid>>)>, DbErr> {
+    Ok(people(db, space_id, None)
+        .await?
+        .into_iter()
+        .map(|(id, person)| (id, (person.groups, person.role_groups)))
+        .collect())
 }
 
 /// The rules stored on some channels, files or calendars of a space.
@@ -298,6 +379,8 @@ pub(super) async fn rules<C: ConnectionTrait>(
             calendar_id: row.calendar_id,
             role_id: row.role_id,
             user_id: row.user_id,
+            group_id: row.group_id,
+            audience_channel_id: row.audience_channel_id,
             allow: PermissionSet::from_names(&row.allow),
             deny: PermissionSet::from_names(&row.deny),
         })

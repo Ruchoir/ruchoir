@@ -979,7 +979,7 @@ async fn listing_a_space_resolves_in_bulk() {
     assert_eq!(listed.as_array().map(Vec::len), Some(240));
     let issued = crate::permissions::load::queries_issued(fx.space_id) - before;
     eprintln!("sidebar of 300 channels: {elapsed:?}, {issued} permission queries");
-    assert!(issued <= 6, "the listing made {issued} permission queries");
+    assert!(issued <= 5, "the listing made {issued} permission queries");
 }
 
 // ---- What the clients are told they may do (Task 11) ----

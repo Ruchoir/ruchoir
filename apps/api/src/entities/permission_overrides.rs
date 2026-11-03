@@ -1,6 +1,7 @@
 //! The `permission_overrides` table: a rule on a channel, a file (or folder) or a calendar, for a
 //! role or a person, allowing and denying permission names.
 //!
+//! The target is a role, a person, a group or the readers of a channel (the last on files only).
 //! Exactly one resource and one target per row (CHECK constraints), at most one rule per resource
 //! and target (unique indexes), and every foreign key cascades, so no rule outlives what it is
 //! about.
@@ -18,6 +19,9 @@ pub struct Model {
     pub calendar_id: Option<Uuid>,
     pub role_id: Option<Uuid>,
     pub user_id: Option<Uuid>,
+    pub group_id: Option<Uuid>,
+    /// "Whoever reads this channel", on files and folders only.
+    pub audience_channel_id: Option<Uuid>,
     pub allow: Vec<String>,
     pub deny: Vec<String>,
     pub created_by: Option<Uuid>,
