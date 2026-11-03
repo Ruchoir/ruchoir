@@ -18,6 +18,10 @@ pub enum ApiError {
     NotFound,
     /// The caller is authenticated but not allowed to perform or see this.
     Forbidden,
+    /// The same `403`, with the reason as a code the client can explain (`role_above_you`,
+    /// `person_above_you`, `permission_not_held`). `error` stays `forbidden`, so an app that does not
+    /// know the reason reads it as before.
+    ForbiddenBecause(&'static str),
     /// The request is malformed or violates a simple rule. The static reason is safe to expose.
     BadRequest(&'static str),
     /// The same, when the reason cannot be a fixed sentence. An archive says why it does not hold
@@ -57,6 +61,17 @@ struct SeatsFullBody<'a> {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
+        if let ApiError::ForbiddenBecause(reason) = &self {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({
+                    "error": "forbidden",
+                    "message": "You do not have access to this resource.",
+                    "reason": reason,
+                })),
+            )
+                .into_response();
+        }
         if let ApiError::SeatsFull { seats, pricing_url } = &self {
             return (
                 StatusCode::PAYMENT_REQUIRED,
@@ -86,7 +101,7 @@ impl IntoResponse for ApiError {
                 "unauthorized",
                 "Authentication required.",
             ),
-            ApiError::Internal | ApiError::SeatsFull { .. } => (
+            ApiError::Internal | ApiError::SeatsFull { .. } | ApiError::ForbiddenBecause(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal_error",
                 "An unexpected error occurred.",

@@ -22,3 +22,9 @@ pub use crate::messaging::authz::ensure_space_owner;
 pub use crate::messaging::error::ApiError;
 /// Tell a space's members that what they may do there changed, so their apps ask again.
 pub use crate::permissions::changed::announce;
+/// The delegation rules every write of rights goes through: ranks, rule 1 ([`ensure_manages_role`]),
+/// rule 2 ([`ensure_composes`]), rule 3 ([`ensure_acts_on`]).
+pub use crate::permissions::delegation::{
+    ensure_acts_on, ensure_composes, ensure_manages_role, fixed_role_position, rank_of, role, Rank,
+    RoleRow,
+};
