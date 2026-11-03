@@ -147,6 +147,17 @@ impl PermissionSet {
         self.0 == 0
     }
 
+    /// Every permission of a family.
+    pub fn of_family(family: Family) -> PermissionSet {
+        let mut set = PermissionSet::EMPTY;
+        for permission in Permission::ALL {
+            if permission.family() == family {
+                set.insert(permission);
+            }
+        }
+        set
+    }
+
     /// The permissions held, in catalogue order.
     pub fn iter(self) -> impl Iterator<Item = Permission> {
         Permission::ALL
@@ -250,6 +261,9 @@ mod tests {
             .filter(|p| !p.resource_level())
             .count();
         assert_eq!(space_only, 12);
+        assert_eq!(PermissionSet::of_family(Family::Calendar).iter().count(), 3);
+        assert_eq!(PermissionSet::of_family(Family::Files).iter().count(), 5);
+        assert_eq!(PermissionSet::of_family(Family::Channel).iter().count(), 9);
     }
 
     /// A permission's name is stored in the database and read by apps: once recorded it never

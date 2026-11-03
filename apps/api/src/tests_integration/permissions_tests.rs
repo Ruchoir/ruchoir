@@ -406,3 +406,287 @@ async fn an_imported_space_starts_with_its_system_roles() {
     );
     std::fs::remove_dir_all(&imported.dir).ok();
 }
+
+// ---- Loading and checking (Task 4) ----
+
+use crate::permissions::catalogue::Permission;
+use crate::permissions::check::{self, Resource};
+
+/// A channel membership with a channel role.
+pub(super) async fn join_as(db: &DatabaseConnection, channel_id: Uuid, user_id: Uuid, role: &str) {
+    channel_members::ActiveModel {
+        channel_id: Set(channel_id),
+        user_id: Set(user_id),
+        role: Set(role.to_owned()),
+        ..Default::default()
+    }
+    .insert(db)
+    .await
+    .expect("channel member");
+}
+
+async fn sees(db: &DatabaseConnection, space_id: Uuid, user_id: Uuid, channel_id: Uuid) -> bool {
+    check::can(
+        db,
+        space_id,
+        user_id,
+        Resource::Channel(channel_id),
+        Permission::ChannelView,
+    )
+    .await
+    .expect("check")
+}
+
+#[tokio::test]
+async fn a_member_reads_a_public_channel() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "general", "public").await;
+    for (who, expected) in [
+        (fx.owner, true),
+        (fx.admin, true),
+        (fx.member, true),
+        (fx.guest, false),
+    ] {
+        assert_eq!(sees(&app.db, fx.space_id, who, channel).await, expected);
+    }
+    join_as(&app.db, channel, fx.guest, "member").await;
+    assert!(sees(&app.db, fx.space_id, fx.guest, channel).await);
+}
+
+#[tokio::test]
+async fn an_admin_reserved_channel_refuses_a_member_and_admits_an_admin() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "board", "public").await;
+    reserve(&app.db, channel, &["admin"]).await;
+    for user in [fx.member, fx.guest] {
+        join_as(&app.db, channel, user, "member").await;
+    }
+    for (who, expected) in [
+        (fx.owner, true),
+        (fx.admin, true),
+        (fx.member, false),
+        (fx.guest, false),
+    ] {
+        assert_eq!(sees(&app.db, fx.space_id, who, channel).await, expected);
+    }
+    // Private, the same reservation still asks the administrator to join first.
+    let private = make_channel(&app.db, fx.space_id, "inner", "private").await;
+    reserve(&app.db, private, &["admin"]).await;
+    assert!(!sees(&app.db, fx.space_id, fx.admin, private).await);
+    join_as(&app.db, private, fx.admin, "member").await;
+    assert!(sees(&app.db, fx.space_id, fx.admin, private).await);
+    assert!(sees(&app.db, fx.space_id, fx.owner, private).await);
+}
+
+#[tokio::test]
+async fn a_space_missing_its_system_roles_is_repaired_on_first_check() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "DELETE FROM space_roles WHERE space_id = $1",
+            [fx.space_id.into()],
+        ))
+        .await
+        .expect("lose the roles");
+    let invites = |who| {
+        check::can(
+            &app.db,
+            fx.space_id,
+            who,
+            Resource::Space,
+            Permission::MembersInvite,
+        )
+    };
+    assert!(invites(fx.admin).await.expect("check"));
+    assert!(!invites(fx.member).await.expect("check"));
+    assert!(check::can(
+        &app.db,
+        fx.space_id,
+        fx.member,
+        Resource::Space,
+        Permission::ChannelsCreate
+    )
+    .await
+    .expect("check"));
+    assert_eq!(system_roles_of(&app.db, fx.space_id).await.len(), 3);
+    assert_eq!(administrators(&app.db, fx.space_id).await, vec![fx.admin]);
+}
+
+#[tokio::test]
+async fn a_resource_of_another_space_grants_nothing() {
+    let Some(app) = boot().await else { return };
+    let here = ladder(&app.db).await;
+    let there = ladder(&app.db).await;
+    let channel = make_channel(&app.db, there.space_id, "elsewhere", "public").await;
+    let calendar = space_calendar(&app.db, there.space_id, "members").await;
+    let folder = Uuid::new_v4();
+    files::ActiveModel {
+        id: Set(folder),
+        space_id: Set(there.space_id),
+        name: Set("Ailleurs".to_owned()),
+        kind: Set("folder".to_owned()),
+        owner_id: Set(Some(here.owner)),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("folder");
+    for resource in [
+        Resource::Channel(channel),
+        Resource::Calendar(calendar),
+        Resource::File(folder),
+    ] {
+        // Checked in the space they hold, by its owner, and by the file's own author.
+        let got = check::effective(&app.db, here.space_id, here.owner, resource)
+            .await
+            .expect("check");
+        assert!(
+            got.is_empty(),
+            "{resource:?} of another space granted {got:?}"
+        );
+    }
+    // And a member of the other space checked against this one gets nothing either.
+    let got = check::effective(&app.db, here.space_id, there.member, Resource::Space)
+        .await
+        .expect("check");
+    assert!(got.is_empty());
+}
+
+#[tokio::test]
+async fn an_expired_guest_gets_nothing() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "visit", "public").await;
+    join_as(&app.db, channel, fx.guest, "member").await;
+    let set_expiry = |when: &'static str| {
+        app.db.execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            format!(
+                "UPDATE space_members SET expires_at = now() {when} WHERE space_id = $1 AND user_id = $2"
+            ),
+            [fx.space_id.into(), fx.guest.into()],
+        ))
+    };
+    set_expiry("+ interval '1 day'").await.expect("expiry");
+    assert!(sees(&app.db, fx.space_id, fx.guest, channel).await);
+    set_expiry("- interval '1 minute'").await.expect("expiry");
+    assert!(!sees(&app.db, fx.space_id, fx.guest, channel).await);
+    for resource in [Resource::Space, Resource::Channel(channel)] {
+        let got = check::effective(&app.db, fx.space_id, fx.guest, resource)
+            .await
+            .expect("check");
+        assert!(got.is_empty(), "an expired guest kept {got:?}");
+    }
+}
+
+#[tokio::test]
+async fn bulk_and_single_agree() {
+    let Some(app) = boot().await else { return };
+    let db = &app.db;
+    let fx = ladder(db).await;
+    let mut channels = Vec::new();
+    for (index, (kind, reservation)) in [
+        ("public", &[][..]),
+        ("private", &[][..]),
+        ("archived", &[][..]),
+        ("public", &["admin"][..]),
+        ("private", &["admin"][..]),
+        ("public", &["member", "guest"][..]),
+        ("public", &["guest"][..]),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let channel = make_channel(db, fx.space_id, &format!("c{index}"), kind).await;
+        reserve(db, channel, reservation).await;
+        channels.push(channel);
+    }
+    join_as(db, channels[1], fx.member, "owner").await;
+    join_as(db, channels[4], fx.admin, "member").await;
+    join_as(db, channels[5], fx.guest, "member").await;
+    join_as(db, channels[6], fx.member, "admin").await;
+    let foreign = ladder(db).await;
+    let elsewhere = make_channel(db, foreign.space_id, "elsewhere", "public").await;
+    let mut asked = channels.clone();
+    asked.push(elsewhere);
+    for user in [fx.owner, fx.admin, fx.member, fx.guest] {
+        let bulk = check::effective_many(db, fx.space_id, user, &asked)
+            .await
+            .expect("bulk");
+        for channel in &channels {
+            let single = check::effective(db, fx.space_id, user, Resource::Channel(*channel))
+                .await
+                .expect("single");
+            assert_eq!(bulk.get(channel).copied().unwrap_or_default(), single);
+        }
+        assert!(bulk.get(&elsewhere).copied().unwrap_or_default().is_empty());
+    }
+}
+
+#[tokio::test]
+async fn holders_lists_who_reads_a_reserved_channel() {
+    let Some(app) = boot().await else { return };
+    let db = &app.db;
+    let fx = ladder(db).await;
+    let open = make_channel(db, fx.space_id, "open", "public").await;
+    let board = make_channel(db, fx.space_id, "board", "public").await;
+    reserve(db, board, &["admin"]).await;
+    for channel in [open, board] {
+        join_as(db, channel, fx.guest, "member").await;
+    }
+    let sorted = |mut ids: Vec<Uuid>| {
+        ids.sort();
+        ids
+    };
+    let holders = |channel| {
+        check::holders(
+            db,
+            fx.space_id,
+            Resource::Channel(channel),
+            Permission::ChannelView,
+        )
+    };
+    assert_eq!(
+        sorted(holders(open).await.expect("holders")),
+        sorted(vec![fx.owner, fx.admin, fx.member, fx.guest])
+    );
+    assert_eq!(
+        sorted(holders(board).await.expect("holders")),
+        sorted(vec![fx.owner, fx.admin])
+    );
+}
+
+/// "Why may they?" is the same resolution: the trace of an administrator's view of a reserved
+/// channel names the Administrator role.
+#[tokio::test]
+async fn explain_says_which_role_opened_a_reserved_channel() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let board = make_channel(&app.db, fx.space_id, "board", "public").await;
+    reserve(&app.db, board, &["admin"]).await;
+    let decision = check::explain(&app.db, fx.space_id, fx.admin, Resource::Channel(board))
+        .await
+        .expect("explain");
+    assert!(decision.granted.contains(Permission::ChannelView));
+    let admin_role = system_roles_of(&app.db, fx.space_id)
+        .await
+        .into_iter()
+        .find(|role| role.system_key.as_deref() == Some("administrator"))
+        .expect("Administrator")
+        .id;
+    let last = decision
+        .trace
+        .iter()
+        .rev()
+        .find(|step| step.permission == Permission::ChannelView)
+        .expect("a step about the view");
+    assert_eq!(
+        last.source,
+        crate::permissions::engine::Source::Role(admin_role)
+    );
+    assert_eq!(last.effect, crate::permissions::engine::Effect::Granted);
+}
