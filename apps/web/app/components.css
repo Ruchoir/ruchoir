@@ -1531,7 +1531,7 @@
    markup, as the rest of the shell is written.
    --------------------------------------------------------------------------------------------- */
 
-/* A section label: the monospace face, after a short rule, as the public site sets its kickers. */
+/* A section label: the label face, after a short rule, as the public site sets its kickers. */
 .wc-sect::before {
   content: "";
   flex: none;
@@ -1602,7 +1602,7 @@
   border-radius: 2px;
 }
 
-/* A key cap: the outline of a control, thicker at its bottom edge, in the monospace face. */
+/* A key cap: the outline of a control, thicker at its bottom edge, in the label face. */
 .wc-kbd {
   display: inline-flex;
   align-items: center;

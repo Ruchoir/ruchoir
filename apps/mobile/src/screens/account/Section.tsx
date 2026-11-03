@@ -3,7 +3,7 @@ import { StyleSheet, View } from "react-native";
 
 import { Text } from "../../ui/Text";
 
-/** A group of settings under its monospace label (and a line saying what it applies to, when needed), as the web's preferences pages head theirs. */
+/** A group of settings under its label (and a line saying what it applies to, when needed), as the web's preferences pages head theirs. */
 export function Section({ label, note, children }: { label: string; note?: string; children: ReactNode }) {
   return (
     <View style={styles.section}>

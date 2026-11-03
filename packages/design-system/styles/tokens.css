@@ -156,7 +156,7 @@
   --tracking-display: -0.035em;
   --tracking-tight: -0.02em;
   --tracking-normal: 0;
-  /* Section labels are set in the monospace face, in sentence case, not in spaced capitals. */
+  /* Section labels are set in the label face, in sentence case, not in spaced capitals. */
   --tracking-caps: 0;
 
   /* Spacing: 4px grid, 2px half-steps for optical adjustments. */
@@ -243,8 +243,8 @@
   --edge-float: var(--ink);
   --edge-focus: var(--ink);
 
-  /* Section labels are set in the monospace face. */
-  --label-font: var(--font-mono);
+  /* Labels, hints, times and keys: the interface face. Monospace is for code only. */
+  --label-font: var(--font-sans);
 
   /* Square avatars; a round one (`.wc-av--round`) keeps the full radius. */
   --avatar-radius: var(--radius-sm);

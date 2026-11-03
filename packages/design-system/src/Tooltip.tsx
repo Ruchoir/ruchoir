@@ -61,7 +61,7 @@ const bubble: CSSProperties = {
   alignItems: "center",
   background: "var(--surface-inverse)",
   color: "var(--text-inverse)",
-  // Set like every label: the monospace face, in sentence case.
+  // Set like every label: the label face, in sentence case.
   fontFamily: "var(--label-font)",
   fontSize: "var(--text-2xs)",
   fontWeight: 500,

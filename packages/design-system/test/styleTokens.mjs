@@ -1,6 +1,7 @@
 /**
  * The tokens a style may override (see `styles/tokens.css`), with the value each one has in the
- * Ruchoir style. They replaced literals one for one, so these defaults are the literals' values.
+ * Ruchoir style. They replaced literals one for one, so these defaults are the literals' values
+ * (the label face excepted: the interface face since 2026-11-03, where it was the monospace one).
  * Shared by this package's test and by the web app's, which checks its own files use only these.
  */
 export const STYLE_TOKENS = {
@@ -16,7 +17,7 @@ export const STYLE_TOKENS = {
   "--press": "translate(3px, 3px)",
   "--edge-float": "var(--ink)",
   "--edge-focus": "var(--ink)",
-  "--label-font": "var(--font-mono)",
+  "--label-font": "var(--font-sans)",
   "--sidebar-bg": "var(--surface-chrome)",
   "--sidebar-selected-bg": "var(--acc)",
   "--sidebar-selected-fg": "var(--on-pastel)",

@@ -244,7 +244,7 @@ function MentionCard({ n, title, myUserId, onOpen }: { n: ApiNotification; title
   );
 }
 
-/** One of today's events: tinted with its calendar's colour, the time in mono, title and place. */
+/** One of today's events: tinted with its calendar's colour, the time, title and place. */
 function EventRow({ occurrence: o, color }: { occurrence: Occurrence; color: string }) {
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   events: { gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
   event: { flexDirection: "row", gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.m, borderWidth: hairline },
   eventBar: { width: 4, borderRadius: 2 },
-  eventTime: { width: 56, fontSize: 14, lineHeight: 20, fontFamily: fonts.monoSemibold, paddingTop: 1 },
+  eventTime: { width: 56, fontSize: 14, lineHeight: 20, fontFamily: fonts.sansSemibold, paddingTop: 1 },
   eventText: { flex: 1, minWidth: 0, gap: 3 },
   eventTitle: { fontSize: 16, lineHeight: 21, fontFamily: fonts.sansSemibold },
   ghost: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 40, paddingHorizontal: 8, borderRadius: radius.m, alignSelf: "flex-start" },

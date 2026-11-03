@@ -746,7 +746,7 @@ export function MessageRow({
                     {t("message.reactors", { count: r.count })}
                   </div>
                   <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                    {r.users && r.users.length > 0 ? r.users.join(", ") : "—"}
+                    {r.users && r.users.length > 0 ? r.users.join(", ") : "–"}
                   </div>
                 </div>
               </div>

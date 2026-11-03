@@ -221,7 +221,7 @@ const styles: Record<string, CSSProperties> = {
     margin: "18px 0",
     pointerEvents: "none",
   },
-  // The day reads as a tag, in the monospace face of every label.
+  // The day reads as a tag, in the face of every label.
   dayLbl: {
     fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
