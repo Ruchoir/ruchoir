@@ -23,7 +23,7 @@ const UP: &str = r#"
 CREATE TABLE space_groups (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     space_id uuid NOT NULL REFERENCES spaces (id) ON DELETE CASCADE,
-    name citext NOT NULL CHECK (char_length(name) BETWEEN 1 AND 100),
+    name citext NOT NULL CHECK (char_length(name) BETWEEN 1 AND 100 AND btrim(name) <> ''),
     description text CHECK (char_length(description) <= 280),
     source text NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'directory')),
     external_id text,
@@ -66,27 +66,23 @@ CREATE VIEW space_role_holdings (space_id, user_id, role_id, group_id) AS
     FROM space_group_members m
     JOIN space_group_roles r ON r.group_id = m.group_id;
 
-ALTER TABLE space_audit_log DROP CONSTRAINT IF EXISTS space_audit_log_target_kind_check;
+ALTER TABLE space_audit_log DROP CONSTRAINT space_audit_log_target_kind_check;
 ALTER TABLE space_audit_log ADD CONSTRAINT space_audit_log_target_kind_check
     CHECK (target_kind IN ('member', 'role', 'channel', 'calendar', 'space', 'licence', 'group'));
-ALTER TABLE message_mentions DROP CONSTRAINT IF EXISTS message_mentions_mention_type_check;
+ALTER TABLE message_mentions DROP CONSTRAINT message_mentions_mention_type_check;
 ALTER TABLE message_mentions ADD CONSTRAINT message_mentions_mention_type_check
     CHECK (mention_type IN ('user', 'channel', 'here', 'group'));
 "#;
 
-// Rows already using `group` would refuse the narrower checks: remove them first (mentions of a
-// group, and the audit entries about groups, exist only once this version has run).
+// The audit log is append-only: DOWN never touches its rows or its trigger, and leaves its
+// `target_kind` check accepting `group` (a wider unused check is harmless). Mentions of a group
+// become mentions by name (`user`), which the previous version reads, before the narrower check
+// comes back.
 const DOWN: &str = r#"
-DELETE FROM message_mentions WHERE mention_type = 'group';
+UPDATE message_mentions SET mention_type = 'user' WHERE mention_type = 'group';
 ALTER TABLE message_mentions DROP CONSTRAINT IF EXISTS message_mentions_mention_type_check;
 ALTER TABLE message_mentions ADD CONSTRAINT message_mentions_mention_type_check
     CHECK (mention_type IN ('user', 'channel', 'here'));
-ALTER TABLE space_audit_log DISABLE TRIGGER space_audit_log_append_only;
-DELETE FROM space_audit_log WHERE target_kind = 'group';
-ALTER TABLE space_audit_log ENABLE TRIGGER space_audit_log_append_only;
-ALTER TABLE space_audit_log DROP CONSTRAINT IF EXISTS space_audit_log_target_kind_check;
-ALTER TABLE space_audit_log ADD CONSTRAINT space_audit_log_target_kind_check
-    CHECK (target_kind IN ('member', 'role', 'channel', 'calendar', 'space', 'licence'));
 DROP VIEW IF EXISTS space_role_holdings;
 DROP TABLE IF EXISTS space_group_roles;
 DROP TABLE IF EXISTS space_group_members;

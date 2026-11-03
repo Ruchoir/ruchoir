@@ -96,6 +96,14 @@ async fn a_group_lives_and_dies_with_its_space() {
     )
     .await;
     assert!(twice.is_err(), "citext unique name");
+    // A name of blanks is no name.
+    let blank = exec(
+        &app.db,
+        "INSERT INTO space_groups (space_id, name) VALUES ($1, '   ')",
+        vec![space.into()],
+    )
+    .await;
+    assert!(blank.is_err(), "whitespace-only name");
     // A description is capped at 280 characters.
     let long = exec(
         &app.db,
@@ -241,6 +249,13 @@ async fn holdings_list_direct_and_group_roles() {
         .await
         .expect("role");
 
+    // The same role held directly and through a group is two rows: the view does not deduplicate.
+    let both = make_role(&app.db, space, "Both", 20, &["files.manage"]).await;
+    assign(&app.db, space, member, both).await;
+    give_role_to_group(&app.db, group, space, both)
+        .await
+        .expect("role");
+
     let rows = app
         .db
         .query_all_raw(Statement::from_sql_and_values(
@@ -260,10 +275,14 @@ async fn holdings_list_direct_and_group_roles() {
         })
         .collect();
     seen.sort();
-    let mut expected = vec![(direct, None), (through, Some(group))];
+    // @members is implicit (no assignment row), so it is not a holding.
+    let mut expected = vec![
+        (direct, None),
+        (through, Some(group)),
+        (both, None),
+        (both, Some(group)),
+    ];
     expected.sort();
-    // The member's standing role (@members, derived by the database) is a direct holding too.
-    seen.retain(|(role, _)| *role == direct || *role == through);
     assert_eq!(seen, expected);
 }
 
@@ -306,6 +325,18 @@ async fn the_audit_and_mention_checks_accept_group() {
             )
         })
         .collect();
+    assert_eq!(
+        defs.iter()
+            .filter(|(_, d)| d.contains("mention_type"))
+            .count(),
+        1
+    );
+    assert_eq!(
+        defs.iter()
+            .filter(|(_, d)| d.contains("target_kind"))
+            .count(),
+        1
+    );
     let mention = defs
         .iter()
         .find(|(_, d)| d.contains("mention_type"))
@@ -320,7 +351,8 @@ async fn the_audit_and_mention_checks_accept_group() {
     assert_eq!(audit.0, "space_audit_log_target_kind_check");
 }
 
-/// `down` then `up` on a database of its own: the checks narrow again, then widen, no leftovers.
+/// `down` then `up` on a database of its own, with data: a mention of a group becomes a mention
+/// of a person, the audit log is never touched, and the groups come back as they were.
 #[tokio::test]
 async fn the_groups_migration_round_trips() {
     let Some(scratch) = ScratchDb::create().await else {
@@ -328,26 +360,66 @@ async fn the_groups_migration_round_trips() {
     };
     let db = &scratch.db;
     let tables = "SELECT count(*) AS n FROM information_schema.tables WHERE table_name IN ('space_groups', 'space_group_members', 'space_group_roles', 'space_role_holdings')";
+    let wide = "SELECT count(*) AS n FROM pg_constraint WHERE contype = 'c' AND pg_get_constraintdef(oid) LIKE '%''group''%'";
     assert_eq!(count(db, tables, vec![]).await, 4);
+    assert_eq!(count(db, wide, vec![]).await, 2);
+
+    let owner = make_user(db, "owner").await;
+    let space = crate::testkit::make_space(db, owner, "Trip").await;
+    let message = Uuid::new_v4();
+    exec(
+        db,
+        "INSERT INTO messages (id, conversation_id, author_id) \
+         SELECT $1, id, $2 FROM conversations LIMIT 1",
+        vec![message.into(), owner.into()],
+    )
+    .await
+    .expect("message");
+    exec(
+        db,
+        "INSERT INTO message_mentions (message_id, mentioned_user_id, mention_type) VALUES ($1, $2, 'group')",
+        vec![message.into(), owner.into()],
+    )
+    .await
+    .expect("group mention");
+    exec(
+        db,
+        "INSERT INTO space_audit_log (space_id, actor_id, action, target_kind) VALUES ($1, $2, 'group.create', 'group')",
+        vec![space.into(), owner.into()],
+    )
+    .await
+    .expect("group audit");
 
     Migrator::down(db, Some(1)).await.expect("down");
     assert_eq!(count(db, tables, vec![]).await, 0);
-    let wide = count(
-        db,
-        "SELECT count(*) AS n FROM pg_constraint WHERE contype = 'c' AND pg_get_constraintdef(oid) LIKE '%''group''%'",
-        vec![],
-    )
-    .await;
-    assert_eq!(wide, 0, "the previous checks are back");
+    assert_eq!(
+        count(
+            db,
+            "SELECT count(*) AS n FROM message_mentions WHERE message_id = $1 AND mention_type = 'user'",
+            vec![message.into()],
+        )
+        .await,
+        1,
+        "the mention stays, by name"
+    );
+    assert_eq!(
+        count(
+            db,
+            "SELECT count(*) AS n FROM space_audit_log WHERE space_id = $1 AND action = 'group.create' AND target_kind = 'group'",
+            vec![space.into()],
+        )
+        .await,
+        1,
+        "the audit entry is untouched"
+    );
+    assert_eq!(
+        count(db, wide, vec![]).await,
+        1,
+        "only the audit check stays wide; mentions are narrow again"
+    );
 
     Migrator::up(db, None).await.expect("up again");
     assert_eq!(count(db, tables, vec![]).await, 4);
-    let wide = count(
-        db,
-        "SELECT count(*) AS n FROM pg_constraint WHERE contype = 'c' AND pg_get_constraintdef(oid) LIKE '%''group''%'",
-        vec![],
-    )
-    .await;
-    assert_eq!(wide, 2);
+    assert_eq!(count(db, wide, vec![]).await, 2);
     scratch.drop_it().await;
 }
