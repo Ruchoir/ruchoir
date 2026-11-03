@@ -8,13 +8,13 @@
 //! windows and downloads.
 
 use std::collections::HashSet;
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 use std::time::{Instant, SystemTime};
 
 use ruchoir_desktop_core::files::{
-    forget_instance_copies, hash_bytes, is_file_bytes_path, local_path, multipart_file, open_root,
-    own_path, step, sweep_old_copies, window_label, window_title, Seen, Watched, Watches, LIFETIME,
-    POLL,
+    forget_instance_copies, hash_bytes, is_executable_type, is_file_bytes_path, is_link_to_file,
+    local_path, multipart_file, open_root, own_path, step, sweep_old_copies, window_label,
+    window_title, Seen, Watched, Watches, LIFETIME, POLL,
 };
 use ruchoir_desktop_core::proxy;
 use serde::Serialize;
@@ -105,7 +105,8 @@ impl Watcher {
     fn is_sending(&self, instance: &str, file_id: &str) -> bool {
         self.sending
             .lock()
-            .is_ok_and(|s| s.contains(&(instance.to_owned(), file_id.to_owned())))
+            .unwrap_or_else(PoisonError::into_inner)
+            .contains(&(instance.to_owned(), file_id.to_owned()))
     }
 }
 
@@ -118,16 +119,22 @@ struct Sending<'a> {
 impl<'a> Sending<'a> {
     fn take(watcher: &'a Watcher, instance: &str, file_id: &str) -> Option<Self> {
         let key = (instance.to_owned(), file_id.to_owned());
-        let first = watcher.sending.lock().ok()?.insert(key.clone());
+        let first = watcher
+            .sending
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(key.clone());
         first.then_some(Self { watcher, key })
     }
 }
 
 impl Drop for Sending<'_> {
     fn drop(&mut self) {
-        if let Ok(mut s) = self.watcher.sending.lock() {
-            s.remove(&self.key);
-        }
+        self.watcher
+            .sending
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(&self.key);
     }
 }
 
@@ -143,7 +150,7 @@ fn open_folder<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, Str
 
 /// Download a file to the cache, open it with the computer's app and, when `base_version` is given
 /// (the person may add a version), watch it for saves. The copy is replaced at each opening.
-/// Errors: `refused` (a link or id that is not the app's own), `signed_out`, `unreachable`,
+/// Errors: `unsafe_type` (a file the system would run), `refused` (a link that is not this file's bytes on this instance, or a bad id), `signed_out`, `unreachable`,
 /// `no_app` (nothing on the computer opens it), `failed`.
 #[tauri::command]
 pub async fn file_open_local<R: Runtime>(
@@ -154,37 +161,67 @@ pub async fn file_open_local<R: Runtime>(
     href: String,
     base_version: Option<String>,
 ) -> Result<(), String> {
-    let path = local_path(&open_folder(&app)?, &instance, &file_id, &name).ok_or("refused")?;
+    if is_executable_type(&name) {
+        return Err("unsafe_type".into());
+    }
+    let root = open_folder(&app)?;
+    let path = local_path(&root, &instance, &file_id, &name).ok_or("refused")?;
+    // The bytes, the instance they come from and the file the copy is later sent to must agree.
+    let own = own_path(&href, crate::APP_SCHEME).ok_or("refused")?;
+    let on_screen = app.state::<Desktop>().view().id;
+    if !is_link_to_file(&own, on_screen.as_deref(), &instance, &file_id) {
+        return Err("refused".into());
+    }
     let bytes = crate::downloads::fetch(&app, &href).await?;
-    let folder = path.parent().ok_or("failed")?;
-    tokio::fs::create_dir_all(folder)
-        .await
-        .map_err(|_| "failed")?;
-    tokio::fs::write(&path, &bytes)
-        .await
-        .map_err(|_| "failed")?;
-    let mtime = tokio::fs::metadata(&path)
-        .await
-        .ok()
-        .and_then(|m| m.modified().ok());
-    app.opener()
-        .open_path(path.to_string_lossy(), None::<&str>)
-        .map_err(|_| "no_app".to_owned())?;
+    let watcher = app.state::<Watcher>();
+    // The watch first, with the new content's hash: rewriting the copy under an older watch would
+    // let the poller read the new bytes as the person's edit.
+    let watching = base_version.is_some();
     if let Some(base_version) = base_version {
         let watched = Watched {
-            instance,
-            file_id,
+            instance: instance.clone(),
+            file_id: file_id.clone(),
             name,
-            path,
+            path: path.clone(),
             base_version,
             hash: hash_bytes(&bytes),
-            mtime,
+            mtime: None,
             since: Instant::now(),
             settling: None,
         };
-        if let Ok(mut list) = app.state::<Watcher>().watches.lock() {
-            list.insert(watched);
+        let evicted = watcher
+            .watches
+            .lock()
+            .map_err(|_| "failed")?
+            .insert(watched);
+        // A copy no longer watched is not kept around.
+        if let Some(parent) = evicted.as_ref().and_then(|e| e.path.parent()) {
+            if parent.starts_with(&root) {
+                let _ = std::fs::remove_dir_all(parent);
+            }
         }
+    }
+    let stop = |app: &AppHandle<R>| {
+        if watching {
+            if let Ok(mut list) = app.state::<Watcher>().watches.lock() {
+                list.remove(&instance, &file_id);
+            }
+        }
+    };
+    let folder = path.parent().ok_or("failed")?;
+    if tokio::fs::create_dir_all(folder).await.is_err()
+        || tokio::fs::write(&path, &bytes).await.is_err()
+    {
+        stop(&app);
+        return Err("failed".into());
+    }
+    if app
+        .opener()
+        .open_path(path.to_string_lossy(), None::<&str>)
+        .is_err()
+    {
+        stop(&app);
+        return Err("no_app".into());
     }
     Ok(())
 }
@@ -244,14 +281,22 @@ pub async fn file_send_version<R: Runtime>(
                 if let Some(w) = list.find(&instance, &file_id) {
                     w.mark_sent(hash);
                     // A save made while this one was going up stays offered.
-                    if w.settling.is_none() {
+                    // or one the poller has not seen yet (the file's time moved since it looked).
+                    let moved =
+                        std::fs::metadata(&w.path).and_then(|m| m.modified()).ok() != w.mtime;
+                    if w.settling.is_none() && !moved {
                         list.remove(&instance, &file_id);
                     }
                 }
             }
             Ok(())
         }
-        401 => Err("signed_out".into()),
+        401 => {
+            // The session is over: the rest of the app learns it as it does from any 401.
+            crate::notify::signed_out(&app, &instance);
+            Err("signed_out".into())
+        }
+        413 => Err("too_large".into()),
         502 => Err("unreachable".into()),
         _ => Err("failed".into()),
     }
@@ -286,9 +331,27 @@ pub fn forget_instance<R: Runtime>(app: &AppHandle<R>, instance: &str) {
             list.forget_instance(instance);
         }
     }
+    crate::notify::forget_saves(app, instance);
     if let Ok(root) = open_folder(app) {
         forget_instance_copies(&root, instance);
     }
+}
+
+/// The offer for a file that is still watched, or `None`.
+pub fn current_save<R: Runtime>(
+    app: &AppHandle<R>,
+    instance: &str,
+    file_id: &str,
+) -> Option<Saved> {
+    let watcher = app.state::<Watcher>();
+    let mut list = watcher.watches.lock().ok()?;
+    let w = list.find(instance, file_id)?;
+    Some(Saved {
+        instance: w.instance.clone(),
+        file_id: w.file_id.clone(),
+        name: w.name.clone(),
+        base_version: w.base_version.clone(),
+    })
 }
 
 /// Start the watching task and clear the copies left by earlier runs. Called once, in `setup`.
@@ -346,12 +409,17 @@ async fn round<R: Runtime>(app: &AppHandle<R>) {
                 continue;
             };
             match step(w, now, observed) {
-                Seen::Saved(_) => Some(Saved {
-                    instance: w.instance.clone(),
-                    file_id: w.file_id.clone(),
-                    name: w.name.clone(),
-                    base_version: w.base_version.clone(),
-                }),
+                Seen::Saved(_) => {
+                    let saved = Saved {
+                        instance: w.instance.clone(),
+                        file_id: w.file_id.clone(),
+                        name: w.name.clone(),
+                        base_version: w.base_version.clone(),
+                    };
+                    // Emitted while the watch is known to exist (the lock is held).
+                    emit_saved(app, &saved);
+                    Some(saved)
+                }
                 Seen::Expired => {
                     list.remove(&instance, &file_id);
                     None
@@ -360,8 +428,10 @@ async fn round<R: Runtime>(app: &AppHandle<R>) {
             }
         };
         if let Some(saved) = saved {
-            emit_saved(app, &saved);
-            crate::notify::announce_saved(app, &saved);
+            // The notice only if the watch is still there (a sign-out may have come in between).
+            if current_save(app, &saved.instance, &saved.file_id).is_some() {
+                crate::notify::announce_saved(app, &saved);
+            }
         }
     }
 }

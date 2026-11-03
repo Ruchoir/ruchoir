@@ -183,7 +183,8 @@ pub struct Watched {
     pub file_id: String,
     pub name: String,
     pub path: PathBuf,
-    /// The version the copy was made from, sent back so the API can tell if the file moved on.
+    /// The version the copy was made from; the interface compares it with the file's latest version
+    /// to tell whether someone added one since the download.
     pub base_version: String,
     /// The hash of the content last accepted (the downloaded one, then each one sent).
     pub hash: [u8; 32],
@@ -266,6 +267,47 @@ fn settle(w: &mut Watched, hash: [u8; 32], first_seen: Instant, now: Instant) ->
     } else {
         Seen::Settling
     }
+}
+
+/// Whether `path` (path and query) is a link to the bytes of `file_id` on `instance`, the only kind
+/// `file_open_local` accepts, so that the bytes, the instance they come from and the file the copy
+/// is later sent to cannot disagree. `open_instance` is the instance on screen, which a path
+/// without an instance prefix means.
+pub fn is_link_to_file(
+    path: &str,
+    open_instance: Option<&str>,
+    instance: &str,
+    file_id: &str,
+) -> bool {
+    use crate::proxy::{route, Route};
+    let bare = path.split_once('?').map_or(path, |(p, _)| p);
+    let rest = match route(bare) {
+        Route::Api { instance: i, rest } if i == instance => rest,
+        Route::OpenApi(rest) if open_instance == Some(instance) => rest,
+        _ => return false,
+    };
+    let parts: Vec<&str> = rest.split('/').collect();
+    // "", "api", "v1", "files", <id>, <kind>
+    let [_, "api", "v1", "files", id, kind] = parts[..] else {
+        return false;
+    };
+    id == file_id && is_id(id) && matches!(kind, "download" | "preview" | "document")
+}
+
+/// Extensions the system would run rather than show: a file of one of these types is never opened
+/// from the app (it is still saved with "Save as", where the person chooses).
+const EXECUTABLE: &[&str] = &[
+    "exe", "com", "bat", "cmd", "msi", "msp", "scr", "pif", "cpl", "ps1", "psm1", "vbs", "vbe",
+    "js", "jse", "wsf", "wsh", "hta", "jar", "lnk", "url", "reg", "sh", "bash", "zsh", "command",
+    "desktop", "app", "appimage", "run", "deb", "rpm", "pkg", "dmg",
+];
+
+/// Whether the file name ends in an extension that would be executed (case-insensitive; trailing
+/// dots and spaces are ignored, as Windows does).
+pub fn is_executable_type(name: &str) -> bool {
+    let name = name.trim_end_matches(['.', ' ']);
+    name.rsplit_once('.')
+        .is_some_and(|(_, ext)| EXECUTABLE.contains(&ext.to_ascii_lowercase().as_str()))
 }
 
 /// The SHA-256 of a content, as `step` and `mark_sent` compare it.
@@ -800,5 +842,61 @@ mod tests {
             sweep_old_copies(&dir.path().join("none"), SystemTime::now(), day),
             0
         );
+    }
+
+    #[test]
+    fn only_the_files_own_bytes_link_matches() {
+        let id = "0b1f6a52-3c4d-4e5f-8a9b-0c1d2e3f4a5b";
+        let other = "1b1f6a52-3c4d-4e5f-8a9b-0c1d2e3f4a5b";
+        let mine = format!("/i/a1/api/v1/files/{id}/download");
+        assert!(is_link_to_file(&mine, None, "a1", id));
+        assert!(is_link_to_file(&format!("{mine}?x=1"), None, "a1", id));
+        assert!(!is_link_to_file(&mine, None, "b2", id));
+        assert!(!is_link_to_file(&mine, None, "a1", other));
+        let bare = format!("/api/v1/files/{id}/download");
+        assert!(is_link_to_file(&bare, Some("a1"), "a1", id));
+        assert!(!is_link_to_file(&bare, Some("b2"), "a1", id));
+        assert!(!is_link_to_file(&bare, None, "a1", id));
+        assert!(!is_link_to_file(
+            &format!("/api/v1/files/{id}/versions"),
+            Some("a1"),
+            "a1",
+            id
+        ));
+        assert!(!is_link_to_file(
+            &format!("/api/v1/files/{id}/download/x"),
+            Some("a1"),
+            "a1",
+            id
+        ));
+        assert!(!is_link_to_file("/emoji/x", Some("a1"), "a1", id));
+    }
+
+    #[test]
+    fn what_the_system_would_run_is_not_opened() {
+        for n in [
+            "a.exe",
+            "A.EXE",
+            "x.Bat",
+            "run.sh",
+            "a.b.ps1",
+            "setup.msi.",
+            "k.AppImage",
+            "x.desktop",
+            "x.js",
+        ] {
+            assert!(is_executable_type(n), "{n}");
+        }
+        for n in [
+            "a.docx",
+            "photo.png",
+            "exe",
+            "notes.txt",
+            "archive.exe.txt",
+            "js",
+            ".bashrc",
+        ] {
+            assert!(!is_executable_type(n), "{n}");
+        }
     }
 }
