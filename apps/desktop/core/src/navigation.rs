@@ -26,6 +26,16 @@ pub fn navigation(url: &url::Url) -> Navigation {
     }
 }
 
+/// Like `navigation`, with the origins the app has agreed to frame (`https://host[:port]`, compared
+/// exactly: no suffix, no wildcard). A navigation to one of them stays, which is how the office
+/// editor's frame loads; anything else is decided by `navigation`.
+pub fn navigation_allowing(url: &url::Url, frames: &[String]) -> Navigation {
+    if url.scheme() == "https" && frames.iter().any(|o| *o == url.origin().ascii_serialization()) {
+        return Navigation::Stay;
+    }
+    navigation(url)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -65,5 +75,25 @@ mod tests {
         assert_eq!(at("file:///etc/passwd"), Navigation::Refuse);
         assert_eq!(at("javascript:alert(1)"), Navigation::Refuse);
         assert_eq!(at("ruchoir://auth?code=x"), Navigation::Refuse);
+    }
+
+    #[test]
+    fn an_allowed_frame_origin_stays() {
+        let frames = vec!["https://office-ruchoir-dev.theovilain.fr".to_owned()];
+        let at = |u: &str| navigation_allowing(&url::Url::parse(u).unwrap(), &frames);
+        assert_eq!(at("https://office-ruchoir-dev.theovilain.fr/hosting/wopi/word/edit?x=1"), Navigation::Stay);
+        assert_eq!(at("https://office-ruchoir-dev.theovilain.fr.evil.org/"), Navigation::OpenOutside);
+        assert_eq!(at("https://evil.org/?https://office-ruchoir-dev.theovilain.fr"), Navigation::OpenOutside);
+        assert_eq!(at("https://example.org/"), Navigation::OpenOutside);
+        assert_eq!(at("http://office-ruchoir-dev.theovilain.fr/"), Navigation::OpenOutside);
+        assert_eq!(at("https://office-ruchoir-dev.theovilain.fr:8443/"), Navigation::OpenOutside);
+    }
+
+    #[test]
+    fn no_allowed_origin_behaves_like_navigation() {
+        for u in ["https://example.org/", "ruchoir-app://localhost/", "file:///etc/passwd"] {
+            let url = url::Url::parse(u).unwrap();
+            assert_eq!(navigation_allowing(&url, &[]), navigation(&url));
+        }
     }
 }

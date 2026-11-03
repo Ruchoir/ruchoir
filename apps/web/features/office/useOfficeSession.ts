@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { endOfficeHeartbeat, getConvertedCopy, officeHeartbeat, openOfficeSession } from "@/lib/data/api";
 import { isApiError } from "@/lib/data/http";
 import type { FileEditor, OfficeSession, SpaceFile } from "@/lib/data/types";
+import { isDesktop } from "@/lib/desktop/runtime";
 import { onFileEvent } from "@/lib/fileEvents";
 import { officeAccent, officeTheme, touchScreen } from "./officeTheme";
 
@@ -69,7 +70,13 @@ export function useOfficeSession(
   useEffect(() => {
     let cancelled = false;
     openOfficeSession(fileId, { theme: officeTheme(), accent: officeAccent(), mode: convert ? "convert" : undefined, mobile: touchScreen() })
-      .then((session) => {
+      .then(async (session) => {
+        // The desktop's window only lets a frame load from an origin it was told about (WebKit
+        // routes frame navigations through the window's rules): tell it before the frame exists.
+        if (isDesktop) {
+          const { allowFrameOrigin } = await import("@/lib/desktop/bridge");
+          await allowFrameOrigin(new URL(session.url).origin);
+        }
         if (!cancelled) setState({ status: "ready", session, editors: session.file.editors ?? [] });
       })
       .catch((err) => {

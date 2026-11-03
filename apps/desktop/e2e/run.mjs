@@ -7,7 +7,7 @@
 // Environment: RUCHOIR_DESKTOP_BIN (the built app), E2E_INSTANCE (https origin of a test instance),
 // E2E_EMAIL and E2E_PASSWORD (an account there without a second factor), E2E_OTHER_EMAIL (a second
 // account with the same password), E2E_SPACE and E2E_CHANNEL (a channel both belong to),
-// E2E_OPENED_FILE, and optionally E2E_SHOTS_DIR (PNGs for people to read), E2E_OFFICE=1 (the office editor step), E2E_SCREENSHOT (a PNG of the window at the end). With E2E_INSTANCE_2,
+// E2E_OPENED_FILE, and optionally E2E_SHOTS_DIR (PNGs for people to read), E2E_SCREENSHOT (a PNG of the window at the end). With E2E_INSTANCE_2,
 // E2E_EMAIL_2 and E2E_PASSWORD_2 (an account on a second instance), it also adds that instance, signs
 // in to it, checks the rail heads both instances' spaces, and opens a space of the first from it. The live message comes from the second account: the interface leaves out its own
 // person's messages arriving live, which it has already drawn when sending them.
@@ -239,6 +239,9 @@ async function main() {
     const path = `/e/${SPACE}/c/${CHANNEL}`;
     await run("location.assign(arguments[0]);", [path]);
     await until("the shared channel to open", () => run("return location.pathname === arguments[0];", [path]), 30000);
+    // The first-steps card would sit over the screenshots; dismiss it through the interface.
+    await sleep(1500);
+    await clickText("Ne plus afficher");
 
     // 6. A message posted by someone else arrives without a reload: the relay works.
     const other = await webSession(OTHER);
@@ -394,9 +397,12 @@ async function main() {
     await frameShot("viewer-pdf");
     console.log(`ok: dropped file attached, viewer frame shown (${JSON.stringify(frame)})`);
 
-    // The office editor (opt-in: E2E_OFFICE=1, while the window's navigation rules send the engine's
-    // frame to the system browser, so the check fails; see docs/desktop.md).
+    // Opt-in (E2E_OFFICE=1) until the API lets the desktop's own origins frame the engine: it sends
+    // `frame-ancestors 'self' <instance origin>` (`office/proxy.rs`, `frame_for`), and the window's
+    // page is `ruchoir-app://localhost`, so the engine's page loads and is then refused.
     if (process.env.E2E_OFFICE) {
+      // The office editor: the engine's host is a frame of the interface, which the window must let load
+      // (WebKit hands a frame's navigation to the window's rules), and which must not go to the browser.
       // The office side: a .docx put in the files list, then opened in the editor, whose toolbar must appear in the engine's frame.
       await run("document.querySelector('.wc-viewer button[aria-label=\"Fermer\"]')?.click();");
       await until("the viewer to close", () => run("return !document.querySelector('.wc-viewer');"));
@@ -441,6 +447,7 @@ async function main() {
       }
       console.log(`ok: .docx opened in the editor (${editorFrame}, frame ${editorSrc}), toolbar shown`);
       await frameShot("editor-docx");
+      if (readFileSync(OPENED, "utf8").includes("office")) throw new Error("the editor's address was handed to the system browser");
       await run("document.querySelector('.wc-office button[aria-label=\"Fermer\"]')?.click();");
       await until("the editor to close", () => run("return !document.querySelector('.wc-office');"), 20000);
     }

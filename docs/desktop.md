@@ -120,10 +120,12 @@ viewer's frame (its `contentDocument` is `about:blank`, the built-in viewer is n
 is why the e2e listens for CSP violations instead. `E2E_SHOTS_DIR=<dir>` makes the run save PNGs of the
 PDF viewer and of the channel with its two attachments; `GDK_SCALE=2` gives sharper ones.
 
-Known gap, behind `E2E_OFFICE=1` (off by default, it fails today): opening a .docx in the office editor.
-The editor's frame is posted to the engine's `https:` host, but the window's navigation rules
-(`leave_for`, `core/src/navigation.rs`) send every `https:` navigation, a frame's included, to the system
-browser and refuse it in the window: the frame stays blank and the request never reaches the engine.
+The office editor's frame: WebKit (Linux, macOS) hands a frame's navigation to the window's rules too, so
+the core keeps a short allowlist of framed https origins (`allow_frame_origin`, called by the interface
+with the office host before it mounts the frame). Still open, behind `E2E_OFFICE=1`: the API answers the
+engine's pages with `frame-ancestors 'self' <instance origin>` (`office/proxy.rs`), and the desktop's page
+is `ruchoir-app://localhost`, so the engine's page loads and is then refused. The API must add the
+desktop's origins there.
 
 It posts a message in that channel each run. The app's own log is kept in
 `/tmp/ruchoir-desktop-e2e.log`.
