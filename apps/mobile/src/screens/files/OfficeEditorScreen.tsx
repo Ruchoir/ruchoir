@@ -93,7 +93,7 @@ export function OfficeEditorScreen() {
   const { t } = useTranslation();
   const { c, dark } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { accent } = usePrefs();
+  const { accent, style } = usePrefs();
   const { emit } = useRealtimeActions();
   const [state, setState] = useState<State>({ status: "loading" });
   const [tab] = useState(newTab);
@@ -101,8 +101,8 @@ export function OfficeEditorScreen() {
 
   const open = useCallback(
     (fileId: string, convert: boolean) =>
-      openOfficeSession(fileId, { theme: dark ? "dark" : "light", accent, mode: convert ? "convert" : undefined, mobile: true }),
-    [openOfficeSession, dark, accent],
+      openOfficeSession(fileId, { theme: dark ? "dark" : "light", accent, style, mode: convert ? "convert" : undefined, mobile: true }),
+    [openOfficeSession, dark, accent, style],
   );
 
   // Opened once: a change of theme while editing does not reload the document.

@@ -3,6 +3,9 @@
  * the unread count. The iPhone's widgets do the same in Swift (`targets/widgets`). Free of React
  * Native so Node tests it.
  */
+import { palette, VARIANTS, type Variant } from "../theme/tokens.ts";
+
+const hex = (value: string) => value as `#${string}`;
 
 /** An occurrence as `GET /api/v1/calendar/occurrences` returns it, the fields used here. */
 export type WireEvent = { title: string; location?: string | null; all_day: boolean; start: string; end: string };
@@ -31,7 +34,10 @@ export function unreadTotal(spaces: { unread?: number }[]): number {
   return spaces.reduce((sum, space) => sum + (space.unread ?? 0), 0);
 }
 
-/** The app's palette in a widget: the theme chosen in the app ("violet-dark"), as the mockups ask. */
+/**
+ * The app's palette in a widget: the theme chosen in the app ("violet-dark"), as the mockups ask, and
+ * its style: a flat style brings its own page and text colours and its tint instead of the accent.
+ */
 export type WidgetPalette = {
   dark: boolean;
   acc: `#${string}`;
@@ -51,10 +57,17 @@ export type WidgetPalette = {
 
 const PASTELS = { sky: "#8fd0ff", mint: "#6fe0c2", violet: "#c9a8ff", pink: "#f5b0f0", peach: "#ffb3ba", sun: "#ffd84d" } as const;
 
-/** The palette of `theme` ("mint", "mint-dark"), or of the phone's own day or night without one. */
-export function widgetPalette(theme: string | null, systemDark: boolean): WidgetPalette {
+/**
+ * The palette of `theme` ("mint", "mint-dark"), or of the phone's own day or night without one; in
+ * `style` when the app shares a flat one (an unknown or absent style keeps the accent's colours).
+ */
+export function widgetPalette(theme: string | null, systemDark: boolean, style: string | null = null): WidgetPalette {
   const [accent, night] = (theme ?? "").split("-");
   const dark = theme ? night === "dark" : systemDark;
+  if (VARIANTS.includes(style as Variant)) {
+    const p = palette(style as Variant, "sky", dark);
+    return { dark, ...PASTELS, onPastel: "#15171c", acc: hex(p.acc), surface: hex(p.surface), strong: hex(p.ink), body: hex(p.body), muted: hex(p.muted), line: hex(p.lineStrong) };
+  }
   const acc = PASTELS[(accent in PASTELS ? accent : "sky") as keyof typeof PASTELS];
   return {
     dark,
