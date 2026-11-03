@@ -40,6 +40,11 @@ pub enum ApiError {
     /// where to buy more. Only an edition that sells seats ever answers it; guests can still come
     /// in, and nobody already there loses anything.
     SeatsFull { seats: u32, pricing_url: String },
+    /// A paid change in a space without a licence: `402 licence_required`, with where to get one.
+    LicenceRequired { pricing_url: String },
+    /// A paid change in a space whose licence has expired: `409 licence_frozen`. What it
+    /// configured keeps applying; it can no longer be changed until a licence is installed.
+    LicenceFrozen,
     /// Any unexpected server-side failure. Never leaks internals to the client.
     Internal,
 }
@@ -72,6 +77,17 @@ impl IntoResponse for ApiError {
             )
                 .into_response();
         }
+        if let ApiError::LicenceRequired { pricing_url } = &self {
+            return (
+                StatusCode::PAYMENT_REQUIRED,
+                Json(serde_json::json!({
+                    "error": "licence_required",
+                    "message": "This needs the space to hold a licence.",
+                    "pricing_url": pricing_url,
+                })),
+            )
+                .into_response();
+        }
         if let ApiError::SeatsFull { seats, pricing_url } = &self {
             return (
                 StatusCode::PAYMENT_REQUIRED,
@@ -96,12 +112,20 @@ impl IntoResponse for ApiError {
                 (StatusCode::BAD_REQUEST, "bad_request", message.as_str())
             }
             ApiError::Conflict(message) => (StatusCode::CONFLICT, "conflict", *message),
+            ApiError::LicenceFrozen => (
+                StatusCode::CONFLICT,
+                "licence_frozen",
+                "This space's licence has expired: what it configured keeps applying, and can no longer be changed.",
+            ),
             ApiError::Unauthorized => (
                 StatusCode::UNAUTHORIZED,
                 "unauthorized",
                 "Authentication required.",
             ),
-            ApiError::Internal | ApiError::SeatsFull { .. } | ApiError::ForbiddenBecause(_) => (
+            ApiError::Internal
+            | ApiError::SeatsFull { .. }
+            | ApiError::ForbiddenBecause(_)
+            | ApiError::LicenceRequired { .. } => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal_error",
                 "An unexpected error occurred.",

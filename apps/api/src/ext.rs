@@ -18,6 +18,8 @@ pub use crate::auth::extract::AuthSession;
 pub use crate::auth::mail_text::{notice, Email, Locale, Notice};
 /// `403` unless the caller owns the space.
 pub use crate::messaging::authz::ensure_space_owner;
+/// The gate of every paid write: `402 licence_required`, `409 licence_frozen`, or through.
+pub use crate::messaging::edition_view::ensure_paid;
 /// The API's error responses (`403`, `404`, ...).
 pub use crate::messaging::error::ApiError;
 /// Tell a space's members that what they may do there changed, so their apps ask again.
