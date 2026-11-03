@@ -57,6 +57,20 @@ pub async fn ensure_a_seat(state: &AppState, space_id: Uuid) -> Result<(), ApiEr
     }
 }
 
+/// The gate of every paid write (custom roles, their order, the base roles' rights, fine rules):
+/// `402 licence_required` in a space without a licence, `409 licence_frozen` in one whose licence
+/// expired, nothing in a licensed one. Reads are never gated: what a space configured keeps showing
+/// and applying whatever happens to its licence.
+pub async fn ensure_paid(state: &AppState, space_id: Uuid) -> Result<(), ApiError> {
+    match state.edition.entitlement(&state.db, space_id).await? {
+        Entitlement::Enterprise { .. } => Ok(()),
+        Entitlement::Frozen { .. } => Err(ApiError::LicenceFrozen),
+        Entitlement::Community => Err(ApiError::LicenceRequired {
+            pricing_url: state.config.pricing_url.clone(),
+        }),
+    }
+}
+
 /// Whether someone joining with today's `role` takes a seat: everyone but a guest.
 pub fn takes_a_seat(role: &str) -> bool {
     role != "guest"

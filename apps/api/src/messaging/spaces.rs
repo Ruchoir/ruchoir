@@ -556,7 +556,9 @@ pub async fn update_member_role(
         .one(&state.db)
         .await?
         .ok_or(ApiError::Forbidden)?;
-    let actor_rank = super::authz::role_rank(&actor.role);
+    let actor_rank = crate::permissions::delegation::rank_of(&state.db, space_id, session.user_id)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
     // Acting on one's own membership is caught by the rank rule below (nobody ranks below
     // themselves), but it is worth refusing by name: it is the one case a client could reach by
     // accident rather than by trying.
@@ -582,15 +584,25 @@ pub async fn update_member_role(
         return Ok(Json(Vec::new()));
     }
 
+    // The delegation rules (`permissions::delegation`): the person strictly below the actor (rule
+    // 3), the role given strictly below the actor too (rule 1), and only an owner hands the space
+    // over (rule 4).
     let transfer = wanted == "owner";
-    let allowed = super::authz::role_rank(&target.role) < actor_rank
-        && if transfer {
-            actor.role == "owner"
-        } else {
-            super::authz::role_rank(&wanted) < actor_rank
-        };
-    if !allowed {
-        return Err(ApiError::Forbidden);
+    let target_rank = crate::permissions::delegation::rank_of(&state.db, space_id, user_id)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    if !actor_rank.outranks(target_rank) {
+        return Err(ApiError::ForbiddenBecause("person_above_you"));
+    }
+    let role_allowed = if transfer {
+        actor_rank == crate::permissions::delegation::Rank::Owner
+    } else {
+        crate::permissions::delegation::fixed_role_position(&state.db, space_id, &wanted)
+            .await?
+            .is_some_and(|position| actor_rank.outranks_position(position))
+    };
+    if !role_allowed {
+        return Err(ApiError::ForbiddenBecause("role_above_you"));
     }
     // A guest made a member (or an administrator, or an owner) takes a seat they did not hold.
     if !super::edition_view::takes_a_seat(&target.role)
@@ -845,11 +857,11 @@ pub async fn remove_member(
     session: AuthSession,
     Path((space_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
-    let actor = space_members::Entity::find_by_id((space_id, session.user_id))
+    // Not in the space: refused as anyone else would be.
+    space_members::Entity::find_by_id((space_id, session.user_id))
         .one(&state.db)
         .await?
         .ok_or(ApiError::Forbidden)?;
-    let actor_rank = super::authz::role_rank(&actor.role);
     if user_id == session.user_id {
         return Err(ApiError::Forbidden);
     }
@@ -865,9 +877,9 @@ pub async fn remove_member(
         .one(&state.db)
         .await?
         .ok_or(ApiError::NotFound)?;
-    if super::authz::role_rank(&target.role) >= actor_rank {
-        return Err(ApiError::Forbidden);
-    }
+    // Rule 3 of the delegation rules: only someone strictly below the actor is shown the door.
+    crate::permissions::delegation::ensure_acts_on(&state.db, space_id, session.user_id, user_id)
+        .await?;
 
     // Read while they are still on the roster: it is who the departure is announced to, and the
     // person leaving has to be in it to be told the space is no longer theirs.

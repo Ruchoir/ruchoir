@@ -32,6 +32,21 @@ context and takes precedence here.
   `dm_conversations`, `messages` and their satellites (reactions, mentions, link previews,
   attachments, pins, saved, read cursors), and `files`/`file_versions`/`file_shares`. Relations are
   added when query code needs them.
+- `src/permissions/delegation.rs` - **the four delegation rules, for every caller** (design
+  section 3): a rank is the position of one's highest role (an owner above every position, never
+  above another owner); managing a role needs `roles.manage` and the role strictly below one's rank
+  (`ensure_manages_role`); composing a role or a rule needs every changed permission held
+  (`ensure_composes`); acting on a person needs to outrank them (`ensure_acts_on`). Handing out a
+  role placed below one's own needs only the first rule, whatever the role holds (Théo's choice,
+  Discord's rule). A refusal is a `403` whose `reason` says which rule (`error` stays `forbidden`).
+  Administrator is always granted and taken through the legacy `role` column (`admin` /
+  `member`), whose trigger derives the assignment; custom roles are assignment rows.
+- `src/permissions/roles.rs` - `GET /api/v1/spaces/{space_id}/roles` (for `members.view`), the
+  member list's `role_ids` and `manageable` (`MemberRoles`, per caller, never broadcast), and the
+  rules a custom role's name and colour follow (system names reserved in every language).
+- **Paid writes** go through `messaging::edition_view::ensure_paid` (re-exported by `ext`):
+  `402 licence_required` without a licence, `409 licence_frozen` once it expired. Reads are never
+  gated.
 - `src/audit/` - a space's audit log (design section 6): `record` writes an entry (`Action` on a
   `Target`, ids and role or permission names before and after, never a person's name or content),
   inside the caller's transaction; `read` serves `GET /api/v1/spaces/{space_id}/audit` to whoever

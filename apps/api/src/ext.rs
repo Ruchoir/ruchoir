@@ -18,7 +18,23 @@ pub use crate::auth::extract::AuthSession;
 pub use crate::auth::mail_text::{notice, Email, Locale, Notice};
 /// `403` unless the caller owns the space.
 pub use crate::messaging::authz::ensure_space_owner;
+/// The gate of every paid write: `402 licence_required`, `409 licence_frozen`, or through.
+pub use crate::messaging::edition_view::ensure_paid;
 /// The API's error responses (`403`, `404`, ...).
 pub use crate::messaging::error::ApiError;
+/// The permission catalogue (names, sets), what a guest can never hold, and what someone may do
+/// space-wide.
+pub use crate::permissions::catalogue::{Permission, PermissionSet};
 /// Tell a space's members that what they may do there changed, so their apps ask again.
 pub use crate::permissions::changed::announce;
+pub use crate::permissions::check::space_rights;
+/// The delegation rules every write of rights goes through: ranks, rule 1 ([`ensure_manages_role`]),
+/// rule 2 ([`ensure_composes`]), rule 3 ([`ensure_acts_on`]).
+pub use crate::permissions::delegation::{
+    ensure_acts_on, ensure_composes, ensure_manages_role, fixed_role_position, rank_of, role, Rank,
+    RoleRow,
+};
+/// A role as the API shows it ([`roles_of`] lists a space's for a viewer), the names and colours a
+/// custom role may take.
+pub use crate::permissions::roles::{roles_of, validate_role_name, RoleDto, ROLE_COLOURS};
+pub use crate::permissions::system_roles::GUEST_CEILING;

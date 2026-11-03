@@ -503,3 +503,93 @@ async fn turning_a_guest_into_a_member_of_a_full_space_is_refused() {
     assert_eq!(raised.status(), 200);
     assert_eq!(role_of(&app.db, space, member).await, "admin");
 }
+
+/// An edition with a fixed entitlement for every space and one paid route behind the core's gate.
+struct GatedEdition(Entitlement);
+
+#[async_trait::async_trait]
+impl Edition for GatedEdition {
+    fn name(&self) -> &'static str {
+        "gated"
+    }
+
+    async fn entitlement(
+        &self,
+        _db: &DatabaseConnection,
+        _space_id: Uuid,
+    ) -> Result<Entitlement, sea_orm::DbErr> {
+        Ok(self.0)
+    }
+
+    async fn seat_check(
+        &self,
+        _db: &DatabaseConnection,
+        _space_id: Uuid,
+    ) -> Result<SeatCheck, sea_orm::DbErr> {
+        Ok(SeatCheck::Allowed)
+    }
+
+    fn routes(&self) -> Router<AppState> {
+        use axum::extract::{Path, State};
+        Router::new().route(
+            "/api/v1/spaces/{space_id}/paid-probe",
+            axum::routing::post(
+                |State(state): State<AppState>, Path(space_id): Path<Uuid>| async move {
+                    crate::ext::ensure_paid(&state, space_id).await?;
+                    Ok::<_, crate::ext::ApiError>("written")
+                },
+            ),
+        )
+    }
+
+    fn features(&self) -> &'static [&'static str] {
+        &[]
+    }
+
+    fn background(&self, _state: AppState) {}
+}
+
+#[tokio::test]
+async fn a_paid_write_needs_a_licence() {
+    for (entitlement, status, error) in [
+        (Entitlement::Community, 402, Some("licence_required")),
+        (
+            Entitlement::Frozen {
+                seats: 25,
+                expired_at: time::macros::datetime!(2026-01-01 0:00 UTC),
+            },
+            409,
+            Some("licence_frozen"),
+        ),
+        (
+            Entitlement::Enterprise {
+                seats: 25,
+                valid_until: END_OF_2027,
+            },
+            200,
+            None,
+        ),
+    ] {
+        let Some(app) = boot_as(Arc::new(GatedEdition(entitlement)), None, |_| {}).await else {
+            return;
+        };
+        let response = app
+            .http
+            .post(format!(
+                "{}/api/v1/spaces/{}/paid-probe",
+                app.base,
+                Uuid::new_v4()
+            ))
+            .send()
+            .await
+            .expect("probe");
+        assert_eq!(response.status(), status, "{entitlement:?}");
+        if let Some(error) = error {
+            let body: Value = response.json().await.expect("json");
+            assert_eq!(body["error"], error);
+            if error == "licence_required" {
+                assert_eq!(body["pricing_url"], app.config.pricing_url.as_str());
+            }
+        }
+    }
+}

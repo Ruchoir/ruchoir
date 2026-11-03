@@ -229,20 +229,10 @@ pub async fn ensure_permission(
     }
 }
 
-/// The roles a space membership can hold, weakest first. The order is the rule: everything about who
-/// may do what to whom is a comparison of two positions in this list, and the database constrains
-/// `space_members.role` to exactly these four values.
+/// The fixed roles a space membership can hold (`space_members.role`, which the database constrains
+/// to exactly these four values), weakest first. Who may do what to whom is decided by ranks
+/// (`permissions::delegation`), not by comparing these strings.
 pub const SPACE_ROLES: [&str; 4] = ["guest", "member", "admin", "owner"];
-
-/// Where a role sits in [`SPACE_ROLES`]. An unknown string ranks lowest, which is the safe direction:
-/// it can never authorise anything.
-pub fn role_rank(role: &str) -> usize {
-    SPACE_ROLES
-        .iter()
-        .position(|known| *known == role)
-        .map(|index| index + 1)
-        .unwrap_or(0)
-}
 
 /// Whether a string names a role the schema accepts.
 pub fn is_space_role(role: &str) -> bool {
