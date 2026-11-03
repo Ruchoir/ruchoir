@@ -19,12 +19,16 @@ pub const API_VERSION: u32 = 1;
 /// listed, is never removed or reused for something else; an app checks for it before using what it
 /// names, and does without on an instance that does not list it.
 ///
+/// - `account_preferences`: the preferences that follow the account (`GET`/`PATCH
+///   /me/preferences`, `preferences.updated`) and hidden direct conversations (`hidden` on the list,
+///   `PUT /me/dms/{id}/hidden`, `dm.hidden`).
 /// - `native_sessions`: sign-in hands a native app a session token (`session_delivery: "token"`).
 /// - `notification_read`: reading a notification is announced to the person's other devices
 ///   (`notification.read`) and their phones are synced silently (ADR 0006).
 /// - `permissions`: spaces, channels and listed files carry `my_permissions` (what the caller may
 ///   do there, by permission name), and `permissions.changed` says when to ask again.
 pub const FEATURES: &[&str] = &[
+    "account_preferences",
     "native_sessions",
     "notification_read",
     "permissions",

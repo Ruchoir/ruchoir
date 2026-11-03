@@ -61,6 +61,7 @@ older way taken. A name, once listed, is never removed nor reused for something 
 
 | Feature | Since | What |
 |---|---|---|
+| `account_preferences` | unreleased (after v0.4.0) | `GET`/`PATCH /api/v1/me/preferences` and `preferences.updated`: the preferences that follow the account; `hidden` on a direct conversation, `PUT /api/v1/me/dms/{id}/hidden` and `dm.hidden` |
 | `native_sessions` | v0.2.0 | sign-in hands a native app a session token |
 | `notification_read` | v0.3.0 | a read is announced to the person's other devices (`notification.read`) and their phones are synced silently (ADR 0006) |
 | `recent_reactions` | v0.3.0 | `GET /api/v1/me/recent-reactions`: the emoji someone reacted with last, which the quick reactions lead with |

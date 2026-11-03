@@ -185,6 +185,12 @@ impl RealtimeEnvelope {
         Self::global("space.removed", payload)
     }
 
+    /// A person hid one of their direct conversations, or brought it back (`payload`: `dm_id`,
+    /// `hidden`). Delivered to that person's own connections only.
+    pub fn dm_hidden(payload: impl Serialize) -> Self {
+        Self::global("dm.hidden", payload)
+    }
+
     /// Some of a person's account preferences changed (`payload.changes`: the keys and their new
     /// values, `null` for one back to its default). Delivered to that person's own connections only.
     pub fn preferences_updated(payload: impl Serialize) -> Self {

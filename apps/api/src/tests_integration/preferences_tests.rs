@@ -211,3 +211,165 @@ async fn a_change_reaches_only_the_owners_connections() {
     let event = wait_for_type(&mut laptop, "preferences.updated").await;
     assert_eq!(event["payload"]["changes"], json!({ "locale": null }));
 }
+
+// --- Hidden direct conversations ---
+
+async fn open_dm(app: &TestApp, cookie: &str, space_id: Uuid, with: Uuid) -> String {
+    let body: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{space_id}/dm"),
+            cookie,
+        )
+        .json(&json!({ "user_ids": [with] }))
+        .send()
+        .await
+        .expect("dm")
+        .json()
+        .await
+        .expect("json");
+    body["id"].as_str().expect("dm id").to_owned()
+}
+
+async fn set_hidden(app: &TestApp, cookie: &str, dm: &str, hidden: bool) -> reqwest::StatusCode {
+    app.req(
+        reqwest::Method::PUT,
+        &format!("/api/v1/me/dms/{dm}/hidden"),
+        cookie,
+    )
+    .json(&json!({ "hidden": hidden }))
+    .send()
+    .await
+    .expect("hide")
+    .status()
+}
+
+/// Whether `dm` is listed for the caller, and with which `hidden`.
+async fn listed_hidden(app: &TestApp, cookie: &str, space_id: Uuid, dm: &str) -> Option<bool> {
+    let list: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{space_id}/dms"),
+            cookie,
+        )
+        .send()
+        .await
+        .expect("dms")
+        .json()
+        .await
+        .expect("json");
+    list.as_array()
+        .expect("list")
+        .iter()
+        .find(|d| d["id"] == dm)
+        .map(|d| d["hidden"].as_bool().expect("hidden flag"))
+}
+
+#[tokio::test]
+async fn hiding_a_dm_is_reported_on_the_list() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let dm = open_dm(&app, &alice, fx.space_id, fx.bob).await;
+
+    assert_eq!(
+        listed_hidden(&app, &alice, fx.space_id, &dm).await,
+        Some(false)
+    );
+    assert_eq!(set_hidden(&app, &alice, &dm, true).await, 204);
+    assert_eq!(
+        listed_hidden(&app, &alice, fx.space_id, &dm).await,
+        Some(true)
+    );
+    // Hiding is the hider's own: the other side still sees it as usual.
+    assert_eq!(
+        listed_hidden(&app, &bob, fx.space_id, &dm).await,
+        Some(false)
+    );
+    assert_eq!(set_hidden(&app, &alice, &dm, false).await, 204);
+    assert_eq!(
+        listed_hidden(&app, &alice, fx.space_id, &dm).await,
+        Some(false)
+    );
+}
+
+#[tokio::test]
+async fn hiding_reaches_the_owners_other_connections() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let dm = open_dm(&app, &alice, fx.space_id, fx.bob).await;
+    let mut phone = app.connect_ws(&alice).await;
+    let mut bob_ws = app.connect_ws(&bob).await;
+
+    set_hidden(&app, &alice, &dm, true).await;
+    let event = wait_for_type(&mut phone, "dm.hidden").await;
+    assert_eq!(event["payload"], json!({ "dm_id": dm, "hidden": true }));
+    expect_no_event(&mut bob_ws, "dm.hidden").await;
+}
+
+#[tokio::test]
+async fn a_new_message_unhides_for_every_participant() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let dm = open_dm(&app, &alice, fx.space_id, fx.bob).await;
+    set_hidden(&app, &alice, &dm, true).await;
+    set_hidden(&app, &bob, &dm, true).await;
+
+    let sent = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{dm}/messages"),
+            &bob,
+        )
+        .json(&json!({ "body": "still there?" }))
+        .send()
+        .await
+        .expect("send");
+    assert!(sent.status().is_success());
+
+    assert_eq!(
+        listed_hidden(&app, &alice, fx.space_id, &dm).await,
+        Some(false)
+    );
+    assert_eq!(
+        listed_hidden(&app, &bob, fx.space_id, &dm).await,
+        Some(false)
+    );
+}
+
+#[tokio::test]
+async fn reopening_a_hidden_dm_unhides_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let dm = open_dm(&app, &alice, fx.space_id, fx.bob).await;
+    set_hidden(&app, &alice, &dm, true).await;
+
+    // The "new message" picker, choosing Bob again, answers the same conversation...
+    assert_eq!(open_dm(&app, &alice, fx.space_id, fx.bob).await, dm);
+    // ...and brings it back into the caller's list.
+    assert_eq!(
+        listed_hidden(&app, &alice, fx.space_id, &dm).await,
+        Some(false)
+    );
+}
+
+#[tokio::test]
+async fn hiding_someone_elses_dm_is_not_found() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let carol = app.cookie_for(fx.carol).await;
+    let dm = open_dm(&app, &alice, fx.space_id, fx.bob).await;
+
+    assert_eq!(set_hidden(&app, &carol, &dm, true).await, 404);
+    assert_eq!(
+        set_hidden(&app, &carol, &Uuid::new_v4().to_string(), true).await,
+        404
+    );
+}

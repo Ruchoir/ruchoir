@@ -13,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
+use sea_orm::sea_query::Expr;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, DatabaseConnection, DatabaseTransaction, EntityTrait,
@@ -24,8 +25,8 @@ use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
 use crate::entities::{
-    channel_pins, files, message_attachments, message_link_previews, message_mentions,
-    message_reactions, messages, user_saved_messages, users,
+    channel_pins, dm_participants, files, message_attachments, message_link_previews,
+    message_mentions, message_reactions, messages, user_saved_messages, users,
 };
 use crate::realtime::event::RealtimeEnvelope;
 use crate::realtime::presence;
@@ -299,6 +300,16 @@ pub async fn send_message(
     let now = OffsetDateTime::now_utc();
 
     let txn = state.db.begin().await?;
+    // A direct conversation someone hid comes back for everyone in it with a new message, in the
+    // same transaction, so the list a client fetches on `message.created` already shows it.
+    if access.kind == ConversationKind::Direct {
+        dm_participants::Entity::update_many()
+            .col_expr(dm_participants::Column::Hidden, Expr::value(false))
+            .filter(dm_participants::Column::DmId.eq(conversation_id))
+            .filter(dm_participants::Column::Hidden.eq(true))
+            .exec(&txn)
+            .await?;
+    }
     messages::ActiveModel {
         id: Set(message_id),
         conversation_id: Set(conversation_id),
