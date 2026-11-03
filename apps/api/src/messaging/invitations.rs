@@ -574,6 +574,9 @@ pub async fn accept_invitation(
         }
     }
 
+    let (edition, licence) =
+        super::edition_view::describe(&state.db, state.edition.as_ref(), space.id, session.user_id)
+            .await?;
     Ok(Json(SpaceDto {
         id: space.id,
         name: space.name,
@@ -596,6 +599,8 @@ pub async fn accept_invitation(
                 .await?
                 .to_names(),
         ),
+        edition,
+        licence,
     }))
 }
 

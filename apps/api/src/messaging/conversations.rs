@@ -71,6 +71,13 @@ pub async fn list_my_spaces(
             .filter(space_members::Column::SpaceId.eq(space.id))
             .count(&state.db)
             .await? as i64;
+        let (edition, licence) = super::edition_view::describe(
+            &state.db,
+            state.edition.as_ref(),
+            space.id,
+            session.user_id,
+        )
+        .await?;
         out.push(SpaceDto {
             id: space.id,
             name: space.name,
@@ -93,6 +100,8 @@ pub async fn list_my_spaces(
                     .await?
                     .to_names(),
             ),
+            edition,
+            licence,
         });
     }
     out.sort_by_key(|space| space.name.to_lowercase());

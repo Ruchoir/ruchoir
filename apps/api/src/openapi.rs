@@ -261,6 +261,7 @@ use utoipa::OpenApi;
         crate::messaging::dto::MessagePage,
         crate::messaging::dto::ChangesDto,
         crate::messaging::dto::SpaceDto,
+        crate::messaging::dto::SpaceLicenceDto,
         crate::messaging::dto::NotificationDto,
         crate::messaging::dto::NotificationPage,
         crate::notify::prefs::NotificationPrefs,

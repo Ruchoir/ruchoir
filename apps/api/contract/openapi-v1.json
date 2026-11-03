@@ -4385,6 +4385,10 @@
               "null"
             ]
           },
+          "edition": {
+            "description": "The edition this space runs: `community`, `enterprise` (a valid licence) or `frozen` (its\nlicence expired: what it configured keeps applying, nothing paid can be changed). Always\n`community` on a community build, whatever the database holds.",
+            "type": "string"
+          },
           "icon_url": {
             "description": "Same-origin URL of the uploaded icon; absent means the generated mark.",
             "type": [
@@ -4395,6 +4399,17 @@
           "id": {
             "format": "uuid",
             "type": "string"
+          },
+          "licence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SpaceLicenceDto",
+                "description": "The space's licence, for its owners alone, when it has one (`enterprise` or `frozen`)."
+              }
+            ]
           },
           "members": {
             "description": "Total members in the space (drives the workspace member count in the UI).",
@@ -4444,7 +4459,41 @@
           "members",
           "unread",
           "mentions",
-          "notify_level"
+          "notify_level",
+          "edition"
+        ],
+        "type": "object"
+      },
+      "SpaceLicenceDto": {
+        "description": "What an owner reads of the space's licence.",
+        "properties": {
+          "expires_in_days": {
+            "description": "Whole days left before `valid_until`, rounded up (0 once it has passed): drives the reminder\nbanner.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "seats": {
+            "description": "Owners and members it covers.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "used": {
+            "description": "Owners and members today; guests take no seat.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "valid_until": {
+            "description": "RFC 3339.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seats",
+          "used",
+          "valid_until",
+          "expires_in_days"
         ],
         "type": "object"
       },

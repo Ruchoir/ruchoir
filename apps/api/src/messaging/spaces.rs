@@ -124,6 +124,9 @@ pub async fn create_space(
         .one(&state.db)
         .await?
         .and_then(|space| space.default_channel_id);
+    let (edition, licence) =
+        super::edition_view::describe(&state.db, state.edition.as_ref(), space_id, session.user_id)
+            .await?;
 
     Ok((
         StatusCode::CREATED,
@@ -146,6 +149,8 @@ pub async fn create_space(
                     .await?
                     .to_names(),
             ),
+            edition,
+            licence,
         }),
     ))
 }

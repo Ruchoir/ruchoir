@@ -13,7 +13,7 @@
 //! licensed build wrote keeps applying every rule it finds there.
 
 use axum::Router;
-use sea_orm::{DatabaseConnection, DbErr};
+use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, DbErr, Statement};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -29,9 +29,12 @@ pub enum Entitlement {
         seats: u32,
         valid_until: OffsetDateTime,
     },
-    /// Its licence expired at `expired_at`: what it configured keeps applying, nothing paid can be
-    /// changed any more.
-    Frozen { expired_at: OffsetDateTime },
+    /// Its licence (for `seats`) expired at `expired_at`: what it configured keeps applying,
+    /// nothing paid can be changed any more.
+    Frozen {
+        seats: u32,
+        expired_at: OffsetDateTime,
+    },
 }
 
 /// Whether one more owner or member may join a space. Guests never take a seat.
@@ -42,6 +45,25 @@ pub enum SeatCheck {
     Full {
         seats: u32,
     },
+}
+
+/// The seats a space uses: its owners and members. Guests take none, and neither does someone whose
+/// membership is gone. What an edition's [`Edition::seat_check`] compares with the seats it sells,
+/// and what the space's owners read as `used`.
+pub async fn seats_used(db: &impl ConnectionTrait, space_id: Uuid) -> Result<u32, DbErr> {
+    let row = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT count(*)::bigint AS used FROM space_members \
+             WHERE space_id = $1 AND standing IN ('owner', 'member')",
+            [space_id.into()],
+        ))
+        .await?;
+    let used: i64 = match row {
+        Some(row) => row.try_get("", "used")?,
+        None => 0,
+    };
+    Ok(u32::try_from(used).unwrap_or(u32::MAX))
 }
 
 /// A build of the server: the community one, or one made elsewhere on top of this crate.
