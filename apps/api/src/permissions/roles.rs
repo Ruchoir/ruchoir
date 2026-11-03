@@ -4,7 +4,7 @@
 //! member directory (`members.view`: members, not guests), each with what it grants, how many hold
 //! it, and whether the caller may manage it (rule 1 of `delegation`). The member list carries each
 //! person's role ids and whether the caller may act on them (rule 3), from [`MemberRoles`], loaded
-//! for a whole space in three queries.
+//! for a whole space in a handful of queries.
 //!
 //! Composing roles (creating, editing, ordering, handing them out) is the enterprise edition's; the
 //! names and colours it may use are checked here, so every build says the same.
@@ -74,7 +74,7 @@ pub struct RoleDto {
     pub position: i32,
     /// What it grants, as permission names in catalogue order (unknown names left out).
     pub permissions: Vec<String>,
-    /// How many hold it: its assignments, or for a base role the people of that standing.
+    /// How many hold it: distinct people, directly or through a group, or for a base role the people of that standing.
     pub holders: i64,
     /// Whether the caller may manage it (rule 1: `roles.manage`, and the role below their rank).
     pub manageable: bool,
@@ -124,7 +124,7 @@ pub async fn roles_of(
                                                 AND m.standing IN ('owner', 'member')) \
                         WHEN 'guests' THEN (SELECT count(*) FROM space_members m \
                                              WHERE m.space_id = r.space_id AND m.standing = 'guest') \
-                        ELSE (SELECT count(*) FROM space_role_assignments a WHERE a.role_id = r.id) \
+                        ELSE (SELECT count(DISTINCT h.user_id) FROM space_role_holdings h WHERE h.role_id = r.id) \
                      END)::bigint AS holders \
                FROM space_roles r WHERE r.space_id = $1 \
               ORDER BY r.position DESC, r.name",
@@ -152,6 +152,8 @@ pub async fn roles_of(
 /// Every member's assigned roles and rank in one space, and what a viewer may do about them.
 pub struct MemberRoles {
     roles: HashMap<Uuid, Vec<Uuid>>,
+    /// The groups each person is in, by group name.
+    groups: HashMap<Uuid, Vec<Uuid>>,
     ranks: HashMap<Uuid, Rank>,
     viewer: Uuid,
     viewer_rank: Option<Rank>,
@@ -159,8 +161,8 @@ pub struct MemberRoles {
 }
 
 impl MemberRoles {
-    /// Loaded for `space_id` as `viewer` sees it: three queries (roles, assignments, standings)
-    /// and the viewer's rights.
+    /// Loaded for `space_id` as `viewer` sees it: five queries (roles, direct assignments, holdings,
+    /// groups, standings) and the viewer's rights.
     pub async fn load(
         db: &sea_orm::DatabaseConnection,
         space_id: Uuid,
@@ -207,6 +209,38 @@ impl MemberRoles {
                 .or_default()
                 .push(row.try_get("", "role_id")?);
         }
+        // Everything a person holds, directly or through a group, each role once: what the rank
+        // is made of (`roles` above stays the direct assignments).
+        let mut holdings: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+        for row in db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT DISTINCT user_id, role_id FROM space_role_holdings WHERE space_id = $1",
+                [space_id.into()],
+            ))
+            .await?
+        {
+            holdings
+                .entry(row.try_get("", "user_id")?)
+                .or_default()
+                .push(row.try_get("", "role_id")?);
+        }
+        let mut groups: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+        for row in db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT gm.user_id, gm.group_id FROM space_group_members gm \
+                   JOIN space_groups g ON g.id = gm.group_id \
+                  WHERE gm.space_id = $1 ORDER BY g.name, g.id",
+                [space_id.into()],
+            ))
+            .await?
+        {
+            groups
+                .entry(row.try_get("", "user_id")?)
+                .or_default()
+                .push(row.try_get("", "group_id")?);
+        }
         let mut ranks = HashMap::new();
         for row in db
             .query_all_raw(Statement::from_sql_and_values(
@@ -220,13 +254,14 @@ impl MemberRoles {
             let standing: String = row.try_get("", "standing")?;
             let rank = if standing == "owner" {
                 Rank::Owner
+            } else if standing == "guest" {
+                // Whatever a guest holds, directly or through a group, they stay at the guests'
+                // position: otherwise a guest carried to Administrator would outrank the
+                // administrators who must manage them.
+                Rank::Position(guests_base)
             } else {
-                let floor = if standing == "guest" {
-                    guests_base
-                } else {
-                    members_base
-                };
-                let held = roles
+                let floor = members_base;
+                let held = holdings
                     .get(&user)
                     .into_iter()
                     .flatten()
@@ -242,6 +277,7 @@ impl MemberRoles {
             viewer_manages: rights.contains(Permission::MembersManage)
                 || rights.contains(Permission::RolesManage),
             roles,
+            groups,
             ranks,
             viewer,
         })
@@ -250,6 +286,11 @@ impl MemberRoles {
     /// The roles assigned to `user` (Administrator included, base roles never), strongest first.
     pub fn role_ids(&self, user: Uuid) -> Vec<Uuid> {
         self.roles.get(&user).cloned().unwrap_or_default()
+    }
+
+    /// The groups `user` is in, by group name.
+    pub fn group_ids(&self, user: Uuid) -> Vec<Uuid> {
+        self.groups.get(&user).cloned().unwrap_or_default()
     }
 
     /// Whether the viewer may act on `user` (rule 3, and `members.manage` or `roles.manage`).

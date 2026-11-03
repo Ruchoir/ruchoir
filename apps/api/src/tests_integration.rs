@@ -12161,6 +12161,15 @@ mod delegation_tests;
 /// A space's roles, and the roles of its members.
 mod roles_tests;
 
+/// Groups, the roles they carry, and the holdings view.
+mod groups_tests;
+
+/// The free group routes: lists, writes, who may do what, the audit and the announcement.
+mod group_routes_tests;
+
+/// Mentioning a group: who is told, and who is not.
+mod group_mentions_tests;
+
 /// The preferences that follow an account, and hidden direct conversations, in their own file.
 mod preferences_tests;
 

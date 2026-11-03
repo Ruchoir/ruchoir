@@ -32,6 +32,7 @@ pub const API_VERSION: u32 = 1;
 ///   do there, by permission name), and `permissions.changed` says when to ask again.
 pub const FEATURES: &[&str] = &[
     "account_preferences",
+    "groups",
     "native_sessions",
     "notification_read",
     "office_desktop_embed",

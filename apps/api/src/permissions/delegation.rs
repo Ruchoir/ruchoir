@@ -69,9 +69,10 @@ pub async fn rank_of(
             DbBackend::Postgres,
             "SELECT m.standing, \
                     greatest( \
-                        (SELECT max(r.position) FROM space_role_assignments a \
-                           JOIN space_roles r ON r.id = a.role_id \
-                          WHERE a.space_id = m.space_id AND a.user_id = m.user_id), \
+                        CASE WHEN m.standing = 'guest' THEN NULL ELSE \
+                            (SELECT max(r.position) FROM space_role_holdings h \
+                               JOIN space_roles r ON r.id = h.role_id \
+                              WHERE h.space_id = m.space_id AND h.user_id = m.user_id) END, \
                         (SELECT r.position FROM space_roles r WHERE r.space_id = m.space_id \
                             AND r.system_key = CASE WHEN m.standing = 'guest' THEN 'guests' \
                                                     ELSE 'members' END), \

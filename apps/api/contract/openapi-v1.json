@@ -18,6 +18,23 @@
         ],
         "type": "object"
       },
+      "AddGroupMembersRequest": {
+        "description": "People to put in a group.",
+        "properties": {
+          "user_ids": {
+            "description": "People of the space, of any standing; at most 500 per request. Those already in are ignored.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "user_ids"
+        ],
+        "type": "object"
+      },
       "AddedMembersDto": {
         "description": "Who was actually added, which is the request minus whoever was already there.",
         "properties": {
@@ -383,7 +400,7 @@
             ]
           },
           "kind": {
-            "description": "`member`, `role`, `channel`, `calendar`, `space` or `licence`.",
+            "description": "`member`, `role`, `group`, `channel`, `calendar`, `space` or `licence`.",
             "type": "string"
           },
           "label": {
@@ -971,6 +988,26 @@
               "string",
               "null"
             ]
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "CreateGroupRequest": {
+        "description": "A new group.",
+        "properties": {
+          "description": {
+            "description": "At most 280 characters.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "1 to 60 characters, unique in the space whatever the case, not starting with `@` or `#`,\nnot a broadcast word (`here`, `channel`, `everyone`, `all` and their translations).",
+            "type": "string"
           }
         },
         "required": [
@@ -1960,6 +1997,97 @@
         ],
         "type": "object"
       },
+      "GroupDto": {
+        "description": "One group of the space.",
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "manager_ids": {
+            "description": "The members who manage it.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "may": {
+            "$ref": "#/components/schemas/GroupMay"
+          },
+          "member_ids": {
+            "description": "Everyone in it, managers included.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role_ids": {
+            "description": "The roles it carries, strongest first.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source": {
+            "description": "`manual`, or `directory` for a group mirrored from a directory (read-only).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "source",
+          "member_ids",
+          "manager_ids",
+          "role_ids",
+          "may"
+        ],
+        "type": "object"
+      },
+      "GroupMay": {
+        "description": "What the caller may do to a group, each flag asking [`decide`] about a representative act, so\nthe screen and the server never disagree.",
+        "properties": {
+          "appoint": {
+            "description": "Name its managers (enterprise edition).",
+            "type": "boolean"
+          },
+          "change_members": {
+            "description": "Put people in it and take them out.",
+            "type": "boolean"
+          },
+          "change_roles": {
+            "description": "Change the roles it carries (enterprise edition).",
+            "type": "boolean"
+          },
+          "delete": {
+            "type": "boolean"
+          },
+          "edit": {
+            "description": "Rename it or change its description.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "edit",
+          "delete",
+          "change_members",
+          "change_roles",
+          "appoint"
+        ],
+        "type": "object"
+      },
       "HandoffCode": {
         "description": "A single-use code handed between the web page and the app (two minutes).",
         "properties": {
@@ -2618,6 +2746,17 @@
           },
           "display_name": {
             "type": "string"
+          },
+          "group_ids": {
+            "description": "The groups they are in, sorted by group name. Only in the space's member list.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "is_bot": {
             "type": "boolean"
@@ -4304,7 +4443,7 @@
             ]
           },
           "holders": {
-            "description": "How many hold it: its assignments, or for a base role the people of that standing.",
+            "description": "How many hold it: distinct people, directly or through a group, or for a base role the people of that standing.",
             "format": "int64",
             "type": "integer"
           },
@@ -5150,6 +5289,25 @@
           },
           "parent_folder_id": {
             "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "UpdateGroupRequest": {
+        "description": "What to change about a group; what is absent stays.",
+        "properties": {
+          "description": {
+            "description": "Blank clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
             "type": [
               "string",
               "null"
@@ -11388,7 +11546,7 @@
             }
           },
           {
-            "description": "Only one family: `members`, `roles`, `channels`, `calendars` or `licence`.",
+            "description": "Only one family: `members`, `roles`, `groups`, `channels`, `calendars` or `licence`.",
             "in": "query",
             "name": "category",
             "required": false,
@@ -12162,6 +12320,326 @@
         "summary": "`POST /api/v1/spaces/{space_id}/folders`: create a folder.",
         "tags": [
           "files"
+        ]
+      }
+    },
+    "/api/v1/spaces/{space_id}/groups": {
+      "get": {
+        "operationId": "list_groups",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GroupDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "The space's groups, by name"
+          },
+          "403": {
+            "description": "Not someone who reads this space's member directory"
+          }
+        },
+        "tags": [
+          "messaging"
+        ]
+      },
+      "post": {
+        "operationId": "create_group",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupDto"
+                }
+              }
+            },
+            "description": "The new group"
+          },
+          "400": {
+            "description": "An unusable name (`group_name_reserved`, `group_name_invalid`) or description"
+          },
+          "403": {
+            "description": "Needs `groups.manage`"
+          },
+          "409": {
+            "description": "`group_name_taken`"
+          }
+        },
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/v1/spaces/{space_id}/groups/{group_id}": {
+      "delete": {
+        "operationId": "delete_group",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Group id",
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The group is gone, and the roles it carried with it"
+          },
+          "402": {
+            "description": "`licence_required`: it carries roles"
+          },
+          "403": {
+            "description": "Needs `groups.manage`, and every role it carries below the caller"
+          },
+          "404": {
+            "description": "Not a group of this space"
+          },
+          "409": {
+            "description": "`group_from_directory`, or `licence_frozen`"
+          }
+        },
+        "tags": [
+          "messaging"
+        ]
+      },
+      "patch": {
+        "operationId": "update_group",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Group id",
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupDto"
+                }
+              }
+            },
+            "description": "The group as it is now"
+          },
+          "400": {
+            "description": "An unusable name or description"
+          },
+          "403": {
+            "description": "Needs `groups.manage`"
+          },
+          "404": {
+            "description": "Not a group of this space"
+          },
+          "409": {
+            "description": "`group_name_taken`, or `group_from_directory`"
+          }
+        },
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/v1/spaces/{space_id}/groups/{group_id}/members": {
+      "post": {
+        "operationId": "add_group_members",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Group id",
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddGroupMembersRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupDto"
+                }
+              }
+            },
+            "description": "The group as it is now"
+          },
+          "400": {
+            "description": "`not_in_space`: someone is not a person of this space; `too_many_people`: more than 500 in one request"
+          },
+          "402": {
+            "description": "`licence_required`: the group carries roles, or the caller acts as its manager"
+          },
+          "403": {
+            "description": "Neither `groups.manage` nor a manager of the group; `role_above_you`, `no_self_role`"
+          },
+          "404": {
+            "description": "Not a group of this space"
+          },
+          "409": {
+            "description": "`group_from_directory`, or `licence_frozen`"
+          }
+        },
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/v1/spaces/{space_id}/groups/{group_id}/members/{user_id}": {
+      "delete": {
+        "operationId": "remove_group_member",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Group id",
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The person to take out; the caller's own id leaves the group",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "They are out (or were not in)"
+          },
+          "402": {
+            "description": "`licence_required`: the group carries roles, or the caller acts as its manager"
+          },
+          "403": {
+            "description": "Neither `groups.manage` nor a manager of the group; `role_above_you`, `no_self_role`, `manager_protected`"
+          },
+          "404": {
+            "description": "Not a group of this space, or the caller is not in it (leaving)"
+          },
+          "409": {
+            "description": "`group_from_directory`, or `licence_frozen`"
+          }
+        },
+        "tags": [
+          "messaging"
         ]
       }
     },

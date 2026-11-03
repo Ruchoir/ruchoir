@@ -36,5 +36,11 @@ pub use crate::permissions::delegation::{
 };
 /// A role as the API shows it ([`roles_of`] lists a space's for a viewer), the names and colours a
 /// custom role may take.
+/// Groups: one decision function for every act on one ([`decide`], with the refusal's mapping to
+/// an HTTP error), the group as loaded, its DTO with what the caller may do, and the actor.
+pub use crate::permissions::group_routes::{group_dto, group_dtos, GroupDto, GroupMay};
+pub use crate::permissions::groups::{
+    actor, decide, group, groups_of, GroupAct, GroupActor, GroupRow, Paid, Refusal,
+};
 pub use crate::permissions::roles::{roles_of, validate_role_name, RoleDto, ROLE_COLOURS};
 pub use crate::permissions::system_roles::GUEST_CEILING;

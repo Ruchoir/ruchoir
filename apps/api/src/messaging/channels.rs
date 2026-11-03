@@ -885,6 +885,7 @@ pub async fn list_channel_members(
                     .as_deref()
                     .map(|key| crate::files::avatar_url(user.id, key)),
                 role_ids: None,
+                group_ids: None,
                 manageable: None,
                 joined_at: None,
             });

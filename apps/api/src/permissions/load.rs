@@ -178,8 +178,8 @@ SELECT m.user_id, m.standing, r.id AS role_id, r.system_key, r.permissions, \
   FROM space_members m \
   LEFT JOIN space_roles r ON r.space_id = m.space_id \
    AND (r.system_key = CASE WHEN m.standing = 'guest' THEN 'guests' ELSE 'members' END \
-        OR EXISTS (SELECT 1 FROM space_role_assignments a \
-                    WHERE a.role_id = r.id AND a.user_id = m.user_id)) \
+        OR EXISTS (SELECT 1 FROM space_role_holdings h \
+                    WHERE h.role_id = r.id AND h.user_id = m.user_id)) \
  WHERE m.space_id = $1 AND ($2::uuid[] IS NULL OR m.user_id = ANY($2)) \
    AND (m.expires_at IS NULL OR m.expires_at > now())";
 

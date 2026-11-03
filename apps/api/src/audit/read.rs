@@ -3,7 +3,7 @@
 //!
 //! Newest first, a page at a time (an opaque cursor, never an offset, so a page is the same whatever
 //! was written since), filtered by person, family and date. Names are read now, not stored: a
-//! deleted account reads as `null`, a deleted role or channel by the name its entry kept.
+//! deleted account reads as `null`, a deleted role, group or channel by the name its entry kept.
 
 use std::collections::{HashMap, HashSet};
 
@@ -26,7 +26,14 @@ use crate::state::AppState;
 
 const DEFAULT_LIMIT: u32 = 50;
 const MAX_LIMIT: u32 = 100;
-const CATEGORIES: [&str; 5] = ["members", "roles", "channels", "calendars", "licence"];
+const CATEGORIES: [&str; 6] = [
+    "members",
+    "roles",
+    "groups",
+    "channels",
+    "calendars",
+    "licence",
+];
 
 pub fn router() -> Router<AppState> {
     Router::new().route("/api/v1/spaces/{space_id}/audit", get(read_log))
@@ -37,7 +44,7 @@ pub fn router() -> Router<AppState> {
 pub struct AuditQuery {
     /// Only what this person did.
     actor: Option<Uuid>,
-    /// Only one family: `members`, `roles`, `channels`, `calendars` or `licence`.
+    /// Only one family: `members`, `roles`, `groups`, `channels`, `calendars` or `licence`.
     category: Option<String>,
     /// Only what happened at or after this instant (RFC 3339).
     since: Option<String>,
@@ -84,7 +91,7 @@ pub struct AuditActorDto {
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct AuditTargetDto {
-    /// `member`, `role`, `channel`, `calendar`, `space` or `licence`.
+    /// `member`, `role`, `group`, `channel`, `calendar`, `space` or `licence`.
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Uuid>,
@@ -277,7 +284,7 @@ pub async fn read_log(
 }
 
 /// The current name of each target, in four queries at most: people by display name, roles,
-/// channels and calendars of this space only.
+/// groups, channels and calendars of this space only.
 async fn labels<'a>(
     db: &impl ConnectionTrait,
     space_id: Uuid,
@@ -291,6 +298,7 @@ async fn labels<'a>(
     for (kind, table, column, scoped) in [
         ("member", "users", "display_name", false),
         ("role", "space_roles", "name", true),
+        ("group", "space_groups", "name", true),
         ("channel", "channels", "name", true),
         ("calendar", "calendars", "name", true),
     ] {

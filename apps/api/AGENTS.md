@@ -44,6 +44,16 @@ context and takes precedence here.
 - `src/permissions/roles.rs` - `GET /api/v1/spaces/{space_id}/roles` (for `members.view`), the
   member list's `role_ids` and `manageable` (`MemberRoles`, per caller, never broadcast), and the
   rules a custom role's name and colour follow (system names reserved in every language).
+- `src/permissions/groups.rs` and `group_routes.rs` - groups of people (`/api/v1/spaces/{space_id}/groups`,
+  free in every edition). **One decision function, `groups::decide`, answers every act on a group**
+  (edit, delete, add, remove, leave, set roles, set managers): the routes ask it, and so does the
+  `may` block of `GroupDto`, so the screen and the server cannot disagree. Acts that touch roles or
+  managers are paid and go through the licence gate (`Paid`); a plain group stays editable without a
+  licence, and leaving a group is never refused. Nobody gives themselves a role through a group
+  (`no_self_role`), and nobody carries a role above their rank into one (`role_above_you`). Every
+  write locks the group row (`FOR UPDATE`), re-reads it, decides, writes its audit entry in the same
+  transaction and announces after commit; a request that changes nothing writes and announces
+  nothing. The enterprise edition re-uses `decide`, `actor` and `group_dto` through `ext`.
 - **Paid writes** go through `messaging::edition_view::ensure_paid` (re-exported by `ext`):
   `402 licence_required` without a licence, `409 licence_frozen` once it expired. Reads are never
   gated.

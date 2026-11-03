@@ -34,6 +34,17 @@ pub enum ApiError {
     /// to leave their space has sent a perfectly good request, and has to change the space (hand
     /// ownership over, or delete it) rather than the call. The static reason is safe to expose.
     Conflict(&'static str),
+    /// A `400` whose `error` field is the code itself (`base_role_not_allowed`), with a fixed
+    /// message, for a client that explains the refusal in its own words.
+    BadRequestCode {
+        code: &'static str,
+        message: &'static str,
+    },
+    /// The same for a `409` (`group_name_taken`, `group_from_directory`).
+    ConflictCode {
+        code: &'static str,
+        message: &'static str,
+    },
     /// No valid session. Mirrors the auth guard's 401 so the client reacts identically.
     Unauthorized,
     /// Every one of the space's `seats` is taken, so no owner or member can be added: `402`, with
@@ -74,6 +85,20 @@ impl IntoResponse for ApiError {
                     "message": "You do not have access to this resource.",
                     "reason": reason,
                 })),
+            )
+                .into_response();
+        }
+        if let ApiError::BadRequestCode { code, message }
+        | ApiError::ConflictCode { code, message } = &self
+        {
+            let status = if matches!(self, ApiError::ConflictCode { .. }) {
+                StatusCode::CONFLICT
+            } else {
+                StatusCode::BAD_REQUEST
+            };
+            return (
+                status,
+                Json(serde_json::json!({ "error": code, "message": message })),
             )
                 .into_response();
         }
@@ -125,6 +150,8 @@ impl IntoResponse for ApiError {
             ApiError::Internal
             | ApiError::SeatsFull { .. }
             | ApiError::ForbiddenBecause(_)
+            | ApiError::BadRequestCode { .. }
+            | ApiError::ConflictCode { .. }
             | ApiError::LicenceRequired { .. } => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal_error",
