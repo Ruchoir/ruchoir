@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { compare } from "./compare.mjs";
+import { compare, verdict } from "./compare.mjs";
 
 /** A fingerprint directory holding one state file with the given elements. */
 async function fingerprint(elements) {
@@ -50,4 +50,11 @@ test("live elements are left out: a presence dot and the dev server's overlay", 
   ];
   const changed = [row, { path: "div:2 > span.wc-av-wrap:0 > span.wc-av__dot:1", props: { "background-color": "rgb(26, 158, 120)" } }];
   assert.deepEqual(compare(await fingerprint(live), await fingerprint(changed)), []);
+});
+
+test("only a changed value fails the verdict; an element on one side only is counted apart", () => {
+  const value = { file: "f", path: "p", prop: "color", a: "x", b: "y" };
+  const presence = { file: "f", path: "q", prop: "(missing)", a: "present", b: "absent" };
+  assert.deepEqual(verdict([value, presence]), { values: [value], presence: [presence] });
+  assert.deepEqual(verdict([presence]), { values: [], presence: [presence] });
 });

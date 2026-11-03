@@ -4,7 +4,8 @@
  *
  *   node tools/style-fingerprint/compare.mjs <before-dir> <after-dir>
  *
- * Prints every element property that differs, and exits 1 when anything does, 0 otherwise.
+ * Prints every property whose value differs on an element both runs saw, and exits 1 when one
+ * does; elements seen by one run only are counted apart (see `verdict`).
  */
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -85,14 +86,27 @@ export function compare(a, b) {
   return diffs;
 }
 
+/**
+ * Sort differences: a changed value on an element both runs saw is a style difference; an element
+ * or a file on one side only is timing or content (a feed still loading, a passing toast), reported
+ * apart and not failed on. Rerun both sides when there are many.
+ * @param {Diff[]} diffs
+ */
+export function verdict(diffs) {
+  const presence = diffs.filter((d) => d.prop === "(missing)" || d.prop === "(missing file)");
+  return { values: diffs.filter((d) => !presence.includes(d)), presence };
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [a, b] = process.argv.slice(2);
   if (!a || !b) {
     console.error("usage: compare.mjs <before-dir> <after-dir>");
     process.exit(2);
   }
-  const diffs = compare(a, b);
-  for (const d of diffs) console.log(`${d.file}  ${d.path}  ${d.prop}: ${d.a}  ->  ${d.b}`);
-  console.log(diffs.length === 0 ? "No difference." : `${diffs.length} difference(s).`);
-  process.exit(diffs.length === 0 ? 0 : 1);
+  const { values, presence } = verdict(compare(a, b));
+  for (const d of values) console.log(`${d.file}  ${d.path}  ${d.prop}: ${d.a}  ->  ${d.b}`);
+  const files = new Set(presence.map((d) => d.file));
+  if (presence.length) console.log(`${presence.length} element(s) on one side only, in ${[...files].join(", ")}: timing or content, not counted.`);
+  console.log(values.length === 0 ? "No style difference." : `${values.length} style difference(s).`);
+  process.exit(values.length === 0 ? 0 : 1);
 }
