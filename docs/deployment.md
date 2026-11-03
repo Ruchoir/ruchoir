@@ -175,10 +175,19 @@ Garage's configuration (`infra/garage/`), the office editor's mounted files (`in
 The deploy script refuses a bundle holding anything else, and never touches `.env` or a local
 `docker-compose.override.yml`.
 
-**The `deploy` account** has one SSH key, bound to `infra/deploy/ruchoir-deploy-entry` by a forced
-command: whatever the client asks, that runs, with the requested words as the version. sudoers lets
-it start `/usr/local/sbin/ruchoir-deploy` and nothing else. A leaked CI key can therefore deploy a
-version that is in the registry, and do nothing more.
+**The `deploy` account** has one SSH key per repository that releases (this one, and the
+enterprise edition's), each bound to `infra/deploy/ruchoir-deploy-entry` by a forced command:
+whatever the client asks, that runs, with the requested words as the version. sudoers lets it start
+`/usr/local/sbin/ruchoir-deploy` and nothing else. A leaked CI key can therefore deploy a version
+that is in the registry, and do nothing more.
+
+**Choosing the image.** `ssh deploy@<server> v1.2.3` deploys the community image
+(`registry.ruchoir.com/ruchoir/api:v1.2.3`); `ssh deploy@<server> enterprise v1.2.3` deploys the
+enterprise edition's (`registry.ruchoir.com/ruchoir/enterprise:v1.2.3`, ADR 0010), built from its
+own repository on top of this code. Both read the same database and run from the same bundle; only
+the server binary inside differs, so going from one to the other, in either direction, is a deploy
+like any other. A community image started on a database the enterprise one wrote reads every space
+as `community` and keeps applying every rule it finds.
 
 Setting it up on a server, once:
 
