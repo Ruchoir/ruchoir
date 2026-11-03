@@ -151,6 +151,8 @@ export type WorkspaceSettingsProps = {
   canManageMembers: boolean;
   /** Whether the caller may invite (`members.invite`). */
   canInvite: boolean;
+  /** Whether the caller sets the arrival channel (`space.settings`). */
+  canSetDefaultChannel: boolean;
   /** The edition the space runs, which decides how roles are given. */
   edition: SpaceEdition;
   /** When the space's licence expired, for the frozen banner; and its owners' names. */
@@ -227,6 +229,7 @@ export function WorkspaceSettings({
   canEditIdentity,
   canManageMembers,
   canInvite,
+  canSetDefaultChannel,
   edition,
   frozenSince,
   ownerNames,
@@ -471,7 +474,7 @@ export function WorkspaceSettings({
                       was invented, and therefore wrong everywhere. */}
                   <Input id="wu" value={serverAddress} readOnly disabled />
                 </Field>
-                {canManageMembers && defaultChannelId ? (
+                {canSetDefaultChannel && defaultChannelId ? (
                   <SettingRow title={t("space.defaultChannel")} desc={t("space.defaultChannelDesc")}>
                     <div style={{ width: 220 }}>
                       <Select

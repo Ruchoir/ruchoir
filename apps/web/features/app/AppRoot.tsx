@@ -134,7 +134,7 @@ import { VerifyEmailScreen, type VerifyEmailStatus } from "@/features/auth/Verif
 import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
 import { MemberManagement, MemberRolesSummary, refusalMessage } from "@/features/settings/MemberAccess";
-import { FAMILIES } from "@/features/settings/rolesLogic";
+import { rightsOf, spaceGates } from "./spaceGates";
 import { ActivityView } from "./ActivityView";
 import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
 import {
@@ -3295,16 +3295,12 @@ function AppShell() {
 
   /** The space on screen, when there is one: the name and role the two exit dialogs are about. */
   const currentWorkspace = workspaces.find((w) => w.id === ws);
-  /**
-   * What the caller holds in the open space, by permission name. An instance older than the
-   * permissions says nothing: its owners and administrators held everything, the others nothing of
-   * what the settings administer.
-   */
-  const myRights =
-    currentWorkspace?.myPermissions ??
-    (["owner", "admin"].includes(currentWorkspace?.role ?? "") ? FAMILIES.flatMap((f) => f.permissions) : []);
+  /** What the caller holds in the open space, by permission name. */
+  const myRights = rightsOf(currentWorkspace);
+  /** The doors of the space's administration, each on the right the API checks behind it. */
+  const gates = spaceGates(currentWorkspace?.role, myRights);
   /** Whether the caller administers people here: the member list, the roles, someone's "Gestion". */
-  const managesPeople = myRights.includes("members.manage") || myRights.includes("roles.manage");
+  const managesPeople = gates.managePeople;
 
   /**
    * What someone's profile says about them in this space (their roles), and the "Gestion" tab when
@@ -3360,7 +3356,7 @@ function AppShell() {
    * so what this gates is the entry to it: a door that opens onto nothing actionable reads as a
    * permission somebody has, which is exactly what it is not.
    */
-  const canAdministerSpace = ["owner", "admin"].includes(currentWorkspace?.role ?? "");
+  const canAdministerSpace = gates.openSettings;
 
   /**
    * Take a space off the rail, whether the caller walked out of it or it was deleted under them.
@@ -4201,6 +4197,8 @@ function AppShell() {
         // channel, no invitation. The API refuses all three; this keeps them off the column.
         canBrowseSpace={currentWorkspace?.role !== "guest"}
         canAdministerSpace={canAdministerSpace}
+        canInvite={gates.invite}
+        canSetDefaultChannel={gates.setDefaultChannel}
         canImport={session !== null}
         importRun={importRun}
         onImport={openImport}
@@ -4215,11 +4213,11 @@ function AppShell() {
         // Who the channel settings already count as every channel's owner: the space's owners and
         // administrators. The channel screen also reads the channel's own roster, which this list
         // does not have.
-        onAddPeople={canAdministerSpace ? setAddPeopleId : undefined}
+        onAddPeople={gates.addPeopleToChannels ? setAddPeopleId : undefined}
         onMarkRead={markConversationRead}
         onToggleFavorite={toggleFavorite}
         onSetDefaultChannel={(id) => void setDefaultChannel(id)}
-        onReorderChannels={canAdministerSpace ? (ids) => void reorderChannels(ids) : undefined}
+        onReorderChannels={gates.reorderChannels ? (ids) => void reorderChannels(ids) : undefined}
         onOpenNotification={openNotification}
         onToggleNotifRead={setNotifRead}
         onMarkAllNotifsRead={markAllNotifsRead}
@@ -4328,7 +4326,7 @@ function AppShell() {
           notifInherited={inheritedLevel}
           isDefaultChannel={currentWorkspace?.defaultChannelId === channelId}
           onDeleteChannel={
-            canAdministerSpace
+            gates.deleteChannels
               ? () => {
                   const target = channels.find((c) => c.id === channelId);
                   if (!target) return;
@@ -4399,7 +4397,8 @@ function AppShell() {
           // administrators, which is the line the API draws too.
           canEditIdentity={currentWorkspace?.role === "owner"}
           canManageMembers={managesPeople}
-          canInvite={myRights.includes("members.invite")}
+          canSetDefaultChannel={gates.setDefaultChannel}
+          canInvite={gates.invite}
           edition={currentWorkspace?.edition ?? "community"}
           frozenSince={currentWorkspace?.licence?.validUntil}
           ownerNames={members.filter((m) => m.role === "owner").map((m) => m.name)}
@@ -4409,7 +4408,7 @@ function AppShell() {
           pricingUrl={pricingUrl}
           onAccessChanged={refreshAccess}
           onSaveMemberRoles={saveMemberRoles}
-          canReadAudit={myRights.includes("audit.view")}
+          canReadAudit={gates.readAudit}
           canManageLicence={canLicences && currentWorkspace?.role === "owner"}
           licence={currentWorkspace?.licence}
           onLicenceChanged={refreshSpace}
@@ -4510,7 +4509,7 @@ function AppShell() {
       {modal === "invite" ? (
         <InviteDialog
           onClose={() => setModal(null)}
-          canInvite={myRights.includes("members.invite")}
+          canInvite={gates.invite}
           invitations={invitations}
           emailDelivery={emailDelivery}
           onCreate={async ({ email, role }) => {
