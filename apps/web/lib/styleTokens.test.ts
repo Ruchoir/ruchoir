@@ -22,7 +22,7 @@ function files(dir: string, exts: string[]): string[] {
 }
 
 /** The families of tokens a style overrides: reading one that is not declared draws nothing. */
-const FAMILIES = /^--(shadow|lift|press|edge|label-font|avatar-radius|sidebar|rail|msg)\b/;
+const FAMILIES = /^--(shadow|lift|press|edge|label-font|avatar-radius|sidebar|rail|msg|radius-(control|item|space|msg)|badge|tilt)\b/;
 
 test("the web app reads no style token that the design system does not declare", () => {
   const declared = blockDeclarations(readFileSync(path.join(ds, "styles/tokens.css"), "utf8"), ":root") as Record<string, string>;

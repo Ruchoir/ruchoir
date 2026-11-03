@@ -165,7 +165,7 @@
 /* Messages that mention the current user, one after the other: one washed block, not a stack of
    cards. The corners that touch are squared (see MessageRow). */
 .wc-msg-mention {
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-msg);
 }
 .wc-msg-mention + .wc-msg-mention {
   border-top-left-radius: 0;
@@ -1633,13 +1633,13 @@
 /* A space in the rail: a hairline ring at rest, the ink under the pointer, and the open space set
    on an offset shadow like a sticker. It tilts a little under the pointer. */
 .wc-rail-space .wc-av {
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-space);
   box-shadow: 0 0 0 1.5px var(--line-strong);
   transition: transform 200ms var(--ease-spring), box-shadow 150ms var(--ease-out);
 }
 .wc-rail-space:hover .wc-av {
-  box-shadow: 0 0 0 1.5px var(--ink);
-  transform: rotate(-6deg) scale(1.06);
+  box-shadow: 0 0 0 1.5px var(--edge-focus);
+  transform: var(--tilt);
 }
 .wc-rail-space[aria-current="true"] .wc-av {
   box-shadow: var(--shadow-ring-offset);
@@ -1657,7 +1657,7 @@
   transition: transform 200ms var(--ease-spring);
 }
 .wc-side-item:hover > svg:first-child {
-  transform: scale(1.15) rotate(-6deg);
+  transform: var(--tilt-icon);
 }
 
 /* A theme in the preferences: a swatch in four bands and its name. The chosen one is set on an ink

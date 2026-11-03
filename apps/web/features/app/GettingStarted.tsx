@@ -24,7 +24,7 @@ const st: Record<string, CSSProperties> = {
     flexDirection: "column",
     width: "min(340px, calc(var(--ui-vw, 100vw) - 32px))",
     background: "var(--surface-raised)",
-    border: "2px solid var(--edge-float)",
+    border: "var(--edge-width) solid var(--edge-float)",
     borderRadius: "var(--radius-lg)",
     boxShadow: "var(--shadow-dialog)",
     overflow: "hidden",

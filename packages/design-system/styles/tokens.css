@@ -361,6 +361,26 @@
   --msg-pad-x: 8px;
   --msg-pad-top: 6px;
   --msg-pad-top-grouped: 2px;
+  /* A message drawn as a card (a simplified style): its fill, its edge and the room under it. */
+  --msg-bg: transparent;
+  --msg-edge: none;
+  --msg-space: 0px;
+  --radius-msg: var(--radius-md);
+
+  /* Shapes a style changes apart from the radius scale: buttons, rows of a list, a space's tile. */
+  --radius-control: var(--radius-md);
+  --radius-item: var(--radius-sm);
+  --radius-space: var(--radius-md);
+  /* The width of the edge of what floats (the ink edge by default, a hairline in a simplified style). */
+  --edge-width: 2px;
+  /* A count of what is unread. */
+  --badge-bg: var(--action-primary-bg);
+  --badge-fg: var(--action-primary-fg);
+  /* The small tilt of a space and of a row's icon under the pointer. */
+  --tilt: rotate(-6deg) scale(1.06);
+  --tilt-icon: scale(1.15) rotate(-6deg);
+  /* A mark beside the selected row of the sidebar (a bar at its start in a simplified style). */
+  --sidebar-selected-mark: none;
 }
 
 /* Base reset. */

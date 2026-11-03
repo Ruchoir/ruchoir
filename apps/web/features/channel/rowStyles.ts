@@ -11,8 +11,10 @@ export const msgRowStyle: CSSProperties = {
   gap: "var(--msg-gap)",
   // Bottom padding reserves room for the hover read receipt so it never overlaps content.
   padding: "var(--msg-pad-top) var(--msg-pad-x) 18px",
-  margin: "0 -8px",
-  borderRadius: "var(--radius-md)",
+  // A style that draws messages as cards gives them an edge and room under each; Ruchoir none.
+  border: "var(--msg-edge)",
+  margin: "0 -8px var(--msg-space)",
+  borderRadius: "var(--radius-msg)",
   position: "relative",
   transition: "background-color var(--duration-fast) var(--ease-out)",
 };
@@ -25,6 +27,19 @@ export const msgRowStyle: CSSProperties = {
  */
 export function msgRowPadding(grouped: boolean, endsRun: boolean): string {
   return `${grouped ? "var(--msg-pad-top-grouped)" : "var(--msg-pad-top)"} var(--msg-pad-x) ${endsRun ? "18px" : "4px"}`;
+}
+
+/**
+ * A row's fill. A deleted message is never lit; then, in this order, the actions sheet open on it,
+ * the pointer over it, a mention of the reader (washed in the theme's pastel, the colour that means
+ * "yours"), and at rest the style's card (transparent in the Ruchoir style).
+ */
+export function msgRowBackground(state: { deleted: boolean; sheetOpen: boolean; hover: boolean; mentionsMe: boolean }): string {
+  if (state.deleted) return "transparent";
+  if (state.sheetOpen) return "var(--surface-selected)";
+  if (state.hover) return "var(--surface-hover)";
+  if (state.mentionsMe) return "var(--surface-mention)";
+  return "var(--msg-bg)";
 }
 
 /**

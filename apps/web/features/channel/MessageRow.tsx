@@ -16,7 +16,7 @@ import { LinkPreviewCard } from "./LinkPreviewCard";
 import { MessageMenu } from "./MessageMenu";
 import { ReactionMenu } from "./ReactionMenu";
 import { ReadReceipt } from "./ReadReceipt";
-import { msgRowPadding, msgRowStyle } from "./rowStyles";
+import { msgRowBackground, msgRowPadding, msgRowStyle } from "./rowStyles";
 import { useTranslation } from "@/lib/i18n";
 import { formatBytes, formatDateTime, formatRelativeStamp, formatStamp, formatTime, isSameDay } from "@/lib/i18n/format";
 import { haptic } from "@/lib/haptics";
@@ -116,7 +116,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 2,
     padding: 2,
     background: "var(--surface-raised)",
-    border: "2px solid var(--edge-float)",
+    border: "var(--edge-width) solid var(--edge-float)",
     borderRadius: "var(--radius-sm)",
     boxShadow: "var(--shadow-offset-sm)",
   },
@@ -410,17 +410,7 @@ export function MessageRow({
         // Tying the bottom to "grouped" instead left the full reserve under the *first* line of a
         // block, so a run opened with a gap its own members did not have (see msgRowPadding).
         padding: msgRowPadding(grouped, endsRun),
-        // A message that mentions the current user is washed in the theme's pastel: the colour that
-        // means "yours" everywhere else (the open conversation, one's own reaction).
-        background: deleted
-          ? "transparent"
-          : sheetOpen
-            ? "var(--surface-selected)"
-            : hover
-            ? "var(--surface-hover)"
-            : mentionsMe
-              ? "var(--surface-mention)"
-              : "transparent",
+        background: msgRowBackground({ deleted: !!deleted, sheetOpen, hover, mentionsMe: !!mentionsMe }),
       }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}

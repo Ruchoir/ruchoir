@@ -69,7 +69,7 @@ const wsDot: CSSProperties = {
 const wsButton: CSSProperties = {
   width: 40,
   height: 40,
-  borderRadius: "var(--radius-md)",
+  borderRadius: "var(--radius-space)",
   border: 0,
   padding: 0,
   display: "flex",

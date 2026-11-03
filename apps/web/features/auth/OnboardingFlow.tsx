@@ -29,7 +29,7 @@ const styles: Record<string, CSSProperties> = {
   sub: { fontSize: "var(--text-sm)", color: "var(--text-muted)", marginTop: 6 },
   card: {
     background: "var(--surface-raised)",
-    border: "2px solid var(--edge-float)",
+    border: "var(--edge-width) solid var(--edge-float)",
     borderRadius: "var(--radius-lg)",
     boxShadow: "var(--shadow-dialog)",
     padding: 24,
