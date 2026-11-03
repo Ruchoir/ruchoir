@@ -371,7 +371,9 @@
     "conversationOf_other": "Conversación privada · {{count}} personas",
     "conversationOf_many": "Conversación privada · {{count}} personas",
     "pick": "Elija una conversación",
-    "pickHint": "Se abrirá aquí, junto a la lista."
+    "pickHint": "Se abrirá aquí, junto a la lista.",
+    "hide": "Ocultar",
+    "hideHint": "Sale de tu lista, en todos tus dispositivos, hasta el próximo mensaje."
   },
   "conversation": {
     "backToList": "Volver a las conversaciones",

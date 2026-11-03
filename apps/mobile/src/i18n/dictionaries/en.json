@@ -344,7 +344,9 @@
     "conversationOf_one": "Private conversation · {{count}} person",
     "conversationOf_other": "Private conversation · {{count}} people",
     "pick": "Pick a conversation",
-    "pickHint": "It opens here, next to the list."
+    "pickHint": "It opens here, next to the list.",
+    "hide": "Hide",
+    "hideHint": "It leaves your list, on all your devices, until the next message."
   },
   "conversation": {
     "backToList": "Back to discussions",

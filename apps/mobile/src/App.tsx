@@ -17,6 +17,7 @@ import { BootScreen } from "./screens/boot/BootScreen";
 import { SignInFlow, useSession, type FlowStart } from "./session/SessionProvider";
 import { SpaceGate } from "./space/SpaceGate";
 import { ToastProvider } from "./ui/Toast";
+import { AccountPrefsSender } from "./prefs/AccountPrefsSync";
 import { loadPrefs } from "./prefs/store";
 import { fontFiles } from "./theme/fonts";
 import { useTheme } from "./theme/useTheme";
@@ -85,6 +86,7 @@ function Root() {
   return (
     <ToastProvider>
       <AppLock lockId="app" legacyIds={signedIn.map((a) => a.status.user.id)} onSignOut={() => void accounts.signOutEverywhere("locked")}>
+        <AccountPrefsSender />
         {signedIn.map((account) => (
           <InstanceScope key={account.id} account={account} user={account.status.user} active={account.id === active.id}>
             <SpaceGate instanceId={account.id} />

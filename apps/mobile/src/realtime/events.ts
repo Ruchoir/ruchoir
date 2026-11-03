@@ -5,7 +5,7 @@
  * the app shows no editor yet). `affects` says, for each list a screen loads, which events change it,
  * so every screen reloads on the same rule. Kept free of React so Node tests it.
  */
-import type { ApiMessage, MemberIdentity, Presence, RealtimeHandlers } from "@ruchoir/client";
+import type { AccountPrefsDoc, ApiMessage, MemberIdentity, Presence, RealtimeHandlers } from "@ruchoir/client";
 
 export type RealtimeEvent =
   | { type: "message"; change: "created" | "updated" | "deleted"; conversationId: string; message: ApiMessage }
@@ -37,7 +37,11 @@ export type RealtimeEvent =
   /** Someone's name, title or photo changed (mine included, from any device). */
   | { type: "member"; member: MemberIdentity }
   | { type: "calendar" }
-  | { type: "files"; spaceId: string };
+  | { type: "files"; spaceId: string }
+  /** Some account preferences changed, here or on another device (`null`: back to the default). */
+  | { type: "preferences"; changes: AccountPrefsDoc }
+  /** I hid one of my direct conversations, or brought it back, here or on another device. */
+  | { type: "dmHidden"; dmId: string; hidden: boolean };
 
 /** The client's handlers, each relaying its event; a reconnection asks every screen to read again. */
 export function handlersFor(emit: (event: RealtimeEvent) => void, onReconnect: () => void): RealtimeHandlers {
@@ -71,6 +75,8 @@ export function handlersFor(emit: (event: RealtimeEvent) => void, onReconnect: (
     onCalendarChanged: () => emit({ type: "calendar" }),
     onFilesUpdated: (spaceId) => emit({ type: "files", spaceId }),
     onFilesDeleted: (spaceId) => emit({ type: "files", spaceId }),
+    onPreferencesUpdated: (changes) => emit({ type: "preferences", changes }),
+    onDmHidden: (dmId, hidden) => emit({ type: "dmHidden", dmId, hidden }),
   };
 }
 
@@ -86,6 +92,7 @@ export const affects = {
   conversations: (e: RealtimeEvent, spaceId: string) =>
     e.type === "message" ||
     e.type === "readCursor" ||
+    e.type === "dmHidden" ||
     e.type === "member" ||
     (e.type === "members" && e.spaceId === spaceId) ||
     (e.type === "channels" && inSpace(e, spaceId)),
