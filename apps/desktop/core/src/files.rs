@@ -39,12 +39,14 @@ fn own_path_unchecked(href: &str, scheme: &str) -> Option<String> {
     })
 }
 
-/// The longest file name kept, in characters (most file systems cap a name at 255 bytes).
+/// The longest file name kept: 150 characters, and 200 bytes of UTF-8 (file systems such as ext4
+/// cap a name at 255 bytes, and an accented name takes more bytes than characters).
 const NAME_MAX: usize = 150;
+const NAME_MAX_BYTES: usize = 200;
 
 /// A file name the system will take: no folder in it, no control character, never empty, not a
 /// name Windows reserves for a device (`CON`, `NUL`, `COM1`...: those open the device, whatever the
-/// extension), and at most 150 characters, the extension kept.
+/// extension), and at most 150 characters and 200 bytes, the extension kept.
 pub fn safe_name(name: &str) -> String {
     let cleaned: String = name
         .chars()
@@ -62,16 +64,29 @@ pub fn safe_name(name: &str) -> String {
     if is_reserved_stem(first) {
         cleaned.insert(0, '_');
     }
-    if cleaned.chars().count() > NAME_MAX {
+    if cleaned.chars().count() > NAME_MAX || cleaned.len() > NAME_MAX_BYTES {
         // Keep a plausible extension so the system still knows what opens the file.
         let ext = cleaned
             .rfind('.')
             .map(|i| &cleaned[i..])
-            .filter(|e| e.chars().count() <= 20)
+            .filter(|e| e.chars().count() <= 20 && e.len() <= 60)
             .unwrap_or("");
-        let keep = NAME_MAX - ext.chars().count();
-        let stem: String = cleaned.chars().take(keep).collect();
-        cleaned = format!("{stem}{ext}");
+        let mut stem = String::new();
+        for c in cleaned[..cleaned.len() - ext.len()].chars() {
+            if stem.chars().count() + ext.chars().count() >= NAME_MAX
+                || stem.len() + ext.len() + c.len_utf8() > NAME_MAX_BYTES
+            {
+                break;
+            }
+            stem.push(c);
+        }
+        // Windows strips a trailing dot or space, which would change the name.
+        let stem = stem.trim_end_matches(['.', ' ']);
+        cleaned = if stem.is_empty() {
+            format!("download{ext}")
+        } else {
+            format!("{stem}{ext}")
+        };
     }
     cleaned
 }
@@ -192,7 +207,10 @@ impl Watched {
     /// is offered again the next time it changes.
     pub fn mark_sent(&mut self, hash: [u8; 32]) {
         self.hash = hash;
-        self.settling = None;
+        // A later save, armed while the upload ran, stays pending: only the content sent is done.
+        if self.settling.is_some_and(|(h, _)| h == hash) {
+            self.settling = None;
+        }
     }
 }
 
@@ -252,8 +270,9 @@ fn settle(w: &mut Watched, hash: [u8; 32], first_seen: Instant, now: Instant) ->
 
 /// The body of a `POST /api/v1/files/{id}/versions`: one `file` part. `boundary` must be a
 /// generated token (no CR, LF or `--`, never empty), so it cannot occur in the framing by chance.
-/// The name is quoted for a header (`"` and `\` escaped, control characters dropped); a non-ASCII name stays UTF-8 in `filename="..."`,
-/// which the API's multipart parser accepts, so no `filename*` form is needed.
+/// The name is quoted for a header (`"` and `\` escaped, control characters dropped); a non-ASCII
+/// name stays UTF-8 in `filename="..."`, which the API's multipart parser accepts, so no
+/// `filename*` form is needed.
 pub fn multipart_file(boundary: &str, name: &str, bytes: &[u8]) -> Vec<u8> {
     debug_assert!(!boundary.is_empty() && !boundary.contains(['\r', '\n']));
     debug_assert!(!boundary.contains("--"));
@@ -364,8 +383,17 @@ mod tests {
         }
         let long = format!("{}.docx", "é".repeat(300));
         let n = safe_name(&long);
-        assert_eq!(n.chars().count(), 150);
+        assert!(n.len() <= 200 && n.len() >= 198);
         assert!(n.ends_with(".docx"));
+        // 150 accented characters are 300 bytes: the byte cap bites first, on a character boundary.
+        let acc = safe_name(&format!("{}.pdf", "é".repeat(150)));
+        assert!(acc.len() <= 200 && acc.ends_with(".pdf"));
+        assert!(acc.starts_with('é'));
+        // A cut never leaves a trailing dot or space (Windows would strip it).
+        let cut = safe_name(&format!("{}. {}", "a".repeat(143), "b".repeat(20)));
+        assert!(!cut.ends_with(['.', ' ']), "{cut}");
+        let cut = safe_name(&format!("{} .pdf{}", "a".repeat(145), "x".repeat(10)));
+        assert!(!cut.contains(" ."), "{cut}");
         let no_ext = safe_name(&"a".repeat(300));
         assert_eq!(no_ext.chars().count(), 150);
     }
@@ -478,6 +506,16 @@ mod tests {
             step(&mut w, t0 + POLL + SETTLE + POLL, seen(2)),
             Seen::Unchanged
         );
+    }
+
+    #[test]
+    fn a_later_save_survives_the_end_of_an_upload() {
+        let t0 = Instant::now();
+        let mut w = watched(t0);
+        assert_eq!(step(&mut w, t0, seen(3)), Seen::Settling);
+        w.mark_sent([2; 32]);
+        assert_eq!(w.hash, [2; 32]);
+        assert_eq!(step(&mut w, t0 + SETTLE, None), Seen::Saved([3; 32]));
     }
 
     #[test]
