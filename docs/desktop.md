@@ -61,7 +61,8 @@ unsigned until the first release: Windows' SmartScreen and macOS' Gatekeeper war
 ## Developing
 
 A debug build reads the interface from the embedded export, or from a running `next dev` when
-`RUCHOIR_DESKTOP_DEV_URL` is set:
+`RUCHOIR_DESKTOP_DEV_URL` is set. A debug build never checks for updates (it would count in the
+anonymous statistics, and an update would replace the binary under test):
 
 ```bash
 pnpm --filter @ruchoir/web dev:desktop          # next dev on port 3112, desktop flavour
@@ -102,7 +103,7 @@ summary. Its runners have no GPU either, so the figures are an upper bound.
 
 `e2e/run.sh` drives the app through `tauri-driver` (WebDriver): it adds an instance, signs in through
 the instance's `/n/` page and a `ruchoir://auth` link handed to a second launch, opens a channel, and
-waits for a message posted by someone else to arrive without a reload. It needs, on Linux,
+waits for a message posted by someone else to arrive without a reload. It also sends a 300 KB PDF through the composer's file input and checks the instance stores every byte (uploads once arrived empty), drops a file on the composer with a synthetic event (the page's own drop handling accepts it, it stores the right bytes, and a stray drop is cancelled; the window letting a real drop through is checked by hand), and opens the PDF in the files viewer, checking the page's CSP lets its frame load. Each run leaves two attachments (a PDF and a text file), two messages and the files in "Pièces jointes" in that channel (development data). It needs Node 22.2 or later (the .docx fixture's checksum is `zlib.crc32`) and, on Linux,
 `webkit2gtk-driver`, `dbus-x11`, Xvfb and `cargo install tauri-driver --locked`, and an instance with
 two accounts sharing a channel:
 
@@ -113,6 +114,19 @@ E2E_PASSWORD=<seed password> E2E_SPACE=studio-rennes E2E_CHANNEL=general \
 e2e/run.sh
 ```
 
+On Linux the files viewer shows a PDF with WebKitGTK's built-in viewer (checked on WebKitGTK 2.52: page,
+zoom, print and save controls, text drawn), so no fallback is needed there. The page cannot read the
+viewer's frame (its `contentDocument` is `about:blank`, the built-in viewer is not a page document), which
+is why the e2e listens for CSP violations instead. `E2E_SHOTS_DIR=<dir>` makes the run save PNGs of the
+PDF viewer and of the channel with its two attachments; `GDK_SCALE=2` gives sharper ones.
+
+The office editor's frame: WebKit (Linux, macOS) hands a frame's navigation to the window's rules too, so
+the core keeps a short allowlist of framed https origins (`allow_frame_origin`, called by the interface
+with the office host before it mounts the frame). Still open, behind `E2E_OFFICE=1`: the API answers the
+engine's pages with `frame-ancestors 'self' <instance origin>` (`office/proxy.rs`), and the desktop's page
+is `ruchoir-app://localhost`, so the engine's page loads and is then refused. The API must add the
+desktop's origins there.
+
 It posts a message in that channel each run. The app's own log is kept in
 `/tmp/ruchoir-desktop-e2e.log`.
 
@@ -121,7 +135,9 @@ must offer native sessions, so be a release from October 2026 or later), it also
 signs in to it, checks the rail heads both instances' spaces, and opens a space of the first one
 from the second. The development host runs one instance; the second is production with Théo's own
 account. Native notifications, their click and the badge are checked by hand: WebDriver cannot see
-them.
+them. So is dropping a file from the system's file manager onto the composer and the files list
+(the window must hand the drop to the page, `disable_drag_drop_handler`): WebDriver only sends
+synthetic events.
 
 ## Trying it on a machine
 

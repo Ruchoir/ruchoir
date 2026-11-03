@@ -7,13 +7,18 @@
 // Environment: RUCHOIR_DESKTOP_BIN (the built app), E2E_INSTANCE (https origin of a test instance),
 // E2E_EMAIL and E2E_PASSWORD (an account there without a second factor), E2E_OTHER_EMAIL (a second
 // account with the same password), E2E_SPACE and E2E_CHANNEL (a channel both belong to),
-// E2E_OPENED_FILE, and optionally E2E_SCREENSHOT (a PNG of the window at the end). With E2E_INSTANCE_2,
-// E2E_EMAIL_2 and E2E_PASSWORD_2 (an account on a second instance), it also adds that instance, signs
-// in to it, checks the rail heads both instances' spaces, and opens a space of the first from it. The live message comes from the second account: the interface leaves out its own
-// person's messages arriving live, which it has already drawn when sending them.
+// E2E_OPENED_FILE, and optionally E2E_SHOTS_DIR (PNGs for people to read), E2E_OFFICE=1 (the office
+// editor step) and E2E_SCREENSHOT (a PNG of the window at the end). With E2E_INSTANCE_2,
+// E2E_EMAIL_2 and E2E_PASSWORD_2 (an account on a second instance), it also adds that instance,
+// signs in to it, checks the rail heads both instances' spaces, and opens a space of the first from
+// it. The live message comes from the second account: the interface leaves out its own person's
+// messages arriving live, which it has already drawn when sending them.
 
 import { spawn } from "node:child_process";
-import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { crc32 } from "node:zlib";
+import { basename, join } from "node:path";
 
 const BIN = must("RUCHOIR_DESKTOP_BIN");
 const INSTANCE = must("E2E_INSTANCE");
@@ -76,13 +81,121 @@ async function webSession(email = EMAIL, instance = INSTANCE, password = PASSWOR
     });
 }
 
+/**
+ * A valid one-page PDF of exactly `size` bytes that draws a line of text, so a screenshot of the
+ * viewer shows something. The padding is a comment after the trailer.
+ */
+function fixturePdf(size) {
+  const text = "Ruchoir, essai d'envoi depuis l'application";
+  const stream = `BT /F1 11 Tf 12 100 Td (${text.replace(/[()\\]/g, "")}) Tj ET`;
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let out = "%PDF-1.4\n";
+  const offsets = [];
+  objects.forEach((body, i) => {
+    offsets.push(out.length);
+    out += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xref = out.length;
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) out += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  const padding = size - out.length;
+  // Printable bytes only, so the file stays text a tool can read; the length is what the check needs.
+  out += `%${"x".repeat(padding - 2)}\n`;
+  return Buffer.from(out, "latin1");
+}
+
+/** A minimal valid .docx (a zip, stored without compression: Node has no zip writer to lean on). */
+function fixtureDocx() {
+  const files = {
+    "[Content_Types].xml":
+      '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+    "_rels/.rels":
+      '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+    "word/document.xml":
+      `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Ruchoir, un document de test pour l\'éditeur (${Date.now()}).</w:t></w:r></w:p></w:body></w:document>`,
+  };
+  const parts = [];
+  const central = [];
+  let offset = 0;
+  for (const [name, text] of Object.entries(files)) {
+    const nameBytes = Buffer.from(name);
+    const data = Buffer.from(text);
+    const crc = crc32(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    parts.push(local, nameBytes, data);
+    const entry = Buffer.alloc(46);
+    entry.writeUInt32LE(0x02014b50, 0);
+    entry.writeUInt16LE(20, 4);
+    entry.writeUInt16LE(20, 6);
+    entry.writeUInt32LE(crc, 16);
+    entry.writeUInt32LE(data.length, 20);
+    entry.writeUInt32LE(data.length, 24);
+    entry.writeUInt16LE(nameBytes.length, 28);
+    entry.writeUInt32LE(offset, 42);
+    central.push(entry, nameBytes);
+    offset += local.length + nameBytes.length + data.length;
+  }
+  const directory = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(Object.keys(files).length, 8);
+  end.writeUInt16LE(Object.keys(files).length, 10);
+  end.writeUInt32LE(directory.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...parts, directory, end]);
+}
+
 async function main() {
   const session = await wd("POST", "/session", {
     capabilities: { alwaysMatch: { "tauri:options": { application: BIN } } },
   });
   const id = session.sessionId;
   const find = (css) => wd("POST", `/session/${id}/element`, { using: "css selector", value: css });
+  // The generated PDF, removed whether the run passes or not.
+  let fixturePath = null;
+  let docxPath = null;
+  // Screenshots for people to read, only when E2E_SHOTS_DIR is set (a normal run writes nothing).
+  const frameShot = async (name) => {
+    const dir = process.env.E2E_SHOTS_DIR;
+    if (!dir) return;
+    mkdirSync(dir, { recursive: true });
+    const png = await wd("GET", `/session/${id}/screenshot`);
+    writeFileSync(join(dir, `${name}.png`), Buffer.from(png, "base64"));
+  };
   const run = (script, args = []) => wd("POST", `/session/${id}/execute/sync`, { script, args });
+  const clickText = (text) =>
+    run("const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === arguments[0]); if (b) b.click(); return !!b;", [text]);
+  // A file added to the composer is settled once its chip stops saying it is uploading; the
+  // interface's own refusal ("Fichier non envoyé") is the failure this check exists to catch.
+  const settled = (name) =>
+    until(`${name} to be uploaded from the composer`, async () => {
+      const state = await run(
+        `const text = document.body.innerText;
+         if (text.includes('Fichier non envoyé')) return 'refused';
+         const composer = document.querySelector('.wc-message-composer').innerText;
+         return composer.includes(arguments[0]) && !composer.includes('envoi…') ? 'ready' : null;`,
+        [name],
+      );
+      if (state === "refused") throw new Error(`the interface refused ${name} ("Fichier non envoyé")`);
+      return state === "ready";
+    });
+  const clickAria = (label) =>
+    until(`the "${label}" button`, () =>
+      run("const b = document.querySelector(`button[aria-label='${arguments[0]}']:not([disabled])`); if (!b) return false; b.click(); return true;", [label]),
+    );
 
   try {
     // 1. Add the instance.
@@ -128,6 +241,9 @@ async function main() {
     const path = `/e/${SPACE}/c/${CHANNEL}`;
     await run("location.assign(arguments[0]);", [path]);
     await until("the shared channel to open", () => run("return location.pathname === arguments[0];", [path]), 30000);
+    // The first-steps card would sit over the screenshots; dismiss it through the interface.
+    await sleep(1500);
+    await clickText("Ne plus afficher");
 
     // 6. A message posted by someone else arrives without a reload: the relay works.
     const other = await webSession(OTHER);
@@ -185,6 +301,158 @@ async function main() {
     await sleep(400);
     await shot("after");
     if (!held) throw new Error("no still during the remount");
+
+    // 6c. Files, through the real interface: a picked file reaches the instance whole (the core's
+    // upload once arrived empty), a drop reaches the page (the webview's own drag-drop handler used
+    // to take it), and the viewer's frame is admitted by the page's CSP.
+    fixturePath = join(tmpdir(), `ruchoir-e2e-${Date.now()}.pdf`);
+    const fixture = fixturePdf(300 * 1024);
+    writeFileSync(fixturePath, fixture);
+    const pickedName = basename(fixturePath);
+    const inputs = await find(".wc-message-composer input[type=file]");
+    // The input is hidden (the paperclip button opens it); WebDriver is still given the path.
+    await wd("POST", `/session/${id}/element/${inputs[ELEMENT]}/value`, { text: fixturePath });
+    await settled(pickedName);
+    await clickAria("Envoyer");
+    await until("the attachment card", () => run("return document.body.innerText.includes(arguments[0]);", [pickedName]));
+    // What the instance holds, read with the account's own session: the size must be the fixture's.
+    const stored = await until("the file on the instance", async () => {
+      const files = await (await api(`/conversations/${channel.id}/files`)).json();
+      return files.find((f) => f.name === pickedName);
+    });
+    if (stored.size_bytes !== fixture.length) {
+      throw new Error(`the instance holds ${stored.size_bytes} bytes of ${pickedName}, expected ${fixture.length}`);
+    }
+    console.log(`ok: picked file stored whole (${stored.size_bytes} bytes)`);
+
+    // A drop on the composer, as the page sees one. This is a synthetic event: it goes through the
+    // page's own drop handling only, never Tauri's native handler, so it proves the page accepts a
+    // dropped file, not that the window lets a real drop through (a manual check, docs/desktop.md).
+    const droppedName = `dropped-${Date.now()}.txt`;
+    const droppedText = "dropped on the composer";
+    await run(
+      `const composer = document.querySelector('.wc-message-composer');
+       const data = new DataTransfer();
+       data.items.add(new File([arguments[1]], arguments[0], { type: 'text/plain' }));
+       for (const type of ['dragenter', 'dragover', 'drop']) {
+         composer.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
+       }`,
+      [droppedName, droppedText],
+    );
+    await settled(droppedName);
+    await clickAria("Envoyer");
+    await until("the second attachment card", () => run("return document.body.innerText.includes(arguments[0]);", [droppedName]));
+    const droppedStored = await until("the dropped file on the instance", async () => {
+      const files = await (await api(`/conversations/${channel.id}/files`)).json();
+      return files.find((f) => f.name === droppedName);
+    });
+    if (droppedStored.size_bytes !== Buffer.byteLength(droppedText)) {
+      throw new Error(`the instance holds ${droppedStored.size_bytes} bytes of ${droppedName}, expected ${Buffer.byteLength(droppedText)}`);
+    }
+    // A file dropped outside any drop zone must not navigate the window to it.
+    const before = await run("return location.href;");
+    await run(
+      `const data = new DataTransfer();
+       data.items.add(new File(['stray'], 'stray.txt', { type: 'text/plain' }));
+       window.__strayPrevented = false;
+       document.body.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: data }));
+       const drop = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data });
+       document.body.dispatchEvent(drop);
+       window.__strayPrevented = drop.defaultPrevented;`,
+    );
+    if (!(await run("return window.__strayPrevented;")) || (await run("return location.href;")) !== before) {
+      throw new Error("a file dropped outside any drop zone was not cancelled");
+    }
+
+    // The viewer: the space's files, the PDF opened, its frame in the page.
+    const sideItem = await run(
+      `const el = [...document.querySelectorAll('span, div')].find((x) => x.children.length === 0 && x.textContent.trim() === arguments[0]);
+       if (el) el.click();
+       return !!el;`,
+      ["Fichiers de l'espace"],
+    );
+    if (!sideItem) throw new Error("no \"Fichiers de l'espace\" in the sidebar");
+    // Attachments live in folders of their own; "Récents" lists the file whatever its folder.
+    await until("the files screen", () => run("const el = [...document.querySelectorAll('span, div, button')].find((x) => x.children.length === 0 && x.textContent.trim() === arguments[0]); if (el) el.click(); return !!el;", ["Pièces jointes"]));
+    // A frame the page's CSP refuses leaves no error to read (its document is blank either way), so
+    // the refusal itself is listened for.
+    await run("window.__csp = []; document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));");
+    const opened = await until("the PDF in the files list", () =>
+      run(
+        "const b = document.querySelector(`button[title='${arguments[0]}']`); if (!b) return false; b.click(); return true;",
+        [pickedName],
+      ),
+    );
+    if (!opened) throw new Error("the PDF could not be opened");
+    const frame = await until("the viewer's frame", () =>
+      run("const f = document.querySelector('.wc-viewer iframe'); return f ? { src: f.src } : null;"),
+    );
+    // The page cannot read the frame (WebKitGTK's built-in PDF viewer is not a page document: its
+    // contentDocument reads about:blank), so the check is that the page raised no CSP violation.
+    await sleep(1500);
+    const refused = await run("return window.__csp;");
+    if (refused.length > 0) throw new Error(`the page's CSP refused the viewer's frame: ${JSON.stringify(refused)}`);
+    await frameShot("viewer-pdf");
+    console.log(`ok: dropped file attached, viewer frame shown (${JSON.stringify(frame)})`);
+
+    // Opt-in (E2E_OFFICE=1) until the API lets the desktop's own origins frame the engine: it sends
+    // `frame-ancestors 'self' <instance origin>` (`office/proxy.rs`, `frame_for`), and the window's
+    // page is `ruchoir-app://localhost`, so the engine's page loads and is then refused.
+    if (process.env.E2E_OFFICE) {
+      // The office editor: the engine's host is a frame of the interface, which the window must let load
+      // (WebKit hands a frame's navigation to the window's rules), and which must not go to the browser.
+      // The office side: a .docx put in the files list, then opened in the editor, whose toolbar must appear in the engine's frame.
+      await run("document.querySelector('.wc-viewer button[aria-label=\"Fermer\"]')?.click();");
+      await until("the viewer to close", () => run("return !document.querySelector('.wc-viewer');"));
+      docxPath = join(tmpdir(), `ruchoir-e2e-${Date.now()}.docx`);
+      writeFileSync(docxPath, fixtureDocx());
+      const docxName = basename(docxPath);
+      // The files screen's own upload input, not the composer's (the screen is open here).
+      await run("const i = [...document.querySelectorAll('input[type=file]')].find((x) => x.multiple && !x.closest('.wc-message-composer')); if (i) i.setAttribute('data-e2e-upload', '1'); return !!i;");
+      const uploadInput = await find("input[data-e2e-upload]");
+      await wd("POST", `/session/${id}/element/${uploadInput[ELEMENT]}/value`, { text: docxPath });
+      // The list is sorted by name and long on a development instance: "Récents" puts it on top.
+      await sleep(3000);
+      await run("const el = [...document.querySelectorAll('button, [role=tab]')].find((x) => x.textContent.trim() === 'Récents'); if (el) el.click(); return !!el;");
+      const docRow = () =>
+        run("return [...document.querySelectorAll('body *')].filter((x) => x.textContent.trim() === arguments[0]).length > 0;", [docxName]);
+      await until("the .docx in the files list", docRow, 30000);
+      // With the office engine on, opening a .docx goes straight to the editor (the converted viewer is
+      // only the fallback when the engine is down), as the row's first menu entry says.
+      await run("window.__csp = []; document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));");
+      await clickAria(`Actions pour ${docxName}`);
+      await until("the editor entry", () => run("const el = [...document.querySelectorAll('[role=menuitem], button')].find((x) => x.textContent.trim() === arguments[0]); if (el) el.click(); return !!el;", ["Ouvrir dans l'éditeur"]), 5000);
+      const editorFrame = await until("the editor's frame", () => run("return !!document.querySelector('.wc-office iframe');"), 30000);
+      // The frame is the engine's origin, over https, and shown once its page says it is painted.
+      const editorSrc = await until("the editor's page to be revealed", () =>
+        run("const f = document.querySelector('.wc-office iframe'); return f && !f.className.includes('--hidden') && !document.querySelector('.wc-office__cover') ? f.name : null;"),
+        30000,
+      );
+      // Inside the frame (WebDriver may enter a cross-origin one), the engine's toolbar is drawn.
+      const frameEl = await find(".wc-office iframe");
+      await wd("POST", `/session/${id}/frame`, { id: { [ELEMENT]: frameEl[ELEMENT] } });
+      try {
+        await until("the editor's toolbar", () => run("return !!document.querySelector('#toolbar, .toolbar, #box-document-title');"), 30000);
+      } catch (error) {
+        console.error(`editor frame: ${JSON.stringify(await run("return { url: location.href, ids: [...document.querySelectorAll('[id]')].map((x) => x.id).slice(0, 40), inner: document.body ? document.body.innerText.slice(0, 200) : null };").catch((e) => e.message))}`);
+        await wd("POST", `/session/${id}/frame`, { id: null });
+        console.error(`editor form: ${JSON.stringify(await run("const f = document.querySelector('.wc-office form'); const i = document.querySelector('.wc-office iframe'); return { action: f && f.action, target: f && f.target, frameName: i && i.name, frameSrc: i && i.src, token: f && f.querySelector('[name=access_token]') ? 'present' : null };"))}`);
+        console.error(`page CSP violations: ${JSON.stringify(await run("return window.__csp;"))}`);
+        await frameShot("debug-editor");
+        throw error;
+      } finally {
+        await wd("POST", `/session/${id}/frame`, { id: null });
+      }
+      console.log(`ok: .docx opened in the editor (${editorFrame}, frame ${editorSrc}), toolbar shown`);
+      await frameShot("editor-docx");
+      if (readFileSync(OPENED, "utf8").includes("office")) throw new Error("the editor's address was handed to the system browser");
+      await run("document.querySelector('.wc-office button[aria-label=\"Fermer\"]')?.click();");
+      await until("the editor to close", () => run("return !document.querySelector('.wc-office');"), 20000);
+    }
+    await run("location.assign(arguments[0]);", [path]);
+    await until("the channel again", () => run("return location.pathname === arguments[0] && !!document.querySelector('.wc-message-composer');", [path]), 30000);
+    await sleep(1500);
+    await frameShot("channel-two-attachments");
 
     // 7. A second instance (optional): add it, sign in, both headings in the rail, one click back.
     const secondInstance = process.env.E2E_INSTANCE_2;
@@ -245,8 +513,6 @@ async function main() {
       await run("const b = document.querySelector(`button[aria-label='${arguments[0]}']`); if (b) b.click();", ["Mon profil et statut"]);
       await sleep(300);
     };
-    const clickText = (text) =>
-      run("const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === arguments[0]); if (b) b.click(); return !!b;", [text]);
     await menu();
     if (!(await clickText("Ajouter une instance"))) throw new Error("no \"Ajouter une instance\" in the account menu");
     await until("the add screen", () => run("return !!document.querySelector('#dk-address');"));
@@ -272,6 +538,8 @@ async function main() {
     }
     console.log(`ok: signed in, ${path} open, live message received, account menu works`);
   } finally {
+    if (fixturePath) rmSync(fixturePath, { force: true });
+    if (docxPath) rmSync(docxPath, { force: true });
     await wd("DELETE", `/session/${id}`).catch(() => {});
   }
 }

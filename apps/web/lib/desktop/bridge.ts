@@ -36,6 +36,8 @@ export const summaries = () => invoke<Record<string, Summary>>("summaries");
 /** The open instance's notification settings were saved: the core reads them again. */
 export const preferencesChanged = (id: string) => invoke<void>("preferences_changed", { id });
 export const desktopSettings = () => invoke<DesktopSettings>("desktop_settings");
+/** Let the window load a frame from this https origin (the office editor's host); see `allow_frame_origin`. */
+export const allowFrameOrigin = (origin: string) => invoke<void>("allow_frame_origin", { origin });
 /** End the app (the window's close only hides it to the tray). */
 export const quitApp = () => invoke<void>("app_quit");
 /** The app as "About" shows it (`diagnostics.rs`). */

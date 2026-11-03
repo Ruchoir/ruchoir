@@ -179,6 +179,7 @@ pub fn instance_remove<R: Runtime>(
     id: String,
 ) -> Result<(), String> {
     desktop.forget_session(&id);
+    clear_frame_origins(&app, &id);
     {
         let mut list = desktop.list.lock().map_err(|_| "internal")?;
         list.remove(&id);
@@ -206,8 +207,18 @@ pub async fn instance_sign_out<R: Runtime>(
             .await;
     }
     desktop.forget_session(&id);
+    clear_frame_origins(&app, &id);
     changed(&app);
     Ok(())
+}
+
+/// The framed origins were announced by this instance's session: they go with it, the others' stay.
+fn clear_frame_origins<R: Runtime>(app: &AppHandle<R>, id: &str) {
+    if let Some(origins) = app.try_state::<crate::FrameOrigins>() {
+        if let Ok(mut list) = origins.0.lock() {
+            list.clear(id);
+        }
+    }
 }
 
 /// Add the instance at `address` once it answers as a Ruchoir instance able to give an app its own

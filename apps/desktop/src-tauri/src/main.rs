@@ -35,11 +35,43 @@ fn app_url() -> tauri::Url {
     url.parse().expect("a constant URL")
 }
 
+/// The origins whose pages the interface frames (the office editor's host). WebKit (Linux, macOS)
+/// hands a frame's navigation to the window's navigation handler too, so without this the editor's
+/// frame would be refused and sent to the system browser. The instance's API announces the host in
+/// the office session and the interface registers it here before mounting the frame. The cost: a
+/// top-level navigation to that one host would stay in the window; only the interface's own code can
+/// trigger one. Kept per instance, so removing or signing out one leaves the others' editors alone.
+#[derive(Default)]
+pub struct FrameOrigins(pub std::sync::Mutex<ruchoir_desktop_core::navigation::FrameList>);
+
+/// The editor is always the open instance's own, so its id is the open instance's (the interface
+/// has no other way to name it, and need not).
+#[tauri::command]
+fn allow_frame_origin(
+    origins: tauri::State<'_, FrameOrigins>,
+    desktop: tauri::State<'_, state::Desktop>,
+    origin: String,
+) -> Result<(), String> {
+    let key = ruchoir_desktop_core::navigation::frame_origin(&origin).ok_or("refused")?;
+    let instance = desktop.view().id.ok_or("refused")?;
+    origins
+        .0
+        .lock()
+        .map_err(|_| "refused".to_owned())?
+        .allow(&instance, key);
+    Ok(())
+}
+
 /// Whether the window may follow a navigation; a link to another site is opened outside instead.
 fn leave_for<R: tauri::Runtime>(app: &tauri::AppHandle<R>, url: &tauri::Url) -> bool {
-    use ruchoir_desktop_core::navigation::{navigation, Navigation};
+    use ruchoir_desktop_core::navigation::{navigation_allowing, Navigation};
+    use tauri::Manager;
     use tauri_plugin_opener::OpenerExt;
-    match navigation(url) {
+    let frames = app
+        .try_state::<FrameOrigins>()
+        .and_then(|o| o.0.lock().ok().map(|l| l.origins()))
+        .unwrap_or_default();
+    match navigation_allowing(url, &frames) {
         Navigation::Stay => true,
         Navigation::OpenOutside => {
             let _ = app.opener().open_url(url.as_str(), None::<&str>);
@@ -78,6 +110,7 @@ fn main() {
 
     protocol::register(builder)
         .invoke_handler(tauri::generate_handler![
+            allow_frame_origin,
             state::instance_state,
             state::instance_add,
             state::sign_in_start,
@@ -114,6 +147,7 @@ fn main() {
                 list_path,
                 ruchoir_desktop_core::vault::open_vault(),
             ));
+            app.manage(FrameOrigins::default());
             app.manage(relay::Relay::default());
             app.manage(summaries::Summaries::default());
             app.manage(notify::Notifier::default());
@@ -155,6 +189,10 @@ fn main() {
                     .title("Ruchoir")
                     .inner_size(1200.0, 800.0)
                     .min_inner_size(360.0, 560.0)
+                    // Tauri's own drag-drop handler takes a file dropped on the window and reports its
+                    // path to the core; the page then never sees the drop. The composer and the files
+                    // list take drops themselves (`dataTransfer.files`), so the page gets them.
+                    .disable_drag_drop_handler()
                     // The window shows Ruchoir only: other sites open in the system browser.
                     .on_navigation({
                         let handle = app.handle().clone();
