@@ -12158,6 +12158,12 @@ mod native_sessions_tests;
 /// The phones woken through the push relay (ADR 0006), kept in their own file.
 mod phone_push_tests;
 
+/// The permission foundation: conversion, the legacy columns kept in step, the system roles.
+mod permissions_tests;
+
+/// The engine held to today's rules over every combination they tell apart.
+mod permissions_parity;
+
 // --- The six-digit code sent next to the verification link ---
 
 /// A fresh pending account, as registration leaves it: its id and address.

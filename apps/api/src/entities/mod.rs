@@ -17,6 +17,11 @@ pub mod space_members;
 pub mod space_slugs;
 pub mod spaces;
 
+// Roles, their holders and the rules on resources (permissions).
+pub mod permission_overrides;
+pub mod space_role_assignments;
+pub mod space_roles;
+
 // Files.
 pub mod file_links;
 pub mod file_shares;

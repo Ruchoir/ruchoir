@@ -48,6 +48,7 @@ mod m20261019_000001_reaction_and_edit_notifications;
 mod m20261019_000002_file_content_hash_index;
 mod m20261028_000001_recent_reactions_index;
 mod m20261028_000002_reply_also_in_channel;
+pub mod m20261104_000001_permissions_foundation;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -98,6 +99,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261019_000002_file_content_hash_index::Migration),
             Box::new(m20261028_000001_recent_reactions_index::Migration),
             Box::new(m20261028_000002_reply_also_in_channel::Migration),
+            Box::new(m20261104_000001_permissions_foundation::Migration),
         ]
     }
 }
