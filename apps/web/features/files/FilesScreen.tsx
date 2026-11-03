@@ -14,6 +14,7 @@ import { isApiError } from "@/lib/data/http";
 import { useSettings } from "../app/settings";
 import type { Toast } from "../app/types";
 import { useTranslation } from "@/lib/i18n";
+import { useDesktop } from "../desktop/DesktopContext";
 import { isDesktop } from "@/lib/desktop/runtime";
 import { openInWindow, openLocal } from "@/lib/desktop/files";
 import { formatBytes, formatStamp } from "@/lib/i18n/format";
@@ -128,6 +129,7 @@ export function FilesScreen({
   shareTargets = [],
 }: FilesScreenProps) {
   const { t } = useTranslation();
+  const desktop = useDesktop();
   const rootLabel = t("sidebar.spaceFiles");
 
   const { entries, breadcrumb, folderId, loading, load, reload, upsert, patch } = useFolder(
@@ -471,7 +473,7 @@ export function FilesScreen({
         if (address) {
           out.push(
             { label: t("desktop.files.openWindow"), icon: "external-link", onSelect: () => void openInWindow(address, item.file.name) },
-            { label: t("desktop.files.openLocal"), icon: "monitor", onSelect: () => void openLocal(address, item.file.name) },
+            { label: t("desktop.files.openLocal"), icon: "monitor", onSelect: () => void openLocal({ instance: desktop?.instanceId ?? "", fileId: item.file.id, name: item.file.name, href: item.file.id ? fileDownloadUrl(item.file.id) : address, canVersion: item.manage && !!desktop }) },
           );
         }
       }

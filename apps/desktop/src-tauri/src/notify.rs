@@ -39,6 +39,8 @@ const KEEP_TARGETS: usize = 200;
 pub struct Notifier {
     settings: Mutex<HashMap<String, (Instant, NotifySettings)>>,
     targets: Mutex<Vec<(i32, String, String)>>,
+    /// Notifications of saved files, so a click brings the banner back.
+    saves: Mutex<Vec<(i32, String, String)>>,
     busy: Mutex<HashSet<String>>,
     next_id: AtomicI32,
 }
@@ -207,8 +209,19 @@ async fn draw<R: Runtime>(app: &AppHandle<R>, id: &str) {
     }
 }
 
-fn signed_out<R: Runtime>(app: &AppHandle<R>, id: &str) {
+/// Forget the notices of saved files of an instance (its sign-out or removal).
+pub fn forget_saves<R: Runtime>(app: &AppHandle<R>, instance: &str) {
+    if let Ok(mut saves) = app.state::<Notifier>().saves.lock() {
+        saves.retain(|(_, i, _)| i != instance);
+    }
+}
+
+/// The server refused the instance's token (a 401): the session and the summaries go, but the
+/// opened copies and their watches stay (`SessionEnd::Expired`), so an edited file is still there to
+/// send or keep once the person signs in again.
+pub(crate) fn signed_out<R: Runtime>(app: &AppHandle<R>, id: &str) {
     app.state::<Desktop>().forget_session(id);
+    crate::files::session_ended(app, id, ruchoir_desktop_core::files::SessionEnd::Expired);
     crate::summaries::forget(app, id);
     changed(app);
 }
@@ -223,6 +236,19 @@ pub fn listen_for_clicks<R: Runtime>(app: &AppHandle<R>) {
         let Some(nid) = action.notification().map(|n| n.id()) else {
             return;
         };
+        let save = handle.state::<Notifier>().saves.lock().ok().and_then(|t| {
+            t.iter()
+                .find(|(id, _, _)| *id == nid)
+                .map(|(_, i, f)| (i.clone(), f.clone()))
+        });
+        if let Some((instance, file_id)) = save {
+            // The watch may have ended since (sent, dismissed, signed out): then there is nothing to offer.
+            if let Some(saved) = crate::files::current_save(&handle, &instance, &file_id) {
+                show_instance(&handle, &instance);
+                crate::files::emit_saved(&handle, &saved);
+            }
+            return;
+        }
         let target = handle
             .state::<Notifier>()
             .targets
@@ -233,6 +259,40 @@ pub fn listen_for_clicks<R: Runtime>(app: &AppHandle<R>) {
             open_at(&handle, &instance, &path);
         }
     });
+}
+
+/// Draw the notice of a saved file; a click brings the instance forward and the banner back.
+pub fn announce_saved<R: Runtime>(app: &AppHandle<R>, saved: &crate::files::Saved) {
+    let (title, body) = crate::shell::saved_notice(app, &saved.name);
+    let notifier = app.state::<Notifier>();
+    let nid = notifier.next_id.fetch_add(1, Ordering::Relaxed) + 1;
+    if let Ok(mut saves) = notifier.saves.lock() {
+        saves.push((nid, saved.instance.clone(), saved.file_id.clone()));
+        let excess = saves.len().saturating_sub(KEEP_TARGETS);
+        saves.drain(..excess);
+    }
+    if let Err(error) = app
+        .notification()
+        .builder()
+        .id(nid)
+        .title(title)
+        .body(body)
+        .show()
+    {
+        log::warn!("a notification could not be shown: {error}");
+    }
+}
+
+/// Make an instance the open one (when it is not) and bring the window forward.
+fn show_instance<R: Runtime>(app: &AppHandle<R>, instance: &str) {
+    let desktop = app.state::<Desktop>();
+    if let Ok(mut list) = desktop.list.lock() {
+        if list.open(instance) {
+            let _ = list.save(&desktop.list_path);
+        }
+    }
+    changed(app);
+    crate::shell::show_window(app);
 }
 
 /// Open an instance at a path and bring the window forward.

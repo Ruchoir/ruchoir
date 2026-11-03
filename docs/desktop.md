@@ -47,6 +47,24 @@ adds a fixed one to any inline file that has none. Besides, every command needs 
 the main window holds (`build.rs` lists the commands, `capabilities/main.json` grants them). "Open with
 the computer's app" saves the file to the app's cache and hands it to the system.
 
+#### A file saved on the computer comes back as a version
+
+"Open with the computer's app" (`file_open_local`) keeps the copy in the app's cache, one folder per
+instance and file, replaced at each opening. When the person may replace the file (its owner or a
+space admin, the server's rule; the interface passes `canVersion`) the interface first reads the
+file's current version and hands its id to the core, which then watches the copy. A save is told to
+the interface (`file:saved`, also when its system notification is clicked) and shown as a banner on
+any screen: "Send" reads the versions again and, if the current one is still the one the file was
+opened from, sends the copy (`file_send_version`); otherwise it asks first ("Send anyway" or "Keep
+my copy", a plain "Save as"). One banner per file, three in view at most. Limits: a file the person
+cannot replace is opened but not watched; the copies are deleted, and their banners dropped, when the
+person signs out of the instance or removes it (`file:forgotten`), but an expired session (a 401, on
+sending or anywhere else) keeps them: the banner says signed out and works again after signing in;
+a file whose name or kept name ends in an executable extension is never opened (`unsafe_type`); a
+copy with an unsent edit is not overwritten by opening the file again; sending a copy equal to the
+version it came from uploads nothing (`unchanged`); a 403 on sending says the person may not replace the file. The check and the send are two
+calls: a version added between them is not caught, and the server keeps the newest.
+
 ## Building
 
 The system's webview development files are needed on Linux (Debian, Ubuntu):
@@ -153,7 +171,8 @@ must offer native sessions, so be a release from October 2026 or later), it also
 signs in to it, checks the rail heads both instances' spaces, and opens a space of the first one
 from the second. The development host runs one instance; the second is production with Théo's own
 account. Native notifications, their click and the badge are checked by hand: WebDriver cannot see
-them. So is dropping a file from the system's file manager onto the composer and the files list
+them. So is "Keep my copy" in the saved-file dialog (it opens the system's Save dialog, which
+WebDriver cannot drive under Xvfb). So is dropping a file from the system's file manager onto the composer and the files list
 (the window must hand the drop to the page, `disable_drag_drop_handler`): WebDriver only sends
 synthetic events.
 

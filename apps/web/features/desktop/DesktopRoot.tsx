@@ -37,6 +37,7 @@ import { requestSearch } from "@/lib/desktop/searchRequest";
 import { afterOpen, guardedSwitch } from "@/lib/desktop/switchGuard";
 import { AddInstanceScreen } from "./AddInstanceScreen";
 import { DesktopContext, type DesktopBridge } from "./DesktopContext";
+import { SavedFileBanner } from "./SavedFileBanner";
 import { SignInWaitScreen } from "./SignInWaitScreen";
 import { TitleBar } from "./TitleBar";
 import { useWindowShape } from "./useWindowShape";
@@ -194,7 +195,14 @@ export function DesktopRoot() {
 
   // The tray's words follow the interface's language.
   useEffect(() => {
-    void setShellLabels({ open: t("desktop.tray.open"), quit: t("desktop.tray.quit"), closed_to_tray: t("desktop.tray.closedNotice") });
+    void setShellLabels({
+      open: t("desktop.tray.open"),
+      quit: t("desktop.tray.quit"),
+      closed_to_tray: t("desktop.tray.closedNotice"),
+      saved_title: t("desktop.files.saved.title"),
+      // The core fills in the name: `{name}` goes through as it is.
+      saved_body: t("desktop.files.saved.body", { name: "{name}" }),
+    });
   }, [t]);
 
   const open = views?.find((v) => v.open) ?? null;
@@ -220,6 +228,7 @@ export function DesktopRoot() {
     if (!open?.id || !views) return null;
     const host = open.name ?? "";
     return {
+      instanceId: open.id,
       instanceLabel: shortLabel(host),
       instanceHost: host,
       others: views
@@ -299,6 +308,10 @@ export function DesktopRoot() {
       ? null
       : errorCode === "refused"
         ? t("desktop.files.refused")
+        : errorCode === "unwatched"
+          ? t("desktop.files.unwatched")
+        : errorCode === "unsafe_type"
+          ? t("desktop.files.unsafeType")
         : errorCode === "signed_out"
           ? t("desktop.download.signedOut")
           : errorCode === "unreachable"
@@ -330,6 +343,7 @@ export function DesktopRoot() {
           </Button>
         </div>
       ) : null}
+      <SavedFileBanner />
       <div className="wc-desktop__body" ref={bodyRef}>
         {body}
         {addingOver ? (
@@ -341,7 +355,7 @@ export function DesktopRoot() {
       </div>
       {downloadError ? (
         <Dialog
-          title={fileError ? t("office.failed") : t("desktop.download.title")}
+          title={errorCode === "unwatched" ? t("desktop.files.unwatchedTitle") : fileError ? t("office.failed") : t("desktop.download.title")}
           onClose={() => setDownloadError(null)}
           closeLabel={t("common.close")}
           footer={

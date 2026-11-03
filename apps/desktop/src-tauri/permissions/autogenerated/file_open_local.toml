@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-file-open-local"
+description = "Enables the file_open_local command without any pre-configured scope."
+commands.allow = ["file_open_local"]
+
+[[permission]]
+identifier = "deny-file-open-local"
+description = "Denies the file_open_local command without any pre-configured scope."
+commands.deny = ["file_open_local"]

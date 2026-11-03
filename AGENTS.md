@@ -341,6 +341,13 @@ What cost time while integrating Euro-Office (2026-10-01), so it is not paid twi
 - Compose interpolates the variables of every service, profile or not: a `${VAR:?}` on the `office`
   service would break every `docker compose` command of an instance without the engine.
 
+### Desktop gotchas
+
+- A custom protocol drops file-backed request bodies: uploads from the desktop go through
+  `inMemoryUploads` (the client sends one buffer), never a streamed form.
+- An expired session keeps the opened copies and their watches; only a sign-out or a removal of the
+  instance deletes them (`SessionEnd` in the desktop core).
+
 ## Design system
 
 The product is drawn with the Ruchoir design system, the same one as the public site (redesign of

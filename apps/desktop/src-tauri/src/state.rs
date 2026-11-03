@@ -180,6 +180,11 @@ pub fn instance_remove<R: Runtime>(
 ) -> Result<(), String> {
     desktop.forget_session(&id);
     clear_frame_origins(&app, &id);
+    crate::files::session_ended(
+        &app,
+        &id,
+        ruchoir_desktop_core::files::SessionEnd::Deliberate,
+    );
     {
         let mut list = desktop.list.lock().map_err(|_| "internal")?;
         list.remove(&id);
@@ -208,6 +213,11 @@ pub async fn instance_sign_out<R: Runtime>(
     }
     desktop.forget_session(&id);
     clear_frame_origins(&app, &id);
+    crate::files::session_ended(
+        &app,
+        &id,
+        ruchoir_desktop_core::files::SessionEnd::Deliberate,
+    );
     changed(&app);
     Ok(())
 }

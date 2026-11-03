@@ -1800,7 +1800,25 @@
       "failed": "La fenêtre n’a pas pu s’ouvrir. Réessayez.",
       "openMenu": "Ouvrir {{name}}",
       "openWindow": "Ouvrir dans une fenêtre",
-      "openLocal": "Ouvrir avec l’application de l’ordinateur"
+      "openLocal": "Ouvrir avec l’application de l’ordinateur",
+      "unsafeType": "Ce type de fichier ne s’ouvre pas depuis Ruchoir : enregistrez-le d’abord, puis ouvrez-le vous-même.",
+      "saved": {
+        "title": "Fichier enregistré",
+        "region": "Fichiers enregistrés sur l’ordinateur",
+        "body": "« {{name}} » a été enregistré. L’envoyer comme nouvelle version ?",
+        "sent": "Version envoyée",
+        "conflictTitle": "Une version a été ajoutée entre-temps",
+        "conflictBody": "Quelqu’un a ajouté une version depuis votre ouverture. Envoyer quand même « {{name}} » la placerait par-dessus.",
+        "keepCopy": "Garder ma copie",
+        "sendAnyway": "Envoyer quand même",
+        "tooLarge": "Ce fichier est trop volumineux pour être envoyé.",
+        "busy": "Un envoi est déjà en cours pour ce fichier.",
+        "failed": "La version n’a pas pu être envoyée. Réessayez.",
+        "notWatched": "Ce fichier n’est plus suivi : rouvrez-le pour envoyer une version.",
+        "unchanged": "Ce fichier est identique à la version d’origine : il n’y a rien à envoyer."
+      },
+      "unwatchedTitle": "Ouvert sans suivi",
+      "unwatched": "Le fichier est ouvert, mais l’enregistrement ne sera pas proposé pour lui : ses versions n’ont pas pu être lues."
     },
     "add": {
       "title": "Ajouter une instance Ruchoir",

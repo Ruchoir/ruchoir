@@ -1910,7 +1910,25 @@
       "failed": "Nie udało się otworzyć okna. Spróbuj ponownie.",
       "openMenu": "Otwórz {{name}}",
       "openWindow": "Otwórz w oknie",
-      "openLocal": "Otwórz w aplikacji komputera"
+      "openLocal": "Otwórz w aplikacji komputera",
+      "unsafeType": "Ten typ pliku nie otwiera się z Ruchoir: zapisz go najpierw, a potem otwórz samodzielnie.",
+      "saved": {
+        "title": "Plik zapisany",
+        "region": "Pliki zapisane na komputerze",
+        "body": "Zapisano „{{name}}”. Wysłać jako nową wersję?",
+        "sent": "Wersja wysłana",
+        "conflictTitle": "W międzyczasie dodano wersję",
+        "conflictBody": "Ktoś dodał wersję od czasu otwarcia pliku. Wysłanie „{{name}}” mimo to położy ją na wierzchu.",
+        "keepCopy": "Zachowaj moją kopię",
+        "sendAnyway": "Wyślij mimo to",
+        "tooLarge": "Ten plik jest zbyt duży, aby go wysłać.",
+        "busy": "Dla tego pliku trwa już wysyłanie.",
+        "failed": "Nie udało się wysłać wersji. Spróbuj ponownie.",
+        "notWatched": "Ten plik nie jest już śledzony: otwórz go ponownie, aby wysłać wersję.",
+        "unchanged": "Ten plik jest taki sam jak wersja, z której go otwarto: nie ma czego wysyłać."
+      },
+      "unwatchedTitle": "Otwarto bez śledzenia",
+      "unwatched": "Plik jest otwarty, ale zapis nie zostanie zaproponowany: nie udało się odczytać jego wersji."
     },
     "add": {
       "title": "Dodaj instancję Ruchoir",

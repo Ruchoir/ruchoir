@@ -49,6 +49,20 @@ pub struct ShellLabels {
     pub open: String,
     pub quit: String,
     pub closed_to_tray: String,
+    /// The notice when an opened file is saved; `saved_body` holds `{name}`. Defaults keep an
+    /// interface that does not send them yet working.
+    #[serde(default = "default_saved_title")]
+    pub saved_title: String,
+    #[serde(default = "default_saved_body")]
+    pub saved_body: String,
+}
+
+fn default_saved_title() -> String {
+    "File saved".into()
+}
+
+fn default_saved_body() -> String {
+    "{name} was saved. Send it as a new version?".into()
 }
 
 impl Default for ShellLabels {
@@ -57,6 +71,8 @@ impl Default for ShellLabels {
             open: "Open Ruchoir".into(),
             quit: "Quit".into(),
             closed_to_tray: "Ruchoir is still running in the tray.".into(),
+            saved_title: default_saved_title(),
+            saved_body: default_saved_body(),
         }
     }
 }
@@ -65,6 +81,20 @@ impl Default for ShellLabels {
 #[derive(Default)]
 pub struct Shell {
     labels: Mutex<ShellLabels>,
+}
+
+/// The notice for a saved file, in the interface's language: (title, body with the name filled in).
+pub(crate) fn saved_notice<R: Runtime>(app: &AppHandle<R>, name: &str) -> (String, String) {
+    let labels = app
+        .state::<Shell>()
+        .labels
+        .lock()
+        .map(|l| l.clone())
+        .unwrap_or_default();
+    (
+        labels.saved_title,
+        labels.saved_body.replace("{name}", name),
+    )
 }
 
 pub(crate) fn read_settings<R: Runtime>(app: &AppHandle<R>) -> DesktopSettings {

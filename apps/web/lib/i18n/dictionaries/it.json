@@ -1842,7 +1842,25 @@
       "failed": "Impossibile aprire la finestra. Riprova.",
       "openMenu": "Apri {{name}}",
       "openWindow": "Apri in una finestra",
-      "openLocal": "Apri con l’app del computer"
+      "openLocal": "Apri con l’app del computer",
+      "unsafeType": "Questo tipo di file non si apre da Ruchoir: salvalo prima, poi aprilo tu stesso.",
+      "saved": {
+        "title": "File salvato",
+        "region": "File salvati sul computer",
+        "body": "«{{name}}» è stato salvato. Inviarlo come nuova versione?",
+        "sent": "Versione inviata",
+        "conflictTitle": "Nel frattempo è stata aggiunta una versione",
+        "conflictBody": "Qualcuno ha aggiunto una versione da quando l’hai aperto. Inviare comunque «{{name}}» la metterebbe sopra.",
+        "keepCopy": "Tieni la mia copia",
+        "sendAnyway": "Invia comunque",
+        "tooLarge": "Questo file è troppo grande per essere inviato.",
+        "busy": "Un invio è già in corso per questo file.",
+        "failed": "Impossibile inviare la versione. Riprova.",
+        "notWatched": "Questo file non è più monitorato: riaprilo per inviare una versione.",
+        "unchanged": "Questo file è identico alla versione da cui è stato aperto: non c’è nulla da inviare."
+      },
+      "unwatchedTitle": "Aperto senza monitoraggio",
+      "unwatched": "Il file è aperto, ma il salvataggio non verrà proposto: non è stato possibile leggere le sue versioni."
     },
     "add": {
       "title": "Aggiungi un’istanza Ruchoir",

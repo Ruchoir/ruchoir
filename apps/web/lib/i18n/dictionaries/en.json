@@ -1774,7 +1774,25 @@
       "failed": "The window couldn’t be opened. Try again.",
       "openMenu": "Open {{name}}",
       "openWindow": "Open in a window",
-      "openLocal": "Open with the computer’s app"
+      "openLocal": "Open with the computer’s app",
+      "unsafeType": "This type of file does not open from Ruchoir: save it first, then open it yourself.",
+      "saved": {
+        "title": "File saved",
+        "region": "Files saved on the computer",
+        "body": "“{{name}}” was saved. Send it as a new version?",
+        "sent": "Version sent",
+        "conflictTitle": "A version was added in the meantime",
+        "conflictBody": "Someone added a version since you opened it. Sending “{{name}}” anyway would put it on top.",
+        "keepCopy": "Keep my copy",
+        "sendAnyway": "Send anyway",
+        "tooLarge": "This file is too large to send.",
+        "busy": "A send is already in progress for this file.",
+        "failed": "The version could not be sent. Try again.",
+        "notWatched": "This file is no longer tracked: reopen it to send a version.",
+        "unchanged": "This file is the same as the version it was opened from: there is nothing to send."
+      },
+      "unwatchedTitle": "Opened without tracking",
+      "unwatched": "The file is open, but saving will not be offered for it: its versions could not be read."
     },
     "add": {
       "title": "Add a Ruchoir instance",

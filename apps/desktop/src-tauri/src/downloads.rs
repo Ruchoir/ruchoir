@@ -15,7 +15,7 @@ use tauri_plugin_opener::OpenerExt;
 use crate::state::Desktop;
 
 /// The bytes behind one of the app's API links, read with the instance's session.
-async fn fetch<R: Runtime>(app: &AppHandle<R>, href: &str) -> Result<Vec<u8>, String> {
+pub(crate) async fn fetch<R: Runtime>(app: &AppHandle<R>, href: &str) -> Result<Vec<u8>, String> {
     let path = own_path(href, crate::APP_SCHEME).ok_or("refused")?;
     let (bare, query) = match path.split_once('?') {
         Some((bare, query)) => (bare.to_owned(), format!("?{query}")),
@@ -41,14 +41,20 @@ async fn fetch<R: Runtime>(app: &AppHandle<R>, href: &str) -> Result<Vec<u8>, St
     .await;
     match answer.status {
         200..=299 => Ok(answer.body),
-        401 => Err("signed_out".into()),
+        401 => {
+            crate::notify::signed_out(app, &instance);
+            Err("signed_out".into())
+        }
         502 => Err("unreachable".into()),
         _ => Err("failed".into()),
     }
 }
 
-/// Ask where to save `name`, then save what `href` points at there. False when the person cancelled.
-pub async fn save<R: Runtime>(app: &AppHandle<R>, href: &str, name: &str) -> Result<bool, String> {
+/// Ask where to save `name` with the system's "Save as" dialog; `None` when the person cancelled.
+pub(crate) async fn choose_save_path<R: Runtime>(
+    app: &AppHandle<R>,
+    name: &str,
+) -> Result<Option<std::path::PathBuf>, String> {
     let name = safe_name(name);
     let asking = app.clone();
     // The dialog waits for the person: off the async workers, which keep the app's sockets.
@@ -61,10 +67,17 @@ pub async fn save<R: Runtime>(app: &AppHandle<R>, href: &str, name: &str) -> Res
     })
     .await
     .map_err(|_| "failed")?;
-    let Some(chosen) = chosen else {
+    match chosen {
+        Some(chosen) => Ok(Some(chosen.into_path().map_err(|_| "failed")?)),
+        None => Ok(None),
+    }
+}
+
+/// Ask where to save `name`, then save what `href` points at there. False when the person cancelled.
+pub async fn save<R: Runtime>(app: &AppHandle<R>, href: &str, name: &str) -> Result<bool, String> {
+    let Some(path) = choose_save_path(app, name).await? else {
         return Ok(false);
     };
-    let path = chosen.into_path().map_err(|_| "failed")?;
     let bytes = fetch(app, href).await?;
     tokio::fs::write(&path, bytes)
         .await

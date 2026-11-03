@@ -1774,7 +1774,25 @@
       "failed": "Das Fenster konnte nicht geöffnet werden. Versuche es erneut.",
       "openMenu": "{{name}} öffnen",
       "openWindow": "In einem Fenster öffnen",
-      "openLocal": "Mit der App des Computers öffnen"
+      "openLocal": "Mit der App des Computers öffnen",
+      "unsafeType": "Dieser Dateityp wird nicht aus Ruchoir geöffnet: Speichern Sie ihn zuerst und öffnen Sie ihn dann selbst.",
+      "saved": {
+        "title": "Datei gespeichert",
+        "region": "Auf dem Computer gespeicherte Dateien",
+        "body": "„{{name}}“ wurde gespeichert. Als neue Version senden?",
+        "sent": "Version gesendet",
+        "conflictTitle": "Inzwischen wurde eine Version hinzugefügt",
+        "conflictBody": "Jemand hat seit dem Öffnen eine Version hinzugefügt. Würde „{{name}}“ trotzdem gesendet, läge sie obenauf.",
+        "keepCopy": "Meine Kopie behalten",
+        "sendAnyway": "Trotzdem senden",
+        "tooLarge": "Diese Datei ist zu groß zum Senden.",
+        "busy": "Für diese Datei läuft bereits ein Versand.",
+        "failed": "Die Version konnte nicht gesendet werden. Versuchen Sie es erneut.",
+        "notWatched": "Diese Datei wird nicht mehr überwacht: Öffnen Sie sie erneut, um eine Version zu senden.",
+        "unchanged": "Diese Datei entspricht der Version, aus der sie geöffnet wurde: es gibt nichts zu senden."
+      },
+      "unwatchedTitle": "Ohne Überwachung geöffnet",
+      "unwatched": "Die Datei ist geöffnet, aber Speichern wird dafür nicht angeboten: ihre Versionen konnten nicht gelesen werden."
     },
     "add": {
       "title": "Ruchoir-Instanz hinzufügen",

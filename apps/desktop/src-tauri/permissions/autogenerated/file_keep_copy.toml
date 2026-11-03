@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-file-keep-copy"
+description = "Enables the file_keep_copy command without any pre-configured scope."
+commands.allow = ["file_keep_copy"]
+
+[[permission]]
+identifier = "deny-file-keep-copy"
+description = "Denies the file_keep_copy command without any pre-configured scope."
+commands.deny = ["file_keep_copy"]

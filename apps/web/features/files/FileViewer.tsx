@@ -165,7 +165,7 @@ export function FileViewer({ file, kind, onClose, onDownload, onNewVersion, onDe
             <Button variant={onEdit ? "secondary" : "primary"} iconLeft="download" fullWidth onClick={onDownload}>
               {t("message.download")}
             </Button>
-            {isDesktop && address ? <OpenFileEntries href={address} name={file.name} variant="button" /> : null}
+            {isDesktop && address ? <OpenFileEntries href={address} name={file.name} fileId={file.id} canVersion={!!onNewVersion} variant="button" /> : null}
             <Button iconLeft="printer" fullWidth onClick={print}>
               {t("files.print")}
             </Button>
