@@ -344,7 +344,9 @@
     "conversationOf_one": "Private Unterhaltung · {{count}} Person",
     "conversationOf_other": "Private Unterhaltung · {{count}} Personen",
     "pick": "Wählen Sie eine Unterhaltung",
-    "pickHint": "Sie öffnet sich hier, neben der Liste."
+    "pickHint": "Sie öffnet sich hier, neben der Liste.",
+    "hide": "Ausblenden",
+    "hideHint": "Sie verschwindet aus Ihrer Liste, auf allen Ihren Geräten, bis zur nächsten Nachricht."
   },
   "conversation": {
     "backToList": "Zurück zu den Unterhaltungen",
@@ -947,7 +949,7 @@
     "agendaView": "Ansicht beim Öffnen",
     "weekStart": "Erster Tag der Woche",
     "duration": "Dauer eines neuen Termins",
-    "onThisPhone": "Darstellung, Sprache und Kalender gelten für dieses Telefon. Benachrichtigungen gelten für alle Ihre Geräte.",
+    "onThisPhone": "Die Darstellung gilt für dieses Telefon. Sprache, Kalender und Benachrichtigungen gelten für alle Ihre Geräte.",
     "minutes": "{{n}} Min.",
     "hours": "{{n}} Std.",
     "hoursMinutes": "{{h}} Std. {{m}} Min."

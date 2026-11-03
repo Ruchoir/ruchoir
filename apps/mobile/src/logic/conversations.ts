@@ -36,6 +36,11 @@ export type ConversationItem = {
   private?: true;
   /** A channel the person keeps among their favourites: listed first. */
   favourite?: true;
+  /**
+   * A direct conversation the person hid, here or on another device: out of the list, unless it is
+   * the one open. A new message brings it back (the server clears it).
+   */
+  hidden?: true;
   /** The others in a private conversation with several people, whose faces stand for it. */
   participants?: string[];
   /** The other person, for a one-to-one conversation. */
@@ -92,6 +97,7 @@ export function buildConversations(channels: Channel[], dms: DirectMessage[]): C
       userId: d.userId,
       presence: d.presence,
     };
+    if (d.hidden) item.hidden = true;
     if (!d.userId && d.participantIds?.length) {
       item.participants = d.participantIds;
       item.members = d.participantIds.length + 1;

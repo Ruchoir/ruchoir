@@ -1031,7 +1031,7 @@
     "title": "Preferencias",
     "backToSpace": "Volver al espacio",
     "appearance": "Apariencia",
-    "appearanceSub": "Tema, tipografía, tamaño del texto y aspecto inicial de la interfaz.",
+    "appearanceSub": "Tema, tipografía, tamaño del texto y aspecto inicial de la interfaz. El tema y el tamaño del texto se quedan en este dispositivo; lo demás te sigue en todos tus dispositivos.",
     "font": "Tipografía",
     "textSize": "Tamaño del texto",
     "defaultDisplay": "Vista por defecto",
@@ -1658,7 +1658,7 @@
     "clash_other": "Coincide con {{count}} eventos: {{titles}}",
     "weekNumber": "Sem. {{n}}",
     "prefs": {
-      "sub": "Cómo se muestra el calendario en este dispositivo.",
+      "sub": "Cómo se muestra el calendario, en todos tus dispositivos.",
       "viewDesktop": "Vista al abrir en un ordenador",
       "viewPhone": "Vista al abrir en un teléfono",
       "weekAndTime": "Semana y hora",

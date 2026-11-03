@@ -85,6 +85,8 @@ use utoipa::OpenApi;
         crate::notify::prefs::put_preferences,
         crate::notify::prefs::put_conversation_preference,
         crate::notify::prefs::put_space_preference,
+        crate::preferences::routes::get_preferences,
+        crate::preferences::routes::patch_preferences,
         crate::notify::push::config,
         crate::notify::push::subscribe,
         crate::notify::push::unsubscribe,
@@ -98,6 +100,7 @@ use utoipa::OpenApi;
         crate::messaging::conversations::list_dms,
         crate::messaging::conversations::list_members,
         crate::messaging::conversations::create_dm,
+        crate::messaging::conversations::set_dm_hidden,
         crate::messaging::spaces::create_space,
         crate::messaging::spaces::update_space,
         crate::messaging::spaces::set_default_channel,
@@ -310,6 +313,7 @@ use utoipa::OpenApi;
         crate::messaging::dto::ReadRequest,
         crate::messaging::read::ReadCursorDto,
         crate::messaging::dto::CreateDmRequest,
+        crate::messaging::dto::DmHiddenRequest,
         crate::messaging::dto::CreateSpaceRequest,
         crate::messaging::dto::InvitationDto,
         crate::messaging::dto::CreatedInvitationDto,
@@ -384,6 +388,7 @@ use utoipa::OpenApi;
         (name = "files", description = "File tree, upload and versions, download, preview, thumbnails, shares"),
         (name = "calendar", description = "Calendars, events and recurring series, reminders, iCal subscriptions"),
         (name = "office", description = "Live office editing: editing sessions and blank documents"),
+        (name = "preferences", description = "Account preferences that follow a person across devices"),
         (name = "admin", description = "Instance administration: account lookup and recovery")
     )
 )]

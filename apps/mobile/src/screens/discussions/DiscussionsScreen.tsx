@@ -2,8 +2,9 @@ import type { Member, RuchoirClient } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { Lock, MessageCircle, MessageSquare, SearchX, SquarePen, Star, Users } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 
+import { useSupports } from "../../api/features";
 import { useApi } from "../../api/useApi";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
@@ -99,10 +100,29 @@ export function DiscussionsScreen() {
     if (e.type === "presence") setPresence((now) => ({ ...now, [e.userId]: e.presence }));
   });
 
+  // A hidden conversation is out of the list (hidden here or on another device), unless it is the
+  // one open beside it; a new message brings it back, the server having cleared it.
+  const openId = beside?.conversationId;
   const items = useMemo(
-    () => (conversations.data ? withLivePresence(listConversations(conversations.data, filter, query), presence) : []),
-    [conversations.data, filter, query, presence],
+    () =>
+      conversations.data
+        ? withLivePresence(listConversations(conversations.data.filter((item) => !item.hidden || item.id === openId), filter, query), presence)
+        : [],
+    [conversations.data, filter, query, presence, openId],
   );
+  const canHide = useSupports("account_preferences");
+  const hide = (item: ConversationItem) => {
+    Alert.alert(item.name, t("discussions.hideHint"), [
+      { text: t("compose.cancel"), style: "cancel" },
+      {
+        text: t("discussions.hide"),
+        onPress: () => {
+          feel("success");
+          void api.setDmHidden(item.id, true).then(conversations.reload, () => {});
+        },
+      },
+    ]);
+  };
   const unreadCount = conversations.data?.filter((c) => c.unread > 0).length ?? 0;
   const open = (item: ConversationItem) => {
     const params = {
@@ -175,6 +195,7 @@ export function DiscussionsScreen() {
             memberOf={memberOf}
             selected={beside?.conversationId === item.id}
             onPress={() => open(item)}
+            onLongPress={canHide && item.kind !== "channel" ? () => hide(item) : undefined}
             variant={wide ? "tablet" : "phone"}
           />
         )}
@@ -224,12 +245,15 @@ export function useMemberOf(spaceId: string | undefined): (userId: string) => Me
 export function ConversationRow({
   item,
   onPress,
+  onLongPress,
   memberOf,
   selected = false,
   variant = "phone",
 }: {
   item: ConversationItem;
   onPress: () => void;
+  /** A private conversation's actions (hiding it), where the instance offers them. */
+  onLongPress?: () => void;
   memberOf?: (userId: string) => Member | undefined;
   /** The one open beside the list (a tablet). */
   selected?: boolean;
@@ -260,6 +284,7 @@ export function ConversationRow({
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       accessibilityState={{ selected }}
       style={({ pressed }) => [
         styles.row,

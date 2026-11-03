@@ -5,7 +5,8 @@
 # Installed as /usr/local/sbin/ruchoir-deploy (root, 0755) and reached through the `deploy` account,
 # whose SSH key is bound to ruchoir-deploy-entry (see docs/deployment.md, "Releasing"):
 #
-#   ssh deploy@<server> v1.2.3 < bundle.tar.gz
+#   ssh deploy@<server> v1.2.3 < bundle.tar.gz              (the community image, ruchoir/api)
+#   ssh deploy@<server> enterprise v1.2.3 < bundle.tar.gz   (the enterprise image, ruchoir/enterprise)
 #
 # The bundle is what a release needs on the server besides its image and .env: docker-compose.yml,
 # Garage's configuration, the office editor's mounted files, and the backup and restore scripts. No source code travels.
@@ -19,20 +20,26 @@ set -euo pipefail
 
 INSTANCE="${RUCHOIR_INSTANCE:-/opt/ruchoir}"
 REGISTRY="${RUCHOIR_REGISTRY:-registry.ruchoir.com}"
-REPOSITORY="${RUCHOIR_REPOSITORY:-ruchoir/api}"
+# Which image: the community one unless the second word says `enterprise` (ADR 0010). Either reads
+# the same database and runs from the same bundle; only the binary inside differs.
+case "${2:-community}" in
+  community) REPOSITORY="${RUCHOIR_REPOSITORY:-ruchoir/api}" ;;
+  enterprise) REPOSITORY="${RUCHOIR_ENTERPRISE_REPOSITORY:-ruchoir/enterprise}" ;;
+  *) echo "usage: ruchoir-deploy vMAJOR.MINOR.PATCH[-pre] [community|enterprise] < bundle.tar.gz" >&2; exit 2 ;;
+esac
 LOG="/var/log/ruchoir-deploy.log"
 MAX_BUNDLE_BYTES=$((20 * 1024 * 1024))
 HEALTH_TIMEOUT=300
 
 version="${1:-}"
 if ! [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
-  echo "usage: ruchoir-deploy vMAJOR.MINOR.PATCH[-pre] < bundle.tar.gz" >&2
+  echo "usage: ruchoir-deploy vMAJOR.MINOR.PATCH[-pre] [community|enterprise] < bundle.tar.gz" >&2
   exit 2
 fi
 image="$REGISTRY/$REPOSITORY:$version"
 
 exec > >(tee -a "$LOG") 2>&1
-echo "=== $(date -u +%FT%TZ) deploying $version"
+echo "=== $(date -u +%FT%TZ) deploying $image"
 
 # One deployment at a time.
 exec 9>/run/ruchoir-deploy.lock

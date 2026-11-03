@@ -14,6 +14,7 @@
  */
 import { ApiError, apiErrorMessage, defaultTransport, type Transport } from "./http.ts";
 import { toEventCard, type EventCardDto } from "./calendar.ts";
+import type { AccountPrefsDoc } from "./accountPrefs.ts";
 import type {
   BlankKind,
   Channel,
@@ -107,6 +108,8 @@ type DirectMessageDto = {
   unread: number;
   notify_level?: string;
   muted?: boolean;
+  /** Absent from servers before account preferences: nothing is hidden there. */
+  hidden?: boolean;
   last_message?: LastMessageDto;
 };
 
@@ -474,6 +477,7 @@ function toDirectMessage(dto: DirectMessageDto): DirectMessage {
     userId: dto.user_id,
     participantIds: dto.participant_ids,
     notify: toConversationNotify(dto.notify_level, dto.muted),
+    hidden: dto.hidden === true,
     lastMessage: dto.last_message ? toLastMessage(dto.last_message) : undefined,
   };
 }
@@ -1198,6 +1202,13 @@ export type RealtimeHandlers = {
    * took them out of it, which they have to be told or a space vanishes from under them).
    */
   onSpaceRemoved?: (spaceId: string, reason: "left" | "deleted" | "removed") => void;
+  /**
+   * Some of the person's account preferences changed, on this device or another one: the keys and
+   * their new values, `null` for one back to its default.
+   */
+  onPreferencesUpdated?: (changes: AccountPrefsDoc) => void;
+  /** The person hid one of their direct conversations, or brought it back, here or elsewhere. */
+  onDmHidden?: (dmId: string, hidden: boolean) => void;
   /** A channel was deleted, with its history: it leaves the sidebar and the open conversation. */
   onChannelDeleted?: (spaceId: string, channelId: string) => void;
   onPresence?: (userId: string, presence: Presence) => void;
@@ -1241,6 +1252,8 @@ const REALTIME_EVENTS = [
   "member.updated",
   "space.updated",
   "space.removed",
+  "preferences.updated",
+  "dm.hidden",
   "channels.reordered",
   "channel.membership",
   "presence",
@@ -2616,6 +2629,29 @@ export function createApi(transport: Transport) {
 
   // --- Notification delivery (preferences, Web Push) ---
 
+  /**
+   * `GET /me/preferences`: the account preferences, or `null` from a server that predates them (it
+   * answers 404), where the app keeps its own as before.
+   */
+  async function getAccountPreferences(signal?: AbortSignal): Promise<AccountPrefsDoc | null> {
+    try {
+      return await apiGet<AccountPrefsDoc>("/me/preferences", signal);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    }
+  }
+
+  /** `PATCH /me/preferences`: change the keys given (`null`: back to the default); the whole document back. */
+  async function patchAccountPreferences(patch: AccountPrefsDoc): Promise<AccountPrefsDoc> {
+    return apiPatch<AccountPrefsDoc>("/me/preferences", patch);
+  }
+
+  /** `PUT /me/dms/{id}/hidden`: hide a direct conversation from the person's own list, or bring it back. */
+  async function setDmHidden(dmId: string, hidden: boolean): Promise<void> {
+    await apiPut<void>(`/me/dms/${dmId}/hidden`, { hidden });
+  }
+
   /** `GET /me/notification-preferences`. */
   /**
    * The emoji the signed-in person reacted with last, newest first (`recent_reactions`): the quick
@@ -3313,6 +3349,16 @@ export function createApi(transport: Transport) {
         case "permissions.changed":
           handlers.onPermissionsChanged?.(String(payload.space_id));
           break;
+        case "preferences.updated": {
+          const changes = payload.changes;
+          if (changes && typeof changes === "object" && !Array.isArray(changes)) {
+            handlers.onPreferencesUpdated?.(changes as AccountPrefsDoc);
+          }
+          break;
+        }
+        case "dm.hidden":
+          handlers.onDmHidden?.(String(payload.dm_id), payload.hidden === true);
+          break;
         case "channel.membership":
           handlers.onChannelMembership?.({
             spaceId: String(payload.space_id),
@@ -3675,6 +3721,7 @@ export function createApi(transport: Transport) {
     getReplies, addReaction, removeReaction, getRecentReactions, setReadCursor, getSavedMessages, setMessageSaved,
     getPinnedMessages, setMessagePinned, getReadCursors, getNotifications, markNotificationRead,
     markAllNotificationsRead, getNotificationPreferences, saveNotificationPreferences,
+    getAccountPreferences, patchAccountPreferences, setDmHidden,
     saveConversationNotify, getPushConfig, savePushSubscription, sendTestPush, sendPhoneTestPush,
     forgetPushSubscription, search, getFolder, getConversationFiles, createFolder, uploadDuplicate,
     uploadFile, startFileUpload, uploadFileVersion, startFileVersionUpload, getTrash, restoreFile,
@@ -3708,6 +3755,7 @@ export const {
   getReplies, addReaction, removeReaction, getRecentReactions, setReadCursor, getSavedMessages, setMessageSaved,
   getPinnedMessages, setMessagePinned, getReadCursors, getNotifications, markNotificationRead,
   markAllNotificationsRead, getNotificationPreferences, saveNotificationPreferences,
+  getAccountPreferences, patchAccountPreferences, setDmHidden,
   saveConversationNotify, getPushConfig, savePushSubscription, sendTestPush, sendPhoneTestPush,
   forgetPushSubscription, search, getFolder, getConversationFiles, createFolder, uploadDuplicate,
   uploadFile, startFileUpload, uploadFileVersion, startFileVersionUpload, getTrash, restoreFile,

@@ -27,6 +27,7 @@ import {
   getFolder,
   getInvitations,
   getNotificationPreferences,
+  setDmHidden,
   getNotifications,
   getReadCursors,
   getReplies,
@@ -193,8 +194,10 @@ import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchF
 import { SpaceSwitcherSheet, YouSheet } from "./mobile/MobileSheets";
 import { applyNotificationsRead } from "./notifRead";
 import { reconcileNotifPrefs } from "./notifPrefsSync";
+import { useAccountPrefsSync } from "./useAccountPrefsSync";
 
 /** Wraps the app in the settings provider (emoji rendering, etc.). */
+
 export function AppRoot() {
   return (
     <SettingsProvider>
@@ -499,6 +502,9 @@ function AppShell() {
    */
   const [emailDelivery, setEmailDelivery] = useState<boolean | undefined>(undefined);
   const [canReplyToChannel, setCanReplyToChannel] = useState(false);
+  // Hiding a direct conversation is the account's (`account_preferences`): an instance from before
+  // it (the desktop app reaches older ones) has nowhere to keep it, so the action is not offered.
+  const [canHideDms, setCanHideDms] = useState(false);
   /**
    * An invitation the visitor arrived with, held across the whole authentication flow: they may have
    * to sign in or register first, and the token has to survive that. Kept in memory only, like the
@@ -1075,6 +1081,7 @@ function AppShell() {
         if (!active) return;
         setEmailDelivery(capabilities.emailDelivery);
         setCanReplyToChannel(supports(capabilities, "reply_to_channel"));
+        setCanHideDms(supports(capabilities, "account_preferences"));
       })
       .catch(() => {});
     return () => {
@@ -1122,6 +1129,15 @@ function AppShell() {
   const notifyRef = useRef<((toast: Toast) => void) | null>(null);
   // The desktop app's bridge (null on the web), for effects that outlive a render.
   const desktop = useDesktop();
+  // The account settings, kept in line with the server's (and the other devices').
+  // Conversations hidden by an older version of this page that received something since are not
+  // handed over hidden: that version brought them back on unread.
+  const unreadDmRef = useRef<(id: string) => boolean>(() => false);
+  const accountSync = useAccountPrefsSync(authStage === "app" && session ? session.id : "", desktop, (id) => unreadDmRef.current(id));
+  const accountSyncRef = useRef(accountSync);
+  useEffect(() => {
+    accountSyncRef.current = accountSync;
+  });
   const desktopRef = useRef(desktop);
   useEffect(() => {
     desktopRef.current = desktop;
@@ -1193,7 +1209,12 @@ function AppShell() {
     // count this tab as the member being present in the space.
     if (!session || standalone || maybeDocumentTab) return;
     const conn = connectRealtime({
-      onReconnect: () => resyncRef.current(),
+      onReconnect: () => {
+        resyncRef.current();
+        accountSyncRef.current.resync();
+      },
+      onPreferencesUpdated: (changes) => accountSyncRef.current.remote(changes),
+      onDmHidden: (dmId, hidden) => setDms((prev) => prev.map((d) => (d.id === dmId ? { ...d, hidden } : d))),
       onMessageCreated: (conv, m) => {
         const { channelId: active, myId } = liveRef.current;
         // Our own message is already shown optimistically and reconciled by the POST response; skip
@@ -1201,6 +1222,9 @@ function AppShell() {
         // our name (an event's card, posted when we plan it for this channel) was never sent from the
         // composer and has no such copy: it is kept, and counts as read, being ours.
         const mine = Boolean(m.authorId && m.authorId === myId);
+        // A new message brings a hidden direct conversation back, for everyone in it (the server
+        // cleared the flag already; this is the list on screen catching up).
+        setDms((prev) => (prev.some((d) => d.id === conv && d.hidden) ? prev.map((d) => (d.id === conv ? { ...d, hidden: false } : d)) : prev));
         if (mine && !m.system) return;
         const parentId = m.parentId;
         setMessages((prev) => {
@@ -1692,35 +1716,30 @@ function AppShell() {
   /**
    * The direct conversations the sidebar shows.
    *
-   * A hidden one comes back the moment it has something unread, and the one being read stays put:
-   * hiding the conversation you are looking at and watching it vanish under you would be its own
-   * small defect. Hiding is a display choice, so it lives with the preferences and touches nothing
-   * on the server.
+   * Hiding belongs to the account (`dm_participants.hidden`), so a conversation hidden here is
+   * hidden on the person's other devices too. A new message brings it back for good, on the server,
+   * for everyone in it; the one being read stays put meanwhile: hiding the conversation you are
+   * looking at and watching it vanish under you would be its own small defect.
    */
-  const visibleDms = useMemo(() => {
-    if (settings.hiddenDms.length === 0) return dms;
-    const hidden = new Set(settings.hiddenDms);
-    return dms.filter((d) => !hidden.has(d.id) || d.unread > 0 || d.id === channelId);
-  }, [dms, settings.hiddenDms, channelId]);
-
-  // A hidden conversation that receives something is back for good, not until it is read: leaving it
-  // in the hidden list would make it disappear again the moment the message is seen, which reads as
-  // the app losing a conversation.
+  const visibleDms = useMemo(() => dms.filter((d) => !d.hidden || d.id === channelId), [dms, channelId]);
   useEffect(() => {
-    if (settings.hiddenDms.length === 0) return;
-    const returning = dms.filter((d) => d.unread > 0 && settings.hiddenDms.includes(d.id)).map((d) => d.id);
-    if (returning.length === 0) return;
-    settings.set(
-      "hiddenDms",
-      settings.hiddenDms.filter((id) => !returning.includes(id)),
-    );
-    // `settings` is a context value rebuilt on every change; depending on it would loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dms, settings.hiddenDms]);
+    unreadDmRef.current = (id) => dms.some((d) => d.id === id && d.unread > 0);
+  });
+
+  /** Bring a hidden conversation back, for the account. */
+  const showDm = (id: string) => {
+    setDms((prev) => prev.map((d) => (d.id === id ? { ...d, hidden: false } : d)));
+    void setDmHidden(id, false).catch(() => {});
+  };
+
 
   /** Hide a direct conversation, and leave it if it is the one on screen. */
   const hideDm = (id: string) => {
-    if (!settings.hiddenDms.includes(id)) settings.set("hiddenDms", [...settings.hiddenDms, id]);
+    setDms((prev) => prev.map((d) => (d.id === id ? { ...d, hidden: true } : d)));
+    void setDmHidden(id, true).catch(() => {
+      setDms((prev) => prev.map((d) => (d.id === id ? { ...d, hidden: false } : d)));
+      notifyRef.current?.({ tone: "danger", title: tRef.current("admin.settingsSaveFailed") });
+    });
     if (channelId === id) {
       const fallback = channels[0]?.id;
       if (fallback) openChannel(fallback);
@@ -2561,6 +2580,9 @@ function AppShell() {
     setModal(null);
     const existing = dms.find((d) => d.name === name);
     if (existing) {
+      // Choosing someone again is asking to see that conversation: one hidden comes back, here and
+      // on the person's other devices.
+      if (existing.hidden) showDm(existing.id);
       openChannel(existing.id);
       return;
     }
@@ -4030,7 +4052,7 @@ function AppShell() {
         workspace={workspaces.find((w) => w.id === ws)}
         channels={channels}
         directMessages={visibleDms}
-        onHideDm={hideDm}
+        onHideDm={canHideDms ? hideDm : undefined}
         view={view}
         channel={channelId}
         mentionCount={mentionUnread}

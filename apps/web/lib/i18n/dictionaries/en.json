@@ -1004,7 +1004,7 @@
     "title": "Preferences",
     "backToSpace": "Back to the space",
     "appearance": "Appearance",
-    "appearanceSub": "Theme, typeface, text size and how the interface opens.",
+    "appearanceSub": "Theme, typeface, text size and how the interface opens. The theme and the text size stay with this device; the rest follows you to all your devices.",
     "font": "Typeface",
     "textSize": "Text size",
     "defaultDisplay": "Default display",
@@ -1600,7 +1600,7 @@
     "clash_other": "Overlaps {{count}} events: {{titles}}",
     "weekNumber": "W{{n}}",
     "prefs": {
-      "sub": "How the calendar shows on this device.",
+      "sub": "How the calendar shows, on all your devices.",
       "viewDesktop": "View when opened on a computer",
       "viewPhone": "View when opened on a phone",
       "weekAndTime": "Week and time",

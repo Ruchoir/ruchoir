@@ -390,7 +390,8 @@ export type SidebarProps = {
   channels: Channel[];
   directMessages: DirectMessage[];
   /** Take a direct conversation out of the list until it has a new message. */
-  onHideDm: (id: string) => void;
+  /** Absent where the instance cannot keep it (no `account_preferences`): the action is not offered. */
+  onHideDm?: (id: string) => void;
   view: AppView;
   channel: string;
   mentionCount: number;
@@ -633,7 +634,7 @@ export function Sidebar({
     // Hiding used to be a toast and nothing else. It now takes the conversation out of the list
     // until it has something to say again; the history is untouched and a new message brings it
     // back, which is what keeps this from being a way to miss one.
-    {
+    ...(onHideDm ? [{
       icon: "x",
       label: t("sidebar.hideConversation"),
       onClick: () => {
@@ -644,7 +645,7 @@ export function Sidebar({
           description: t("sidebar.hiddenHint", { name }),
         });
       },
-    },
+    } satisfies SideMenuItem] : []),
   ];
   const notifMutedFor = (id: string): boolean => {
     const p = channelPrefs[id];
