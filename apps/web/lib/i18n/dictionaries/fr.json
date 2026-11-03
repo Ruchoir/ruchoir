@@ -2255,6 +2255,9 @@
     "groupManagersRemoved": "{{actor}} a retiré {{people}} des responsables du groupe {{group}}",
     "groupManagersChanged": "{{actor}} a nommé {{people}} responsable du groupe {{group}} et retiré {{removedPeople}} des responsables",
     "viaGroup": "{{role}}, par le groupe",
+    "formerMembers_one": "{{count}} personne qui n'est plus dans l'espace",
+    "formerMembers_other": "{{count}} personnes qui ne sont plus dans l'espace",
+    "groupDeletedBare": "{{actor}} a supprimé le groupe {{group}}",
     "licenceRemoved": "{{actor}} a retiré la licence",
     "unknown": "{{actor}} a fait un changement ({{action}})"
   }

@@ -156,7 +156,13 @@ test("a_group_line_without_carried_roles_has_no_chips", () => {
   assert.equal(line.diff, undefined);
 });
 
-test("an_unknown_person_in_a_group_line_is_a_deleted_account", () => {
+test("a_group_deleted_without_a_head_count_omits_it", () => {
+  const line = auditLine(entry("group.deleted", { target: group, details: { name: "Comptabilité", roles: [] } }));
+  assert.equal(line.sentence, "groupDeletedBare");
+  assert.equal("count" in line.values, false);
+});
+
+test("a_person_who_left_is_not_called_a_deleted_account", () => {
   const line = auditLine(entry("group.members_added", { target: group, details: { user_ids: ["u1", "gone"], roles: [] } }), nameOf);
   assert.deepEqual(line.slots.people, { kind: "people", names: ["Nadia Haddad", null] });
   const managers = auditLine(entry("group.managers_changed", { target: group, details: { before: ["gone"], after: [] } }));

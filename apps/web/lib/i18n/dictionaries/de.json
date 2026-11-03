@@ -2229,6 +2229,9 @@
     "groupManagersRemoved": "{{actor}} hat {{people}} als Verantwortliche der Gruppe {{group}} entfernt",
     "groupManagersChanged": "{{actor}} hat {{people}} zu Verantwortlichen der Gruppe {{group}} ernannt und {{removedPeople}} als Verantwortliche entfernt",
     "viaGroup": "{{role}}, durch die Gruppe",
+    "formerMembers_one": "{{count}} Person, die nicht mehr im Bereich ist",
+    "formerMembers_other": "{{count}} Personen, die nicht mehr im Bereich sind",
+    "groupDeletedBare": "{{actor}} hat die Gruppe {{group}} gelöscht",
     "licenceRemoved": "{{actor}} hat die Lizenz entfernt",
     "unknown": "{{actor}} hat eine Änderung vorgenommen ({{action}})"
   }

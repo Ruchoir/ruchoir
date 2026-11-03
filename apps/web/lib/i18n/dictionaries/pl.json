@@ -2409,6 +2409,11 @@
     "groupManagersRemoved": "{{actor}} odebrał(a) rolę opiekuna grupy {{group}}: {{people}}",
     "groupManagersChanged": "{{actor}} mianował(a) opiekunem grupy {{group}}: {{people}}, a odebrał(a) tę rolę: {{removedPeople}}",
     "viaGroup": "{{role}}, przez grupę",
+    "formerMembers_one": "{{count}} osoba, której nie ma już w przestrzeni",
+    "formerMembers_few": "{{count}} osoby, których nie ma już w przestrzeni",
+    "formerMembers_many": "{{count}} osób, których nie ma już w przestrzeni",
+    "formerMembers_other": "{{count}} osoby, których nie ma już w przestrzeni",
+    "groupDeletedBare": "{{actor}} usunął(-ęła) grupę {{group}}",
     "licenceRemoved": "{{actor}} usuwa licencję",
     "unknown": "{{actor}} wprowadza zmianę ({{action}})"
   }

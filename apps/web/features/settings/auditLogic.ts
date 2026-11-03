@@ -18,7 +18,7 @@ export type Slot =
   | { kind: "deleted" }
   /** A group, drawn with the users icon. */
   | { kind: "group"; name: string; id?: string }
-  /** People named by id; `null` is a person whose account is gone. */
+  /** People named by id; `null` is a person no longer in the space (the account may well exist). */
   | { kind: "people"; names: (string | null)[] }
   | { kind: "role"; name: string; colour?: string }
   | { kind: "legacy"; roles: string[] };
@@ -44,6 +44,7 @@ export type Sentence =
   | "groupRenamed"
   | "groupDescribed"
   | "groupDeleted"
+  | "groupDeletedBare"
   | "groupMembersAdded"
   | "groupMembersRemoved"
   | "groupRolesChanged"
@@ -160,9 +161,9 @@ export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined): A
       return line("groupDescribed", { slots: { group: group(str(after.name) || label) } });
     }
     case "group.deleted":
-      return line("groupDeleted", {
+      return line(typeof d.members === "number" ? "groupDeleted" : "groupDeletedBare", {
         slots: { group: group(label) },
-        values: { count: typeof d.members === "number" ? d.members : 0 },
+        values: typeof d.members === "number" ? { count: d.members } : {},
         diff: carried(strings(d.roles), true, true),
       });
     case "group.members_added":

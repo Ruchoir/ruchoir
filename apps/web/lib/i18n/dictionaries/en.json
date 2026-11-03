@@ -2229,6 +2229,9 @@
     "groupManagersRemoved": "{{actor}} removed {{people}} from the managers of the group {{group}}",
     "groupManagersChanged": "{{actor}} made {{people}} manager of the group {{group}} and removed {{removedPeople}} from the managers",
     "viaGroup": "{{role}}, through the group",
+    "formerMembers_one": "{{count}} person no longer in the space",
+    "formerMembers_other": "{{count}} people no longer in the space",
+    "groupDeletedBare": "{{actor}} deleted the group {{group}}",
     "licenceRemoved": "{{actor}} removed the licence",
     "unknown": "{{actor}} made a change ({{action}})"
   }

@@ -34,6 +34,7 @@ const SENTENCE: Record<Sentence, TranslationKey> = {
   groupRenamed: key("audit.groupRenamed"),
   groupDescribed: key("audit.groupDescribed"),
   groupDeleted: key("audit.groupDeleted"),
+  groupDeletedBare: key("audit.groupDeletedBare"),
   groupMembersAdded: key("audit.groupMembersAdded"),
   groupMembersRemoved: key("audit.groupMembersRemoved"),
   groupRolesChanged: key("audit.groupRolesChanged"),
@@ -114,6 +115,7 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
     void load();
   }, [load]);
 
+  const nameById = new Map(members.map((m) => [m.userId, m.name]));
   const colourOf = (name: string) => roles.find((r) => r.name === name)?.colour;
 
   const slot = (s: Slot): ReactNode => {
@@ -131,28 +133,32 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
         );
       case "group":
         return (
-          <b style={{ color: "var(--text-strong)", whiteSpace: "nowrap" }}>
-            <Icon name="users" size={13} /> {s.name}
+          <b style={{ color: "var(--text-strong)" }}>
+            <Icon name="users" size={13} /> <span style={{ overflowWrap: "anywhere" }}>{s.name}</span>
           </b>
         );
-      case "people":
+      case "people": {
+        const known = s.names.filter((name): name is string => name !== null);
+        const former = s.names.length - known.length;
+        const shown: string[] = [...known, ...(former > 0 ? [t("audit.formerMembers", { count: former })] : [])];
         return (
           <>
-            {s.names.map((name, i) => (
+            {shown.map((name, i) => (
               <Fragment key={i}>
                 {i > 0 ? ", " : null}
-                <b style={{ color: "var(--text-strong)" }}>{name ?? t("audit.deletedAccount")}</b>
+                <b style={{ color: "var(--text-strong)" }}>{name}</b>
               </Fragment>
             ))}
           </>
         );
+      }
       case "legacy":
         return <b style={{ color: "var(--text-strong)" }}>{s.roles.map((r) => t(ROLE_LABEL[r] ?? key("role.member"))).join(", ")}</b>;
     }
   };
 
   const sentence = (entry: AuditEntry): ReactNode => {
-    const line = auditLine(entry, (id) => members.find((m) => m.userId === id)?.name);
+    const line = auditLine(entry, (id) => nameById.get(id));
     const fill: Record<string, string | number> = {};
     for (const name of Object.keys(line.slots)) fill[name] = `${MARK}${name}${MARK}`;
     for (const [name, value] of Object.entries(line.values)) fill[name] = name === "until" && typeof value === "string" ? formatUtcDate(value) : value;
