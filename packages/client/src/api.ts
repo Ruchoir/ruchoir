@@ -22,6 +22,7 @@ import type {
   LicenceView,
   Refusal,
   Role,
+  Group,
   BlankKind,
   Channel,
   ChannelType,
@@ -97,6 +98,36 @@ type RoleDto = {
   manageable: boolean;
 };
 
+type GroupDto = {
+  id: string;
+  name: string;
+  description?: string | null;
+  source: string;
+  member_ids: string[];
+  manager_ids: string[];
+  role_ids: string[];
+  may: { edit: boolean; delete: boolean; change_members: boolean; change_roles: boolean; appoint: boolean };
+};
+
+function toGroup(dto: GroupDto): Group {
+  return {
+    id: dto.id,
+    name: dto.name,
+    description: dto.description || undefined,
+    source: dto.source === "directory" ? "directory" : "manual",
+    memberIds: dto.member_ids,
+    managerIds: dto.manager_ids,
+    roleIds: dto.role_ids,
+    may: {
+      edit: dto.may.edit,
+      delete: dto.may.delete,
+      changeMembers: dto.may.change_members,
+      changeRoles: dto.may.change_roles,
+      appoint: dto.may.appoint,
+    },
+  };
+}
+
 type AuditEntryDto = {
   id: string;
   at: string;
@@ -148,7 +179,9 @@ const REFUSAL_CODES = new Set([
   "seats_full", "licence_required", "licence_frozen", "licence_invalid", "licence_other_space",
   "licence_expired", "role_above_you", "person_above_you", "permission_not_held",
   "role_name_reserved", "role_name_taken", "role_has_rules", "beyond_guest_ceiling",
-  "make_them_a_member_first",
+  "make_them_a_member_first", "no_self_role", "manager_protected", "group_from_directory",
+  "group_name_taken", "group_name_reserved", "group_name_invalid", "manager_must_be_member",
+  "base_role_not_allowed", "not_in_space", "too_many_people",
 ]);
 
 /**
@@ -584,6 +617,7 @@ type MemberDto = {
   is_bot: boolean;
   avatar_url?: string;
   role_ids?: string[];
+  group_ids?: string[] | null;
   manageable?: boolean;
   joined_at?: string;
 };
@@ -2008,6 +2042,48 @@ export function createApi(transport: Transport) {
     await apiDelete<void>(`/spaces/${spaceId}/membership`);
   }
 
+  // --- Groups (permissions lot 3) ---
+
+  /** `GET /spaces/{id}/groups`: the groups of a space, with what the caller may do to each. */
+  async function listGroups(spaceId: string): Promise<Group[]> {
+    return (await apiGet<GroupDto[]>(`/spaces/${spaceId}/groups`)).map(toGroup);
+  }
+
+  /** `POST /spaces/{id}/groups`; refusals read with {@link refusalOf}. */
+  async function createGroup(spaceId: string, group: { name: string; description?: string }): Promise<Group> {
+    return toGroup(await apiPost<GroupDto>(`/spaces/${spaceId}/groups`, { name: group.name, description: group.description }));
+  }
+
+  /** `PATCH /spaces/{id}/groups/{groupId}`; a blank description clears it. */
+  async function updateGroup(spaceId: string, groupId: string, patch: { name?: string; description?: string }): Promise<Group> {
+    return toGroup(await apiPatch<GroupDto>(`/spaces/${spaceId}/groups/${groupId}`, patch));
+  }
+
+  /** `DELETE /spaces/{id}/groups/{groupId}`. */
+  async function deleteGroup(spaceId: string, groupId: string): Promise<void> {
+    await apiDelete(`/spaces/${spaceId}/groups/${groupId}`);
+  }
+
+  /** `POST /spaces/{id}/groups/{groupId}/members`: put people in (those already in are ignored). */
+  async function addGroupMembers(spaceId: string, groupId: string, userIds: string[]): Promise<Group> {
+    return toGroup(await apiPost<GroupDto>(`/spaces/${spaceId}/groups/${groupId}/members`, { user_ids: userIds }));
+  }
+
+  /** `DELETE /spaces/{id}/groups/{groupId}/members/{userId}`; one's own id leaves the group. */
+  async function removeGroupMember(spaceId: string, groupId: string, userId: string): Promise<void> {
+    await apiDelete(`/spaces/${spaceId}/groups/${groupId}/members/${userId}`);
+  }
+
+  /** `PUT /spaces/{id}/groups/{groupId}/roles`: the roles a group carries (enterprise edition). */
+  async function setGroupRoles(spaceId: string, groupId: string, roleIds: string[]): Promise<Group> {
+    return toGroup(await apiPut<GroupDto>(`/spaces/${spaceId}/groups/${groupId}/roles`, { role_ids: roleIds }));
+  }
+
+  /** `PUT /spaces/{id}/groups/{groupId}/managers`: who manages a group (enterprise edition). */
+  async function setGroupManagers(spaceId: string, groupId: string, userIds: string[]): Promise<Group> {
+    return toGroup(await apiPut<GroupDto>(`/spaces/${spaceId}/groups/${groupId}/managers`, { user_ids: userIds }));
+  }
+
   // --- Roles, audit log, licence (permissions lot 2) ---
 
   /** `GET /spaces/{id}/roles`: the space's roles, strongest first (for whoever reads its directory). */
@@ -2491,6 +2567,7 @@ export function createApi(transport: Transport) {
       bot: m.is_bot,
       avatarUrl: m.avatar_url,
       roleIds: m.role_ids,
+      groupIds: m.group_ids ?? undefined,
       manageable: m.manageable,
       joinedAt: m.joined_at,
     }));
@@ -3971,7 +4048,8 @@ export function createApi(transport: Transport) {
     getInstanceSettings, updateInstanceSettings, verifyTotp, verifyRecoveryCode, saveSpaceNotify,
     getWorkspaces, createSpace, renameSpace, setChannelOrder, setDefaultChannel, setMemberRole,
     leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
-    setMemberRoles, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
+    setMemberRoles, listGroups, createGroup, updateGroup, deleteGroup, addGroupMembers,
+    removeGroupMember, setGroupRoles, setGroupManagers, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
     getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
     uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
     createChannel, setChannelFavorite, deleteChannel, updateChannel, joinChannel, leaveChannel,
@@ -4006,7 +4084,8 @@ export const {
   getInstanceSettings, updateInstanceSettings, verifyTotp, verifyRecoveryCode, saveSpaceNotify,
   getWorkspaces, createSpace, renameSpace, setChannelOrder, setDefaultChannel, setMemberRole,
   leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
-    setMemberRoles, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
+    setMemberRoles, listGroups, createGroup, updateGroup, deleteGroup, addGroupMembers,
+    removeGroupMember, setGroupRoles, setGroupManagers, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
   getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
   uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
   createChannel, setChannelFavorite, deleteChannel, updateChannel, joinChannel, leaveChannel,
