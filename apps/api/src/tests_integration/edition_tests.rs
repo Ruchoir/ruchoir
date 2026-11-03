@@ -276,7 +276,7 @@ async fn a_community_build_reads_licensed_spaces_as_community() {
         ))
         .await
         .expect("licence row");
-    let channel = make_channel(&app.db, space, "general", "public").await;
+    let channel = make_channel(&app.db, space, "annonces", "public").await;
     app.db
         .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -321,4 +321,185 @@ async fn a_community_build_reads_licensed_spaces_as_community() {
     )
     .await
     .expect("can"));
+}
+
+/// An edition whose every space has all of its 7 seats taken.
+struct FullEdition;
+
+#[async_trait::async_trait]
+impl Edition for FullEdition {
+    fn name(&self) -> &'static str {
+        "full"
+    }
+
+    async fn entitlement(
+        &self,
+        _db: &DatabaseConnection,
+        _space_id: Uuid,
+    ) -> Result<Entitlement, sea_orm::DbErr> {
+        Ok(Entitlement::Enterprise {
+            seats: 7,
+            valid_until: END_OF_2027,
+        })
+    }
+
+    async fn seat_check(
+        &self,
+        _db: &DatabaseConnection,
+        _space_id: Uuid,
+    ) -> Result<SeatCheck, sea_orm::DbErr> {
+        Ok(SeatCheck::Full { seats: 7 })
+    }
+
+    fn routes(&self) -> Router<AppState> {
+        Router::new()
+    }
+
+    fn features(&self) -> &'static [&'static str] {
+        &[]
+    }
+
+    fn background(&self, _state: AppState) {}
+}
+
+async fn invite(app: &TestApp, cookie: &str, space: Uuid, role: &str) -> reqwest::Response {
+    app.req(
+        reqwest::Method::POST,
+        &format!("/api/v1/spaces/{space}/invitations"),
+        cookie,
+    )
+    .json(&json!({ "role": role }))
+    .send()
+    .await
+    .expect("invite")
+}
+
+#[tokio::test]
+async fn a_full_space_refuses_a_member_invitation_with_the_pricing_link() {
+    let Some(app) = boot_as(Arc::new(FullEdition), None, |_| {}).await else {
+        return;
+    };
+    let (space, owner, _, _) = three_standings(&app.db).await;
+    let cookie = app.cookie_for(owner).await;
+    for role in ["member", "admin"] {
+        let refused = invite(&app, &cookie, space, role).await;
+        assert_eq!(refused.status(), 402, "{role}");
+        let body: Value = refused.json().await.expect("json");
+        assert_eq!(body["error"], "seats_full");
+        assert_eq!(body["seats"], 7);
+        assert_eq!(body["pricing_url"], app.config.pricing_url.as_str());
+    }
+    assert_eq!(app.config.pricing_url, "https://ruchoir.com/");
+}
+
+#[tokio::test]
+async fn a_full_space_still_takes_a_guest() {
+    let Some(app) = boot_as(Arc::new(FullEdition), None, |_| {}).await else {
+        return;
+    };
+    let (space, owner, _, _) = three_standings(&app.db).await;
+    let created = invite(&app, &app.cookie_for(owner).await, space, "guest").await;
+    assert_eq!(created.status(), 201);
+    let url = created.json::<Value>().await.expect("json")["url"]
+        .as_str()
+        .expect("url")
+        .to_owned();
+    let newcomer = make_user(&app.db, "newcomer").await;
+    let accepted = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/invitations/{}/accept", token_of(&url)),
+            &app.cookie_for(newcomer).await,
+        )
+        .send()
+        .await
+        .expect("accept");
+    assert_eq!(accepted.status(), 200);
+    assert_eq!(role_of(&app.db, space, newcomer).await, "guest");
+}
+
+#[tokio::test]
+async fn a_full_space_still_lets_someone_be_removed() {
+    let Some(app) = boot_as(Arc::new(FullEdition), None, |_| {}).await else {
+        return;
+    };
+    let (space, owner, member, guest) = three_standings(&app.db).await;
+    let cookie = app.cookie_for(owner).await;
+    for person in [member, guest] {
+        let removed = app
+            .req(
+                reqwest::Method::DELETE,
+                &format!("/api/v1/spaces/{space}/members/{person}"),
+                &cookie,
+            )
+            .send()
+            .await
+            .expect("remove");
+        assert!(removed.status().is_success(), "{}", removed.status());
+    }
+}
+
+#[tokio::test]
+async fn accepting_a_member_invitation_into_a_full_space_is_refused() {
+    // Issued while there was room (a community server on the same database), accepted once the
+    // space is full.
+    let Some(roomy) = boot().await else { return };
+    let (space, owner, _, _) = three_standings(&roomy.db).await;
+    let created = invite(&roomy, &roomy.cookie_for(owner).await, space, "member").await;
+    assert_eq!(created.status(), 201);
+    let url = created.json::<Value>().await.expect("json")["url"]
+        .as_str()
+        .expect("url")
+        .to_owned();
+
+    let Some(app) = boot_as(Arc::new(FullEdition), None, |_| {}).await else {
+        return;
+    };
+    let newcomer = make_user(&app.db, "newcomer").await;
+    let refused = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/invitations/{}/accept", token_of(&url)),
+            &app.cookie_for(newcomer).await,
+        )
+        .send()
+        .await
+        .expect("accept");
+    assert_eq!(refused.status(), 402);
+    assert_eq!(
+        refused.json::<Value>().await.expect("json")["error"],
+        "seats_full"
+    );
+    assert!(space_members::Entity::find_by_id((space, newcomer))
+        .one(&app.db)
+        .await
+        .expect("lookup")
+        .is_none());
+}
+
+#[tokio::test]
+async fn turning_a_guest_into_a_member_of_a_full_space_is_refused() {
+    let Some(app) = boot_as(Arc::new(FullEdition), None, |_| {}).await else {
+        return;
+    };
+    let (space, owner, member, guest) = three_standings(&app.db).await;
+    let cookie = app.cookie_for(owner).await;
+    let change = |person: Uuid, role: &'static str| {
+        app.req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/spaces/{space}/members/{person}"),
+            &cookie,
+        )
+        .json(&json!({ "role": role }))
+        .send()
+    };
+    for role in ["member", "admin"] {
+        let refused = change(guest, role).await.expect("change");
+        assert_eq!(refused.status(), 402, "{role}");
+    }
+    assert_eq!(role_of(&app.db, space, guest).await, "guest");
+    // A member already holds a seat: raising them takes no other one.
+    let raised = change(member, "admin").await.expect("change");
+    assert_eq!(raised.status(), 200);
+    assert_eq!(role_of(&app.db, space, member).await, "admin");
 }

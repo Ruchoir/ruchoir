@@ -32,6 +32,10 @@ pub enum ApiError {
     Conflict(&'static str),
     /// No valid session. Mirrors the auth guard's 401 so the client reacts identically.
     Unauthorized,
+    /// Every one of the space's `seats` is taken, so no owner or member can be added: `402`, with
+    /// where to buy more. Only an edition that sells seats ever answers it; guests can still come
+    /// in, and nobody already there loses anything.
+    SeatsFull { seats: u32, pricing_url: String },
     /// Any unexpected server-side failure. Never leaks internals to the client.
     Internal,
 }
@@ -42,8 +46,29 @@ struct ErrorBody<'a> {
     message: &'a str,
 }
 
+/// The body of a [`ApiError::SeatsFull`] refusal: the usual two fields, and what to do about it.
+#[derive(Serialize)]
+struct SeatsFullBody<'a> {
+    error: &'static str,
+    message: &'static str,
+    seats: u32,
+    pricing_url: &'a str,
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
+        if let ApiError::SeatsFull { seats, pricing_url } = &self {
+            return (
+                StatusCode::PAYMENT_REQUIRED,
+                Json(SeatsFullBody {
+                    error: "seats_full",
+                    message: "Every seat of this space's licence is taken.",
+                    seats: *seats,
+                    pricing_url,
+                }),
+            )
+                .into_response();
+        }
         let (status, error, message) = match &self {
             ApiError::NotFound => (StatusCode::NOT_FOUND, "not_found", "Resource not found."),
             ApiError::Forbidden => (
@@ -61,7 +86,7 @@ impl IntoResponse for ApiError {
                 "unauthorized",
                 "Authentication required.",
             ),
-            ApiError::Internal => (
+            ApiError::Internal | ApiError::SeatsFull { .. } => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal_error",
                 "An unexpected error occurred.",

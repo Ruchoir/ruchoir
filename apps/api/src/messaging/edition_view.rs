@@ -1,4 +1,5 @@
-//! How a space's edition reads in its DTO: `edition` for every member, `licence` for its owners.
+//! How a space's edition reads in its DTO (`edition` for every member, `licence` for its owners),
+//! and the seat check every way of adding an owner or a member goes through.
 
 use sea_orm::DatabaseConnection;
 use time::OffsetDateTime;
@@ -6,8 +7,9 @@ use uuid::Uuid;
 
 use super::dto::{rfc3339, SpaceLicenceDto};
 use super::error::ApiError;
-use crate::edition::{seats_used, Edition, Entitlement};
+use crate::edition::{seats_used, Edition, Entitlement, SeatCheck};
 use crate::permissions::engine::Standing;
+use crate::state::AppState;
 
 /// `edition` and, for an owner of a licensed (or frozen) space, `licence`, for `user_id` in
 /// `space_id`.
@@ -38,6 +40,26 @@ pub async fn describe(
         _ => None,
     };
     Ok((name.to_owned(), licence))
+}
+
+/// `402 seats_full` when `space_id` has no seat left for one more owner or member. Asked before
+/// anyone takes a seat: a member invitation issued or accepted, a guest made a member. Guests take
+/// none, so they never ask; removing someone never asks either. Two arrivals at the same instant
+/// may both find the last seat: the space then reads one over its seats, which refuses the next
+/// one, and nobody is ever taken out for it.
+pub async fn ensure_a_seat(state: &AppState, space_id: Uuid) -> Result<(), ApiError> {
+    match state.edition.seat_check(&state.db, space_id).await? {
+        SeatCheck::Allowed => Ok(()),
+        SeatCheck::Full { seats } => Err(ApiError::SeatsFull {
+            seats,
+            pricing_url: state.config.pricing_url.clone(),
+        }),
+    }
+}
+
+/// Whether someone joining with today's `role` takes a seat: everyone but a guest.
+pub fn takes_a_seat(role: &str) -> bool {
+    role != "guest"
 }
 
 /// Whole days from `now` to `until`, rounded up; 0 once `until` has passed.

@@ -9515,6 +9515,9 @@
           "401": {
             "description": "No session"
           },
+          "402": {
+            "description": "A member invitation, and every seat of the space's licence is taken"
+          },
           "403": {
             "description": "The invitation is addressed to another account"
           },
@@ -11913,6 +11916,9 @@
           "400": {
             "description": "Invalid address, role, lifetime or use count"
           },
+          "402": {
+            "description": "A member or administrator invitation, and every seat of the space's licence is taken"
+          },
           "403": {
             "description": "Not an owner or admin of the space"
           }
@@ -12098,6 +12104,9 @@
           },
           "400": {
             "description": "Not a role this instance knows"
+          },
+          "402": {
+            "description": "A guest made a member, and every seat of the space's licence is taken"
           },
           "403": {
             "description": "Not allowed to give this role to this member"

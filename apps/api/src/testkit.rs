@@ -18,7 +18,7 @@ use ruchoir_migration::{Migrator, MigratorTrait};
 use crate::auth::cookie::SESSION_COOKIE;
 use crate::config::Config;
 use crate::edition::Edition;
-use crate::entities::{space_members, spaces, users};
+use crate::entities::{channel_members, channels, conversations, space_members, spaces, users};
 use crate::state::AppState;
 
 /// Applies the migrations exactly once across all tests in a binary, so parallel boots never race
@@ -199,7 +199,8 @@ pub async fn make_user(db: &DatabaseConnection, name: &str) -> Uuid {
     id
 }
 
-/// A space named `name`, owned by `owner`.
+/// A space named `name`, owned by `owner`, with a public `#general` as its arrival channel (as
+/// every real space has: arrivals and departures are written there).
 pub async fn make_space(db: &DatabaseConnection, owner: Uuid, name: &str) -> Uuid {
     let space_id = Uuid::new_v4();
     spaces::ActiveModel {
@@ -212,6 +213,43 @@ pub async fn make_space(db: &DatabaseConnection, owner: Uuid, name: &str) -> Uui
     .await
     .expect("space");
     add_member(db, space_id, owner, "owner").await;
+    let general = Uuid::new_v4();
+    conversations::ActiveModel {
+        id: Set(general),
+        space_id: Set(space_id),
+        kind: Set("channel".to_owned()),
+        created_at: Set(time::OffsetDateTime::now_utc()),
+    }
+    .insert(db)
+    .await
+    .expect("conversation");
+    channels::ActiveModel {
+        id: Set(general),
+        space_id: Set(space_id),
+        name: Set("general".to_owned()),
+        channel_type: Set("public".to_owned()),
+        ..Default::default()
+    }
+    .insert(db)
+    .await
+    .expect("channel");
+    spaces::ActiveModel {
+        id: Set(space_id),
+        default_channel_id: Set(Some(general)),
+        ..Default::default()
+    }
+    .update(db)
+    .await
+    .expect("default channel");
+    channel_members::ActiveModel {
+        channel_id: Set(general),
+        user_id: Set(owner),
+        role: Set("member".to_owned()),
+        ..Default::default()
+    }
+    .insert(db)
+    .await
+    .expect("channel member");
     space_id
 }
 

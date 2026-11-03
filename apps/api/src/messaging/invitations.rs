@@ -70,7 +70,8 @@ const JOINED_EVENT: &str = "member_joined";
     responses(
         (status = 201, description = "Invitation created; the link is returned once", body = CreatedInvitationDto),
         (status = 400, description = "Invalid address, role, lifetime or use count"),
-        (status = 403, description = "Not an owner or admin of the space")
+        (status = 403, description = "Not an owner or admin of the space"),
+        (status = 402, description = "A member or administrator invitation, and every seat of the space's licence is taken")
     )
 )]
 pub async fn create_invitation(
@@ -103,6 +104,9 @@ pub async fn create_invitation(
             ))
         }
     };
+    if super::edition_view::takes_a_seat(role) {
+        super::edition_view::ensure_a_seat(&state, space_id).await?;
+    }
     let ttl_hours = body.expires_in_hours.unwrap_or(DEFAULT_TTL_HOURS);
     if !(1..=MAX_TTL_HOURS).contains(&ttl_hours) {
         return Err(ApiError::BadRequest(
@@ -398,6 +402,7 @@ pub async fn preview_invitation(
         (status = 200, description = "The space now joined", body = SpaceDto),
         (status = 401, description = "No session"),
         (status = 403, description = "The invitation is addressed to another account"),
+        (status = 402, description = "A member invitation, and every seat of the space's licence is taken"),
         (status = 404, description = "Unknown, revoked, expired or exhausted")
     )
 )]
@@ -448,6 +453,10 @@ pub async fn accept_invitation(
             member.role
         }
         None => {
+            // Issued while there was room is not enough: the seat is taken now.
+            if super::edition_view::takes_a_seat(&record.role) {
+                super::edition_view::ensure_a_seat(&state, record.space_id).await?;
+            }
             let now = OffsetDateTime::now_utc();
             let txn = state.db.begin().await?;
             space_members::ActiveModel {
