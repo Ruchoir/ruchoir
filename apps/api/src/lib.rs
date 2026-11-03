@@ -9,6 +9,7 @@
 //! through [`edition`], [`ext`] and the types they name. Every other module is private on purpose.
 
 mod admin;
+mod audit;
 mod auth;
 mod bootstrap;
 mod cache;

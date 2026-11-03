@@ -32,6 +32,13 @@ context and takes precedence here.
   `dm_conversations`, `messages` and their satellites (reactions, mentions, link previews,
   attachments, pins, saved, read cursors), and `files`/`file_versions`/`file_shares`. Relations are
   added when query code needs them.
+- `src/audit/` - a space's audit log (design section 6): `record` writes an entry (`Action` on a
+  `Target`, ids and role or permission names before and after, never a person's name or content),
+  inside the caller's transaction; `read` serves `GET /api/v1/spaces/{space_id}/audit` to whoever
+  holds `audit.view` (newest first, opaque cursor, filters by person, family, date). **Append-only**:
+  nothing else writes the table (`no_code_writes_to_the_audit_log_but_record`) and a trigger refuses
+  every update and delete but the database's own (a deleted account's `SET NULL`, a deleted space's
+  cascade). Every change of rights writes one entry; a change to the same value writes none.
 - `src/permissions/` - **the one place rights are decided** (ADR 0009): `catalogue` (the 29 named
   permissions, a `u64` set; a name is never renamed or removed and its position never moves,
   `the_permission_catalogue_only_grows`), `engine` (pure resolution with an explain trace: owner

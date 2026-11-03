@@ -325,6 +325,19 @@ pub async fn create_channel(
     .await?;
     join_row(&txn, channel_id, session.user_id, "owner", now).await?;
     set_allowed_roles(&txn, channel_id, allowed_roles.clone()).await?;
+    if let Some(roles) = allowed_roles.as_ref().filter(|roles| !roles.is_empty()) {
+        let mut after = roles.clone();
+        after.sort();
+        crate::audit::record(
+            &txn,
+            space_id,
+            Some(session.user_id),
+            crate::audit::Action::ChannelReserved,
+            crate::audit::Target::Channel(channel_id),
+            serde_json::json!({ "name": name, "before": [], "after": after }),
+        )
+        .await?;
+    }
     txn.commit().await?;
 
     // Tell the space (or, for a private channel, only its members) that the channel exists, so the
@@ -504,6 +517,26 @@ pub async fn update_channel(
             .filter(|roles: &std::collections::BTreeSet<String>| !roles.is_empty());
         access_changed = before != after;
         set_allowed_roles(&state.db, channel_id, roles).await?;
+        if access_changed {
+            let listed = |roles: Option<std::collections::BTreeSet<String>>| -> Vec<String> {
+                roles
+                    .map(|roles| roles.into_iter().collect())
+                    .unwrap_or_default()
+            };
+            crate::audit::record(
+                &state.db,
+                space_id,
+                Some(session.user_id),
+                crate::audit::Action::ChannelReserved,
+                crate::audit::Target::Channel(channel_id),
+                serde_json::json!({
+                    "name": channel.name,
+                    "before": listed(before.map(|roles| roles.into_iter().collect())),
+                    "after": listed(after),
+                }),
+            )
+            .await?;
+        }
     }
     if access_changed {
         crate::permissions::changed::announce(&state, channel.space_id).await;
