@@ -34,6 +34,7 @@ test("the API lays each style's tint over the editor, as the tokens declare it",
   const sessions = readFileSync(new URL("apps/api/src/office/sessions.rs", root), "utf8");
   for (const v of VARIANTS) {
     const tint = resolveTokens(css, v, false)["--acc"];
-    assert.ok(sessions.includes(`Some("${v}") => "${tint}"`), `${v}: sessions.rs should map it to ${tint}`);
+    const line = sessions.split("\n").find((l) => l.includes(`Some("${v}")`) && /=> "#[0-9a-f]{6}"/.test(l));
+    assert.ok(line?.includes(`"${tint}"`), `${v}: sessions.rs should map it to ${tint}, has ${line?.trim()}`);
   }
 });

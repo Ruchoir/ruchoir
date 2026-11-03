@@ -180,7 +180,8 @@ WOPI call; it carries nothing readable. Tokens are never logged.
 | `GET /api/v1/files/{id}/office/converted` | The copy this member's conversion produced (`204` until the engine has written it): the editor page names it, reports editing it and moves its address there. |
 
 The engine configuration sent with a session (Euro-Office's `docs_api_config`): the theme id
-(`theme-ruchoir-light` by day, the engine's `theme-dark` by night), `features.featuresTips: false`
+(`theme-ruchoir-light` by day, or `theme-ruchoir-<style>-light` when the session request names a
+simplified style; the engine's `theme-dark` by night), `features.featuresTips: false`
 (the "New" bubbles are half English and sell the engine, not Ruchoir), the Ruchoir mark as `logo`,
 `customer.name`, and the interface language. All of it is optional to the engine: another engine
 simply ignores the field.
@@ -273,8 +274,9 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
 - **`useOfficeSession.ts`:** asks for the session, sends the heartbeat every 30 s, says goodbye on
   close and on `pagehide`.
 - **`officeTheme.ts`:** maps the Ruchoir theme (four accents, by day or night) to `light` or `dark`
-  and to the accent for the session request. The API turns the accent into its colour (only
-  Ruchoir's own four), and the patched WOPI page lays it over the engine's theme, day or night: pressed
+  and to the accent for the session request, and sends the simplified style (`data-style`) when
+  there is one. The API turns the accent into its colour (only Ruchoir's own four), or the style
+  into its tint (only the four styles'), and the patched WOPI page lays it over the engine's theme, day or night: pressed
   buttons, the open ribbon tab, the selected preview, the mobile editor's links by night. Selected
   text and cells are drawn on the engine's canvas in colours it writes as is (defect 11): the page
   swaps them for the accent too.
@@ -334,6 +336,11 @@ blank document, spreadsheet or presentation (`createBlankDocument`, then the edi
   them visible without touching the engine, and sits better under Ruchoir's own band.
 - Ruchoir greys for the toolbar and panes, the ink for primary actions and focus, sky for selection.
 - The engine keeps the document's own page colours, white by night too.
+- **The simplified styles** (`theme-ruchoir-<style>-light.json`): the same colours as Ruchoir day,
+  generated from each style's tokens by `apps/web/tools/office-themes/build.mjs` (its test fails when
+  a file is stale, or when the API's tints no longer match `tokens.css`). By night the engine's dark
+  theme, with the style's tint laid over it. The engine's mobile editor reads no custom theme: on a
+  phone it keeps Ruchoir's day colours, with the style's tint.
 
 ## Security
 

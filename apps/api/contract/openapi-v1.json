@@ -4459,6 +4459,13 @@
               "null"
             ]
           },
+          "style": {
+            "description": "Ruchoir or a simplified style (`aubergine`, `nuage`, `indigo`, `marine`); absent or unknown\nis Ruchoir.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "theme": {
             "description": "`light` or `dark`, from the person's theme.",
             "type": [
