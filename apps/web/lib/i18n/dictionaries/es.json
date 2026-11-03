@@ -490,7 +490,10 @@
     "groupHint_other": "{{count}} personas, {{inRoom}} en este canal",
     "groupHintDm_one": "{{count}} persona, {{inRoom}} en esta conversación",
     "groupHintDm_many": "{{count}} personas, {{inRoom}} en esta conversación",
-    "groupHintDm_other": "{{count}} personas, {{inRoom}} en esta conversación"
+    "groupHintDm_other": "{{count}} personas, {{inRoom}} en esta conversación",
+    "groupHeadCount_one": "{{count}} persona",
+    "groupHeadCount_many": "{{count}} personas",
+    "groupHeadCount_other": "{{count}} personas"
   },
   "code": {
     "changeLanguage": "Cambiar el lenguaje",

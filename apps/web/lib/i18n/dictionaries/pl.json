@@ -495,7 +495,11 @@
     "groupHintDm_one": "{{count}} osoba, {{inRoom}} w tej rozmowie",
     "groupHintDm_few": "{{count}} osoby, {{inRoom}} w tej rozmowie",
     "groupHintDm_many": "{{count}} osób, {{inRoom}} w tej rozmowie",
-    "groupHintDm_other": "{{count}} osoby, {{inRoom}} w tej rozmowie"
+    "groupHintDm_other": "{{count}} osoby, {{inRoom}} w tej rozmowie",
+    "groupHeadCount_one": "{{count}} osoba",
+    "groupHeadCount_few": "{{count}} osoby",
+    "groupHeadCount_many": "{{count}} osób",
+    "groupHeadCount_other": "{{count}} osób"
   },
   "code": {
     "changeLanguage": "Zmień język",

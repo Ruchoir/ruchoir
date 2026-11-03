@@ -322,6 +322,10 @@ function findHardCoded(source, path) {
  * Each entry is that claim, made once, in writing.
  */
 const ALLOWED_DUPLICATES = new Set([
+  // The composer's group hint (a head count while the channel roster loads) and a reaction's
+  // reactors list read the same today; they are two screens, free to part ways in any language.
+  "composer.groupHeadCount_one",
+  "composer.groupHeadCount_other",
   // A permission's name says what one may do, a button what to do now: the same French word
   // ("Inviter des personnes", "Épingler", "Réagir", "Vider la corbeille"), but an infinitive in a
   // Polish list of rights and an imperative on a Polish button.

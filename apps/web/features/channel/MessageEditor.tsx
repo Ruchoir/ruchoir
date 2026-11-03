@@ -648,7 +648,7 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
                     <span style={{ display: "block", fontWeight: 600 }}>@{hit.name}</span>
                     <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>
                       {hit.inRoom === null
-                        ? t("message.reactors", { count: hit.members })
+                        ? t("composer.groupHeadCount", { count: hit.members })
                         : mentionGroups.dm
                           ? t("composer.groupHintDm", { count: hit.members, inRoom: hit.inRoom })
                           : t("composer.groupHint", { count: hit.members, inRoom: hit.inRoom })}

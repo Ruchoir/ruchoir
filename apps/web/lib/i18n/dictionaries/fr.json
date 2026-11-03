@@ -485,7 +485,9 @@
     "groupHint_one": "{{count}} personne, dont {{inRoom}} dans ce canal",
     "groupHint_other": "{{count}} personnes, dont {{inRoom}} dans ce canal",
     "groupHintDm_one": "{{count}} personne, dont {{inRoom}} dans cette conversation",
-    "groupHintDm_other": "{{count}} personnes, dont {{inRoom}} dans cette conversation"
+    "groupHintDm_other": "{{count}} personnes, dont {{inRoom}} dans cette conversation",
+    "groupHeadCount_one": "{{count}} personne",
+    "groupHeadCount_other": "{{count}} personnes"
   },
   "code": {
     "changeLanguage": "Changer le langage",
