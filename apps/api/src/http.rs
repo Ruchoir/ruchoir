@@ -347,6 +347,8 @@ pub fn router(state: AppState) -> Router {
         .merge(crate::audit::read::router())
         // A space's roles, for whoever reads its member directory.
         .merge(crate::permissions::roles::router())
+        // A space's groups: their people, free in every edition.
+        .merge(crate::permissions::group_routes::router())
         // What the edition adds (nothing for the community build), guarded per request like the
         // rest.
         .merge(state.edition.routes());

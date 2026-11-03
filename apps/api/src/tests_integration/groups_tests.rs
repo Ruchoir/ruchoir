@@ -20,7 +20,7 @@ async fn exec(
     .map_err(|e| e.to_string())
 }
 
-async fn count(db: &DatabaseConnection, sql: &str, values: Vec<sea_orm::Value>) -> i64 {
+pub(super) async fn count(db: &DatabaseConnection, sql: &str, values: Vec<sea_orm::Value>) -> i64 {
     db.query_one_raw(Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
         sql,
@@ -33,7 +33,7 @@ async fn count(db: &DatabaseConnection, sql: &str, values: Vec<sea_orm::Value>) 
     .expect("n")
 }
 
-async fn make_group(db: &DatabaseConnection, space: Uuid, name: &str) -> Uuid {
+pub(super) async fn make_group(db: &DatabaseConnection, space: Uuid, name: &str) -> Uuid {
     db.query_one_raw(Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
         "INSERT INTO space_groups (space_id, name) VALUES ($1, $2) RETURNING id",
@@ -46,7 +46,7 @@ async fn make_group(db: &DatabaseConnection, space: Uuid, name: &str) -> Uuid {
     .expect("id")
 }
 
-async fn put_in_group(
+pub(super) async fn put_in_group(
     db: &DatabaseConnection,
     group: Uuid,
     space: Uuid,
@@ -62,7 +62,7 @@ async fn put_in_group(
     .expect("group member");
 }
 
-async fn give_role_to_group(
+pub(super) async fn give_role_to_group(
     db: &DatabaseConnection,
     group: Uuid,
     space: Uuid,

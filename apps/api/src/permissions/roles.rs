@@ -152,8 +152,7 @@ pub async fn roles_of(
 /// Every member's assigned roles and rank in one space, and what a viewer may do about them.
 pub struct MemberRoles {
     roles: HashMap<Uuid, Vec<Uuid>>,
-    /// The groups each person is in; the member list reads them once it carries `group_ids`.
-    #[cfg_attr(not(test), allow(dead_code))]
+    /// The groups each person is in, by group name.
     groups: HashMap<Uuid, Vec<Uuid>>,
     ranks: HashMap<Uuid, Rank>,
     viewer: Uuid,
@@ -290,7 +289,6 @@ impl MemberRoles {
     }
 
     /// The groups `user` is in, by group name.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub fn group_ids(&self, user: Uuid) -> Vec<Uuid> {
         self.groups.get(&user).cloned().unwrap_or_default()
     }

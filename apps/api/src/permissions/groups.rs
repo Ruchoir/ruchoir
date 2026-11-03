@@ -10,10 +10,6 @@
 //! group without being a guest; an act "rests on MGR" when the actor is a manager and GM with ALL
 //! would not already allow it.
 
-// Nothing outside this module calls it until the group routes land (part B of the groups task),
-// which removes this attribute.
-#![allow(dead_code)]
-
 use std::collections::{HashMap, HashSet};
 
 use sea_orm::{ConnectionTrait, DbBackend, DbErr, Statement};

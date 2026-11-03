@@ -133,7 +133,7 @@ async fn the_community_edition_changes_nothing() {
 const END_OF_2027: OffsetDateTime = time::macros::datetime!(2027-12-31 0:00 UTC);
 
 /// An edition entitling every space to 25 seats until the end of 2027.
-struct LicensedEdition;
+pub(super) struct LicensedEdition;
 
 #[async_trait::async_trait]
 impl Edition for LicensedEdition {
@@ -172,7 +172,7 @@ impl Edition for LicensedEdition {
 }
 
 /// An edition whose every space's licence (25 seats) ran out at the start of 2026.
-struct FrozenEdition;
+pub(super) struct FrozenEdition;
 
 #[async_trait::async_trait]
 impl Edition for FrozenEdition {

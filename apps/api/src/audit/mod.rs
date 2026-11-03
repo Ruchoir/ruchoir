@@ -40,11 +40,22 @@ pub enum Action {
     CalendarWriteAccessChanged,
     LicenceInstalled,
     LicenceRemoved,
+    GroupCreated,
+    GroupUpdated,
+    GroupDeleted,
+    /// People were put in a group.
+    GroupMembersAdded,
+    /// People were taken out of a group, or left it.
+    GroupMembersRemoved,
+    /// The roles a group carries changed.
+    GroupRolesChanged,
+    /// Who manages a group changed.
+    GroupManagersChanged,
 }
 
 impl Action {
     /// Every action, for the read filter and its tests.
-    pub const ALL: [Action; 14] = [
+    pub const ALL: [Action; 21] = [
         Action::MemberJoined,
         Action::MemberLeft,
         Action::MemberRemoved,
@@ -59,6 +70,13 @@ impl Action {
         Action::CalendarWriteAccessChanged,
         Action::LicenceInstalled,
         Action::LicenceRemoved,
+        Action::GroupCreated,
+        Action::GroupUpdated,
+        Action::GroupDeleted,
+        Action::GroupMembersAdded,
+        Action::GroupMembersRemoved,
+        Action::GroupRolesChanged,
+        Action::GroupManagersChanged,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -77,10 +95,17 @@ impl Action {
             Action::CalendarWriteAccessChanged => "calendar.write_access_changed",
             Action::LicenceInstalled => "licence.installed",
             Action::LicenceRemoved => "licence.removed",
+            Action::GroupCreated => "group.created",
+            Action::GroupUpdated => "group.updated",
+            Action::GroupDeleted => "group.deleted",
+            Action::GroupMembersAdded => "group.members_added",
+            Action::GroupMembersRemoved => "group.members_removed",
+            Action::GroupRolesChanged => "group.roles_changed",
+            Action::GroupManagersChanged => "group.managers_changed",
         }
     }
 
-    /// The family the screen filters by: `members`, `roles`, `channels`, `calendars`, `licence`.
+    /// The family the screen filters by: `members`, `roles`, `groups`, `channels`, `calendars`, `licence`.
     pub fn category(self) -> &'static str {
         match self {
             Action::MemberJoined
@@ -96,6 +121,13 @@ impl Action {
             Action::ChannelReserved => "channels",
             Action::CalendarWriteAccessChanged => "calendars",
             Action::LicenceInstalled | Action::LicenceRemoved => "licence",
+            Action::GroupCreated
+            | Action::GroupUpdated
+            | Action::GroupDeleted
+            | Action::GroupMembersAdded
+            | Action::GroupMembersRemoved
+            | Action::GroupRolesChanged
+            | Action::GroupManagersChanged => "groups",
         }
     }
 }
@@ -105,6 +137,7 @@ impl Action {
 pub enum Target {
     Member(Uuid),
     Role(Uuid),
+    Group(Uuid),
     Channel(Uuid),
     Calendar(Uuid),
     Space,
@@ -116,6 +149,7 @@ impl Target {
         match self {
             Target::Member(_) => "member",
             Target::Role(_) => "role",
+            Target::Group(_) => "group",
             Target::Channel(_) => "channel",
             Target::Calendar(_) => "calendar",
             Target::Space => "space",
@@ -125,9 +159,11 @@ impl Target {
 
     fn id(self) -> Option<Uuid> {
         match self {
-            Target::Member(id) | Target::Role(id) | Target::Channel(id) | Target::Calendar(id) => {
-                Some(id)
-            }
+            Target::Member(id)
+            | Target::Role(id)
+            | Target::Group(id)
+            | Target::Channel(id)
+            | Target::Calendar(id) => Some(id),
             Target::Space | Target::Licence => None,
         }
     }

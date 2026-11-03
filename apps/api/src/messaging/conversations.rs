@@ -310,6 +310,7 @@ pub async fn list_members(
                     .as_deref()
                     .map(|key| crate::files::avatar_url(user.id, key)),
                 role_ids: Some(roles.role_ids(user.id)),
+                group_ids: Some(roles.group_ids(user.id)),
                 manageable: Some(roles.manageable(user.id)),
                 joined_at: Some(super::dto::rfc3339(membership.joined_at)),
             });
