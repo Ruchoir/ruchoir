@@ -386,7 +386,7 @@ async fn put_relative(
         body,
     )
     .await?;
-    let (new_token, _) = tokens::mint_for(
+    let (new_token, _) = tokens::mint(
         &state.valkey,
         grant.user_id,
         created.id,

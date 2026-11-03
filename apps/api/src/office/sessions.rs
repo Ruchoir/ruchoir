@@ -113,7 +113,7 @@ pub async fn open_session(
     let url = discovery
         .action_url(&ext, mode, &wopi_src, lang, request.mobile == Some(true))
         .ok_or(OfficeError::Unsupported)?;
-    let (token, grant) = tokens::mint_for(
+    let (token, grant) = tokens::mint(
         &state.valkey,
         session.user_id,
         file_id,

@@ -90,7 +90,9 @@ export function useOfficeSession(
 
   useEffect(() => {
     let cancelled = false;
-    embedOrigin()
+    // Asked once per mount: the conversion poll below reuses the answer.
+    const embed = embedOrigin();
+    embed
       .then((origin) =>
         openOfficeSession(fileId, { theme: officeTheme(), accent: officeAccent(), mode: convert ? "convert" : undefined, mobile: touchScreen(), embedOrigin: origin }),
       )
@@ -141,7 +143,7 @@ export function useOfficeSession(
         .then(async (found) => {
           if (cancelled || !found?.id) return;
           opening = true;
-          const next = await openOfficeSession(found.id, { theme: officeTheme(), accent: officeAccent(), mobile: touchScreen(), embedOrigin: await embedOrigin() });
+          const next = await openOfficeSession(found.id, { theme: officeTheme(), accent: officeAccent(), mobile: touchScreen(), embedOrigin: await embed });
           if (!cancelled) setState({ status: "ready", session: next, copy: found, editors: next.file.editors ?? [] });
         })
         .catch(() => {

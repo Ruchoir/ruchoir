@@ -10458,7 +10458,7 @@ async fn an_office_token_names_one_member_one_file_and_expires() {
 
     let Some(app) = boot().await else { return };
     let (user, file) = (Uuid::new_v4(), Uuid::new_v4());
-    let (token, grant) = tokens::mint(&app.valkey, user, file, Mode::Edit, 2)
+    let (token, grant) = tokens::mint(&app.valkey, user, file, Mode::Edit, 2, None)
         .await
         .expect("mint");
     assert_eq!(token.len(), 64);
@@ -10572,6 +10572,7 @@ async fn edit_token(app: &TestApp, user: Uuid, file: Uuid) -> String {
         file,
         crate::office::discovery::Mode::Edit,
         3600,
+        None,
     )
     .await
     .expect("mint")
@@ -10801,6 +10802,7 @@ async fn converting_makes_a_copy_beside_the_original_and_never_overwrites() {
         original,
         crate::office::discovery::Mode::Convert,
         3600,
+        None,
     )
     .await
     .unwrap()
@@ -10857,6 +10859,7 @@ async fn converting_makes_a_copy_beside_the_original_and_never_overwrites() {
         original,
         crate::office::discovery::Mode::Edit,
         3600,
+        None,
     )
     .await
     .unwrap()
@@ -11297,6 +11300,7 @@ async fn a_converted_copy_takes_the_extension_the_engine_announces() {
         original,
         crate::office::discovery::Mode::Convert,
         3600,
+        None,
     )
     .await
     .unwrap()
@@ -11511,6 +11515,7 @@ async fn a_conversion_session_never_locks_or_writes_the_original() {
         original,
         crate::office::discovery::Mode::Convert,
         3600,
+        None,
     )
     .await
     .unwrap()
@@ -11797,6 +11802,7 @@ async fn the_converting_member_learns_which_copy_the_editor_moved_to() {
         original,
         crate::office::discovery::Mode::Convert,
         3600,
+        None,
     )
     .await
     .unwrap()
@@ -11978,7 +11984,13 @@ async fn a_desktop_session_names_its_own_origin_for_the_editors_messages() {
         "without it, the instance's own origin"
     );
 
-    for foreign in ["https://evil.org", "ruchoir-app://localhost/", ""] {
+    for foreign in [
+        "https://evil.org",
+        "ruchoir-app://localhost/",
+        "RUCHOIR-APP://localhost",
+        " ruchoir-app://localhost",
+        "",
+    ] {
         let res = open(json!({ "embed_origin": foreign })).await;
         assert_eq!(res.status(), 400, "{foreign:?} is not a desktop origin");
     }
@@ -12231,6 +12243,7 @@ async fn the_link_spends_the_code() {
         crate::auth::tokens::TokenPurpose::VerifyEmail,
         id,
         3600,
+        None,
     )
     .await
     .expect("token");

@@ -31,21 +31,9 @@ pub struct Grant {
     pub post_message_origin: Option<String>,
 }
 
-/// Mint a token for `user_id` on `file_id`, valid `ttl_secs`.
-#[cfg(test)]
+/// Mint a token for `user_id` on `file_id`, valid `ttl_secs`. `post_message_origin` is where the
+/// editor posts its messages when the page is not the instance's own (`None` otherwise).
 pub async fn mint(
-    valkey: &Pool,
-    user_id: Uuid,
-    file_id: Uuid,
-    mode: Mode,
-    ttl_secs: i64,
-) -> Result<(String, Grant), OfficeError> {
-    mint_for(valkey, user_id, file_id, mode, ttl_secs, None).await
-}
-
-/// `mint`, for a page that is not the instance's own: `post_message_origin` is where the editor
-/// posts its messages.
-pub async fn mint_for(
     valkey: &Pool,
     user_id: Uuid,
     file_id: Uuid,
