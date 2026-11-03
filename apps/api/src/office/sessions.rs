@@ -30,6 +30,9 @@ pub struct SessionRequest {
     pub theme: Option<String>,
     /// The person's accent (`sky`, `mint`, `violet`, `pink`).
     pub accent: Option<String>,
+    /// Ruchoir or a simplified style (`aubergine`, `nuage`, `indigo`, `marine`); absent or unknown
+    /// is Ruchoir.
+    pub style: Option<String>,
     /// `convert` to convert a legacy format into an editable copy.
     pub mode: Option<String>,
     /// A touch screen (phone, tablet): the engine's mobile editor.
@@ -153,6 +156,7 @@ pub async fn open_session(
             state.config.public_base_url.trim_end_matches('/'),
             request.theme.as_deref(),
             request.accent.as_deref(),
+            request.style.as_deref(),
             lang,
             photo.as_deref(),
         ),
@@ -242,14 +246,43 @@ pub fn engine_language(locale: Option<&str>) -> &'static str {
     }
 }
 
-/// The colour of one of Ruchoir's accents (`apps/web/app/tokens.css`), sky by default. Only these
-/// reach the engine's page, which writes the colour into a style sheet.
-fn accent_colour(accent: Option<&str>) -> &'static str {
-    match accent {
-        Some("mint") => "#6fe0c2",
-        Some("violet") => "#c9a8ff",
-        Some("pink") => "#f5b0f0",
+/// One of the simplified styles, or `None` for Ruchoir (absent, or a name this instance does not know).
+fn known_style(style: Option<&str>) -> Option<&'static str> {
+    match style {
+        Some("aubergine") => Some("aubergine"),
+        Some("nuage") => Some("nuage"),
+        Some("indigo") => Some("indigo"),
+        Some("marine") => Some("marine"),
+        _ => None,
+    }
+}
+
+/// The colour laid over the editor on what is selected or active: a simplified style's tint (its
+/// `--acc` in the design system's `tokens.css`, checked by `apps/web/tools/office-themes`), else
+/// one of Ruchoir's accents, sky by default. Only these reach the engine's page, which writes the
+/// colour into a style sheet.
+fn accent_colour(style: Option<&str>, accent: Option<&str>) -> &'static str {
+    match (known_style(style), accent) {
+        (Some("aubergine"), _) => "#b9d7f0",
+        (Some("nuage"), _) => "#b3dcf3",
+        (Some("indigo"), _) => "#c5c8f5",
+        (Some("marine"), _) => "#b8cdf6",
+        (_, Some("mint")) => "#6fe0c2",
+        (_, Some("violet")) => "#c9a8ff",
+        (_, Some("pink")) => "#f5b0f0",
         _ => "#8fd0ff",
+    }
+}
+
+/// The engine theme: its own dark one by night (a custom dark theme is never painted, upstream
+/// defect 3), else the style's day theme (`infra/office/themes`), Ruchoir's by default.
+fn ui_theme(theme: Option<&str>, style: Option<&str>) -> String {
+    if theme == Some("dark") {
+        return "theme-dark".to_owned();
+    }
+    match known_style(style) {
+        Some(style) => format!("theme-ruchoir-{style}-light"),
+        None => "theme-ruchoir-light".to_owned(),
     }
 }
 
@@ -259,14 +292,11 @@ fn engine_config(
     public_base_url: &str,
     theme: Option<&str>,
     accent: Option<&str>,
+    style: Option<&str>,
     lang: &str,
     photo: Option<&str>,
 ) -> String {
-    let ui_theme = if theme == Some("dark") {
-        "theme-dark"
-    } else {
-        "theme-ruchoir-light"
-    };
+    let ui_theme = ui_theme(theme, style);
     let mut config = json!({
         "editorConfig": {
             "lang": lang,
@@ -281,7 +311,7 @@ fn engine_config(
                 "customer": { "name": "Ruchoir", "www": public_base_url },
             },
         },
-        "ruchoir": { "accent": accent_colour(accent) },
+        "ruchoir": { "accent": accent_colour(style, accent) },
     });
     if let Some(photo) = photo {
         config["editorConfig"]["user"] = json!({ "image": photo });
@@ -408,16 +438,54 @@ mod tests {
     use super::*;
     use serde_json::Value;
 
-    fn accent_of(accent: Option<&str>) -> Value {
-        let config: Value = serde_json::from_str(&engine_config(
+    fn config_of(theme: Option<&str>, accent: Option<&str>, style: Option<&str>) -> Value {
+        serde_json::from_str(&engine_config(
             "https://r.test",
-            None,
+            theme,
             accent,
+            style,
             "fr-FR",
             None,
         ))
-        .unwrap();
-        config["ruchoir"]["accent"].clone()
+        .unwrap()
+    }
+
+    fn accent_of(accent: Option<&str>) -> Value {
+        config_of(None, accent, None)["ruchoir"]["accent"].clone()
+    }
+
+    #[test]
+    fn the_editor_takes_the_styles_tint() {
+        let tint = |style| config_of(None, Some("violet"), style)["ruchoir"]["accent"].clone();
+        assert_eq!(tint(Some("aubergine")), "#b9d7f0");
+        assert_eq!(tint(Some("nuage")), "#b3dcf3");
+        assert_eq!(tint(Some("indigo")), "#c5c8f5");
+        assert_eq!(tint(Some("marine")), "#b8cdf6");
+        assert_eq!(
+            tint(Some("bogus")),
+            "#c9a8ff",
+            "an unknown style keeps the accent"
+        );
+        assert_eq!(tint(None), "#c9a8ff", "no style keeps the accent");
+    }
+
+    #[test]
+    fn the_editor_wears_the_styles_theme_by_day() {
+        let theme = |theme, style| {
+            config_of(theme, None, style)["editorConfig"]["customization"]["uiTheme"].clone()
+        };
+        assert_eq!(
+            theme(Some("light"), Some("nuage")),
+            "theme-ruchoir-nuage-light"
+        );
+        assert_eq!(theme(None, Some("marine")), "theme-ruchoir-marine-light");
+        assert_eq!(
+            theme(Some("dark"), Some("nuage")),
+            "theme-dark",
+            "the engine's night"
+        );
+        assert_eq!(theme(Some("light"), Some("bogus")), "theme-ruchoir-light");
+        assert_eq!(theme(Some("light"), None), "theme-ruchoir-light");
     }
 
     #[test]

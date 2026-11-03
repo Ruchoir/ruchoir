@@ -13,7 +13,7 @@ import { isApiError } from "@/lib/data/http";
 import type { FileEditor, OfficeSession, SpaceFile } from "@/lib/data/types";
 import { isDesktop } from "@/lib/desktop/runtime";
 import { onFileEvent } from "@/lib/fileEvents";
-import { officeAccent, officeTheme, touchScreen } from "./officeTheme";
+import { officeAccent, officeStyle, officeTheme, touchScreen } from "./officeTheme";
 
 /** How often an editing tab says it is still there (the API forgets it after 60 s). */
 const HEARTBEAT_MS = 30_000;
@@ -94,7 +94,7 @@ export function useOfficeSession(
     let cancelled = false;
     embed
       .then((origin) =>
-        openOfficeSession(fileId, { theme: officeTheme(), accent: officeAccent(), mode: convert ? "convert" : undefined, mobile: touchScreen(), embedOrigin: origin }),
+        openOfficeSession(fileId, { theme: officeTheme(), accent: officeAccent(), style: officeStyle(), mode: convert ? "convert" : undefined, mobile: touchScreen(), embedOrigin: origin }),
       )
       .then(async (session) => {
         // The desktop's window only lets a frame load from an origin it was told about (WebKit
@@ -143,7 +143,7 @@ export function useOfficeSession(
         .then(async (found) => {
           if (cancelled || !found?.id) return;
           opening = true;
-          const next = await openOfficeSession(found.id, { theme: officeTheme(), accent: officeAccent(), mobile: touchScreen(), embedOrigin: await embed });
+          const next = await openOfficeSession(found.id, { theme: officeTheme(), accent: officeAccent(), style: officeStyle(), mobile: touchScreen(), embedOrigin: await embed });
           if (!cancelled) setState({ status: "ready", session: next, copy: found, editors: next.file.editors ?? [] });
         })
         .catch(() => {
