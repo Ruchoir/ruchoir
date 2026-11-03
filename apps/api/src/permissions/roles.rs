@@ -99,12 +99,22 @@ pub async fn list_roles(
     if !rights.contains(Permission::MembersView) {
         return Err(ApiError::Forbidden);
     }
-    let rank = rank_of(&state.db, space_id, session.user_id)
+    Ok(Json(roles_of(&state.db, space_id, session.user_id).await?))
+}
+
+/// The space's roles as `viewer` reads them, strongest first. What the roles list answers, and what
+/// an edition answers after changing roles.
+pub async fn roles_of(
+    db: &sea_orm::DatabaseConnection,
+    space_id: Uuid,
+    viewer: Uuid,
+) -> Result<Vec<RoleDto>, ApiError> {
+    let rights = super::check::space_rights(db, space_id, viewer).await?;
+    let rank = rank_of(db, space_id, viewer)
         .await?
         .ok_or(ApiError::Forbidden)?;
     let manages = rights.contains(Permission::RolesManage);
-    let rows = state
-        .db
+    let rows = db
         .query_all_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT r.id, r.system_key, r.name::text AS name, r.colour, r.position, r.permissions, \
@@ -136,7 +146,7 @@ pub async fn list_roles(
             manageable: manages && rank.outranks_position(position),
         });
     }
-    Ok(Json(roles))
+    Ok(roles)
 }
 
 /// Every member's assigned roles and rank in one space, and what a viewer may do about them.
