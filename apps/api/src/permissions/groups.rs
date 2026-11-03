@@ -14,7 +14,7 @@
 // which removes this attribute.
 #![allow(dead_code)]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use sea_orm::{ConnectionTrait, DbBackend, DbErr, Statement};
 use uuid::Uuid;
@@ -101,6 +101,7 @@ async fn load<C: ConnectionTrait>(
             roles: Vec::new(),
         });
     }
+    let at: HashMap<Uuid, usize> = groups.iter().enumerate().map(|(i, g)| (g.id, i)).collect();
     for row in db
         .query_all_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
@@ -114,7 +115,7 @@ async fn load<C: ConnectionTrait>(
         .await?
     {
         let group_id: Uuid = row.try_get("", "group_id")?;
-        if let Some(g) = groups.iter_mut().find(|g| g.id == group_id) {
+        if let Some(g) = at.get(&group_id).map(|i| &mut groups[*i]) {
             g.members.push(GroupMember {
                 user_id: row.try_get("", "user_id")?,
                 is_manager: row.try_get("", "is_manager")?,
@@ -135,7 +136,7 @@ async fn load<C: ConnectionTrait>(
         .await?
     {
         let group_id: Uuid = row.try_get("", "group_id")?;
-        if let Some(g) = groups.iter_mut().find(|g| g.id == group_id) {
+        if let Some(g) = at.get(&group_id).map(|i| &mut groups[*i]) {
             g.roles.push(RoleRow {
                 id: row.try_get("", "id")?,
                 system_key: row.try_get("", "system_key")?,
@@ -414,6 +415,12 @@ pub fn validate_group_name(name: &str) -> Result<String, ApiError> {
     let length = name.chars().count();
     if length == 0 || length > NAME_MAX {
         return Err(ApiError::BadRequest("a group name has 1 to 60 characters"));
+    }
+    if name.chars().any(char::is_control) {
+        return Err(ApiError::BadRequestCode {
+            code: "group_name_invalid",
+            message: "A group name cannot contain control characters.",
+        });
     }
     if name.starts_with('@') || name.starts_with('#') {
         return Err(ApiError::BadRequest(
@@ -1050,6 +1057,71 @@ mod tests {
     }
 
     // SetManagers
+
+    #[test]
+    fn decide_pins_the_order_of_refusals() {
+        let others = [id(OTHER)];
+        let mine = [id(ME)];
+        // Add: licence before role_above_you.
+        let g = grp(vec![], vec![role(1, 80)]);
+        let mut a = gm_rm();
+        a.paid = Paid::Community;
+        assert_eq!(
+            decide(&a, &g, GroupAct::Add(&others)),
+            Err(Refusal::LicenceRequired)
+        );
+        // Add: role_above_you before no_self_role.
+        assert_eq!(
+            decide(&gm_rm(), &g, GroupAct::Add(&mine)),
+            because("role_above_you")
+        );
+        // Add: GM and MGR without ALL, Community: the act rests on MGR, so the licence.
+        let g = grp(vec![member(ME, true, false)], vec![role(1, 80)]);
+        let mut a = gm();
+        a.paid = Paid::Community;
+        assert_eq!(
+            decide(&a, &g, GroupAct::Add(&others)),
+            Err(Refusal::LicenceRequired)
+        );
+        // SetRoles: Forbidden before base_role_not_allowed.
+        let g = grp(vec![], vec![]);
+        let after = [base_role("members")];
+        assert_eq!(
+            decide(&gm(), &g, GroupAct::SetRoles { after: &after }),
+            Err(Refusal::Forbidden)
+        );
+        // SetRoles: base_role_not_allowed before role_above_you.
+        let after = [base_role("members"), role(1, 80)];
+        assert_eq!(
+            decide(&gm_rm(), &g, GroupAct::SetRoles { after: &after }),
+            Err(Refusal::BaseRole)
+        );
+        // SetManagers: directory before licence.
+        let mut a = gm();
+        a.paid = Paid::Community;
+        assert_eq!(
+            decide(&a, &directory(vec![]), GroupAct::SetManagers(&others)),
+            Err(Refusal::FromDirectory)
+        );
+    }
+
+    #[test]
+    fn group_name_refuses_control_characters() {
+        for name in ["a\nb", "a\tb", "a\u{0}b", "a\u{7f}b"] {
+            assert!(
+                matches!(
+                    validate_group_name(name),
+                    Err(ApiError::BadRequestCode {
+                        code: "group_name_invalid",
+                        ..
+                    })
+                ),
+                "{name:?}"
+            );
+        }
+        // Surrounding whitespace is trimmed first, not refused.
+        assert_eq!(validate_group_name("\n Design\t").unwrap(), "Design");
+    }
 
     #[test]
     fn decide_set_managers_order_directory_licence_rights_roles() {
