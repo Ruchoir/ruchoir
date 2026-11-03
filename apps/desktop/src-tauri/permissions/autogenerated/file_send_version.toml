@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-file-send-version"
+description = "Enables the file_send_version command without any pre-configured scope."
+commands.allow = ["file_send_version"]
+
+[[permission]]
+identifier = "deny-file-send-version"
+description = "Denies the file_send_version command without any pre-configured scope."
+commands.deny = ["file_send_version"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-file-dismiss"
+description = "Enables the file_dismiss command without any pre-configured scope."
+commands.allow = ["file_dismiss"]
+
+[[permission]]
+identifier = "deny-file-dismiss"
+description = "Denies the file_dismiss command without any pre-configured scope."
+commands.deny = ["file_dismiss"]

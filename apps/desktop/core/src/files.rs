@@ -268,6 +268,133 @@ fn settle(w: &mut Watched, hash: [u8; 32], first_seen: Instant, now: Instant) ->
     }
 }
 
+/// The SHA-256 of a content, as `step` and `mark_sent` compare it.
+pub fn hash_bytes(bytes: &[u8]) -> [u8; 32] {
+    Sha256::digest(bytes).into()
+}
+
+/// The copies being watched, at most `MAX_WATCHED`. A copy is told apart by its instance and file
+/// id; opening the same file again replaces the earlier entry, and a 21st file evicts the oldest.
+#[derive(Default)]
+pub struct Watches {
+    list: Vec<Watched>,
+}
+
+impl Watches {
+    /// Adds `w`, replacing an entry for the same file, and returns the entry pushed out to make
+    /// room (the one opened longest ago) when the list was full.
+    pub fn insert(&mut self, w: Watched) -> Option<Watched> {
+        self.list
+            .retain(|e| !(e.instance == w.instance && e.file_id == w.file_id));
+        let evicted = if self.list.len() >= MAX_WATCHED {
+            let oldest = (0..self.list.len()).min_by_key(|&i| self.list[i].since)?;
+            Some(self.list.remove(oldest))
+        } else {
+            None
+        };
+        self.list.push(w);
+        evicted
+    }
+
+    pub fn find(&mut self, instance: &str, file_id: &str) -> Option<&mut Watched> {
+        self.list
+            .iter_mut()
+            .find(|e| e.instance == instance && e.file_id == file_id)
+    }
+
+    pub fn remove(&mut self, instance: &str, file_id: &str) -> Option<Watched> {
+        let at = self
+            .list
+            .iter()
+            .position(|e| e.instance == instance && e.file_id == file_id)?;
+        Some(self.list.remove(at))
+    }
+
+    /// Stops every watch of an instance (its sign-out or removal).
+    pub fn forget_instance(&mut self, instance: &str) {
+        self.list.retain(|e| e.instance != instance);
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.list.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.list.len()
+    }
+
+    /// What the polling task needs to look at: instance, file id, path and the last time seen.
+    pub fn snapshot(&self) -> Vec<(String, String, PathBuf, Option<SystemTime>)> {
+        self.list
+            .iter()
+            .map(|e| {
+                (
+                    e.instance.clone(),
+                    e.file_id.clone(),
+                    e.path.clone(),
+                    e.mtime,
+                )
+            })
+            .collect()
+    }
+}
+
+/// The folder holding every opened copy: `<cache>/open`.
+pub fn open_root(cache: &Path) -> PathBuf {
+    cache.join("open")
+}
+
+/// Deletes an instance's opened copies (`<open root>/<instance>`). An id with anything but letters,
+/// digits and hyphens is ignored, so it cannot name a folder outside the root.
+pub fn forget_instance_copies(root: &Path, instance: &str) {
+    if is_id(instance) {
+        let _ = std::fs::remove_dir_all(root.join(instance));
+    }
+}
+
+/// Deletes the opened copies left untouched for `max_age` (a file's folder is judged by the newest
+/// of its own time and its content's, so a file the person kept saving stays), and the instance
+/// folders that end up empty. Returns how many file folders went. Run at launch: the watches are
+/// in memory only, so a copy that old is no longer watched anyway.
+pub fn sweep_old_copies(root: &Path, now: SystemTime, max_age: Duration) -> usize {
+    let mut removed = 0;
+    let Ok(instances) = std::fs::read_dir(root) else {
+        return 0;
+    };
+    for instance in instances.flatten() {
+        let path = instance.path();
+        let Ok(files) = std::fs::read_dir(&path) else {
+            // A stray file at this level has no place here.
+            let _ = std::fs::remove_file(&path);
+            continue;
+        };
+        for file in files.flatten() {
+            let folder = file.path();
+            if now.duration_since(newest_time(&folder)).unwrap_or_default() >= max_age
+                && std::fs::remove_dir_all(&folder).is_ok()
+            {
+                removed += 1;
+            }
+        }
+        // Only succeeds when empty.
+        let _ = std::fs::remove_dir(&path);
+    }
+    removed
+}
+
+fn newest_time(folder: &Path) -> SystemTime {
+    let time = |p: &Path| std::fs::metadata(p).and_then(|m| m.modified()).ok();
+    let mut newest = time(folder).unwrap_or(SystemTime::UNIX_EPOCH);
+    if let Ok(entries) = std::fs::read_dir(folder) {
+        for entry in entries.flatten() {
+            if let Some(t) = time(&entry.path()) {
+                newest = newest.max(t);
+            }
+        }
+    }
+    newest
+}
+
 /// The body of a `POST /api/v1/files/{id}/versions`: one `file` part. `boundary` must be a
 /// generated token (no CR, LF or `--`, never empty), so it cannot occur in the framing by chance.
 /// The name is quoted for a header (`"` and `\` escaped, control characters dropped); a non-ASCII
@@ -568,5 +695,110 @@ mod tests {
         let tail = b"\r\n--B--\r\n";
         assert!(body.ends_with(tail));
         assert_eq!(&body[head.len()..body.len() - tail.len()], &bytes[..]);
+    }
+
+    fn entry(instance: &str, file: &str, since: Instant) -> Watched {
+        Watched {
+            instance: instance.into(),
+            file_id: file.into(),
+            name: "a.docx".into(),
+            path: PathBuf::from("/x/a.docx"),
+            base_version: "v1".into(),
+            hash: [0; 32],
+            mtime: None,
+            since,
+            settling: None,
+        }
+    }
+
+    #[test]
+    fn a_21st_watch_evicts_the_oldest() {
+        let mut w = Watches::default();
+        let start = Instant::now();
+        for i in 0..MAX_WATCHED {
+            let at = start + Duration::from_secs(i as u64);
+            assert!(w.insert(entry("i", &format!("f{i}"), at)).is_none());
+        }
+        let out = w
+            .insert(entry("i", "new", start + Duration::from_secs(99)))
+            .expect("the list was full");
+        assert_eq!(out.file_id, "f0");
+        assert_eq!(w.len(), MAX_WATCHED);
+        assert!(w.find("i", "f0").is_none());
+        assert!(w.find("i", "new").is_some());
+    }
+
+    #[test]
+    fn opening_a_file_again_replaces_its_entry() {
+        let mut w = Watches::default();
+        let now = Instant::now();
+        w.insert(entry("i", "f", now));
+        assert!(w.insert(entry("i", "f", now)).is_none());
+        assert_eq!(w.len(), 1);
+        w.insert(entry("j", "f", now));
+        assert_eq!(w.len(), 2);
+    }
+
+    #[test]
+    fn forgetting_an_instance_drops_its_watches_and_copies() {
+        let mut w = Watches::default();
+        let now = Instant::now();
+        w.insert(entry("a", "f1", now));
+        w.insert(entry("a", "f2", now));
+        w.insert(entry("b", "f1", now));
+        w.forget_instance("a");
+        assert_eq!(w.len(), 1);
+        assert!(w.find("b", "f1").is_some());
+
+        let dir = tempfile::tempdir().unwrap();
+        let root = open_root(dir.path());
+        for instance in ["a", "b"] {
+            let p = local_path(&root, instance, "f1", "x.docx").unwrap();
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(&p, b"x").unwrap();
+        }
+        forget_instance_copies(&root, "a");
+        forget_instance_copies(&root, "../b");
+        assert!(!root.join("a").exists());
+        assert!(root.join("b").exists());
+    }
+
+    #[test]
+    fn the_launch_sweep_keeps_new_copies_and_drops_old_ones() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = open_root(dir.path());
+        let make = |instance: &str, file: &str, age: Duration| {
+            let p = local_path(&root, instance, file, "x.docx").unwrap();
+            let folder = p.parent().unwrap().to_owned();
+            std::fs::create_dir_all(&folder).unwrap();
+            std::fs::write(&p, b"x").unwrap();
+            let then = SystemTime::now() - age;
+            std::fs::File::options()
+                .write(true)
+                .open(&p)
+                .unwrap()
+                .set_modified(then)
+                .unwrap();
+            std::fs::File::open(&folder)
+                .unwrap()
+                .set_modified(then)
+                .unwrap();
+        };
+        let day = Duration::from_secs(24 * 3600);
+        make("a", "old", day * 2);
+        make("a", "fresh", Duration::from_secs(3600));
+        make("b", "old", day * 3);
+        let removed = sweep_old_copies(&root, SystemTime::now(), day);
+        assert_eq!(removed, 2);
+        assert!(root.join("a/fresh").exists());
+        assert!(!root.join("a/old").exists());
+        assert!(
+            !root.join("b").exists(),
+            "an emptied instance folder goes too"
+        );
+        assert_eq!(
+            sweep_old_copies(&dir.path().join("none"), SystemTime::now(), day),
+            0
+        );
     }
 }

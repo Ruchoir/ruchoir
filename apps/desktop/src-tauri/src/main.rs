@@ -161,6 +161,10 @@ fn main() {
             relay::socket_is_open,
             downloads::download_save,
             files::file_window,
+            files::file_open_local,
+            files::file_dismiss,
+            files::file_send_version,
+            files::file_keep_copy,
             downloads::download_open,
             diagnostics::about_app,
             diagnostics::diagnostics,
@@ -185,10 +189,12 @@ fn main() {
             app.manage(summaries::Summaries::default());
             app.manage(notify::Notifier::default());
             app.manage(shell::Shell::default());
+            app.manage(files::Watcher::default());
             app.manage(protocol::EmojiStore::default());
             app.manage(updater::Updates::default());
             updater::watch(app.handle());
             notify::listen_for_clicks(app.handle());
+            files::start(app.handle());
             relay::reconcile(app.handle());
 
             // `ruchoir://auth?code=...`, whether it launched the app or reached it running (the
