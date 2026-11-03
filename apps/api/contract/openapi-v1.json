@@ -281,6 +281,124 @@
         },
         "type": "object"
       },
+      "AuditActorDto": {
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "type": "object"
+      },
+      "AuditEntryDto": {
+        "description": "One change of rights.",
+        "properties": {
+          "action": {
+            "description": "The dotted action (`role.created`, `member.removed`...).",
+            "type": "string"
+          },
+          "actor": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AuditActorDto",
+                "description": "Who did it; `null` once their account is deleted."
+              }
+            ]
+          },
+          "at": {
+            "description": "RFC 3339.",
+            "type": "string"
+          },
+          "category": {
+            "description": "Its family, as the filter names it.",
+            "type": "string"
+          },
+          "details": {
+            "description": "Ids, role and permission names, before and after. Never a person's name or any content.",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/AuditTargetDto"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "action",
+          "category",
+          "target",
+          "details"
+        ],
+        "type": "object"
+      },
+      "AuditPageDto": {
+        "description": "One page of the log, newest first.",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEntryDto"
+            },
+            "type": "array"
+          },
+          "next": {
+            "description": "Pass as `before` for the next page; absent on the last one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "type": "object"
+      },
+      "AuditTargetDto": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "`member`, `role`, `channel`, `calendar`, `space` or `licence`.",
+            "type": "string"
+          },
+          "label": {
+            "description": "Its name today, or the one the entry kept once it is gone.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
       "BlankRequest": {
         "description": "A blank document to create.",
         "properties": {
@@ -11137,6 +11255,107 @@
           }
         },
         "summary": "`PATCH /api/v1/spaces/{space_id}`: rename a space. Owner only.",
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/v1/spaces/{space_id}/audit": {
+      "get": {
+        "operationId": "read_log",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only what this person did.",
+            "in": "query",
+            "name": "actor",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Only one family: `members`, `roles`, `channels`, `calendars` or `licence`.",
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Only what happened at or after this instant (RFC 3339).",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "The `next` of the previous page.",
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Entries per page, 1 to 100 (50 by default).",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPageDto"
+                }
+              }
+            },
+            "description": "A page of the space's audit log, newest first"
+          },
+          "400": {
+            "description": "An unknown family, a malformed date or cursor, or a limit outside 1 to 100"
+          },
+          "403": {
+            "description": "Not allowed to read this space's log"
+          }
+        },
         "tags": [
           "messaging"
         ]

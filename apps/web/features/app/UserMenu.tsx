@@ -12,7 +12,7 @@ import { useDesktop } from "@/features/desktop/DesktopContext";
 const panel: CSSProperties = {
   width: 260,
   background: "var(--surface-raised)",
-  border: "2px solid var(--ink)",
+  border: "2px solid var(--edge-float)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
   overflow: "hidden",
@@ -20,7 +20,7 @@ const panel: CSSProperties = {
 
 const section: CSSProperties = { padding: 8, borderBottom: "1px solid var(--border-subtle)" };
 const label: CSSProperties = {
-  fontFamily: "var(--font-mono)",
+  fontFamily: "var(--label-font)",
   fontSize: "var(--text-2xs)",
   fontWeight: 500,
   color: "var(--text-muted)",

@@ -73,7 +73,7 @@ const styles: Record<string, CSSProperties> = {
   },
   section: { padding: "14px 16px", borderBottom: "1px solid var(--border-subtle)" },
   label: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",

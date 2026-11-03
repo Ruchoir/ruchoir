@@ -202,7 +202,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
     padding: "7px 14px",
     borderRadius: 999,
-    border: "2px solid var(--ink)",
+    border: "2px solid var(--edge-float)",
     background: "var(--ink)",
     color: "var(--on-ink)",
     fontSize: "var(--text-xs)",
@@ -221,9 +221,9 @@ const styles: Record<string, CSSProperties> = {
     margin: "18px 0",
     pointerEvents: "none",
   },
-  // The day reads as a tag, in the monospace face of every label.
+  // The day reads as a tag, in the face of every label.
   dayLbl: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
@@ -236,7 +236,7 @@ const styles: Record<string, CSSProperties> = {
   // What is new is the one place the alarm colour appears in a conversation.
   unreadLine: { flex: 1, height: 2, background: "var(--alarm)" },
   unreadLabel: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     fontWeight: 600,
     color: "var(--on-pastel)",
@@ -319,6 +319,8 @@ export type ChannelScreenProps = {
   onLeaveChannel: () => void;
   /** Rejoin this channel after leaving it (public channels only). */
   onJoinChannel: () => void;
+  /** Pin or unpin the channel in the caller's sidebar, from the header menu. */
+  onToggleFavorite?: () => void;
   /** Current notification preference for this conversation, and a persist callback. */
   notifPref: ChannelNotifPref;
   onSaveNotifPref: (pref: ChannelNotifPref) => void;
@@ -454,6 +456,7 @@ export function ChannelScreen({
   canModerateChannels,
   onLeaveChannel,
   onJoinChannel,
+  onToggleFavorite,
   notifPref,
   notifInherited,
   onDeleteChannel,
@@ -980,13 +983,14 @@ export function ChannelScreen({
           ) : null}
           {!isDm ? (
             <ChannelMenu
+              channel={channel}
+              onToggleFavourite={onToggleFavorite}
               onSettings={() => setMenuDialog("settings")}
               onNotifications={() => setMenuDialog("notifications")}
               onAddPeople={() => setMenuDialog("addpeople")}
               canModerate={canModerate}
               onLeave={() => setMenuDialog("leave")}
               onJoin={onJoinChannel}
-              member={channel.member !== false}
               onPlanEvent={canPlan ? onPlanEvent : undefined}
             />
           ) : null}

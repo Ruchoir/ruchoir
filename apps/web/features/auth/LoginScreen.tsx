@@ -11,7 +11,7 @@ const styles: Record<string, CSSProperties> = {
   divider: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0" },
   dividerLine: { flex: 1, height: 1, background: "var(--border-default)" },
   dividerLabel: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontWeight: 500,
     fontSize: "var(--text-2xs)",
     color: "var(--text-muted)",

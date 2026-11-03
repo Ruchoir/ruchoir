@@ -13,8 +13,10 @@
     "lint": "eslint .",
     "audit:responsive": "node tools/responsive-audit/run.mjs",
     "audit:a11y": "node tools/responsive-audit/run.mjs --all-themes",
+    "audit:styles": "node tools/style-fingerprint/run.mjs",
+    "audit:styles:compare": "node tools/style-fingerprint/compare.mjs",
     "i18n:check": "node tools/i18n-audit/run.mjs",
-    "test": "node --test 'features/**/*.test.ts' 'lib/**/*.test.ts'"
+    "test": "node --test 'features/**/*.test.ts' 'lib/**/*.test.ts' 'tools/**/*.test.mjs'"
   },
   "dependencies": {
     "@ruchoir/client": "workspace:*",

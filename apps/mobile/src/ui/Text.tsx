@@ -10,7 +10,7 @@ import { useTheme } from "../theme/useTheme";
  *
  * `display` is the 32px heading of the sign-in screens, `title` a screen's own title ("Discussions"),
  * `heading` a section or a sheet, `body` running text, `small` and `tiny` the secondary lines, and
- * `label` the monospace section label.
+ * `label` the section label, in the interface face (never the monospace one: code only).
  */
 const VARIANTS = {
   display: { fontSize: 32, lineHeight: 38, fontFamily: fonts.sansBold, letterSpacing: -1.1 },
@@ -21,7 +21,7 @@ const VARIANTS = {
   small: { fontSize: 13, lineHeight: 18, fontFamily: fonts.sans },
   smallStrong: { fontSize: 13, lineHeight: 18, fontFamily: fonts.sansSemibold },
   tiny: { fontSize: 12, lineHeight: 16, fontFamily: fonts.sans },
-  label: { fontSize: 12, lineHeight: 16, fontFamily: fonts.monoSemibold },
+  label: { fontSize: 12, lineHeight: 16, fontFamily: fonts.sansSemibold },
 } satisfies Record<string, TextStyle>;
 
 export type TextVariant = keyof typeof VARIANTS;

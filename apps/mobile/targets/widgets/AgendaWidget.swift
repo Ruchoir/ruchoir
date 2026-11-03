@@ -252,7 +252,7 @@ struct AgendaView: View {
       }
       Spacer(minLength: 0)
       if let event = coming.first {
-        Text(event.when).font(Face.mono(26)).foregroundStyle(look.strong).lineLimit(1).minimumScaleFactor(0.7)
+        Text(event.when).font(Face.label(26)).foregroundStyle(look.strong).lineLimit(1).minimumScaleFactor(0.7)
         Text(event.title).font(Face.sans(14, .bold)).foregroundStyle(look.strong).lineLimit(2)
         if let place = event.location, !place.isEmpty {
           Text(place).font(Face.sans(12)).foregroundStyle(look.muted).lineLimit(1)
@@ -375,7 +375,7 @@ struct AgendaView: View {
               RoundedRectangle(cornerRadius: 2).fill(color(event)).frame(width: 4)
               VStack(alignment: .leading, spacing: 0) {
                 Text(event.startDate.map(dayLabel) ?? "").font(Face.sans(10.5, .semibold)).foregroundStyle(look.muted).lineLimit(1)
-                Text(event.when).font(Face.mono(12.5)).foregroundStyle(look.strong).lineLimit(1)
+                Text(event.when).font(Face.label(12.5)).foregroundStyle(look.strong).lineLimit(1)
               }
               .frame(width: 58, alignment: .leading)
               VStack(alignment: .leading, spacing: 0) {

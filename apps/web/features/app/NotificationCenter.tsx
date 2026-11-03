@@ -59,7 +59,7 @@ function InboxAnswer({ eventId, current }: { eventId: string; current?: string }
             }}
             onKeyDown={(e) => e.stopPropagation()}
             style={{
-              border: `1px solid ${on ? "var(--ink)" : "var(--border-default)"}`,
+              border: `1px solid ${on ? "var(--edge-focus)" : "var(--border-default)"}`,
               background: on ? "var(--acc)" : "var(--surface-card)",
               color: on ? "var(--on-pastel)" : "var(--text-strong)",
               fontWeight: on ? 700 : 500,
@@ -84,7 +84,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     background: "var(--surface-raised)",
-    border: "2px solid var(--ink)",
+    border: "2px solid var(--edge-float)",
     borderRadius: "var(--radius-lg)",
     boxShadow: "var(--shadow-popover)",
     overflow: "hidden",

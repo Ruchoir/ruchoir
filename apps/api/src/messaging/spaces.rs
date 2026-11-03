@@ -600,9 +600,19 @@ pub async fn update_member_role(
     }
 
     let txn = state.db.begin().await?;
+    let before = target.role.clone();
     let mut promoted = target.into_active_model();
     promoted.role = Set(wanted.clone());
     promoted.update(&txn).await?;
+    crate::audit::record(
+        &txn,
+        space_id,
+        Some(session.user_id),
+        crate::audit::Action::MemberRoleChanged,
+        crate::audit::Target::Member(user_id),
+        serde_json::json!({ "before": before, "after": wanted }),
+    )
+    .await?;
     let mut changes = vec![MemberRoleChangedDto {
         space_id,
         user_id,
@@ -612,6 +622,24 @@ pub async fn update_member_role(
         let mut stepping_down = actor.into_active_model();
         stepping_down.role = Set("admin".to_owned());
         stepping_down.update(&txn).await?;
+        crate::audit::record(
+            &txn,
+            space_id,
+            Some(session.user_id),
+            crate::audit::Action::MemberRoleChanged,
+            crate::audit::Target::Member(session.user_id),
+            serde_json::json!({ "before": "owner", "after": "admin" }),
+        )
+        .await?;
+        crate::audit::record(
+            &txn,
+            space_id,
+            Some(session.user_id),
+            crate::audit::Action::OwnershipTransferred,
+            crate::audit::Target::Space,
+            serde_json::json!({ "from": session.user_id, "to": user_id }),
+        )
+        .await?;
         changes.push(MemberRoleChangedDto {
             space_id,
             user_id: session.user_id,
@@ -688,6 +716,15 @@ pub async fn leave_space(
 
     let txn = state.db.begin().await?;
     let notice = withdraw_membership(&txn, space_id, session.user_id, LEFT_EVENT).await?;
+    crate::audit::record(
+        &txn,
+        space_id,
+        Some(session.user_id),
+        crate::audit::Action::MemberLeft,
+        crate::audit::Target::Member(session.user_id),
+        serde_json::json!({ "role": membership.role }),
+    )
+    .await?;
     txn.commit().await?;
 
     announce_departure(&state, space_id, session.user_id, audience, REASON_LEFT).await;
@@ -838,6 +875,15 @@ pub async fn remove_member(
 
     let txn = state.db.begin().await?;
     let notice = withdraw_membership(&txn, space_id, user_id, REMOVED_EVENT).await?;
+    crate::audit::record(
+        &txn,
+        space_id,
+        Some(session.user_id),
+        crate::audit::Action::MemberRemoved,
+        crate::audit::Target::Member(user_id),
+        serde_json::json!({ "role": target.role }),
+    )
+    .await?;
     txn.commit().await?;
 
     announce_departure(&state, space_id, user_id, audience, REASON_REMOVED).await;

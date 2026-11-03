@@ -11,7 +11,7 @@ import { languageName } from "@/lib/i18n/config";
 const card: CSSProperties = {
   width: 280,
   background: "var(--surface-raised)",
-  border: "2px solid var(--ink)",
+  border: "2px solid var(--edge-float)",
   borderRadius: "var(--radius-lg)",
   boxShadow: "var(--shadow-popover)",
   overflow: "hidden",
@@ -45,7 +45,7 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
   const isOwn = name === getCurrentUser().name;
   return (
     <div style={card}>
-      <div style={{ height: 56, background: "var(--acc)", borderBottom: "2px solid var(--ink)" }} />
+      <div style={{ height: 56, background: "var(--acc)", borderBottom: "2px solid var(--edge-float)" }} />
       <div style={{ padding: "0 16px 14px", marginTop: -22 }}>
         <Avatar name={p.name} src={p.avatarUrl} size={56} presence={dot} kind={p.bot ? "bot" : "person"} />
         <div style={{ marginTop: 8, fontSize: "var(--text-lg)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>

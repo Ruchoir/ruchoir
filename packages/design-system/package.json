@@ -23,7 +23,8 @@
     "fonts"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test 'test/*.test.mjs'"
   },
   "dependencies": {
     "@dicebear/core": "^10.7.0",

@@ -27,7 +27,7 @@ export function TypingIndicator({ names }: { names: string[] }) {
         alignItems: "center",
         gap: 8,
         minHeight: 20,
-        fontFamily: "var(--font-mono)",
+        fontFamily: "var(--label-font)",
         fontSize: "var(--text-2xs)",
         color: "var(--text-muted)",
       }}

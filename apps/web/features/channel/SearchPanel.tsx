@@ -32,7 +32,7 @@ const styles: Record<string, CSSProperties> = {
   search: { padding: 12, borderBottom: "1px solid var(--border-subtle)" },
   scroll: { flex: 1, overflow: "auto" },
   label: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
@@ -143,7 +143,7 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                       <span style={{ display: "block", fontSize: "var(--text-xs)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {f.name}
                       </span>
-                      <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                      <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontFamily: "var(--label-font)" }}>
                         {f.kind === "folder" ? "" : `${formatBytes(f.sizeBytes)} · `}
                         {formatStamp(f.updatedAt)}
                       </span>

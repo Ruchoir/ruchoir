@@ -355,8 +355,18 @@ The product is drawn with the Ruchoir design system, the same one as the public 
 - **Themes:** eight, an accent (sky, mint, violet, pink) by day or by night (`<accent>-dark`). The
   accent (`--acc`) paints what is selected and what is yours. See `packages/design-system/styles/tokens.css`.
 - **Shape:** 1.5px hairlines, radii 6/10/16, and hard offset shadows (`4px 4px 0` ink) instead of
-  blurred ones. Section labels are set in the monospace face, in sentence case, after a short rule.
-- Typography: IBM Plex Sans (UI) and IBM Plex Mono (labels and code), self-hosted.
+  blurred ones. Section labels are set in sentence case, after a short rule, in the label face.
+- Typography: IBM Plex Sans (UI, and every label, hint, time and key through `--label-font`) and
+  IBM Plex Mono for real code only (code blocks, inline code, codes to copy by hand), self-hosted.
+  Never set interface text in the monospace face: it was dropped from labels on 2026-11-03.
+- **Style tokens:** every effect and shape a style may change goes through a token of `tokens.css`
+  named after its role: offsets (`--shadow-*`), lifts (`--lift`, `--lift-sm`, `--lift-y-sm`,
+  `--press`), ink edges (`--edge-float` for what floats, `--edge-focus` for hover, focus and
+  selection), `--label-font`, `--avatar-radius`, the panes (`--sidebar-*`, `--rail-bg`, hooks
+  `wc-pane-sidebar` / `wc-pane-rail`) and the message density (`--msg-*`). Never write such a value
+  as a literal in a component. A block that redefines `--ink` locally (`.wc-pastel`) restates the
+  ink-based ones. To prove a refactor moved nothing, take a style fingerprint before and after
+  (`apps/web/tools/style-fingerprint/README.md`).
 - **Where it lives:** `packages/design-system` (`@ruchoir/design-system`): tokens, typefaces and the
   React components with their stylesheet, depending on nothing of the app's. The web app consumes it
   through the workspace; Ruchoir Lab (a separate repository) installs it as a git dependency pinned

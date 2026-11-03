@@ -81,7 +81,7 @@ export function LinkPreviewCard({ link }: { link: LinkPreview }) {
               alignItems: "center",
               gap: 5,
               fontSize: "var(--text-2xs)",
-              fontFamily: "var(--font-mono)",
+              fontFamily: "var(--label-font)",
               color: "var(--text-muted)",
             }}
           >

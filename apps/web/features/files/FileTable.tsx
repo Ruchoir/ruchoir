@@ -19,7 +19,7 @@ const styles: Record<string, CSSProperties> = {
   },
   table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed" },
   th: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     height: 36,
     textAlign: "left",
     fontSize: "var(--text-2xs)",

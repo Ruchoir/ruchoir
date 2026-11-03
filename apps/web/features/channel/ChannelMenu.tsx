@@ -2,13 +2,15 @@
 
 import { type CSSProperties, useRef, useState } from "react";
 import { Icon, IconButton, Popover, Tooltip } from "@/components/ds";
+import type { Channel } from "@/lib/data";
 import { useTranslation } from "@/lib/i18n";
+import { type ChannelMenuActions, channelMenuItems } from "./channelMenuItems";
 
 const menu: CSSProperties = {
   minWidth: 220,
   padding: 4,
   background: "var(--surface-raised)",
-  border: "2px solid var(--ink)",
+  border: "2px solid var(--edge-float)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
 };
@@ -30,11 +32,13 @@ const itemStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-type Item = { icon: string; label: string; onClick: () => void; danger?: boolean };
+/**
+ * The header shows the channel already open, so it leaves out what belongs to the channel list:
+ * marking it read (opening it does that), making it the default and moving it in the list.
+ */
+type HeaderActions = Omit<ChannelMenuActions, "onAddPeople" | "onMarkRead" | "onSetDefault" | "onMoveUp" | "onMoveDown">;
 
-export type ChannelMenuProps = {
-  onSettings: () => void;
-  onNotifications: () => void;
+export type ChannelMenuProps = HeaderActions & {
   onAddPeople: () => void;
   /**
    * Whether the caller moderates this channel. Deciding who is in it is moderation, so the entry is
@@ -42,26 +46,12 @@ export type ChannelMenuProps = {
    * thing as deciding who else is.
    */
   canModerate: boolean;
-  onLeave: () => void;
-  /** Rejoin a public channel the user had left. */
-  onJoin: () => void;
-  /** Whether the user has joined this channel; a public one is readable either way. */
-  member?: boolean;
-  /** Plan an event linked to this channel. */
-  onPlanEvent?: () => void;
+  /** The channel, for the favourite and membership entries. */
+  channel: Pick<Channel, "fav" | "member">;
 };
 
 /** The channel header three-dots menu. */
-export function ChannelMenu({
-  onSettings,
-  onNotifications,
-  onAddPeople,
-  canModerate,
-  onLeave,
-  onJoin,
-  member = true,
-  onPlanEvent,
-}: ChannelMenuProps) {
+export function ChannelMenu({ canModerate, channel, onAddPeople, ...actions }: ChannelMenuProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
@@ -71,18 +61,8 @@ export function ChannelMenu({
     setOpen(false);
   };
 
-  const items: Item[] = [
-    { icon: "settings", label: t("sidebar.channelSettings"), onClick: onSettings },
-    ...(onPlanEvent ? [{ icon: "calendar-plus", label: t("calendar.planEvent"), onClick: onPlanEvent }] : []),
-    { icon: "inbox", label: t("notif.title"), onClick: onNotifications },
-    ...(canModerate
-      ? [{ icon: "user-plus", label: t("channel.addPeople"), onClick: onAddPeople }]
-      : []),
-    // Leaving a public channel is reversible, so the entry flips to rejoining instead of vanishing.
-    member
-      ? { icon: "arrow-left", label: t("sidebar.leaveChannel"), onClick: onLeave, danger: true }
-      : { icon: "user-plus", label: t("sidebar.joinChannel"), onClick: onJoin },
-  ];
+  // The sidebar's recipe, so the entries both menus share keep the same order and icons.
+  const items = channelMenuItems(t, channel, { ...actions, onAddPeople: canModerate ? onAddPeople : undefined });
 
   return (
     <>

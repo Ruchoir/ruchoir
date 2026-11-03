@@ -201,6 +201,10 @@ jobs:
         run: pnpm --filter @ruchoir/design-system typecheck
       - name: Lint
         run: pnpm --filter @ruchoir/web lint
+      # The web app's and the design system's unit tests, among them the style tokens' (a token a
+      # style overrides must keep the Ruchoir value it replaced, and nothing may read an undeclared one).
+      - name: Unit tests
+        run: pnpm --filter @ruchoir/design-system test && pnpm --filter @ruchoir/web test
       # Fails on user-visible text typed into a component rather than translated, on a formatting
       # call with a language written into it, on one sentence held under two keys, and on any
       # disagreement between the six dictionaries. An untranslated string ships in French to

@@ -187,7 +187,7 @@ export function AttendeesField({
             maxHeight: 260,
             overflowY: "auto",
             background: "var(--surface-card)",
-            border: "1.5px solid var(--ink)",
+            border: "1.5px solid var(--edge-float)",
             borderRadius: "var(--radius-md)",
             boxShadow: "var(--shadow-popover)",
             padding: 6,

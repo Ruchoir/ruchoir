@@ -12059,6 +12059,9 @@ mod permissions_parity;
 /// The edition the server runs as: what a build made elsewhere plugs in, and what it may not.
 mod edition_tests;
 
+/// The audit log: append-only, anonymous once an account is gone, gone with its space.
+mod audit_tests;
+
 /// The preferences that follow an account, and hidden direct conversations, in their own file.
 mod preferences_tests;
 

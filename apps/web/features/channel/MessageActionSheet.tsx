@@ -58,7 +58,7 @@ export function MessageActionSheet(p: MessageActionSheetProps) {
         </div>
       ) : (
         <>
-          <div style={{ padding: "0 6px 10px", fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{p.sentAt}</div>
+          <div style={{ padding: "0 6px 10px", fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{p.sentAt}</div>
           <div className="wc-sheet__reacts">
             {quick.map((emoji) => (
               <button key={emoji} type="button" className="wc-sheet__react" aria-label={emoji} onClick={run(() => p.onReact(emoji))}>

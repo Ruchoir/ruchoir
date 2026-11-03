@@ -8,7 +8,7 @@ const menu: CSSProperties = {
   maxWidth: 280,
   padding: 4,
   background: "var(--surface-raised)",
-  border: "2px solid var(--ink)",
+  border: "2px solid var(--edge-float)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
 };
@@ -112,7 +112,7 @@ export function MenuPopover({
           }
           if (it.type === "label") {
             return (
-              <div key={i} style={{ fontFamily: "var(--font-mono)", padding: "6px 8px 2px", fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-muted)" }}>
+              <div key={i} style={{ fontFamily: "var(--label-font)", padding: "6px 8px 2px", fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-muted)" }}>
                 {it.label}
               </div>
             );

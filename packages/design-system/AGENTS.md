@@ -43,6 +43,11 @@ Entry points (`package.json` `exports`): `.` (the components), `./avatar`, `./ha
 - **Palette**: the Ruchoir design system's, shared with the public site: grey canvas, an ink accent,
   pastels, terracotta for the mark only. The live tokens are `styles/tokens.css`; see the root
   `AGENTS.md` for the rules.
-- Typography: IBM Plex Sans (UI, 14px body) and IBM Plex Mono (code), self-hosted (OFL).
+- Typography: IBM Plex Sans (UI, 14px body, and labels through `--label-font`) and IBM Plex Mono
+  (real code only), self-hosted (OFL).
+- **Style tokens**: an effect or shape a style may change (offset, lift, ink edge, label face, avatar
+  radius, pane colour, message density) is read through its token in `styles/tokens.css`, never
+  written as a literal; `test/tokens.test.mjs` holds each to its Ruchoir value. See the root
+  `AGENTS.md`.
 - Recreate the mockups faithfully in React; do not copy prototype internals when they do not fit.
 - The source handoff lives locally (and gitignored) at `ruchoir-design-system/`.

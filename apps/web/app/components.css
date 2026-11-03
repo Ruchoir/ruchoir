@@ -70,8 +70,8 @@
   transition: box-shadow 150ms var(--ease-out);
 }
 .wc-message-composer:focus-within {
-  border-color: var(--ink);
-  box-shadow: 4px 4px 0 var(--acc);
+  border-color: var(--edge-focus);
+  box-shadow: var(--shadow-accent);
 }
 
 /* Self-hosted emoji image (Fluent), sized to sit on the text baseline. */
@@ -110,7 +110,7 @@
   border-color: var(--border-default);
 }
 .wc-choice:focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid var(--edge-focus);
   outline-offset: 2px;
 }
 
@@ -198,7 +198,7 @@
    that would flip with the night. */
 .wc-codeblock {
   margin: 6px 0;
-  border: var(--border-width-strong) solid var(--ink);
+  border: var(--border-width-strong) solid var(--edge-float);
   border-radius: var(--radius-md);
   background: #15171c;
   overflow: hidden;
@@ -214,7 +214,7 @@
   border-bottom: 1px solid #2e323a;
 }
 .wc-codelang {
-  font-family: var(--font-mono);
+  font-family: var(--label-font);
   font-size: 12px;
   font-weight: var(--weight-medium);
   color: #a7adb8;
@@ -377,7 +377,7 @@
 
 /* Reaction pills: a small lift on hover and a press on click, on top of the emoji replay. */
 .wc-react:hover {
-  transform: translateY(-1px);
+  transform: var(--lift-y-sm);
 }
 .wc-react:active {
   transform: scale(0.94);
@@ -500,7 +500,7 @@
   inset: 0;
   border-radius: 50%;
   border: 3px solid transparent;
-  border-top-color: var(--ink);
+  border-top-color: var(--edge-focus);
   animation: wc-boot-spin 0.9s linear infinite;
 }
 .wc-boot__mark {
@@ -578,7 +578,7 @@
 }
 .wc-imp-step--current .wc-imp-step__dot {
   background: var(--ink);
-  border-color: var(--ink);
+  border-color: var(--edge-focus);
   color: var(--on-ink);
 }
 .wc-imp-step--done {
@@ -645,7 +645,7 @@
 .wc-imp-link:focus-visible,
 .wc-imp-choice:focus-visible,
 .wc-imp-platform:focus-visible {
-  outline: 2px solid var(--border-accent);
+  outline: 2px solid var(--edge-focus);
   outline-offset: 2px;
 }
 
@@ -673,7 +673,7 @@
 .wc-imp-platform:hover {
   border-color: var(--border-strong);
   background: var(--surface-raised);
-  transform: translateY(-1px);
+  transform: var(--lift-y-sm);
 }
 .wc-imp-platform__name {
   font-size: 15px;
@@ -839,7 +839,7 @@
 }
 .wc-imp-choice--selected,
 .wc-imp-choice--selected:hover {
-  border-color: var(--ink);
+  border-color: var(--edge-focus);
   box-shadow: var(--shadow-popover);
 }
 .wc-imp-choice__head {
@@ -867,7 +867,7 @@
   place-items: center;
 }
 .wc-imp-choice--selected .wc-imp-radio {
-  border-color: var(--ink);
+  border-color: var(--edge-focus);
 }
 .wc-imp-choice--selected .wc-imp-radio::after {
   content: "";
@@ -1329,7 +1329,7 @@
   color: var(--status-success-fg);
 }
 .wc-imp-phase--current .wc-imp-phase__dot {
-  border: 2px solid var(--ink);
+  border: 2px solid var(--edge-focus);
   border-top-color: transparent;
   animation: wc-spin 0.9s linear infinite;
 }
@@ -1531,7 +1531,7 @@
    markup, as the rest of the shell is written.
    --------------------------------------------------------------------------------------------- */
 
-/* A section label: the monospace face, after a short rule, as the public site sets its kickers. */
+/* A section label: the label face, after a short rule, as the public site sets its kickers. */
 .wc-sect::before {
   content: "";
   flex: none;
@@ -1565,6 +1565,11 @@
   --action-secondary-border: #15171c;
   --action-secondary-bg-hover: rgb(255 255 255 / 0.4);
   --surface-hover: rgb(255 255 255 / 0.35);
+  /* The ink-based style tokens (tokens.css), for the same reason. */
+  --edge-float: #15171c;
+  --edge-focus: #15171c;
+  --shadow-ring-offset: 0 0 0 2px #15171c, 3px 3px 0 2px #15171c;
+  --shadow-ring-offset-sm: 0 0 0 1.5px #15171c, 2px 2px 0 1.5px #15171c;
   color: #15171c;
 }
 .wc-pastel .wc-av {
@@ -1592,12 +1597,12 @@
   color: var(--text-strong);
 }
 .wc-sect__toggle:focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid var(--edge-focus);
   outline-offset: 2px;
   border-radius: 2px;
 }
 
-/* A key cap: the outline of a control, thicker at its bottom edge, in the monospace face. */
+/* A key cap: the outline of a control, thicker at its bottom edge, in the label face. */
 .wc-kbd {
   display: inline-flex;
   align-items: center;
@@ -1608,7 +1613,7 @@
   border-radius: 4px;
   background: var(--surface-card);
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--label-font);
   font-size: 11px;
   line-height: 1;
   white-space: nowrap;
@@ -1637,7 +1642,7 @@
   transform: rotate(-6deg) scale(1.06);
 }
 .wc-rail-space[aria-current="true"] .wc-av {
-  box-shadow: 0 0 0 2px var(--ink), 3px 3px 0 2px var(--ink);
+  box-shadow: var(--shadow-ring-offset);
 }
 .wc-rail-space .wc-av__dot {
   border-color: var(--surface-canvas);
@@ -1676,9 +1681,9 @@
 }
 .wc-theme-card:hover,
 .wc-theme-card[aria-checked="true"] {
-  border-color: var(--ink);
+  border-color: var(--edge-focus);
   box-shadow: var(--shadow-popover);
-  transform: translate(-2px, -2px);
+  transform: var(--lift);
 }
 .wc-theme-card[aria-checked="true"] {
   border-width: var(--border-width-strong);
@@ -1686,14 +1691,14 @@
   padding: 9.5px;
 }
 .wc-theme-card:focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid var(--edge-focus);
   outline-offset: 2px;
 }
 .wc-theme-card__sw {
   display: flex;
   height: 54px;
   overflow: hidden;
-  border: var(--border-width) solid var(--ink);
+  border: var(--border-width) solid var(--edge-float);
   border-radius: var(--radius-sm);
 }
 .wc-theme-card__sw > span {
@@ -1706,9 +1711,9 @@
     border-color 150ms var(--ease-out);
 }
 .wc-lift:hover {
-  border-color: var(--ink) !important;
+  border-color: var(--edge-focus) !important;
   box-shadow: var(--shadow-popover);
-  transform: translate(-2px, -2px);
+  transform: var(--lift);
 }
 
 /* The messages of a conversation just opened come in one after the other, briefly. They sit in one
@@ -1805,7 +1810,7 @@ button.wc-mhead__title {
 }
 .wc-mhead__space .wc-av {
   border-radius: var(--radius-md);
-  box-shadow: 0 0 0 1.5px var(--ink), 2px 2px 0 1.5px var(--ink);
+  box-shadow: var(--shadow-ring-offset-sm);
 }
 .wc-mhead__you,
 .wc-mhead__icon {
@@ -1855,7 +1860,7 @@ button.wc-mhead__title {
 .wc-mhead__title:focus-visible,
 .wc-mhead__you:focus-visible,
 .wc-mhead__icon:focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid var(--edge-focus);
   outline-offset: 2px;
 }
 .wc-mchips {
@@ -1893,9 +1898,9 @@ button.wc-mhead__title {
   transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out), border-color 150ms var(--ease-out);
 }
 .wc-mchip:active {
-  border-color: var(--ink);
+  border-color: var(--edge-focus);
   box-shadow: var(--shadow-offset-sm);
-  transform: translate(-1px, -1px);
+  transform: var(--lift-sm);
 }
 .wc-mchip__top {
   display: flex;
@@ -1953,7 +1958,7 @@ button.wc-mhead__title {
 }
 .wc-mrow__time {
   flex: none;
-  font-family: var(--font-mono);
+  font-family: var(--label-font);
   font-size: 11.5px;
   color: var(--text-muted);
 }
@@ -1982,7 +1987,7 @@ button.wc-mhead__title {
   place-items: center;
   width: 58px;
   height: 58px;
-  border: var(--border-width-strong) solid var(--ink);
+  border: var(--border-width-strong) solid var(--edge-float);
   border-radius: var(--radius-lg);
   background: var(--ink);
   color: var(--on-ink);
@@ -1991,7 +1996,7 @@ button.wc-mhead__title {
   transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
 }
 .wc-fab:active {
-  transform: translate(3px, 3px);
+  transform: var(--press);
   box-shadow: none;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2026,7 +2031,7 @@ button.wc-mhead__title {
   background: var(--surface-hover);
 }
 .wc-conv-title:focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid var(--edge-focus);
   outline-offset: -2px;
 }
 .wc-conv-title__text {
@@ -2050,7 +2055,7 @@ button.wc-mhead__title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--font-mono);
+  font-family: var(--label-font);
   font-size: 11.5px;
   color: var(--text-muted);
 }
@@ -2597,7 +2602,7 @@ button.wc-mhead__title {
   background: var(--surface);
   border: var(--border-width) solid var(--border-default);
   border-radius: var(--radius-lg);
-  box-shadow: 8px 8px 0 var(--bee);
+  box-shadow: var(--shadow-lift-lg);
   transform: rotate(-1.5deg);
   font-size: 12px;
   color: var(--text-body);

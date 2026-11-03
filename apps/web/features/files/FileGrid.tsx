@@ -13,7 +13,7 @@ const styles: Record<string, CSSProperties> = {
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(168px, 100%), 1fr))", gap: 12 },
   section: {
     margin: "0 0 10px",
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",

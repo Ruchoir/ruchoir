@@ -145,7 +145,7 @@ export function AvailabilityStrip({
                   bottom: 0,
                   left: x(from),
                   width: width(from, to),
-                  border: "2px solid var(--ink)",
+                  border: "2px solid var(--edge-float)",
                   borderRadius: 6,
                   background: "color-mix(in srgb, var(--acc) 35%, transparent)",
                 }}

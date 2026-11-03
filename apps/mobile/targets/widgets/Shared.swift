@@ -189,7 +189,8 @@ enum Face {
     return .custom(name, fixedSize: size)
   }
 
-  static func mono(_ size: CGFloat) -> Font { .custom("IBMPlexMono-SemiBold", fixedSize: size) }
+  /// Times and small labels: the interface face, semibold (never the monospace one).
+  static func label(_ size: CGFloat) -> Font { .custom("IBMPlexSans-SemiBold", fixedSize: size) }
 }
 
 /// The Ruchoir mark, tinted.
@@ -208,7 +209,7 @@ struct CountBadge: View {
   let foreground: Color
   var body: some View {
     Text(count > 99 ? "99+" : "\(count)")
-      .font(Face.mono(11))
+      .font(Face.label(11))
       .foregroundStyle(foreground)
       .padding(.horizontal, 5)
       .frame(minWidth: 18, minHeight: 18)

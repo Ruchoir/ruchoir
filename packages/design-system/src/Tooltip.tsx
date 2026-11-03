@@ -61,8 +61,8 @@ const bubble: CSSProperties = {
   alignItems: "center",
   background: "var(--surface-inverse)",
   color: "var(--text-inverse)",
-  // Set like every label: the monospace face, in sentence case.
-  fontFamily: "var(--font-mono)",
+  // Set like every label: the label face, in sentence case.
+  fontFamily: "var(--label-font)",
   fontSize: "var(--text-2xs)",
   fontWeight: 500,
   lineHeight: 1.3,
@@ -134,7 +134,7 @@ export function Tooltip({ label, shortcut, side = "top", children, className = "
             >
               {label}
               {shortcut ? (
-                <span style={{ marginLeft: "var(--space-2)", color: "color-mix(in srgb, var(--text-inverse) 65%, var(--surface-inverse))", fontFamily: "var(--font-mono)" }}>
+                <span style={{ marginLeft: "var(--space-2)", color: "color-mix(in srgb, var(--text-inverse) 65%, var(--surface-inverse))", fontFamily: "var(--label-font)" }}>
                   {shortcut}
                 </span>
               ) : null}
