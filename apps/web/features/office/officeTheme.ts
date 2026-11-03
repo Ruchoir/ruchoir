@@ -18,6 +18,16 @@ export function officeAccent(): string {
 }
 
 /**
+ * The person's simplified style (`aubergine`, `nuage`, `indigo`, `marine`), from `data-style` on
+ * `<html>`, or nothing for the Ruchoir style. The editor then wears that style's theme by day and
+ * its tint by night; an instance that does not know the field opens it in Ruchoir's.
+ */
+export function officeStyle(): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  return document.documentElement.getAttribute("data-style") || undefined;
+}
+
+/**
  * Whether this screen is driven by touch (a phone, a tablet): the engine then opens its own mobile
  * editor, made for fingers, rather than the desktop one with its ribbons.
  */
