@@ -84,7 +84,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     background: "var(--surface-raised)",
-    border: "2px solid var(--edge-float)",
+    border: "var(--edge-width) solid var(--edge-float)",
     borderRadius: "var(--radius-lg)",
     boxShadow: "var(--shadow-popover)",
     overflow: "hidden",

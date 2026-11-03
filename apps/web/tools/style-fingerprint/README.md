@@ -10,7 +10,11 @@ before the change and once after, and compares the two.
   person does (`STEPS`): channel, members and files panels, a direct message, space files, calendar,
   threads, mentions, saved, space settings, preferences, the user menu, search, new channel, plus a
   few hovered or focused states. It writes `<out>/<theme>/<width>/<step>.json`.
-- `compare.mjs <before> <after>` prints every differing property and exits 1 if there is any.
+- `compare.mjs <before> <after>` prints every differing property and exits 1 if there is any. A
+  path is compared without the classes that only hook a simplified style (`wc-pane-*`, `wc-float`).
+- `--style <name>` takes the states in a simplified style, `--png` writes a screenshot beside each
+  JSON file (twice the pixel density), `--only <state>,...` keeps the named states, and a theme
+  `<accent>-auto` is automatic mode on a dark device. That is how the styles are shown for review.
 
 It does not use the dev deep link (`lib/dev/deeplink.ts`): a deep link renders the shell without the
 API, so a feed would be empty. The labels it clicks are the English ones (the seeded accounts' locale).

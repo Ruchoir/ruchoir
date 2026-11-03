@@ -51,7 +51,7 @@
   justify-content: center;
   gap: var(--space-1-5);
   border: var(--border-width-strong) solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   font-family: var(--font-sans);
   font-weight: var(--weight-semibold);
   letter-spacing: 0;
@@ -274,8 +274,8 @@
   height: 18px;
   padding: 0 5px;
   border-radius: var(--radius-full);
-  background: var(--action-primary-bg);
-  color: var(--action-primary-fg);
+  background: var(--badge-bg);
+  color: var(--badge-fg);
   font-family: var(--label-font);
   font-size: 11px;
   font-weight: var(--weight-semibold);

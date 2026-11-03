@@ -20,6 +20,11 @@ import { fileURLToPath } from "node:url";
  * dot (online or away depends on the moment), and the overlay `next dev` adds to the page.
  */
 const LIVE = /wc-av__dot|nextjs-portal|next-route-announcer/;
+/**
+ * Classes that only hook a simplified style onto an element (`.wc-pane-*`, `.wc-float`): adding one
+ * draws nothing in the Ruchoir style, so a path is compared without them.
+ */
+const HOOKS = /\.wc-(pane-sidebar|pane-rail|float)(?=[.:])/g;
 
 /** Every `.json` file under `dir`, relative to it. */
 function jsonFiles(dir) {
@@ -42,8 +47,9 @@ function byPath(file) {
   const map = new Map();
   for (const el of elements) {
     if (LIVE.test(el.path)) continue;
-    let key = el.path;
-    for (let n = 2; map.has(key); n++) key = `${el.path}#${n}`;
+    const bare = el.path.replace(HOOKS, "");
+    let key = bare;
+    for (let n = 2; map.has(key); n++) key = `${bare}#${n}`;
     map.set(key, el.props);
   }
   return map;

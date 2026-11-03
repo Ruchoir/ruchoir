@@ -5,6 +5,12 @@
  * change that must not move a pixel, then compared with `compare.mjs`. See README.md.
  *
  *   node tools/style-fingerprint/run.mjs --url <base> --out <dir> [--themes sky,sky-dark] [--width 1440,390]
+ *     [--style <name>] [--png] [--only <state>,<state>]
+ *
+ * A theme is `<accent>`, `<accent>-dark`, or `<accent>-auto` (automatic mode on a dark device).
+ * `--style` seeds a simplified style (see the design system's "Simplified styles"); `--png` also
+ * writes `<state>.png` beside each JSON file, at twice the pixel density, for a person to look at;
+ * `--only` keeps the named states.
  *
  * Signs in through the login form with RUCHOIR_FP_EMAIL (default alice@atelier.test, a seeded
  * account of the dev database) and RUCHOIR_SEED_PASSWORD, then walks the screens of the seeded space
@@ -26,9 +32,21 @@ const SPACE = "studio-rennes";
  */
 const role = (name) => (p) => p.getByRole("button", { name, exact: true }).locator("visible=true").first().click({ timeout: 4000 });
 const text = (name) => (p) => p.getByText(name, { exact: true }).locator("visible=true").first().click({ timeout: 4000 });
+// The rail's own button, found by its label (its tooltip names it otherwise to the accessibility tree).
+const me = (p) => p.locator('button[aria-label="My profile and status"]').locator("visible=true").first().click({ timeout: 4000 });
+// A row's actions button takes the pointer only while the row is hovered: hover, then click where it is.
+async function openChannelMenu(p) {
+  await p.locator(".wc-side-item", { hasText: "annonces" }).first().hover({ timeout: 4000 });
+  await p.waitForTimeout(300);
+  const box = await p.locator('button[aria-label="Actions for annonces"]').first().boundingBox();
+  if (!box) throw new Error("no actions button");
+  await p.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await p.locator('[role="menu"]').first().waitFor({ timeout: 4000 });
+}
 const STEPS = [
   { id: "channel", act: null },
   { id: "channel@hover-side-item", act: (p) => p.hover(".wc-side-item", { timeout: 4000 }), keep: true },
+  { id: "channel@menu", act: openChannelMenu, keep: true },
   { id: "channel@focus-composer", act: (p) => p.locator(".wc-message-composer [contenteditable], .wc-message-composer textarea").first().focus({ timeout: 4000 }), keep: true },
   { id: "channel-members", act: role("Members") },
   { id: "channel-files", act: role("Files") },
@@ -40,8 +58,8 @@ const STEPS = [
   { id: "mentions", act: text("Mentions") },
   { id: "saved", act: text("Saved") },
   { id: "settings", act: text("Space settings") },
-  { id: "prefs", act: async (p) => { await role("My profile and status")(p); await text("Preferences")(p); } },
-  { id: "user-menu", act: role("My profile and status") },
+  { id: "prefs", act: async (p) => { await me(p); await text("Preferences")(p); } },
+  { id: "user-menu", act: me },
   { id: "modal-search", act: (p) => p.keyboard.press("Control+K") },
   { id: "modal-newChannel", act: role("New channel") },
   { id: "modal-newChannel@hover-primary", act: async (p) => { await role("New channel")(p); await p.locator(".wc-btn--primary").locator("visible=true").first().hover({ timeout: 4000 }); } },
@@ -77,16 +95,20 @@ const PROPS = [
   "height",
 ];
 
-const NO_MOTION = "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}";
+// No motion, and no badge of the dev server: it sits over the rail's own button and in the screenshots.
+const NO_MOTION = "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}nextjs-portal{display:none!important}";
 
 function parseArgs(argv) {
-  const args = { url: "", out: "", themes: ["sky", "sky-dark"], widths: [1440, 390] };
+  const args = { url: "", out: "", themes: ["sky", "sky-dark"], widths: [1440, 390], style: null, png: false, only: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--url") args.url = argv[++i].replace(/\/$/, "");
     else if (a === "--out") args.out = path.resolve(argv[++i]);
     else if (a === "--themes") args.themes = argv[++i].split(",");
     else if (a === "--width") args.widths = argv[++i].split(",").map(Number);
+    else if (a === "--style") args.style = argv[++i];
+    else if (a === "--png") args.png = true;
+    else if (a === "--only") args.only = argv[++i].split(",");
   }
   if (!args.url || !args.out) {
     console.error("usage: run.mjs --url <base> --out <dir> [--themes sky,sky-dark] [--width 1440,390]");
@@ -125,16 +147,21 @@ async function main() {
   }
   const email = process.env.RUCHOIR_FP_EMAIL || "alice@atelier.test";
   const browser = await chromium.launch();
+  const steps = args.only ? STEPS.filter((s) => args.only.includes(s.id)) : STEPS;
   for (const theme of args.themes) {
-    const [accent, dark] = theme.split("-");
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const [accent, suffix] = theme.split("-");
+    const mode = suffix === "auto" ? "auto" : suffix ? "night" : "day";
+    const seeded = { accent, mode, ...(args.style ? { style: args.style } : {}) };
+    // Automatic mode is taken on a dark device, so it shows the night it resolves to.
+    const device = { colorScheme: suffix === "auto" ? "dark" : "light", deviceScaleFactor: args.png ? 2 : 1 };
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...device });
     await context.addInitScript(
-      ([a, m]) => {
+      (seed) => {
         const k = "ruchoir.settings";
         const s = JSON.parse(localStorage.getItem(k) || "{}");
-        localStorage.setItem(k, JSON.stringify({ ...s, accent: a, mode: m }));
+        localStorage.setItem(k, JSON.stringify({ ...s, ...seed }));
       },
-      [accent, dark ? "night" : "day"],
+      seeded,
     );
     const page = await context.newPage();
 
@@ -157,24 +184,23 @@ async function main() {
         await page.waitForTimeout(1000);
         const data = await page.evaluate(collect, PROPS);
         await writeFile(path.join(dir, `${id}.json`), JSON.stringify(data, null, 1));
+        if (args.png) await page.screenshot({ path: path.join(dir, `${id}.png`) });
         console.log(`${theme} ${width} ${id}: ${data.length} elements`);
       };
       // The login screen, signed out, in a context of its own.
-      const out = await browser.newContext({ viewport: { width, height: 900 } });
-      await out.addInitScript(
-        ([a, m]) => localStorage.setItem("ruchoir.settings", JSON.stringify({ accent: a, mode: m })),
-        [accent, dark ? "night" : "day"],
-      );
+      const out = await browser.newContext({ viewport: { width, height: 900 }, ...device });
+      await out.addInitScript((seed) => localStorage.setItem("ruchoir.settings", JSON.stringify(seed)), seeded);
       const lp = await out.newPage();
       await lp.goto(`${args.url}/?stage=login`, { waitUntil: "networkidle" });
       await lp.addStyleTag({ content: NO_MOTION });
       await lp.waitForTimeout(300);
       const loginData = await lp.evaluate(collect, PROPS);
       await writeFile(path.join(dir, "login.json"), JSON.stringify(loginData, null, 1));
+      if (args.png) await lp.screenshot({ path: path.join(dir, "login.png") });
       console.log(`${theme} ${width} login: ${loginData.length} elements`);
       await out.close();
 
-      for (const step of STEPS) {
+      for (const step of steps) {
         if (!step.keep || step.id === "channel") {
           await page.goto(`${args.url}/e/${SPACE}/c/general`, { waitUntil: "networkidle" });
           await page.waitForSelector("[data-mid]", { timeout: 15000 }).catch(() => {});

@@ -156,7 +156,7 @@ export function CalendarPicker({
             width: Math.max(280, width),
             maxWidth: "calc(100vw - 16px)",
             background: "var(--surface-card)",
-            border: "1.5px solid var(--edge-float)",
+            border: "var(--border-width) solid var(--edge-float)",
             borderRadius: "var(--radius-md)",
             boxShadow: "var(--shadow-popover)",
             padding: 6,

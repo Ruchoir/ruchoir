@@ -12,6 +12,7 @@ import type { AppView, Toast } from "./types";
 import { Wordmark } from "./Wordmark";
 import { useSettings } from "./settings";
 import { useDragReorder } from "./useDragReorder";
+import { sideItemStyle } from "./sidebarStyles";
 import { canBeDefaultChannel, channelMenuItems, movedChannel, steppedChannel } from "@/features/channel/channelMenuItems";
 import { formatChord, isMac } from "./shortcuts";
 import { getAvatar } from "@/lib/data";
@@ -45,7 +46,7 @@ const styles: Record<string, CSSProperties> = {
     background: "none",
     padding: "4px 6px",
     marginLeft: -6,
-    borderRadius: "var(--radius-sm)",
+    borderRadius: "var(--radius-item)",
     cursor: "pointer",
     fontFamily: "var(--font-sans)",
     fontSize: "var(--text-base)",
@@ -88,27 +89,6 @@ const styles: Record<string, CSSProperties> = {
  */
 const TouchRows = createContext(false);
 
-function item(on: boolean): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    width: "100%",
-    height: 34,
-    padding: "0 8px",
-    border: 0,
-    borderRadius: "var(--radius-sm)",
-    background: on ? "var(--sidebar-selected-bg)" : "transparent",
-    // The active row is filled with the theme's pastel, and a pastel always carries the dark ink.
-    color: on ? "var(--sidebar-selected-fg)" : "var(--text-body)",
-    cursor: "pointer",
-    fontFamily: "var(--font-sans)",
-    fontSize: "var(--text-sm)",
-    fontWeight: on ? 600 : 400,
-    textAlign: "left",
-    transition: "background-color var(--duration-fast) var(--ease-out)",
-  };
-}
 
 /** Icon for a channel row, using the space's persisted default channel. */
 function channelIcon(channel: Channel, favouriteSection: boolean, defaultChannelId?: string): IconName {
@@ -125,7 +105,7 @@ const menuStyle: CSSProperties = {
   minWidth: 200,
   padding: 4,
   background: "var(--surface-raised)",
-  border: "2px solid var(--edge-float)",
+  border: "var(--edge-width) solid var(--edge-float)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
 };
@@ -138,7 +118,7 @@ const menuItemStyle: CSSProperties = {
   width: "100%",
   padding: "6px 8px",
   border: 0,
-  borderRadius: "var(--radius-sm)",
+  borderRadius: "var(--radius-item)",
   background: "transparent",
   color: "var(--text-body)",
   fontFamily: "var(--font-sans)",
@@ -290,7 +270,7 @@ function SideItem({ icon, label, active: activeProp, unread, mentioned, muted, n
         onMouseLeave={() => setHover(false)}
         ref={reorder?.ref}
         style={{
-          ...item(!!active),
+          ...sideItemStyle(!!active),
           ...(touch ? { height: 44, fontSize: "var(--text-base)", gap: 12 } : null),
           background: bg,
           // Pressed and moved with a mouse or a pen, the row follows the pointer and the others make
@@ -338,7 +318,7 @@ function SideItem({ icon, label, active: activeProp, unread, mentioned, muted, n
               }}
             />
             <Popover anchorRef={moreRef} open={menuOpen} onClose={() => setMenuOpen(false)} placement="bottom" align="end">
-              <div style={menuStyle} role="menu" onClick={(e) => e.stopPropagation()}>
+              <div className="wc-float" style={menuStyle} role="menu" onClick={(e) => e.stopPropagation()}>
                 {menuItems.map((mi) => (
                   <button
                     key={mi.label}

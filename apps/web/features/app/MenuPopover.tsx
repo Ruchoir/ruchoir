@@ -8,7 +8,7 @@ const menu: CSSProperties = {
   maxWidth: 280,
   padding: 4,
   background: "var(--surface-raised)",
-  border: "2px solid var(--edge-float)",
+  border: "var(--edge-width) solid var(--edge-float)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
 };
@@ -20,7 +20,7 @@ const itemStyle: CSSProperties = {
   width: "100%",
   padding: "6px 8px",
   border: 0,
-  borderRadius: "var(--radius-sm)",
+  borderRadius: "var(--radius-item)",
   background: "transparent",
   color: "var(--text-body)",
   fontFamily: "var(--font-sans)",
@@ -105,7 +105,7 @@ export function MenuPopover({
 
   return (
     <Popover anchorRef={anchorRef} getAnchorRect={getAnchorRect} open={open} onClose={onClose} placement={placement} align={align}>
-      <div ref={menuRef} style={menu} role="menu" aria-label={label} onKeyDown={onKeyDown}>
+      <div className="wc-float" ref={menuRef} style={menu} role="menu" aria-label={label} onKeyDown={onKeyDown}>
         {items.map((it, i) => {
           if (it.type === "separator") {
             return <div key={i} style={{ height: 1, background: "var(--border-subtle)", margin: "4px 0" }} />;

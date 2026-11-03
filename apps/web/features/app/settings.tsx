@@ -10,6 +10,7 @@ import { DEFAULT_BINDINGS, mergeBindings, type Bindings } from "./shortcuts";
 import { calendarPrefs, DEFAULT_CALENDAR_PREFS, type CalendarPrefs } from "@/features/calendar/prefs";
 import { isDesktop } from "@/lib/desktop/runtime";
 import { isAccountSetting, wireChanges } from "./accountPrefs";
+import { type AppStyle, storedStyle, styleAttr } from "./appearance";
 
 /** The accent a theme paints with: one of the design system's pastels. */
 export type ThemeAccent = "sky" | "mint" | "violet" | "pink";
@@ -129,6 +130,11 @@ export type Settings = {
   accent: ThemeAccent;
   /** Day, night, or following the device. With the accent, gives data-theme on <html>. Default day. */
   mode: ThemeMode;
+  /**
+   * Ruchoir, or one of four flat styles, applied as data-style on <html>. A style brings its own
+   * colours over the accent, which stays stored for a return to Ruchoir. Default Ruchoir.
+   */
+  style: AppStyle;
   /** Interface typeface, applied as data-font on <html>. Default IBM Plex. */
   font: FontChoice;
   /** Text size, applied as data-text on <html> (proportional interface zoom). Default medium. */
@@ -253,6 +259,7 @@ export function clearLegacyHiddenDms() {
 export const DEFAULTS: Settings = {
   accent: "sky",
   mode: "day",
+  style: "ruchoir",
   font: "plex",
   textSize: "m",
   filesLayout: "list",
@@ -286,13 +293,15 @@ const STORAGE_KEY = "ruchoir.settings";
  * same one. "Automatic" cannot be told apart from a fixed mode at this point; storage settles it a
  * moment later, and both resolve to the theme already on screen.
  */
-function initialAppearance(): { accent: ThemeAccent; mode: ThemeMode } {
+function initialAppearance(): { accent: ThemeAccent; mode: ThemeMode; style: AppStyle } {
   if (typeof document !== "undefined") {
+    const style = storedStyle(document.documentElement.dataset.style);
     const t = document.documentElement.dataset.theme ?? "";
     const [base, suffix] = t.split(/-(?=dark$)/);
-    if (isAccent(base)) return { accent: base, mode: suffix === "dark" ? "night" : "day" };
+    if (isAccent(base)) return { accent: base, mode: suffix === "dark" ? "night" : "day", style };
+    return { accent: DEFAULTS.accent, mode: DEFAULTS.mode, style };
   }
-  return { accent: DEFAULTS.accent, mode: DEFAULTS.mode };
+  return { accent: DEFAULTS.accent, mode: DEFAULTS.mode, style: DEFAULTS.style };
 }
 
 /** Keep a stored width usable: a number inside the handle's own bounds, or the default. */
@@ -323,6 +332,7 @@ function storedSettings(): Settings | null {
       ...DEFAULTS,
       ...parsed,
       ...storedAppearance({ ...parsed, theme: _retired }),
+      style: storedStyle(parsed.style),
       font: isFont(parsed.font) ? parsed.font : DEFAULTS.font,
       textSize: isTextSize(parsed.textSize) ? parsed.textSize : DEFAULTS.textSize,
       filesLayout: isFilesLayout(parsed.filesLayout) ? parsed.filesLayout : DEFAULTS.filesLayout,
@@ -391,13 +401,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const theme = themeFor(settings.accent, settings.mode, deviceDark);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    // The style beside it (data-style), absent for the Ruchoir style: the bare :root.
+    const style = styleAttr(settings.style);
+    if (style) document.documentElement.dataset.style = style;
+    else delete document.documentElement.dataset.style;
     // The browser's own chrome (the status bar of an installed app, the address bar of Android's
     // browser) takes the canvas of the theme in force, so the edge of the screen is not a band of
     // the default's grey above a night theme.
     const canvas = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
     const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     if (meta && canvas) meta.content = canvas;
-  }, [theme]);
+  }, [theme, settings.style]);
 
   // Reflect the active typeface and text size onto <html> so the CSS [data-font]/[data-text] blocks apply.
   useEffect(() => {

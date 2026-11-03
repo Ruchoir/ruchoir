@@ -107,7 +107,7 @@ const menuStyle: CSSProperties = {
   maxWidth: 320,
   padding: 4,
   background: "var(--surface-raised)",
-  border: "2px solid var(--edge-float)",
+  border: "var(--edge-width) solid var(--edge-float)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
 };
