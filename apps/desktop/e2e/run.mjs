@@ -7,14 +7,15 @@
 // Environment: RUCHOIR_DESKTOP_BIN (the built app), E2E_INSTANCE (https origin of a test instance),
 // E2E_EMAIL and E2E_PASSWORD (an account there without a second factor), E2E_OTHER_EMAIL (a second
 // account with the same password), E2E_SPACE and E2E_CHANNEL (a channel both belong to),
-// E2E_OPENED_FILE, and optionally E2E_SCREENSHOT (a PNG of the window at the end). With E2E_INSTANCE_2,
+// E2E_OPENED_FILE, and optionally E2E_SHOTS_DIR (PNGs for people to read), E2E_OFFICE=1 (the office editor step), E2E_SCREENSHOT (a PNG of the window at the end). With E2E_INSTANCE_2,
 // E2E_EMAIL_2 and E2E_PASSWORD_2 (an account on a second instance), it also adds that instance, signs
 // in to it, checks the rail heads both instances' spaces, and opens a space of the first from it. The live message comes from the second account: the interface leaves out its own
 // person's messages arriving live, which it has already drawn when sending them.
 
 import { spawn } from "node:child_process";
-import { readFileSync, existsSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { crc32 } from "node:zlib";
 import { basename, join } from "node:path";
 
 const BIN = must("RUCHOIR_DESKTOP_BIN");
@@ -78,12 +79,19 @@ async function webSession(email = EMAIL, instance = INSTANCE, password = PASSWOR
     });
 }
 
-/** A valid one-page PDF of exactly `size` bytes: the padding is a comment after the trailer. */
+/**
+ * A valid one-page PDF of exactly `size` bytes that draws a line of text, so a screenshot of the
+ * viewer shows something. The padding is a comment after the trailer.
+ */
 function fixturePdf(size) {
+  const text = "Ruchoir, essai d'envoi depuis l'application";
+  const stream = `BT /F1 11 Tf 12 100 Td (${text.replace(/[()\\]/g, "")}) Tj ET`;
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
   ];
   let out = "%PDF-1.4\n";
   const offsets = [];
@@ -101,6 +109,53 @@ function fixturePdf(size) {
   return Buffer.from(out, "latin1");
 }
 
+/** A minimal valid .docx (a zip, stored without compression: Node has no zip writer to lean on). */
+function fixtureDocx() {
+  const files = {
+    "[Content_Types].xml":
+      '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+    "_rels/.rels":
+      '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+    "word/document.xml":
+      `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Ruchoir, un document de test pour l\'éditeur (${Date.now()}).</w:t></w:r></w:p></w:body></w:document>`,
+  };
+  const parts = [];
+  const central = [];
+  let offset = 0;
+  for (const [name, text] of Object.entries(files)) {
+    const nameBytes = Buffer.from(name);
+    const data = Buffer.from(text);
+    const crc = crc32(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    parts.push(local, nameBytes, data);
+    const entry = Buffer.alloc(46);
+    entry.writeUInt32LE(0x02014b50, 0);
+    entry.writeUInt16LE(20, 4);
+    entry.writeUInt16LE(20, 6);
+    entry.writeUInt32LE(crc, 16);
+    entry.writeUInt32LE(data.length, 20);
+    entry.writeUInt32LE(data.length, 24);
+    entry.writeUInt16LE(nameBytes.length, 28);
+    entry.writeUInt32LE(offset, 42);
+    central.push(entry, nameBytes);
+    offset += local.length + nameBytes.length + data.length;
+  }
+  const directory = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(Object.keys(files).length, 8);
+  end.writeUInt16LE(Object.keys(files).length, 10);
+  end.writeUInt32LE(directory.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...parts, directory, end]);
+}
+
 async function main() {
   const session = await wd("POST", "/session", {
     capabilities: { alwaysMatch: { "tauri:options": { application: BIN } } },
@@ -109,6 +164,15 @@ async function main() {
   const find = (css) => wd("POST", `/session/${id}/element`, { using: "css selector", value: css });
   // The generated PDF, removed whether the run passes or not.
   let fixturePath = null;
+  let docxPath = null;
+  // Screenshots for people to read, only when E2E_SHOTS_DIR is set (a normal run writes nothing).
+  const frameShot = async (name) => {
+    const dir = process.env.E2E_SHOTS_DIR;
+    if (!dir) return;
+    mkdirSync(dir, { recursive: true });
+    const png = await wd("GET", `/session/${id}/screenshot`);
+    writeFileSync(join(dir, `${name}.png`), Buffer.from(png, "base64"));
+  };
   const run = (script, args = []) => wd("POST", `/session/${id}/execute/sync`, { script, args });
   const clickText = (text) =>
     run("const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === arguments[0]); if (b) b.click(); return !!b;", [text]);
@@ -318,8 +382,8 @@ async function main() {
     const frame = await until("the viewer's frame", () =>
       run("const f = document.querySelector('.wc-viewer iframe'); return f ? { src: f.src } : null;"),
     );
-    // WebKitGTK has no PDF viewer, so the frame's document is a blank page whether the CSP let it
-    // load or not: the real check is that the page raised no CSP violation.
+    // The page cannot read the frame (WebKitGTK's built-in PDF viewer is not a page document: its
+    // contentDocument reads about:blank), so the check is that the page raised no CSP violation.
     await sleep(1500);
     const refused = await run("return window.__csp;");
     if (refused.length > 0) throw new Error(`the page's CSP refused the viewer's frame: ${JSON.stringify(refused)}`);
@@ -327,9 +391,63 @@ async function main() {
       const png = await wd("GET", `/session/${id}/screenshot`);
       writeFileSync(process.env.E2E_SCREENSHOT_VIEWER, Buffer.from(png, "base64"));
     }
+    await frameShot("viewer-pdf");
     console.log(`ok: dropped file attached, viewer frame shown (${JSON.stringify(frame)})`);
+
+    // The office editor (opt-in: E2E_OFFICE=1, while the window's navigation rules send the engine's
+    // frame to the system browser, so the check fails; see docs/desktop.md).
+    if (process.env.E2E_OFFICE) {
+      // The office side: a .docx put in the files list, then opened in the editor, whose toolbar must appear in the engine's frame.
+      await run("document.querySelector('.wc-viewer button[aria-label=\"Fermer\"]')?.click();");
+      await until("the viewer to close", () => run("return !document.querySelector('.wc-viewer');"));
+      docxPath = join(tmpdir(), `ruchoir-e2e-${Date.now()}.docx`);
+      writeFileSync(docxPath, fixtureDocx());
+      const docxName = basename(docxPath);
+      // The files screen's own upload input, not the composer's (the screen is open here).
+      await run("const i = [...document.querySelectorAll('input[type=file]')].find((x) => x.multiple && !x.closest('.wc-message-composer')); if (i) i.setAttribute('data-e2e-upload', '1'); return !!i;");
+      const uploadInput = await find("input[data-e2e-upload]");
+      await wd("POST", `/session/${id}/element/${uploadInput[ELEMENT]}/value`, { text: docxPath });
+      // The list is sorted by name and long on a development instance: "Récents" puts it on top.
+      await sleep(3000);
+      await run("const el = [...document.querySelectorAll('button, [role=tab]')].find((x) => x.textContent.trim() === 'Récents'); if (el) el.click(); return !!el;");
+      const docRow = () =>
+        run("return [...document.querySelectorAll('body *')].filter((x) => x.textContent.trim() === arguments[0]).length > 0;", [docxName]);
+      await until("the .docx in the files list", docRow, 30000);
+      // With the office engine on, opening a .docx goes straight to the editor (the converted viewer is
+      // only the fallback when the engine is down), as the row's first menu entry says.
+      await run("window.__csp = []; document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));");
+      await clickAria(`Actions pour ${docxName}`);
+      await until("the editor entry", () => run("const el = [...document.querySelectorAll('[role=menuitem], button')].find((x) => x.textContent.trim() === arguments[0]); if (el) el.click(); return !!el;", ["Ouvrir dans l'éditeur"]), 5000);
+      const editorFrame = await until("the editor's frame", () => run("return !!document.querySelector('.wc-office iframe');"), 30000);
+      // The frame is the engine's origin, over https, and shown once its page says it is painted.
+      const editorSrc = await until("the editor's page to be revealed", () =>
+        run("const f = document.querySelector('.wc-office iframe'); return f && !f.className.includes('--hidden') && !document.querySelector('.wc-office__cover') ? f.name : null;"),
+        30000,
+      );
+      // Inside the frame (WebDriver may enter a cross-origin one), the engine's toolbar is drawn.
+      const frameEl = await find(".wc-office iframe");
+      await wd("POST", `/session/${id}/frame`, { id: { [ELEMENT]: frameEl[ELEMENT] } });
+      try {
+        await until("the editor's toolbar", () => run("return !!document.querySelector('#toolbar, .toolbar, #box-document-title');"), 30000);
+      } catch (error) {
+        console.error(`editor frame: ${JSON.stringify(await run("return { url: location.href, ids: [...document.querySelectorAll('[id]')].map((x) => x.id).slice(0, 40), inner: document.body ? document.body.innerText.slice(0, 200) : null };").catch((e) => e.message))}`);
+        await wd("POST", `/session/${id}/frame`, { id: null });
+        console.error(`editor form: ${JSON.stringify(await run("const f = document.querySelector('.wc-office form'); const i = document.querySelector('.wc-office iframe'); return { action: f && f.action, target: f && f.target, frameName: i && i.name, frameSrc: i && i.src, token: f && f.querySelector('[name=access_token]') ? 'present' : null };"))}`);
+        console.error(`page CSP violations: ${JSON.stringify(await run("return window.__csp;"))}`);
+        await frameShot("debug-editor");
+        throw error;
+      } finally {
+        await wd("POST", `/session/${id}/frame`, { id: null });
+      }
+      console.log(`ok: .docx opened in the editor (${editorFrame}, frame ${editorSrc}), toolbar shown`);
+      await frameShot("editor-docx");
+      await run("document.querySelector('.wc-office button[aria-label=\"Fermer\"]')?.click();");
+      await until("the editor to close", () => run("return !document.querySelector('.wc-office');"), 20000);
+    }
     await run("location.assign(arguments[0]);", [path]);
     await until("the channel again", () => run("return location.pathname === arguments[0] && !!document.querySelector('.wc-message-composer');", [path]), 30000);
+    await sleep(1500);
+    await frameShot("channel-two-attachments");
 
     // 7. A second instance (optional): add it, sign in, both headings in the rail, one click back.
     const secondInstance = process.env.E2E_INSTANCE_2;
@@ -416,6 +534,7 @@ async function main() {
     console.log(`ok: signed in, ${path} open, live message received, account menu works`);
   } finally {
     if (fixturePath) rmSync(fixturePath, { force: true });
+    if (docxPath) rmSync(docxPath, { force: true });
     await wd("DELETE", `/session/${id}`).catch(() => {});
   }
 }

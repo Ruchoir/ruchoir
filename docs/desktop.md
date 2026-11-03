@@ -114,6 +114,17 @@ E2E_PASSWORD=<seed password> E2E_SPACE=studio-rennes E2E_CHANNEL=general \
 e2e/run.sh
 ```
 
+On Linux the files viewer shows a PDF with WebKitGTK's built-in viewer (checked on WebKitGTK 2.52: page,
+zoom, print and save controls, text drawn), so no fallback is needed there. The page cannot read the
+viewer's frame (its `contentDocument` is `about:blank`, the built-in viewer is not a page document), which
+is why the e2e listens for CSP violations instead. `E2E_SHOTS_DIR=<dir>` makes the run save PNGs of the
+PDF viewer and of the channel with its two attachments; `GDK_SCALE=2` gives sharper ones.
+
+Known gap, behind `E2E_OFFICE=1` (off by default, it fails today): opening a .docx in the office editor.
+The editor's frame is posted to the engine's `https:` host, but the window's navigation rules
+(`leave_for`, `core/src/navigation.rs`) send every `https:` navigation, a frame's included, to the system
+browser and refuse it in the window: the frame stays blank and the request never reaches the engine.
+
 It posts a message in that channel each run. The app's own log is kept in
 `/tmp/ruchoir-desktop-e2e.log`.
 
