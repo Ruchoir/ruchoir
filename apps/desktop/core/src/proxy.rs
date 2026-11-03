@@ -106,7 +106,8 @@ pub fn upstream_request(
 /// The policy of a file shown inline when the instance sent none: nothing runs and nothing loads
 /// from elsewhere, and only the app's own pages may frame it. No `sandbox`: it blocks the webview's
 /// PDF viewer.
-pub const INLINE_FILE_CSP: &str = "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'self'";
+pub const INLINE_FILE_CSP: &str =
+    "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; frame-ancestors 'self'";
 
 /// The instance's response headers the interface may see. Its `Content-Security-Policy` is kept
 /// (the API sends a script-less one with every inline preview), and a file served inline without

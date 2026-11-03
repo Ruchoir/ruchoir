@@ -492,7 +492,7 @@ async function main() {
     // app's own origin, where a script would reach the app's commands.
     const hostile = [
       ["html", "<!doctype html><title>safe</title><script>document.title='pwned'</script><p>hello</p>", "text/html"],
-      ["svg", "<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><script>document.title='pwned'</script><rect width='40' height='40' fill='teal'/></svg>", "image/svg+xml"],
+      ["svg", "<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><script>document.title='pwned';document.documentElement.setAttribute('data-ran','1')</script><rect width='40' height='40' fill='teal'/></svg>", "image/svg+xml"],
     ];
     for (const [ext, content, type] of hostile) {
       const name = `script-${Date.now()}.${ext}`;
@@ -506,6 +506,12 @@ async function main() {
       if (!fileId) throw new Error(`no id for ${name}: ${JSON.stringify(stored)}`);
       // The preview address, on the same instance prefix as the PDF viewer's frame above.
       const href = frame.src.replace(/\/files\/.*$/, `/files/${fileId}/preview`);
+      const served = await api(`/files/${fileId}/preview`);
+      // The instance must serve it inline (the server sniffs the bytes: an SVG without an XML prolog
+      // is stored as an octet stream and offered as a download, which would make this check vacuous).
+      if (!(served.headers.get("content-disposition") ?? "").startsWith("inline")) {
+        throw new Error(`the ${ext} file is not served inline (${served.headers.get("content-type")}): the check would prove nothing`);
+      }
       const known = await wd("GET", `/session/${id}/window/handles`);
       const before = known.length;
       const result = await wd("POST", `/session/${id}/execute/async`, {
@@ -518,9 +524,21 @@ async function main() {
       const now = await wd("GET", `/session/${id}/window/handles`);
       await wd("POST", `/session/${id}/window`, { handle: now.find((h) => !known.includes(h)) });
       const title = await wd("GET", `/session/${id}/title`);
+      // Positive controls, so the check cannot pass on a blank or failed page: the window shows this
+      // file's preview on the app's origin, and its document did load.
+      const windowUrl = await wd("GET", `/session/${id}/url`);
+      // WebKitGTK reports no address for a standalone SVG document: its root element is the control there.
+      if (ext === "html" && windowUrl !== href) throw new Error(`the ${ext} window shows ${windowUrl}, expected ${href}`);
+      const probe = await run("return { root: document.documentElement.localName, ran: document.documentElement.getAttribute('data-ran'), title: document.title, image: (() => { const i = document.querySelector('img'); return !!i && i.naturalWidth > 0; })() };");
       await wd("POST", `/session/${id}/window`, { handle: mainHandle });
-      if (title.includes("pwned")) throw new Error(`the script of the ${ext} file ran in its window`);
-      console.log(`ok: the ${ext} file's script did not run in its window (title "${title}")`);
+      if (title.includes("pwned") || probe.title.includes("pwned") || probe.ran !== null) {
+        throw new Error(`the script of the ${ext} file ran in its window (${JSON.stringify(probe)})`);
+      }
+      if (ext === "html" && title !== "safe") throw new Error(`the html window did not render its document (title "${title}")`);
+      // WebKitGTK wraps a standalone SVG in an image page (an <img>, where no script runs at all);
+      // WebView2 and WKWebView load it as an SVG document, where the policy is what stops it.
+      if (ext === "svg" && probe.root !== "svg" && !probe.image) throw new Error(`the svg window did not load its image (${JSON.stringify(probe)})`);
+      console.log(`ok: the ${ext} file's script did not run in its window (title "${title}", root "${probe.root}")`);
     }
 
     // 7. A second instance (optional): add it, sign in, both headings in the rail, one click back.
