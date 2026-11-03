@@ -318,7 +318,7 @@ function SideItem({ icon, label, active: activeProp, unread, mentioned, muted, n
               }}
             />
             <Popover anchorRef={moreRef} open={menuOpen} onClose={() => setMenuOpen(false)} placement="bottom" align="end">
-              <div style={menuStyle} role="menu" onClick={(e) => e.stopPropagation()}>
+              <div className="wc-float" style={menuStyle} role="menu" onClick={(e) => e.stopPropagation()}>
                 {menuItems.map((mi) => (
                   <button
                     key={mi.label}

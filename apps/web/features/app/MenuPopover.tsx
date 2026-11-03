@@ -105,7 +105,7 @@ export function MenuPopover({
 
   return (
     <Popover anchorRef={anchorRef} getAnchorRect={getAnchorRect} open={open} onClose={onClose} placement={placement} align={align}>
-      <div ref={menuRef} style={menu} role="menu" aria-label={label} onKeyDown={onKeyDown}>
+      <div className="wc-float" ref={menuRef} style={menu} role="menu" aria-label={label} onKeyDown={onKeyDown}>
         {items.map((it, i) => {
           if (it.type === "separator") {
             return <div key={i} style={{ height: 1, background: "var(--border-subtle)", margin: "4px 0" }} />;

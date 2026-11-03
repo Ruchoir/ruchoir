@@ -77,7 +77,7 @@ export function ChannelMenu({ canModerate, channel, onAddPeople, ...actions }: C
         />
       </Tooltip>
       <Popover anchorRef={anchorRef} open={open} onClose={() => setOpen(false)} placement="bottom" align="end">
-        <div style={menu} role="menu">
+        <div className="wc-float" style={menu} role="menu">
           {items.map((it) => (
             <button
               key={it.label}
