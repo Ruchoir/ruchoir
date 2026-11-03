@@ -12,7 +12,7 @@
 //! Upstream, the proxy never sends `Origin` or a cookie (the instance would take the request for a
 //! browser's and refuse a token), and it never passes `Set-Cookie` back.
 
-use reqwest::header::{HeaderMap, HeaderName, AUTHORIZATION};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, AUTHORIZATION};
 use reqwest::Method;
 
 /// Where a path of the app's protocol goes.
@@ -64,10 +64,9 @@ const UPSTREAM: [&str; 5] = [
 ];
 
 /// The response headers kept back from the interface.
-const KEPT_BACK: [&str; 11] = [
+const KEPT_BACK: [&str; 10] = [
     "set-cookie",
     "strict-transport-security",
-    "content-security-policy",
     "connection",
     "keep-alive",
     "proxy-authenticate",
@@ -104,13 +103,32 @@ pub fn upstream_request(
     builder.build()
 }
 
-/// The instance's response headers the interface may see.
+/// The policy of a file shown inline when the instance sent none: nothing runs and nothing loads
+/// from elsewhere, and only the app's own pages may frame it. No `sandbox`: it blocks the webview's
+/// PDF viewer.
+pub const INLINE_FILE_CSP: &str =
+    "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; frame-ancestors 'self'";
+
+/// The instance's response headers the interface may see. Its `Content-Security-Policy` is kept
+/// (the API sends a script-less one with every inline preview), and a file served inline without
+/// one gets `INLINE_FILE_CSP`: a file window shows the bytes as a top-level page on the app's origin,
+/// where a script in an SVG or an HTML file would reach the app's commands.
 pub fn downstream_headers(upstream: &HeaderMap) -> HeaderMap {
     let mut kept = HeaderMap::new();
     for (name, value) in upstream {
         if !KEPT_BACK.contains(&name.as_str()) {
             kept.append(HeaderName::clone(name), value.clone());
         }
+    }
+    let inline = upstream
+        .get("content-disposition")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.trim_start().to_ascii_lowercase().starts_with("inline"));
+    if inline && !kept.contains_key("content-security-policy") {
+        kept.insert(
+            HeaderName::from_static("content-security-policy"),
+            HeaderValue::from_static(INLINE_FILE_CSP),
+        );
     }
     kept
 }

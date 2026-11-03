@@ -32,6 +32,21 @@ amendment of 2026-10-21).
   loaded only in the desktop build. The rail, the account menu and the preferences read
   `useDesktop()`, `null` on the web.
 
+### Files: windows and the computer's app
+
+The webview has no tab, so where the web opens a file "in a new tab" the desktop offers two entries
+(a small menu on the attachment card, the lightbox, the viewers and the files screen's rows): "Open in
+a window" and "Open with the computer's app". A file window (`file_window`, `src-tauri/src/files.rs`)
+is a decorated window showing one file's bytes (its preview, or the converted PDF of an office
+document) on the app's own protocol, as a browser tab would: one window per address (a second click
+brings the first forward), no interface in it, no capability, so no command can be called from it.
+Only those two paths are accepted (`is_file_bytes_path` in the core). A script in an SVG or HTML file
+must never run there, since the page would be on the app's origin: the core's proxy keeps the
+instance's `Content-Security-Policy` (the API sends a script-less one with every inline preview) and
+adds a fixed one to any inline file that has none. Besides, every command needs a permission that only
+the main window holds (`build.rs` lists the commands, `capabilities/main.json` grants them). "Open with
+the computer's app" saves the file to the app's cache and hands it to the system.
+
 ## Building
 
 The system's webview development files are needed on Linux (Debian, Ubuntu):
@@ -103,7 +118,7 @@ summary. Its runners have no GPU either, so the figures are an upper bound.
 
 `e2e/run.sh` drives the app through `tauri-driver` (WebDriver): it adds an instance, signs in through
 the instance's `/n/` page and a `ruchoir://auth` link handed to a second launch, opens a channel, and
-waits for a message posted by someone else to arrive without a reload. It also sends a 300 KB PDF through the composer's file input and checks the instance stores every byte (uploads once arrived empty), drops a file on the composer with a synthetic event (the page's own drop handling accepts it, it stores the right bytes, and a stray drop is cancelled; the window letting a real drop through is checked by hand), and opens the PDF in the files viewer, checking the page's CSP lets its frame load. Each run leaves two attachments (a PDF and a text file), two messages and the files in "Pièces jointes" in that channel (development data). It needs Node 22.2 or later (the .docx fixture's checksum is `zlib.crc32`) and, on Linux,
+waits for a message posted by someone else to arrive without a reload. It also sends a 300 KB PDF through the composer's file input and checks the instance stores every byte (uploads once arrived empty), drops a file on the composer with a synthetic event (the page's own drop handling accepts it, it stores the right bytes, and a stray drop is cancelled; the window letting a real drop through is checked by hand), and opens the PDF in the files viewer, checking the page's CSP lets its frame load. It then opens the attachment from its "open" menu: Escape closes the menu and leaves the viewer, "Open in a window" adds one window whose address is the file's preview and a second click adds none, "Open with the computer's app" reaches the stand-in opener, and a .html and an .svg carrying a script, opened in a window, must not run it. Each run leaves two attachments (a PDF and a text file), two messages and the files in "Pièces jointes" in that channel (development data). It needs Node 22.2 or later (the .docx fixture's checksum is `zlib.crc32`) and, on Linux,
 `webkit2gtk-driver`, `dbus-x11`, Xvfb and `cargo install tauri-driver --locked`, and an instance with
 two accounts sharing a channel:
 
@@ -126,8 +141,9 @@ with the office host before it mounts the frame). The editor works once the inst
 `office_desktop_embed` feature: the API then lists the desktop's origins in the engine pages'
 `frame-ancestors` (`office/proxy.rs`), and the interface sends its own origin as `embed_origin` when it
 opens a session, so the editor posts its messages to the desktop page (WOPI `PostMessageOrigin`). On an
-older instance the frame stays blank. The e2e office step stays opt-in (`E2E_OFFICE=1`) until the dev API
-runs this build.
+older instance the frame stays blank. The e2e office step runs by default: it opens a .docx in the editor and waits for the host page
+to drop its loading cover (the engine's `Ruchoir_Painted` message), since the page cannot read the
+engine's cross-origin frame.
 
 It posts a message in that channel each run. The app's own log is kept in
 `/tmp/ruchoir-desktop-e2e.log`.

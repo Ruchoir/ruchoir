@@ -1765,6 +1765,13 @@
     "goneBody": "Dieser Link ist nicht mehr gültig. Beginnen Sie erneut in der Ruchoir-App."
   },
   "desktop": {
+    "files": {
+      "refused": "Diese Datei kann nicht in einem Fenster geöffnet werden.",
+      "failed": "Das Fenster konnte nicht geöffnet werden. Versuche es erneut.",
+      "openMenu": "{{name}} öffnen",
+      "openWindow": "In einem Fenster öffnen",
+      "openLocal": "Mit der App des Computers öffnen"
+    },
     "add": {
       "title": "Ruchoir-Instanz hinzufügen",
       "subtitle": "Die Adresse der Instanz Ihrer Organisation, so wie Sie sie im Browser öffnen.",

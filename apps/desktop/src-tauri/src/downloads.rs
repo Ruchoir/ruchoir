@@ -5,6 +5,7 @@
 //! own app for them (the calendar's PDF, to print). Only the app's own API paths are fetched: a link
 //! anywhere else is refused.
 
+use ruchoir_desktop_core::files::{own_path, safe_name};
 use ruchoir_desktop_core::proxy::{self, Route};
 use tauri::http::{HeaderMap, Method};
 use tauri::{AppHandle, Manager, Runtime};
@@ -13,46 +14,9 @@ use tauri_plugin_opener::OpenerExt;
 
 use crate::state::Desktop;
 
-/// The path and query of a link of the app's own origin (or a relative one); `None` for any other.
-fn own_path(href: &str) -> Option<String> {
-    if href.starts_with('/') && !href.starts_with("//") {
-        return Some(href.to_owned());
-    }
-    let url = tauri::Url::parse(href).ok()?;
-    let own = match url.scheme() {
-        "http" => url.host_str() == Some("ruchoir-app.localhost"),
-        scheme => scheme == crate::APP_SCHEME && url.host_str() == Some("localhost"),
-    };
-    if !own {
-        return None;
-    }
-    Some(match url.query() {
-        Some(query) => format!("{}?{query}", url.path()),
-        None => url.path().to_owned(),
-    })
-}
-
-/// A file name the system will take: no folder in it, no control character, never empty.
-fn safe_name(name: &str) -> String {
-    let cleaned: String = name
-        .chars()
-        .map(|c| match c {
-            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
-            c if c.is_control() => '_',
-            c => c,
-        })
-        .collect();
-    let cleaned = cleaned.trim().trim_matches('.').to_owned();
-    if cleaned.is_empty() {
-        "download".to_owned()
-    } else {
-        cleaned
-    }
-}
-
 /// The bytes behind one of the app's API links, read with the instance's session.
 async fn fetch<R: Runtime>(app: &AppHandle<R>, href: &str) -> Result<Vec<u8>, String> {
-    let path = own_path(href).ok_or("refused")?;
+    let path = own_path(href, crate::APP_SCHEME).ok_or("refused")?;
     let (bare, query) = match path.split_once('?') {
         Some((bare, query)) => (bare.to_owned(), format!("?{query}")),
         None => (path.clone(), String::new()),
@@ -140,37 +104,4 @@ pub async fn download_open<R: Runtime>(
     app.opener()
         .open_path(path.to_string_lossy(), None::<&str>)
         .map_err(|_| "no_app".to_owned())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn only_the_apps_own_links_are_fetched() {
-        assert_eq!(
-            own_path("/api/v1/files/a/download").as_deref(),
-            Some("/api/v1/files/a/download")
-        );
-        assert_eq!(
-            own_path("ruchoir-app://localhost/i/x/api/v1/calendar/print?view=week").as_deref(),
-            Some("/i/x/api/v1/calendar/print?view=week")
-        );
-        assert_eq!(
-            own_path("http://ruchoir-app.localhost/api/v1/files/a").as_deref(),
-            Some("/api/v1/files/a")
-        );
-        assert_eq!(own_path("https://example.org/api/v1/files/a"), None);
-        assert_eq!(own_path("//example.org/api/v1/files/a"), None);
-        assert_eq!(own_path("http://ruchoir-app.localhost.evil.org/x"), None);
-    }
-
-    #[test]
-    fn a_name_never_leaves_its_folder() {
-        assert_eq!(safe_name("../../etc/passwd"), "_.._etc_passwd");
-        assert_eq!(safe_name("Agenda: semaine?.pdf"), "Agenda_ semaine_.pdf");
-        assert_eq!(safe_name("  "), "download");
-        assert_eq!(safe_name("..."), "download");
-        assert_eq!(safe_name("Devis 2026.pdf"), "Devis 2026.pdf");
-    }
 }

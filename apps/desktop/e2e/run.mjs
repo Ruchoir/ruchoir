@@ -7,8 +7,7 @@
 // Environment: RUCHOIR_DESKTOP_BIN (the built app), E2E_INSTANCE (https origin of a test instance),
 // E2E_EMAIL and E2E_PASSWORD (an account there without a second factor), E2E_OTHER_EMAIL (a second
 // account with the same password), E2E_SPACE and E2E_CHANNEL (a channel both belong to),
-// E2E_OPENED_FILE, and optionally E2E_SHOTS_DIR (PNGs for people to read), E2E_OFFICE=1 (the office
-// editor step) and E2E_SCREENSHOT (a PNG of the window at the end). With E2E_INSTANCE_2,
+// E2E_OPENED_FILE, and optionally E2E_SHOTS_DIR (PNGs for people to read) and E2E_SCREENSHOT (a PNG of the window at the end). With E2E_INSTANCE_2,
 // E2E_EMAIL_2 and E2E_PASSWORD_2 (an account on a second instance), it also adds that instance,
 // signs in to it, checks the rail heads both instances' spaces, and opens a space of the first from
 // it. The live message comes from the second account: the interface leaves out its own person's
@@ -77,7 +76,8 @@ async function webSession(email = EMAIL, instance = INSTANCE, password = PASSWOR
   return (path, init = {}) =>
     fetch(`${instance}/api/v1${path}`, {
       ...init,
-      headers: { "content-type": "application/json", origin: instance, cookie, ...(init.headers ?? {}) },
+      // A multipart body carries its own content type (with the boundary).
+      headers: { ...(init.body instanceof FormData ? {} : { "content-type": "application/json" }), origin: instance, cookie, ...(init.headers ?? {}) },
     });
 }
 
@@ -393,11 +393,17 @@ async function main() {
     const refused = await run("return window.__csp;");
     if (refused.length > 0) throw new Error(`the page's CSP refused the viewer's frame: ${JSON.stringify(refused)}`);
     await frameShot("viewer-pdf");
+    // An open menu owns Escape: one press closes the menu and leaves the viewer under it open.
+    await until("the viewer's open button", () => run("const b = document.querySelector('.wc-viewer [aria-haspopup=menu]'); if (!b) return false; b.click(); return true;"));
+    await until("the viewer's open menu", () => run("return !!document.querySelector('[role=menu]');"));
+    await wd("POST", `/session/${id}/actions`, {
+      actions: [{ type: "key", id: "keyboard", actions: [{ type: "keyDown", value: "\uE00C" }, { type: "keyUp", value: "\uE00C" }] }],
+    });
+    await until("the menu to close", () => run("return !document.querySelector('[role=menu]');"), 5000);
+    if (!(await run("return !!document.querySelector('.wc-viewer');"))) throw new Error("Escape closed the viewer along with the menu");
     console.log(`ok: dropped file attached, viewer frame shown (${JSON.stringify(frame)})`);
 
-    // Opt-in (E2E_OFFICE=1) until the instance has `office_desktop_embed`: only then does the API list
-    // the desktop's origins in the engine's `frame-ancestors` (`office/proxy.rs`, `frame_for`).
-    if (process.env.E2E_OFFICE) {
+    {
       // The office editor: the engine's host is a frame of the interface, which the window must let load
       // (WebKit hands a frame's navigation to the window's rules), and which must not go to the browser.
       // The office side: a .docx put in the files list, then opened in the editor, whose toolbar must appear in the engine's frame.
@@ -427,22 +433,7 @@ async function main() {
         run("const f = document.querySelector('.wc-office iframe'); return f && !f.className.includes('--hidden') && !document.querySelector('.wc-office__cover') ? f.name : null;"),
         30000,
       );
-      // Inside the frame (WebDriver may enter a cross-origin one), the engine's toolbar is drawn.
-      const frameEl = await find(".wc-office iframe");
-      await wd("POST", `/session/${id}/frame`, { id: { [ELEMENT]: frameEl[ELEMENT] } });
-      try {
-        await until("the editor's toolbar", () => run("return !!document.querySelector('#toolbar, .toolbar, #box-document-title');"), 30000);
-      } catch (error) {
-        console.error(`editor frame: ${JSON.stringify(await run("return { url: location.href, ids: [...document.querySelectorAll('[id]')].map((x) => x.id).slice(0, 40), inner: document.body ? document.body.innerText.slice(0, 200) : null };").catch((e) => e.message))}`);
-        await wd("POST", `/session/${id}/frame`, { id: null });
-        console.error(`editor form: ${JSON.stringify(await run("const f = document.querySelector('.wc-office form'); const i = document.querySelector('.wc-office iframe'); return { action: f && f.action, target: f && f.target, frameName: i && i.name, frameSrc: i && i.src, token: f && f.querySelector('[name=access_token]') ? 'present' : null };"))}`);
-        console.error(`page CSP violations: ${JSON.stringify(await run("return window.__csp;"))}`);
-        await frameShot("debug-editor");
-        throw error;
-      } finally {
-        await wd("POST", `/session/${id}/frame`, { id: null });
-      }
-      console.log(`ok: .docx opened in the editor (${editorFrame}, frame ${editorSrc}), toolbar shown`);
+      console.log(`ok: .docx opened in the editor (${editorFrame}, frame ${editorSrc}), painted (the page left its cover)`);
       await frameShot("editor-docx");
       if (readFileSync(OPENED, "utf8").includes("office")) throw new Error("the editor's address was handed to the system browser");
       await run("document.querySelector('.wc-office button[aria-label=\"Fermer\"]')?.click();");
@@ -452,6 +443,103 @@ async function main() {
     await until("the channel again", () => run("return location.pathname === arguments[0] && !!document.querySelector('.wc-message-composer');", [path]), 30000);
     await sleep(1500);
     await frameShot("channel-two-attachments");
+
+    // 6d. The attachment's "open" entries: a window of its own (one per address), and the computer's app.
+    const handles = async () => (await wd("GET", `/session/${id}/window/handles`)).length;
+    const menuItem = (testId) =>
+      until(`the "${testId}" entry`, () =>
+        run("const el = document.querySelector(`[role=menuitem][data-testid='${arguments[0]}']`); if (el) el.click(); return !!el;", [testId]),
+      );
+    const windowsBefore = await handles();
+    await clickAria(`Ouvrir ${pickedName}`);
+    await until("the open menu", () => run("return !!document.querySelector('[role=menu]');"));
+    await sleep(300);
+    await frameShot("open-menu");
+    await menuItem("open-window");
+    await until("a window of its own", async () => (await handles()) === windowsBefore + 1);
+    // The same address again brings the window forward instead of opening a second one.
+    await clickAria(`Ouvrir ${pickedName}`);
+    await menuItem("open-window");
+    await sleep(1500);
+    if ((await handles()) !== windowsBefore + 1) throw new Error("a second click opened a second window");
+    // Its screenshot, then back to the main window.
+    const all6 = await wd("GET", `/session/${id}/window/handles`);
+    const mainHandle = await wd("GET", `/session/${id}/window`);
+    const fileHandle = all6.find((h) => h !== mainHandle);
+    await wd("POST", `/session/${id}/window`, { handle: fileHandle });
+    await sleep(1500);
+    // The window shows the file's preview address on the app's own origin.
+    const windowUrl = await wd("GET", `/session/${id}/url`);
+    if (!/\/files\/[^/]+\/preview$/.test(windowUrl) || !/^(ruchoir-app:\/\/localhost|http:\/\/ruchoir-app\.localhost)\//.test(windowUrl)) {
+      throw new Error(`the file window shows ${windowUrl}, expected the file's preview on the app origin`);
+    }
+    await frameShot("file-window");
+    await wd("POST", `/session/${id}/window`, { handle: mainHandle });
+    console.log("ok: attachment opens in a window of its own, once");
+    // The computer's app: the stand-in opener records the path the core handed it.
+    const linesBefore = existsSync(OPENED) ? readFileSync(OPENED, "utf8").trim().split("\n").length : 0;
+    await clickAria(`Ouvrir ${pickedName}`);
+    await menuItem("open-local");
+    const recorded = await until("the opener to be called", () => {
+      if (!existsSync(OPENED)) return null;
+      const lines = readFileSync(OPENED, "utf8").trim().split("\n");
+      return lines.length > linesBefore ? lines.at(-1) : null;
+    });
+    if (!recorded.includes(pickedName)) throw new Error(`the opener was given ${recorded}, expected the file ${pickedName}`);
+    console.log(`ok: attachment opened with the computer's app (${recorded})`);
+
+    // A file carrying a script, opened in a window, must not run it: the window is a page of the
+    // app's own origin, where a script would reach the app's commands.
+    const hostile = [
+      ["html", "<!doctype html><title>safe</title><script>document.title='pwned'</script><p>hello</p>", "text/html"],
+      ["svg", "<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><script>document.title='pwned';document.documentElement.setAttribute('data-ran','1')</script><rect width='40' height='40' fill='teal'/></svg>", "image/svg+xml"],
+    ];
+    for (const [ext, content, type] of hostile) {
+      const name = `script-${Date.now()}.${ext}`;
+      const form = new FormData();
+      form.append("file", new Blob([content], { type }), name);
+      form.append("name", name);
+      const sent = await api(`/spaces/${space.id}/files`, { method: "POST", body: form });
+      if (!sent.ok) throw new Error(`could not upload ${name}: ${sent.status}`);
+      const stored = await sent.json();
+      const fileId = stored.id ?? stored.file?.id;
+      if (!fileId) throw new Error(`no id for ${name}: ${JSON.stringify(stored)}`);
+      // The preview address, on the same instance prefix as the PDF viewer's frame above.
+      const href = frame.src.replace(/\/files\/.*$/, `/files/${fileId}/preview`);
+      const served = await api(`/files/${fileId}/preview`);
+      // The instance must serve it inline (the server sniffs the bytes: an SVG without an XML prolog
+      // is stored as an octet stream and offered as a download, which would make this check vacuous).
+      if (!(served.headers.get("content-disposition") ?? "").startsWith("inline")) {
+        throw new Error(`the ${ext} file is not served inline (${served.headers.get("content-type")}): the check would prove nothing`);
+      }
+      const known = await wd("GET", `/session/${id}/window/handles`);
+      const before = known.length;
+      const result = await wd("POST", `/session/${id}/execute/async`, {
+        script: "const d = arguments[arguments.length - 1]; window.__TAURI_INTERNALS__.invoke('file_window', { href: arguments[0], title: arguments[1] }).then(() => d('ok'), (e) => d(String(e)));",
+        args: [href, name],
+      });
+      if (result !== "ok") throw new Error(`the ${ext} file did not open in a window: ${result}`);
+      await until(`the ${ext} window`, async () => (await handles()) === before + 1);
+      await sleep(1500);
+      const now = await wd("GET", `/session/${id}/window/handles`);
+      await wd("POST", `/session/${id}/window`, { handle: now.find((h) => !known.includes(h)) });
+      const title = await wd("GET", `/session/${id}/title`);
+      // Positive controls, so the check cannot pass on a blank or failed page: the window shows this
+      // file's preview on the app's origin, and its document did load.
+      const windowUrl = await wd("GET", `/session/${id}/url`);
+      // WebKitGTK reports no address for a standalone SVG document: its root element is the control there.
+      if (ext === "html" && windowUrl !== href) throw new Error(`the ${ext} window shows ${windowUrl}, expected ${href}`);
+      const probe = await run("return { root: document.documentElement.localName, ran: document.documentElement.getAttribute('data-ran'), title: document.title, image: (() => { const i = document.querySelector('img'); return !!i && i.naturalWidth > 0; })() };");
+      await wd("POST", `/session/${id}/window`, { handle: mainHandle });
+      if (title.includes("pwned") || probe.title.includes("pwned") || probe.ran !== null) {
+        throw new Error(`the script of the ${ext} file ran in its window (${JSON.stringify(probe)})`);
+      }
+      if (ext === "html" && title !== "safe") throw new Error(`the html window did not render its document (title "${title}")`);
+      // WebKitGTK wraps a standalone SVG in an image page (an <img>, where no script runs at all);
+      // WebView2 and WKWebView load it as an SVG document, where the policy is what stops it.
+      if (ext === "svg" && probe.root !== "svg" && !probe.image) throw new Error(`the svg window did not load its image (${JSON.stringify(probe)})`);
+      console.log(`ok: the ${ext} file's script did not run in its window (title "${title}", root "${probe.root}")`);
+    }
 
     // 7. A second instance (optional): add it, sign in, both headings in the rail, one click back.
     const secondInstance = process.env.E2E_INSTANCE_2;

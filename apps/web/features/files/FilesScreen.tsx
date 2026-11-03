@@ -8,12 +8,14 @@ import type { SpaceFile } from "@/lib/data";
 import type { OfficeCapabilities } from "@/lib/data/types";
 import { fileUrl } from "@/lib/spaceUrl";
 import { OfficeEditor } from "@/features/office/OfficeEditor";
-import { deleteFile, fileDownloadUrl, type FilesView, getInstanceCapabilities, officeActionFor, restoreFile, setStarred, updateFile, type ViewEntry } from "@/lib/data/api";
+import { deleteFile, fileDocumentUrl, fileDownloadUrl, filePreviewUrl, type FilesView, getInstanceCapabilities, officeActionFor, restoreFile, setStarred, updateFile, type ViewEntry } from "@/lib/data/api";
 import { enqueue, reject as rejectUpload } from "@/lib/uploads";
 import { isApiError } from "@/lib/data/http";
 import { useSettings } from "../app/settings";
 import type { Toast } from "../app/types";
 import { useTranslation } from "@/lib/i18n";
+import { isDesktop } from "@/lib/desktop/runtime";
+import { openInWindow, openLocal } from "@/lib/desktop/files";
 import { formatBytes, formatStamp } from "@/lib/i18n/format";
 import { ActionMenu, type MenuEntry } from "./ActionMenu";
 import { DetailsPanel, type DetailsSubject } from "./DetailsPanel";
@@ -55,6 +57,14 @@ const ACTION_ICONS: Record<ActionId, IconName> = {
   details: "info",
   delete: "trash-2",
 };
+
+/** The address the viewer shows for an entry (its preview, or the converted document), if it has one. */
+function viewAddress(f: SpaceFile): string | null {
+  if (!f.id) return null;
+  const kind = viewerKind(f.name);
+  if (kind === "office") return fileDocumentUrl(f.id, f.updatedAt);
+  return kind === "pdf" || isImage(f.name) ? filePreviewUrl(f.id) : null;
+}
 
 /** Whether a file name looks like an image (drives the preview rendering). */
 function isImage(name: string): boolean {
@@ -455,6 +465,16 @@ export function FilesScreen({
         danger: action === "delete",
         onSelect: () => runAction(item, action),
       });
+      // The desktop app has no tab to open a file in: a window of its own, or the computer's app.
+      if (action === "open" && isDesktop && !item.entry.isFolder) {
+        const address = viewAddress(item.file);
+        if (address) {
+          out.push(
+            { label: t("desktop.files.openWindow"), icon: "external-link", onSelect: () => void openInWindow(address, item.file.name) },
+            { label: t("desktop.files.openLocal"), icon: "monitor", onSelect: () => void openLocal(address, item.file.name) },
+          );
+        }
+      }
     }
     return out;
   };

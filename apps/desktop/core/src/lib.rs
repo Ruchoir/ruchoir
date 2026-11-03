@@ -6,6 +6,7 @@
 
 pub mod auth;
 pub mod emoji_disk;
+pub mod files;
 pub mod instances;
 pub mod vault;
 

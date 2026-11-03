@@ -1832,6 +1832,13 @@
     "goneBody": "Questo link non è più valido. Ricomincia dall’app Ruchoir."
   },
   "desktop": {
+    "files": {
+      "refused": "Questo file non può essere aperto in una finestra.",
+      "failed": "Impossibile aprire la finestra. Riprova.",
+      "openMenu": "Apri {{name}}",
+      "openWindow": "Apri in una finestra",
+      "openLocal": "Apri con l’app del computer"
+    },
     "add": {
       "title": "Aggiungi un’istanza Ruchoir",
       "subtitle": "L’indirizzo dell’istanza della tua organizzazione, come lo apri in un browser.",

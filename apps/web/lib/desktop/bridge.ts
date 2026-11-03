@@ -58,6 +58,8 @@ export const onUpdateAvailable = (handler: (offer: UpdateOffer) => void) =>
 export const downloadSave = (href: string, name: string) => invoke<boolean>("download_save", { href, name });
 /** Open what a link points at in the system's app for it (the calendar's PDF, to print). */
 export const downloadOpen = (href: string, name: string) => invoke<void>("download_open", { href, name });
+/** Open the app's own address in a window of its own (one per address; an open one is brought forward). */
+export const fileWindow = (href: string, title: string) => invoke<void>("file_window", { href, title });
 export const setDesktopSettings = (settings: DesktopSettings) => invoke<DesktopSettings>("set_desktop_settings", { settings });
 /** The tray menu's words and the first-close notice, in the interface's language. */
 export const setShellLabels = (labels: { open: string; quit: string; closed_to_tray: string }) =>

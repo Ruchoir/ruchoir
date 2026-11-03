@@ -5,6 +5,9 @@ import { brandFor, Button, IconButton, Tag } from "@/components/ds";
 import { fileDocumentUrl, filePreviewUrl } from "@/lib/data/api";
 import type { SpaceFile } from "@/lib/data/types";
 import { useTranslation } from "@/lib/i18n";
+import { isDesktop } from "@/lib/desktop/runtime";
+import { openInWindow } from "@/lib/desktop/files";
+import { OpenFileEntries } from "../desktop/OpenFileEntries";
 import { formatBytes, formatStamp } from "@/lib/i18n/format";
 
 /**
@@ -22,7 +25,7 @@ export function viewerKind(name: string): ViewerKind | null {
 }
 
 /** Print a same-origin address (an image, say) through a hidden frame, leaving the app as it is. */
-export function printUrl(url: string) {
+export function printUrl(url: string, name: string) {
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
   frame.style.cssText = "position:fixed;width:0;height:0;border:0;visibility:hidden";
@@ -31,7 +34,9 @@ export function printUrl(url: string) {
       frame.contentWindow?.focus();
       frame.contentWindow?.print();
     } catch {
-      window.open(url, "_blank", "noopener,noreferrer");
+      // The desktop app has no tab to open the address in: a window of its own.
+      if (isDesktop) void openInWindow(url, name);
+      else window.open(url, "_blank", "noopener,noreferrer");
     }
     window.setTimeout(() => frame.remove(), 60_000);
   };
@@ -82,12 +87,18 @@ export function FileViewer({ file, kind, onClose, onDownload, onNewVersion, onDe
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  // What the file window and the computer's app are given: the address the frame shows.
+  const address = file.id ? (kind === "pdf" ? filePreviewUrl(file.id) : fileDocumentUrl(file.id, file.updatedAt)) : null;
+
   const print = () => {
     try {
       frameRef.current?.contentWindow?.focus();
       frameRef.current?.contentWindow?.print();
     } catch {
-      if (file.id) window.open(kind === "pdf" ? filePreviewUrl(file.id) : fileDocumentUrl(file.id, file.updatedAt), "_blank", "noopener,noreferrer");
+      if (address) {
+        if (isDesktop) void openInWindow(address, file.name);
+        else window.open(address, "_blank", "noopener,noreferrer");
+      }
     }
   };
 
@@ -154,6 +165,7 @@ export function FileViewer({ file, kind, onClose, onDownload, onNewVersion, onDe
             <Button variant={onEdit ? "secondary" : "primary"} iconLeft="download" fullWidth onClick={onDownload}>
               {t("message.download")}
             </Button>
+            {isDesktop && address ? <OpenFileEntries href={address} name={file.name} variant="button" /> : null}
             <Button iconLeft="printer" fullWidth onClick={print}>
               {t("files.print")}
             </Button>

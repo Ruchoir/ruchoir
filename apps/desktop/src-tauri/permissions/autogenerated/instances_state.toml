@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-instances-state"
+description = "Enables the instances_state command without any pre-configured scope."
+commands.allow = ["instances_state"]
+
+[[permission]]
+identifier = "deny-instances-state"
+description = "Denies the instances_state command without any pre-configured scope."
+commands.deny = ["instances_state"]

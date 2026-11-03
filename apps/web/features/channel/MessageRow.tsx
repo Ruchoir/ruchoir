@@ -18,6 +18,8 @@ import { ReactionMenu } from "./ReactionMenu";
 import { ReadReceipt } from "./ReadReceipt";
 import { msgRowBackground, msgRowPadding, msgRowStyle } from "./rowStyles";
 import { useTranslation } from "@/lib/i18n";
+import { isDesktop } from "@/lib/desktop/runtime";
+import { OpenFileEntries } from "../desktop/OpenFileEntries";
 import { formatBytes, formatDateTime, formatRelativeStamp, formatStamp, formatTime, isSameDay } from "@/lib/i18n/format";
 import { haptic } from "@/lib/haptics";
 
@@ -176,14 +178,18 @@ function AttachmentCard({ attachment }: { attachment: MessageAttachment }) {
           </span>
           {attachment.url ? (
             <span style={{ display: "inline-flex", flex: "none" }}>
-              <IconLink
-                icon="external-link"
-                label={t("message.openInNewTab", { name: attachment.name })}
-                size="sm"
-                href={attachment.previewUrl ?? attachment.url}
-                target="_blank"
-                rel="noopener noreferrer"
-              />
+              {isDesktop ? (
+                <OpenFileEntries href={attachment.previewUrl ?? attachment.url} name={attachment.name} />
+              ) : (
+                <IconLink
+                  icon="external-link"
+                  label={t("message.openInNewTab", { name: attachment.name })}
+                  size="sm"
+                  href={attachment.previewUrl ?? attachment.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              )}
               <IconLink
                 icon="download"
                 label={t("message.downloadNamed", { name: attachment.name })}

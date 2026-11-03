@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-instance-remove"
+description = "Enables the instance_remove command without any pre-configured scope."
+commands.allow = ["instance_remove"]
+
+[[permission]]
+identifier = "deny-instance-remove"
+description = "Denies the instance_remove command without any pre-configured scope."
+commands.deny = ["instance_remove"]

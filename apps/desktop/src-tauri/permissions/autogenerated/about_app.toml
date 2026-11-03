@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-about-app"
+description = "Enables the about_app command without any pre-configured scope."
+commands.allow = ["about_app"]
+
+[[permission]]
+identifier = "deny-about-app"
+description = "Denies the about_app command without any pre-configured scope."
+commands.deny = ["about_app"]

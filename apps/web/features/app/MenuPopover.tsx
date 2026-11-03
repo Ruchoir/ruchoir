@@ -30,7 +30,7 @@ const itemStyle: CSSProperties = {
 };
 
 export type MenuItem =
-  | { type?: "item"; icon?: string; label: ReactNode; onClick: () => void; danger?: boolean; active?: boolean }
+  | { type?: "item"; icon?: string; label: ReactNode; onClick: () => void; danger?: boolean; active?: boolean; testId?: string }
   | { type: "separator" }
   | { type: "label"; label: string };
 
@@ -122,6 +122,7 @@ export function MenuPopover({
               key={i}
               type="button"
               role="menuitem"
+              data-testid={it.testId}
               onClick={() => {
                 it.onClick();
                 onClose();

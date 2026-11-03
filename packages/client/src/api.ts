@@ -2614,6 +2614,7 @@ export function createApi(transport: Transport) {
         imagesOut.push({
           fileId: a.file_id,
           alt: a.alt_text ?? a.name,
+          name: a.name,
           width: a.image_width,
           height: a.image_height,
           // Served by the API, never by the object store: the browser never talks to it directly.

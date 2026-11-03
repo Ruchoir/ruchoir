@@ -10,6 +10,7 @@
 
 mod diagnostics;
 mod downloads;
+mod files;
 mod notify;
 mod protocol;
 mod relay;
@@ -26,7 +27,7 @@ use tauri_plugin_deep_link::DeepLinkExt;
 pub const APP_SCHEME: &str = "ruchoir-app";
 
 /// The address the window opens: the custom protocol as each system's webview spells it.
-fn app_url() -> tauri::Url {
+pub(crate) fn app_url() -> tauri::Url {
     let url = if cfg!(windows) {
         "http://ruchoir-app.localhost/"
     } else {
@@ -81,6 +82,37 @@ fn leave_for<R: tauri::Runtime>(app: &tauri::AppHandle<R>, url: &tauri::Url) -> 
     }
 }
 
+/// Whether a window may open a new window: never. A link asked to open one is sent outside when it
+/// leaves the app. Shared by the main window and the file windows.
+pub(crate) fn deny_new_window<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    url: &tauri::Url,
+) -> tauri::webview::NewWindowResponse<R> {
+    leave_for(app, url);
+    tauri::webview::NewWindowResponse::Deny
+}
+
+/// The interface hands its download links to the core (`downloads`); one that still reaches a
+/// webview goes the same way, "Save as", never to the webview. Shared by every window.
+pub(crate) fn route_download<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    event: tauri::webview::DownloadEvent<'_>,
+) -> bool {
+    if let tauri::webview::DownloadEvent::Requested { url, .. } = event {
+        let handle = app.clone();
+        let href = url.to_string();
+        let name = url
+            .path_segments()
+            .and_then(|mut segments| segments.next_back())
+            .unwrap_or("download")
+            .to_owned();
+        tauri::async_runtime::spawn(async move {
+            let _ = downloads::save(&handle, &href, &name).await;
+        });
+    }
+    false
+}
+
 fn main() {
     // A small runtime: the app mostly waits on a few sockets (spec, "Lightness budget").
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -128,6 +160,7 @@ fn main() {
             relay::socket_send,
             relay::socket_is_open,
             downloads::download_save,
+            files::file_window,
             downloads::download_open,
             diagnostics::about_app,
             diagnostics::diagnostics,
@@ -200,30 +233,11 @@ fn main() {
                     })
                     .on_new_window({
                         let handle = app.handle().clone();
-                        move |url, _| {
-                            leave_for(&handle, &url);
-                            tauri::webview::NewWindowResponse::Deny
-                        }
+                        move |url, _| deny_new_window(&handle, &url)
                     })
-                    // The interface hands its download links to the core (`downloads`); one that
-                    // still reaches the webview goes the same way, "Save as", never to the webview.
                     .on_download({
                         let handle = app.handle().clone();
-                        move |_, event| {
-                            if let tauri::webview::DownloadEvent::Requested { url, .. } = event {
-                                let handle = handle.clone();
-                                let href = url.to_string();
-                                let name = url
-                                    .path_segments()
-                                    .and_then(|mut segments| segments.next_back())
-                                    .unwrap_or("download")
-                                    .to_owned();
-                                tauri::async_runtime::spawn(async move {
-                                    let _ = downloads::save(&handle, &href, &name).await;
-                                });
-                            }
-                            false
-                        }
+                        move |_, event| route_download(&handle, event)
                     });
             // Frameless with the interface's own title bar on Windows and Linux; on macOS the
             // system's traffic lights stay, drawn over the same bar.
