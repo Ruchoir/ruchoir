@@ -38,3 +38,11 @@ test("a_length_reads_in_hours_and_minutes", () => {
   // Never in seconds: the phone's own unit formatting turned an hour into "3 600 s".
   assert.deepEqual(DURATIONS.map((m) => durationLabel(m, words)), ["15 min", "30 min", "45 min", "1 h", "1 h 30", "2 h"]);
 });
+
+test("the_style_is_kept_on_the_phone", () => {
+  assert.equal(DEFAULT_PREFS.style, "ruchoir");
+  assert.equal(parsePrefs('{"style":"nuage"}').style, "nuage");
+  for (const stored of ['{"style":"bogus"}', '{"style":3}', "{}"]) assert.equal(parsePrefs(stored).style, "ruchoir", stored);
+  // The accent survives a style: it comes back with the Ruchoir style.
+  assert.equal(parsePrefs('{"style":"marine","accent":"mint"}').accent, "mint");
+});

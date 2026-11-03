@@ -2,7 +2,7 @@
  * The preferences kept on the phone: how the app looks, the language it speaks, and how the agenda
  * opens.
  *
- * The look (day or night, the accent, the text size) is the phone's own: a phone kept at night and a
+ * The look (day or night, the style, the accent, the text size) is the phone's own: a phone kept at night and a
  * computer kept in day are both right, and neither imposes it on the other. The rest follows the
  * account (decided 2026-11-03): the language and the agenda's settings are sent to the server
  * (`GET` / `PATCH /me/preferences`) and come back on every device, `MOBILE_ACCOUNT_KEYS` naming them
@@ -13,7 +13,7 @@
 import type { AccountPrefsDoc } from "@ruchoir/client";
 
 import type { AgendaView } from "../logic/agenda.ts";
-import type { Accent } from "../theme/tokens.ts";
+import { STYLES, type Accent, type Style } from "../theme/tokens.ts";
 
 export type ThemeMode = "auto" | "day" | "night";
 export type TextSize = "s" | "m" | "l" | "xl";
@@ -23,6 +23,8 @@ export type WeekStart = 1 | 0 | 6;
 
 export type Prefs = {
   mode: ThemeMode;
+  /** Ruchoir or a flat style; a variant brings its own colours, the accent stays stored. */
+  style: Style;
   accent: Accent;
   textSize: TextSize;
   /** `null`: the phone's language. */
@@ -43,6 +45,7 @@ const ACCENT_NAMES: Accent[] = ["sky", "mint", "violet", "pink"];
 
 export const DEFAULT_PREFS: Prefs = {
   mode: "auto",
+  style: "ruchoir",
   accent: "violet",
   textSize: "m",
   locale: null,
@@ -68,6 +71,7 @@ export function parsePrefs(raw: string | null): Prefs {
   const d = DEFAULT_PREFS;
   return {
     mode: pick(stored.mode, MODES, d.mode),
+    style: pick(stored.style, STYLES, d.style),
     accent: pick(stored.accent, ACCENT_NAMES, d.accent),
     textSize: pick(stored.textSize, TEXT_SIZES, d.textSize),
     locale: pick(stored.locale, [...LOCALES, null], d.locale),
