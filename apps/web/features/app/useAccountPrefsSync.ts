@@ -72,13 +72,15 @@ type SyncState = { session: string; state: "idle" | "syncing" | "ready" | "unsup
  * Wire it once, in the signed-in shell. `userId` is empty while signed out. Returns what the
  * real-time handlers call: `remote` for `preferences.updated`, `resync` when the connection is back.
  */
-export function useAccountPrefsSync(userId: string, desktop: DesktopBridge | null) {
+export function useAccountPrefsSync(userId: string, desktop: DesktopBridge | null, unread: (dmId: string) => boolean = () => false) {
   const settings = useSettings();
   const settingsRef = useRef(settings);
   const desktopRef = useRef(desktop);
+  const unreadRef = useRef(unread);
   useEffect(() => {
     settingsRef.current = settings;
     desktopRef.current = desktop;
+    unreadRef.current = unread;
   });
   const sync = useRef<SyncState>({ session: "", state: "idle", sending: false });
 
@@ -120,9 +122,12 @@ export function useAccountPrefsSync(userId: string, desktop: DesktopBridge | nul
       await api.current.flush();
     },
 
-    /** Conversations this browser hid before the server kept them: sent up, forgotten once taken. */
+    /**
+     * Conversations this browser hid before the server kept them: sent up, forgotten once taken.
+     * One with something unread is left out: the older page brought those back.
+     */
     async handOverHidden() {
-      const ids = peekLegacyHiddenDms();
+      const ids = peekLegacyHiddenDms().filter((id) => !unreadRef.current(id));
       if (ids.length === 0) return;
       const done = await Promise.all(ids.map((id) => setDmHidden(id, true).then(() => true, (err) => err instanceof ApiError && err.status === 404)));
       if (done.every(Boolean)) clearLegacyHiddenDms();

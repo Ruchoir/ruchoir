@@ -198,20 +198,6 @@ import { useAccountPrefsSync } from "./useAccountPrefsSync";
 
 /** Wraps the app in the settings provider (emoji rendering, etc.). */
 
-/**
- * A hidden direct conversation with something unread is back for good: one hidden by an older
- * version of this page may have received messages since, and keeping its flag would hide it again
- * the moment it is read. The server is told; the list shows it at once.
- */
-function returningDms(list: DirectMessage[]): DirectMessage[] {
-  if (!list.some((d) => d.hidden && d.unread > 0)) return list;
-  return list.map((d) => {
-    if (!d.hidden || d.unread === 0) return d;
-    void setDmHidden(d.id, false).catch(() => {});
-    return { ...d, hidden: false };
-  });
-}
-
 export function AppRoot() {
   return (
     <SettingsProvider>
@@ -845,7 +831,7 @@ function AppShell() {
       return next;
     });
     // Overlay each 1:1 DM's counterpart presence onto its sidebar row.
-    setDms(returningDms(dmList).map((d) => (d.userId && presenceMap[d.userId] ? { ...d, presence: presenceMap[d.userId] } : d)));
+    setDms(dmList.map((d) => (d.userId && presenceMap[d.userId] ? { ...d, presence: presenceMap[d.userId] } : d)));
 
     // Land on the channel the address named, else the conversation last open in this space, else its
     // main public channel (the one newcomers join), else the first of the space (or its first DM).
@@ -1144,7 +1130,10 @@ function AppShell() {
   // The desktop app's bridge (null on the web), for effects that outlive a render.
   const desktop = useDesktop();
   // The account settings, kept in line with the server's (and the other devices').
-  const accountSync = useAccountPrefsSync(authStage === "app" && session ? session.id : "", desktop);
+  // Conversations hidden by an older version of this page that received something since are not
+  // handed over hidden: that version brought them back on unread.
+  const unreadDmRef = useRef<(id: string) => boolean>(() => false);
+  const accountSync = useAccountPrefsSync(authStage === "app" && session ? session.id : "", desktop, (id) => unreadDmRef.current(id));
   const accountSyncRef = useRef(accountSync);
   useEffect(() => {
     accountSyncRef.current = accountSync;
@@ -1732,7 +1721,10 @@ function AppShell() {
    * for everyone in it; the one being read stays put meanwhile: hiding the conversation you are
    * looking at and watching it vanish under you would be its own small defect.
    */
-  const visibleDms = useMemo(() => dms.filter((d) => !d.hidden || d.id === channelId || d.unread > 0), [dms, channelId]);
+  const visibleDms = useMemo(() => dms.filter((d) => !d.hidden || d.id === channelId), [dms, channelId]);
+  useEffect(() => {
+    unreadDmRef.current = (id) => dms.some((d) => d.id === id && d.unread > 0);
+  });
 
   /** Bring a hidden conversation back, for the account. */
   const showDm = (id: string) => {
@@ -2133,7 +2125,7 @@ function AppShell() {
       void getDirectMessages(space)
         .then((fresh) => {
           if (liveRef.current.ws !== space) return;
-          setDms(returningDms(fresh).map((d) => (d.userId && presence[d.userId] ? { ...d, presence: presence[d.userId] } : d)));
+          setDms(fresh.map((d) => (d.userId && presence[d.userId] ? { ...d, presence: presence[d.userId] } : d)));
         })
         .catch(() => {});
       void reloadSpaceCounters();

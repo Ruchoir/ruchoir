@@ -544,7 +544,7 @@ usage with the design-system oxlint config.
   to the server's closed list (`apps/api/src/preferences/document.rs`).
 - **Hidden direct conversations are the account's** (`DirectMessage.hidden`, `setDmHidden`,
   `dm.hidden`): the server clears the flag for everyone in it on a new message, and the sidebar keeps
-  the one being read. One with something unread shows, and is unhidden (`returningDms`). Hiding is
+  the one being read. Hiding is
   offered only where the instance lists `account_preferences`; picking a hidden conversation again in
   "new message" unhides it. A browser's old `hiddenDms` are sent up, then forgotten
   (`peekLegacyHiddenDms` / `clearLegacyHiddenDms`).

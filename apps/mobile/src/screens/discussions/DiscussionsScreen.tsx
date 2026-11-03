@@ -101,13 +101,12 @@ export function DiscussionsScreen() {
   });
 
   // A hidden conversation is out of the list (hidden here or on another device), unless it is the
-  // one open beside it or has something unread; a new message brings it back, the server having
-  // cleared it.
+  // one open beside it; a new message brings it back, the server having cleared it.
   const openId = beside?.conversationId;
   const items = useMemo(
     () =>
       conversations.data
-        ? withLivePresence(listConversations(conversations.data.filter((item) => !item.hidden || item.id === openId || item.unread > 0), filter, query), presence)
+        ? withLivePresence(listConversations(conversations.data.filter((item) => !item.hidden || item.id === openId), filter, query), presence)
         : [],
     [conversations.data, filter, query, presence, openId],
   );
