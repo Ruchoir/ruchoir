@@ -59,9 +59,19 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
   `tsconfig.json` excludes `**/*.test.ts` and the i18n audit skips them.
 
 Permission gates in the shell: `canBrowseSpace` (not a guest) hides the space-wide entries (files,
-new channel), and `canAdministerSpace` (owner or admin) hides the space settings and the invitation.
+new channel). The administration's doors come from `spaceGates(role, rightsOf(space))`
+(`features/app/spaceGates.ts`), each on the permission the API checks behind it: the settings
+entry, the invitation (`members.invite`), the arrival channel and the channel order
+(`space.settings`), deleting a channel (`channels.delete`). A custom role that manages people
+reaches the Members tab without being an administrator, so never gate these on `role` again.
 Keep an entry on the same rung as the endpoint behind it: a menu item that can only end in a `403`
 reads as a permission the person has, which is exactly what it is not.
+
+The roles screens (`features/settings/`): `rolesLogic.ts` and `auditLogic.ts` decide, the
+components draw. A member's management is one component, `MemberManagement` (`MemberAccess.tsx`),
+drawn by the Members tab's dialog and by the profile's "Gestion" tab, so both offer and refuse the
+same things. A permission's plain sentence lives in `permissionText.ts`, keyed by its published
+name.
 
 Lint gotcha: `react-hooks/purity` reports an error on a line that was already there (typically a
 `Date.now()` inside an event handler) when that handler calls a helper declared **after** it in the
