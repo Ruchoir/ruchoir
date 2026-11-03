@@ -52,7 +52,11 @@ pub async fn file_window<R: Runtime>(
         Ok(_) => Ok(()),
         // A second call for the same address won the race: show that window.
         Err(_) => match app.get_webview_window(&label) {
-            Some(window) => window.set_focus().map_err(|_| "failed".to_owned()),
+            Some(window) => {
+                let _ = window.show();
+                let _ = window.unminimize();
+                window.set_focus().map_err(|_| "failed".to_owned())
+            }
             None => Err("failed".to_owned()),
         },
     }
