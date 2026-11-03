@@ -493,3 +493,681 @@ async fn the_loader_reads_groups_and_carriers() {
     let (groups, role_groups) = &people[&fx.guest];
     assert!(groups.is_empty() && role_groups.is_empty());
 }
+
+// ---- The engine over the new targets (Task 2) ----
+
+use crate::permissions::catalogue::Permission;
+use crate::permissions::check::{self, Resource};
+
+use super::permissions_tests::{join_as, reserve};
+
+/// A rule with its allow and deny lists.
+async fn grant(
+    db: &DatabaseConnection,
+    space: Uuid,
+    resource: (&str, Uuid),
+    target: (&str, Uuid),
+    allow: &[&str],
+    deny: &[&str],
+) {
+    let allow: Vec<String> = allow.iter().map(|p| (*p).to_owned()).collect();
+    let deny: Vec<String> = deny.iter().map(|p| (*p).to_owned()).collect();
+    exec(
+        db,
+        &format!(
+            "INSERT INTO permission_overrides (space_id, {}, {}, allow, deny) VALUES ($1, $2, $3, $4, $5)",
+            resource.0, target.0
+        ),
+        vec![
+            space.into(),
+            resource.1.into(),
+            target.1.into(),
+            allow.into(),
+            deny.into(),
+        ],
+    )
+    .await
+    .expect("rule");
+}
+
+async fn add_member(db: &DatabaseConnection, space: Uuid, name: &str) -> Uuid {
+    let user = make_user(db, name).await;
+    space_members::ActiveModel {
+        space_id: Set(space),
+        user_id: Set(user),
+        role: Set("member".to_owned()),
+        ..Default::default()
+    }
+    .insert(db)
+    .await
+    .expect("space member");
+    user
+}
+
+async fn system_role(db: &DatabaseConnection, space: Uuid, key: &str) -> Uuid {
+    db.query_one_raw(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM space_roles WHERE space_id = $1 AND system_key = $2",
+        [space.into(), key.into()],
+    ))
+    .await
+    .expect("query")
+    .expect("system role")
+    .try_get("", "id")
+    .expect("id")
+}
+
+async fn holds(
+    db: &DatabaseConnection,
+    space: Uuid,
+    user: Uuid,
+    resource: Resource,
+    permission: Permission,
+) -> bool {
+    check::can(db, space, user, resource, permission)
+        .await
+        .expect("check")
+}
+
+#[tokio::test]
+async fn a_group_rule_applies_to_its_members_only() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let other = add_member(&app.db, fx.space_id, "autre").await;
+    let group = make_group(&app.db, fx.space_id, "Equipe").await;
+    put_in_group(&app.db, group, fx.space_id, fx.member, false).await;
+    put_in_group(&app.db, group, fx.space_id, fx.guest, false).await;
+    let file = make_file(&app.db, fx.space_id, fx.owner, "a.txt").await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    grant(
+        &app.db,
+        fx.space_id,
+        ("file_id", file),
+        ("group_id", group),
+        &["files.public_link"],
+        &[],
+    )
+    .await;
+    grant(
+        &app.db,
+        fx.space_id,
+        ("channel_id", channel),
+        ("group_id", group),
+        &["channel.manage"],
+        &[],
+    )
+    .await;
+    let link = Permission::FilesPublicLink;
+    let manage = Permission::ChannelManage;
+    assert!(holds(&app.db, fx.space_id, fx.member, Resource::File(file), link).await);
+    assert!(!holds(&app.db, fx.space_id, other, Resource::File(file), link).await);
+    assert!(
+        holds(
+            &app.db,
+            fx.space_id,
+            fx.member,
+            Resource::Channel(channel),
+            manage
+        )
+        .await
+    );
+    assert!(
+        !holds(
+            &app.db,
+            fx.space_id,
+            other,
+            Resource::Channel(channel),
+            manage
+        )
+        .await
+    );
+    // The ceiling holds for the guest in the group.
+    join_as(&app.db, channel, fx.guest, "member").await;
+    assert!(
+        !holds(
+            &app.db,
+            fx.space_id,
+            fx.guest,
+            Resource::Channel(channel),
+            manage
+        )
+        .await
+    );
+    assert!(!holds(&app.db, fx.space_id, fx.guest, Resource::File(file), link).await);
+    // A rule for a group shows in the explanation.
+    let why = check::explain(&app.db, fx.space_id, fx.member, Resource::File(file))
+        .await
+        .expect("explain");
+    assert!(why.trace.iter().any(|step| {
+        step.permission == Permission::FilesPublicLink
+            && step.source == crate::permissions::engine::Source::Group(group)
+    }));
+    // Leaving the group takes the rule away at once.
+    exec(
+        &app.db,
+        "DELETE FROM space_group_members WHERE group_id = $1 AND user_id = $2",
+        vec![group.into(), fx.member.into()],
+    )
+    .await
+    .expect("leave");
+    assert!(!holds(&app.db, fx.space_id, fx.member, Resource::File(file), link).await);
+}
+
+#[tokio::test]
+async fn a_group_and_a_role_rule_union_their_denies_first() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let group = make_group(&app.db, fx.space_id, "Equipe").await;
+    put_in_group(&app.db, group, fx.space_id, fx.member, false).await;
+    let role = make_role(&app.db, fx.space_id, "Relecteur", 20, &["files.view"]).await;
+    assign(&app.db, fx.space_id, fx.member, role).await;
+    let file = make_file(&app.db, fx.space_id, fx.owner, "a.txt").await;
+    // The group denies editing, the role allows it: the denies of both go first.
+    grant(
+        &app.db,
+        fx.space_id,
+        ("file_id", file),
+        ("group_id", group),
+        &[],
+        &["files.edit"],
+    )
+    .await;
+    grant(
+        &app.db,
+        fx.space_id,
+        ("file_id", file),
+        ("role_id", role),
+        &["files.edit"],
+        &[],
+    )
+    .await;
+    assert!(
+        holds(
+            &app.db,
+            fx.space_id,
+            fx.member,
+            Resource::File(file),
+            Permission::FilesEdit
+        )
+        .await
+    );
+    // Alone, the group's deny takes editing from the base.
+    let other = make_file(&app.db, fx.space_id, fx.owner, "b.txt").await;
+    grant(
+        &app.db,
+        fx.space_id,
+        ("file_id", other),
+        ("group_id", group),
+        &[],
+        &["files.edit"],
+    )
+    .await;
+    assert!(
+        !holds(
+            &app.db,
+            fx.space_id,
+            fx.member,
+            Resource::File(other),
+            Permission::FilesEdit
+        )
+        .await
+    );
+}
+
+#[tokio::test]
+async fn an_audience_rule_needs_the_channel_view() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let other = add_member(&app.db, fx.space_id, "autre").await;
+    let private = make_channel(&app.db, fx.space_id, "secret", "private").await;
+    join_as(&app.db, private, fx.member, "member").await;
+    let file = make_file(&app.db, fx.space_id, fx.owner, "a.txt").await;
+    grant(
+        &app.db,
+        fx.space_id,
+        ("file_id", file),
+        ("audience_channel_id", private),
+        &["files.public_link"],
+        &[],
+    )
+    .await;
+    let link = Permission::FilesPublicLink;
+    let asks = |who: Uuid| {
+        let db = &app.db;
+        let space = fx.space_id;
+        async move { holds(db, space, who, Resource::File(file), link).await }
+    };
+    assert!(asks(fx.member).await, "a reader of the channel");
+    assert!(
+        !asks(other).await,
+        "a member who cannot view the private channel"
+    );
+    // Many files at once agree with one.
+    let many = check::files_effective(&app.db, fx.space_id, fx.member, &[file])
+        .await
+        .expect("many");
+    assert!(many[&file].contains(link));
+    let many = check::files_effective(&app.db, fx.space_id, other, &[file])
+        .await
+        .expect("many");
+    assert!(!many[&file].contains(link));
+    // Leaving the channel takes it away at once.
+    exec(
+        &app.db,
+        "DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2",
+        vec![private.into(), fx.member.into()],
+    )
+    .await
+    .expect("leave");
+    assert!(!asks(fx.member).await);
+    // A public channel is read by every member.
+    let public = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let shared = make_file(&app.db, fx.space_id, fx.owner, "b.txt").await;
+    grant(
+        &app.db,
+        fx.space_id,
+        ("file_id", shared),
+        ("audience_channel_id", public),
+        &["files.public_link"],
+        &[],
+    )
+    .await;
+    assert!(holds(&app.db, fx.space_id, other, Resource::File(shared), link).await);
+    // A guest is never lifted above the ceiling by it.
+    join_as(&app.db, public, fx.guest, "member").await;
+    assert!(!holds(&app.db, fx.space_id, fx.guest, Resource::File(shared), link).await);
+}
+
+#[tokio::test]
+async fn an_audience_rule_never_loads_file_rules_of_the_channel() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let file = make_file(&app.db, fx.space_id, fx.owner, "a.txt").await;
+    let mut audiences = Vec::new();
+    for n in 0..3 {
+        let channel = make_channel(&app.db, fx.space_id, &format!("lecteurs-{n}"), "public").await;
+        // File rules of the audience's own conversation files must not be read for it.
+        let attached = make_file(&app.db, fx.space_id, fx.owner, &format!("c{n}.txt")).await;
+        grant(
+            &app.db,
+            fx.space_id,
+            ("file_id", attached),
+            ("user_id", fx.member),
+            &["files.manage"],
+            &[],
+        )
+        .await;
+        audiences.push(channel);
+    }
+    let db = app.db.clone();
+    let queries = || {
+        let before = crate::permissions::load::queries_issued(fx.space_id);
+        let db = db.clone();
+        let space = fx.space_id;
+        let user = fx.member;
+        async move {
+            check::files_effective(&db, space, user, &[file])
+                .await
+                .expect("effective");
+            crate::permissions::load::queries_issued(space) - before
+        }
+    };
+    let none = queries().await;
+    grant(
+        &app.db,
+        fx.space_id,
+        ("file_id", file),
+        ("audience_channel_id", audiences[0]),
+        &["files.view"],
+        &[],
+    )
+    .await;
+    let one = queries().await;
+    for channel in &audiences[1..] {
+        grant(
+            &app.db,
+            fx.space_id,
+            ("file_id", file),
+            ("audience_channel_id", *channel),
+            &["files.view"],
+            &[],
+        )
+        .await;
+    }
+    let three = queries().await;
+    assert_eq!(one, none + 3, "channels, their rules, the memberships");
+    assert_eq!(three, one, "the count does not grow with the audiences");
+}
+
+/// A private channel, and one person outside it (not joined).
+async fn locked_room(db: &DatabaseConnection, fx: &super::permissions_tests::Ladder) -> Uuid {
+    make_channel(
+        db,
+        fx.space_id,
+        &format!("prive-{}", Uuid::new_v4().simple()),
+        "private",
+    )
+    .await
+}
+
+#[tokio::test]
+async fn the_private_lock_is_lifted_only_by_a_group_person_or_custom_role() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let view = Permission::ChannelView;
+    let space = fx.space_id;
+
+    let closed = locked_room(&app.db, &fx).await;
+    assert!(!holds(&app.db, space, fx.member, Resource::Channel(closed), view).await);
+
+    // A group.
+    let group = make_group(&app.db, space, "Equipe").await;
+    put_in_group(&app.db, group, space, fx.member, false).await;
+    let by_group = locked_room(&app.db, &fx).await;
+    grant(
+        &app.db,
+        space,
+        ("channel_id", by_group),
+        ("group_id", group),
+        &["channel.view"],
+        &[],
+    )
+    .await;
+    assert!(holds(&app.db, space, fx.member, Resource::Channel(by_group), view).await);
+
+    // A person.
+    let by_person = locked_room(&app.db, &fx).await;
+    grant(
+        &app.db,
+        space,
+        ("channel_id", by_person),
+        ("user_id", fx.member),
+        &["channel.view"],
+        &[],
+    )
+    .await;
+    assert!(
+        holds(
+            &app.db,
+            space,
+            fx.member,
+            Resource::Channel(by_person),
+            view
+        )
+        .await
+    );
+
+    // A custom role.
+    let role = make_role(&app.db, space, "Invite", 20, &["files.view"]).await;
+    assign(&app.db, space, fx.member, role).await;
+    let by_role = locked_room(&app.db, &fx).await;
+    grant(
+        &app.db,
+        space,
+        ("channel_id", by_role),
+        ("role_id", role),
+        &["channel.view"],
+        &[],
+    )
+    .await;
+    assert!(holds(&app.db, space, fx.member, Resource::Channel(by_role), view).await);
+
+    // Not the Administrator role, not `@members`.
+    let administrator = system_role(&app.db, space, "administrator").await;
+    let members = system_role(&app.db, space, "members").await;
+    let by_admin = locked_room(&app.db, &fx).await;
+    grant(
+        &app.db,
+        space,
+        ("channel_id", by_admin),
+        ("role_id", administrator),
+        &["channel.view"],
+        &[],
+    )
+    .await;
+    assert!(!holds(&app.db, space, fx.admin, Resource::Channel(by_admin), view).await);
+    let by_members = locked_room(&app.db, &fx).await;
+    grant(
+        &app.db,
+        space,
+        ("channel_id", by_members),
+        ("role_id", members),
+        &["channel.view"],
+        &[],
+    )
+    .await;
+    assert!(
+        !holds(
+            &app.db,
+            space,
+            fx.member,
+            Resource::Channel(by_members),
+            view
+        )
+        .await
+    );
+    // The rooms the group, the person and the role did not name stay closed to them.
+    assert!(!holds(&app.db, space, fx.member, Resource::Channel(closed), view).await);
+    // An audience rule cannot sit on a channel at all (the schema forbids it).
+    assert!(rule(
+        &app.db,
+        space,
+        ("channel_id", closed),
+        &[("audience_channel_id", by_group)]
+    )
+    .await
+    .is_err());
+}
+
+#[tokio::test]
+async fn a_deny_after_the_allow_keeps_the_lock() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let space = fx.space_id;
+    let group = make_group(&app.db, space, "Equipe").await;
+    put_in_group(&app.db, group, space, fx.member, false).await;
+    let room = locked_room(&app.db, &fx).await;
+    grant(
+        &app.db,
+        space,
+        ("channel_id", room),
+        ("group_id", group),
+        &["channel.view"],
+        &[],
+    )
+    .await;
+    assert!(
+        holds(
+            &app.db,
+            space,
+            fx.member,
+            Resource::Channel(room),
+            Permission::ChannelView
+        )
+        .await
+    );
+    grant(
+        &app.db,
+        space,
+        ("channel_id", room),
+        ("user_id", fx.member),
+        &[],
+        &["channel.view"],
+    )
+    .await;
+    assert!(
+        !holds(
+            &app.db,
+            space,
+            fx.member,
+            Resource::Channel(room),
+            Permission::ChannelView
+        )
+        .await
+    );
+}
+
+#[tokio::test]
+async fn a_reservation_never_lifts_the_private_lock() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let room = locked_room(&app.db, &fx).await;
+    reserve(&app.db, room, &["admin"]).await;
+    let view = Permission::ChannelView;
+    assert!(
+        !holds(
+            &app.db,
+            fx.space_id,
+            fx.admin,
+            Resource::Channel(room),
+            view
+        )
+        .await
+    );
+    join_as(&app.db, room, fx.admin, "member").await;
+    assert!(
+        holds(
+            &app.db,
+            fx.space_id,
+            fx.admin,
+            Resource::Channel(room),
+            view
+        )
+        .await
+    );
+}
+
+#[tokio::test]
+async fn an_allow_lists_the_channel_and_join_works() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let space = fx.space_id;
+    let group = make_group(&app.db, space, "Equipe").await;
+    put_in_group(&app.db, group, space, fx.member, false).await;
+    let room = locked_room(&app.db, &fx).await;
+    let cookie = app.cookie_for(fx.member).await;
+    let listed = |cookie: String| {
+        let app = &app;
+        async move {
+            let response = app
+                .req(
+                    reqwest::Method::GET,
+                    &format!("/api/v1/spaces/{space}/channels"),
+                    &cookie,
+                )
+                .send()
+                .await
+                .expect("list");
+            assert_eq!(response.status(), 200);
+            let body: Value = response.json().await.expect("json");
+            body.as_array()
+                .map(|channels| channels.iter().any(|c| c["id"] == room.to_string()))
+                .unwrap_or(false)
+        }
+    };
+    assert!(!listed(cookie.clone()).await);
+    let refused = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/channels/{room}/membership"),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("join");
+    assert_eq!(refused.status(), 403);
+
+    grant(
+        &app.db,
+        space,
+        ("channel_id", room),
+        ("group_id", group),
+        &["channel.view"],
+        &[],
+    )
+    .await;
+    assert!(listed(cookie.clone()).await, "the sidebar lists it");
+    let joined = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/channels/{room}/membership"),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("join");
+    assert_eq!(joined.status(), 204);
+    assert_eq!(
+        count(
+            &app.db,
+            "SELECT count(*) AS n FROM channel_members WHERE channel_id = $1 AND user_id = $2",
+            vec![room.into(), fx.member.into()]
+        )
+        .await,
+        1
+    );
+    assert_eq!(
+        count(
+            &app.db,
+            "SELECT count(*) AS n FROM notifications WHERE conversation_id = $1",
+            vec![room.into()]
+        )
+        .await,
+        0,
+        "joining notifies nobody"
+    );
+}
+
+#[tokio::test]
+async fn a_guest_stays_under_the_ceiling_through_every_target() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let space = fx.space_id;
+    let group = make_group(&app.db, space, "Equipe").await;
+    put_in_group(&app.db, group, space, fx.guest, false).await;
+    let role = make_role(&app.db, space, "Tout", 20, &["files.view"]).await;
+    assign(&app.db, space, fx.guest, role).await;
+    let readers = make_channel(&app.db, space, "lecteurs", "public").await;
+    join_as(&app.db, readers, fx.guest, "member").await;
+    let channel = make_channel(&app.db, space, "salon", "public").await;
+    join_as(&app.db, channel, fx.guest, "member").await;
+    let file = make_file(&app.db, space, fx.owner, "a.txt").await;
+    let every: Vec<&str> = Permission::ALL.iter().map(|p| p.name()).collect();
+
+    for (column, id) in [
+        ("group_id", group),
+        ("user_id", fx.guest),
+        ("role_id", role),
+    ] {
+        grant(
+            &app.db,
+            space,
+            ("channel_id", channel),
+            (column, id),
+            &every,
+            &[],
+        )
+        .await;
+        grant(&app.db, space, ("file_id", file), (column, id), &every, &[]).await;
+    }
+    grant(
+        &app.db,
+        space,
+        ("file_id", file),
+        ("audience_channel_id", readers),
+        &every,
+        &[],
+    )
+    .await;
+
+    let ceiling = crate::permissions::system_roles::GUEST_CEILING;
+    let on_channel = check::effective(&app.db, space, fx.guest, Resource::Channel(channel))
+        .await
+        .expect("channel");
+    let on_file = check::effective(&app.db, space, fx.guest, Resource::File(file))
+        .await
+        .expect("file");
+    assert_eq!(on_channel.intersect(ceiling), Default::default());
+    assert_eq!(on_file.intersect(ceiling), Default::default());
+    assert!(on_channel.contains(Permission::MessageSend));
+}

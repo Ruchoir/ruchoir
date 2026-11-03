@@ -44,16 +44,15 @@ pub(super) struct Person {
     pub subject: Subject,
     /// The base role their standing implies (`@members` or `@guests`), which rules may target.
     pub base_role: Option<Uuid>,
-    // The engine reads these from the next task on.
     /// The groups they belong to.
-    #[allow(dead_code)]
     pub groups: Vec<Uuid>,
     /// Each role they hold through a group, with the groups of theirs that carry it.
     #[allow(dead_code)]
     pub role_groups: HashMap<Uuid, Vec<Uuid>>,
     /// The channels whose readers they are (filled by the caller that needs it, empty at load).
-    #[allow(dead_code)]
     pub readable_audiences: HashSet<Uuid>,
+    /// The roles they hold that are not system roles: the ones whose allow may open a private channel.
+    pub custom_roles: HashSet<Uuid>,
     /// The ceiling of a preview (none until a preview sets it).
     #[allow(dead_code)]
     pub ceiling: Option<Subject>,
@@ -67,9 +66,7 @@ pub(super) struct StoredRule {
     pub calendar_id: Option<Uuid>,
     pub role_id: Option<Uuid>,
     pub user_id: Option<Uuid>,
-    #[allow(dead_code)]
     pub group_id: Option<Uuid>,
-    #[allow(dead_code)]
     pub audience_channel_id: Option<Uuid>,
     pub allow: PermissionSet,
     pub deny: PermissionSet,
@@ -85,24 +82,50 @@ impl Person {
     ) -> Vec<Rule> {
         let mut rules: Vec<Rule> = first.into_iter().collect();
         for rule in stored {
-            let target = match (rule.role_id, rule.user_id) {
-                (Some(role), _) if Some(role) == self.base_role => TargetRef::BaseRole,
-                (Some(role), _) if self.subject.roles.iter().any(|(held, _)| *held == role) => {
+            let target = if let Some(role) = rule.role_id {
+                if Some(role) == self.base_role {
+                    TargetRef::BaseRole
+                } else if self.subject.roles.iter().any(|(held, _)| *held == role) {
                     TargetRef::Role(role)
+                } else {
+                    continue;
                 }
-                (None, Some(user)) if user == self.user_id => TargetRef::User,
-                _ => continue,
+            } else if let Some(user) = rule.user_id {
+                if user != self.user_id {
+                    continue;
+                }
+                TargetRef::User
+            } else if let Some(group) = rule.group_id {
+                if !self.groups.contains(&group) {
+                    continue;
+                }
+                TargetRef::Group(group)
+            } else if let Some(channel) = rule.audience_channel_id {
+                if !self.readable_audiences.contains(&channel) {
+                    continue;
+                }
+                TargetRef::Audience(channel)
+            } else {
+                continue;
             };
             let source = match target {
                 TargetRef::BaseRole => Source::BaseRole,
                 TargetRef::Role(role) => Source::Role(role),
                 TargetRef::User => Source::User,
+                TargetRef::Group(group) => Source::Group(group),
+                TargetRef::Audience(channel) => Source::Audience(channel),
+            };
+            let lifts_lock = match target {
+                TargetRef::Role(role) => self.custom_roles.contains(&role),
+                TargetRef::User | TargetRef::Group(_) => true,
+                TargetRef::BaseRole | TargetRef::Audience(_) => false,
             };
             rules.push(Rule {
                 target,
                 allow: rule.allow,
                 deny: rule.deny,
                 source,
+                lifts_lock,
             });
         }
         rules
@@ -264,6 +287,7 @@ async fn people_where<C: ConnectionTrait>(
                 base_role: None,
                 groups: Vec::new(),
                 role_groups: HashMap::new(),
+                custom_roles: HashSet::new(),
                 readable_audiences: HashSet::new(),
                 ceiling: None,
             });
@@ -276,7 +300,12 @@ async fn people_where<C: ConnectionTrait>(
                     person.base_role = Some(role_id);
                     person.subject.base = permissions;
                 }
-                _ => person.subject.roles.push((role_id, permissions)),
+                key => {
+                    if key.is_none() {
+                        person.custom_roles.insert(role_id);
+                    }
+                    person.subject.roles.push((role_id, permissions));
+                }
             }
         }
         read_people(space_id, people.len());
@@ -646,6 +675,7 @@ pub(super) fn channel_level(
         allow: CHANNEL_MODERATION,
         deny: PermissionSet::EMPTY,
         source: Source::ChannelRole(role),
+        lifts_lock: false,
     });
     let level = Level {
         kind: LevelKind::Channel,

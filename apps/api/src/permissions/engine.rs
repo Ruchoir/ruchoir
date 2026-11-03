@@ -13,9 +13,13 @@
 //! 4. Each level of the chain, from the top down to the resource: rules on the base role (deny,
 //!    then allow), on the person's roles (union of denies, then union of allows), on the person
 //!    (deny, then allow). The level closest to the resource comes last, so it wins.
-//! 5. A private channel nobody joined stays closed. In lot 1 only joining opens one, exactly as
-//!    before the engine: a converted reservation is an allow on the Administrator role, and it must
-//!    not let an administrator read a private room they never entered.
+//!    Groups and the readers of a channel sit beside the roles: all their denies, then all their
+//!    allows.
+//! 5. A private channel nobody joined stays closed. Joining opens one, and so does an allow of
+//!    `channel.view` on the channel from a group, a person or a custom role (`Rule::lifts_lock`),
+//!    unless a later rule takes the view away again. A converted reservation is an allow on the
+//!    Administrator role, and it must not let an administrator read a private room they never
+//!    entered: the base roles and the Administrator role never lift the lock.
 //! 6. The guest ceiling again: no rule makes a guest a moderator.
 //! 7. A file's author manages it (and, unless a guest, may publish a link to it); an archived
 //!    channel takes writing away.
@@ -44,6 +48,10 @@ pub enum TargetRef {
     Role(Uuid),
     /// The person themselves.
     User,
+    /// A group the person belongs to.
+    Group(Uuid),
+    /// The readers of a channel, the person among them (files and folders only).
+    Audience(Uuid),
 }
 
 /// What a trace line names as the reason for a change.
@@ -54,6 +62,8 @@ pub enum Source {
     /// The person's role inside a channel (`owner`, `admin`).
     ChannelRole(&'static str),
     User,
+    Group(Uuid),
+    Audience(Uuid),
     /// A fact rather than a rule: `owner`, `guest`, `joined`, `private`, `author`, `archived`.
     Implicit(&'static str),
 }
@@ -65,6 +75,10 @@ pub struct Rule {
     pub allow: PermissionSet,
     pub deny: PermissionSet,
     pub source: Source,
+    /// Whether an allow of `channel.view` from this rule opens a private channel nobody joined:
+    /// true for a group, a person and a custom role, false for the base roles, the Administrator
+    /// role, a channel role and the readers of a channel.
+    pub lifts_lock: bool,
 }
 
 /// What kind of resource a level of the chain is.
@@ -219,29 +233,47 @@ pub fn resolve(subject: &Subject, chain: &[Level], facts: Facts, explain: bool) 
         }
     }
 
+    // An allow of the view that opens a private channel, until a later rule takes it away.
+    let mut opened = false;
     for level in chain {
         let at = Some((level.kind, level.id));
         let of =
             |wanted: fn(&TargetRef) -> bool| level.rules.iter().filter(move |r| wanted(&r.target));
+        // Whether a rule's allow of the view opens a private channel, here on the channel itself.
+        let lifts = |rule: &Rule| {
+            rule.lifts_lock
+                && level.kind == LevelKind::Channel
+                && rule.allow.contains(Permission::ChannelView)
+        };
         for rule in of(|t| *t == TargetRef::BaseRole) {
             run.take(rule.deny, rule.source, at);
             run.add(rule.allow, rule.source, at);
+            opened = (opened && !rule.deny.contains(Permission::ChannelView)) || lifts(rule);
         }
-        let roles: Vec<&Rule> = of(|t| matches!(t, TargetRef::Role(_))).collect();
-        for rule in &roles {
+        let shared: Vec<&Rule> = of(|t| {
+            matches!(
+                t,
+                TargetRef::Role(_) | TargetRef::Group(_) | TargetRef::Audience(_)
+            )
+        })
+        .collect();
+        for rule in &shared {
             run.take(rule.deny, rule.source, at);
+            opened &= !rule.deny.contains(Permission::ChannelView);
         }
-        for rule in &roles {
+        for rule in &shared {
             run.add(rule.allow, rule.source, at);
+            opened |= lifts(rule);
         }
         for rule in of(|t| *t == TargetRef::User) {
             run.take(rule.deny, rule.source, at);
             run.add(rule.allow, rule.source, at);
+            opened = (opened && !rule.deny.contains(Permission::ChannelView)) || lifts(rule);
         }
     }
 
     if let Some(channel) = channel {
-        if facts.private_channel && !facts.joined {
+        if facts.private_channel && !facts.joined && !opened {
             run.take(
                 CHANNEL_VIEW,
                 Source::Implicit("private"),
@@ -306,12 +338,30 @@ mod tests {
             TargetRef::BaseRole => Source::BaseRole,
             TargetRef::Role(id) => Source::Role(id),
             TargetRef::User => Source::User,
+            TargetRef::Group(id) => Source::Group(id),
+            TargetRef::Audience(id) => Source::Audience(id),
         };
         Rule {
             target,
             allow: set(allow),
             deny: set(deny),
             source,
+            lifts_lock: false,
+        }
+    }
+
+    /// A rule as the loader marks it: a group, a person or a custom role lifts the private lock.
+    fn lifting(target: TargetRef, allow: &[Permission], deny: &[Permission]) -> Rule {
+        Rule {
+            lifts_lock: true,
+            ..rule(target, allow, deny)
+        }
+    }
+
+    fn private() -> Facts {
+        Facts {
+            private_channel: true,
+            ..Facts::default()
         }
     }
 
@@ -631,5 +681,128 @@ mod tests {
         let decision = resolve(&subject, &chain, joined(), false);
         assert!(decision.trace.is_empty());
         assert!(!resolve(&subject, &chain, joined(), true).trace.is_empty());
+    }
+
+    #[test]
+    fn a_group_and_a_role_rule_union_their_denies_first() {
+        let role = Uuid::new_v4();
+        let group = Uuid::new_v4();
+        let mut subject = member(&[ChannelView, MessageSend]);
+        subject.roles.push((role, PermissionSet::EMPTY));
+        // One side allows, the other denies: the deny comes first whatever the side, so the allow
+        // stands, as between two roles.
+        let chain = channel(vec![
+            rule(TargetRef::Role(role), &[MessageSend], &[]),
+            rule(TargetRef::Group(group), &[], &[MessageSend]),
+        ]);
+        assert!(granted(&subject, &chain, Facts::default()).contains(MessageSend));
+        // A group deny beats the base alone.
+        let denied = channel(vec![rule(TargetRef::Group(group), &[], &[MessageSend])]);
+        assert!(!granted(&subject, &denied, Facts::default()).contains(MessageSend));
+        // A personal rule still comes after the group.
+        let undone = channel(vec![
+            rule(TargetRef::Group(group), &[], &[MessageSend]),
+            rule(TargetRef::User, &[MessageSend], &[]),
+        ]);
+        assert!(granted(&subject, &undone, Facts::default()).contains(MessageSend));
+    }
+
+    #[test]
+    fn an_audience_rule_adds_up_with_groups_and_names_its_source() {
+        let audience = Uuid::new_v4();
+        let subject = member(&[FilesView]);
+        let file = vec![level(
+            LevelKind::File,
+            vec![rule(TargetRef::Audience(audience), &[FilesEdit], &[])],
+        )];
+        let decision = resolve(&subject, &file, Facts::default(), true);
+        assert!(decision.granted.contains(FilesEdit));
+        assert!(decision.trace.iter().any(|step| {
+            step.permission == FilesEdit && step.source == Source::Audience(audience)
+        }));
+    }
+
+    #[test]
+    fn a_group_person_or_custom_role_allow_lifts_the_private_lock() {
+        let group = Uuid::new_v4();
+        let role = Uuid::new_v4();
+        let mut subject = member(&[ChannelView]);
+        subject.roles.push((role, PermissionSet::EMPTY));
+        for lifting_rule in [
+            lifting(TargetRef::Group(group), &[ChannelView], &[]),
+            lifting(TargetRef::User, &[ChannelView], &[]),
+            lifting(TargetRef::Role(role), &[ChannelView], &[]),
+        ] {
+            let chain = channel(vec![lifting_rule]);
+            assert!(granted(&subject, &chain, private()).contains(ChannelView));
+        }
+        // The Administrator role, a base role, a channel role and an audience never do.
+        for closed in [
+            rule(TargetRef::Role(role), &[ChannelView], &[]),
+            rule(TargetRef::BaseRole, &[ChannelView], &[]),
+            rule(TargetRef::Audience(group), &[ChannelView], &[]),
+        ] {
+            let chain = channel(vec![closed]);
+            assert!(!granted(&subject, &chain, private()).contains(ChannelView));
+        }
+    }
+
+    #[test]
+    fn a_deny_after_the_allow_keeps_the_lock() {
+        let group = Uuid::new_v4();
+        let subject = member(&[ChannelView]);
+        // A personal deny comes after the group's allow.
+        let chain = channel(vec![
+            lifting(TargetRef::Group(group), &[ChannelView], &[]),
+            rule(TargetRef::User, &[], &[ChannelView]),
+        ]);
+        assert!(!granted(&subject, &chain, private()).contains(ChannelView));
+        // A deny of another group at the same level goes first and does not undo the allow.
+        let other = Uuid::new_v4();
+        let same = channel(vec![
+            lifting(TargetRef::Group(group), &[ChannelView], &[]),
+            rule(TargetRef::Group(other), &[], &[ChannelView]),
+        ]);
+        assert!(granted(&subject, &same, private()).contains(ChannelView));
+        // A deny at a level below the channel (a conversation's file) undoes it.
+        let below = vec![
+            level(
+                LevelKind::Channel,
+                vec![lifting(TargetRef::Group(group), &[ChannelView], &[])],
+            ),
+            level(
+                LevelKind::File,
+                vec![rule(TargetRef::User, &[], &[ChannelView])],
+            ),
+        ];
+        assert!(!granted(&subject, &below, private()).contains(ChannelView));
+    }
+
+    #[test]
+    fn a_guest_stays_under_the_ceiling_through_every_target() {
+        let group = Uuid::new_v4();
+        let role = Uuid::new_v4();
+        let audience = Uuid::new_v4();
+        let mut subject = guest(&[ChannelView, MessageSend]);
+        subject.roles.push((role, PermissionSet::EMPTY));
+        for target in [
+            TargetRef::Group(group),
+            TargetRef::Role(role),
+            TargetRef::User,
+            TargetRef::Audience(audience),
+        ] {
+            for permission in Permission::ALL {
+                let chain = channel(vec![lifting(target, &[permission], &[])]);
+                for facts in [Facts::default(), private(), joined()] {
+                    let got = granted(&subject, &chain, facts);
+                    assert_eq!(
+                        got.intersect(GUEST_CEILING),
+                        PermissionSet::EMPTY,
+                        "{target:?} gave a guest {}",
+                        permission.name()
+                    );
+                }
+            }
+        }
     }
 }

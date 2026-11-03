@@ -71,6 +71,55 @@ pub async fn explain(
     decide(db, space_id, user_id, resource, true).await
 }
 
+/// The decision engine over one person and the levels of a resource. Every call goes through here
+/// so that what applies to somebody beyond their own rules (a preview's ceiling) lives in one place.
+pub(super) fn resolved(person: &Person, levels: &[Level], facts: Facts, explain: bool) -> Decision {
+    resolve(&person.subject, levels, facts, explain)
+}
+
+/// `person` with the channels whose readers they are, among the audiences the `stored` rules name:
+/// those channels, their rules and the person's memberships are read (three queries, none when no
+/// rule names an audience) and each channel's own decision settles whether they read it. A channel
+/// decision never reads file rules and an audience cannot sit on a channel (the schema forbids it),
+/// so there is no cycle; somebody who cannot view the channel gets nothing from its rule.
+pub(super) async fn with_audiences<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    person: &Person,
+    stored: &[StoredRule],
+) -> Result<Person, DbErr> {
+    let mut named: Vec<Uuid> = stored
+        .iter()
+        .filter_map(|rule| rule.audience_channel_id)
+        .collect();
+    named.sort();
+    named.dedup();
+    let mut with = person.clone();
+    if named.is_empty() {
+        return Ok(with);
+    }
+    let channels = load::channels_of(db, space_id, &named).await?;
+    let found: Vec<Uuid> = channels.iter().map(|channel| channel.id).collect();
+    let rules = load::rules(
+        db,
+        space_id,
+        permission_overrides::Column::ChannelId,
+        &found,
+    )
+    .await?;
+    let memberships = load::memberships(db, space_id, &found, Some(person.user_id)).await?;
+    with.readable_audiences = channels
+        .iter()
+        .filter(|channel| {
+            channel_decision(person, channel, &rules, &memberships, false)
+                .granted
+                .contains(Permission::ChannelView)
+        })
+        .map(|channel| channel.id)
+        .collect();
+    Ok(with)
+}
+
 /// [`effective`] on many channels of a space at once, in a fixed number of queries. A channel that
 /// is not in the space is left out of the map.
 pub async fn effective_many(
@@ -123,7 +172,7 @@ pub async fn holders(
     match resource {
         Resource::Space => {
             for person in people.values() {
-                if resolve(&person.subject, &[], Facts::default(), false)
+                if resolved(person, &[], Facts::default(), false)
                     .granted
                     .contains(permission)
                 {
@@ -186,6 +235,8 @@ pub async fn files_effective(
     every.sort();
     every.dedup();
     let stored = load::rules(db, space_id, permission_overrides::Column::FileId, &every).await?;
+    let audiences = with_audiences(db, space_id, person, &stored).await?;
+    let person = &audiences;
     let levels_of = |chain: &[load::FileRow]| -> Vec<Level> {
         chain
             .iter()
@@ -221,7 +272,7 @@ pub async fn files_effective(
             author: file.owner_id == Some(user_id),
             ..Facts::default()
         };
-        let granted = resolve(&person.subject, &levels_of(&chains[id]), facts, false)
+        let granted = resolved(person, &levels_of(&chains[id]), facts, false)
             .granted
             .intersect(files_only);
         if granted.contains(Permission::FilesView) {
@@ -306,13 +357,13 @@ pub async fn files_effective(
             }
         };
         levels.extend(levels_of(chain));
-        let resolved = resolve(&person.subject, &levels, facts, false).granted;
-        let view = view.unwrap_or_else(|| resolved.contains(Permission::ChannelView));
+        let held = resolved(person, &levels, facts, false).granted;
+        let view = view.unwrap_or_else(|| held.contains(Permission::ChannelView));
         if !view {
             alone.push(id);
             continue;
         }
-        let mut granted = resolved.intersect(files_only);
+        let mut granted = held.intersect(files_only);
         granted.insert(Permission::FilesView);
         granted.remove(Permission::FilesPublicLink);
         out.insert(id, granted);
@@ -370,7 +421,7 @@ pub async fn space_rights<C: ConnectionTrait>(
     Ok(load::people(db, space_id, Some(user_id))
         .await?
         .get(&user_id)
-        .map(|person| resolve(&person.subject, &[], Facts::default(), false).granted)
+        .map(|person| resolved(person, &[], Facts::default(), false).granted)
         .unwrap_or_default())
 }
 
@@ -589,7 +640,7 @@ async fn decide(
     let person = people.get(&user_id);
     match resource {
         Resource::Space => Ok(person
-            .map(|person| resolve(&person.subject, &[], Facts::default(), explain))
+            .map(|person| resolved(person, &[], Facts::default(), explain))
             .unwrap_or_default()),
         Resource::Channel(channel_id) => {
             let Some(person) = person else {
@@ -655,12 +706,7 @@ fn channel_decision(
     explain: bool,
 ) -> Decision {
     let (level, facts) = load::channel_level(person, channel, rules, memberships);
-    let mut decision = resolve(
-        &person.subject,
-        std::slice::from_ref(&level),
-        facts,
-        explain,
-    );
+    let mut decision = resolved(person, std::slice::from_ref(&level), facts, explain);
     decision.granted = decision
         .granted
         .intersect(PermissionSet::of_family(Family::Channel));
@@ -683,7 +729,7 @@ fn calendar_decision(
             None,
         ),
     };
-    let mut decision = resolve(&person.subject, &[level], Facts::default(), explain);
+    let mut decision = resolved(person, &[level], Facts::default(), explain);
     decision.granted = decision
         .granted
         .intersect(PermissionSet::of_family(Family::Calendar));
@@ -768,6 +814,11 @@ async fn file_decision(
     if let Some(subject) = subject {
         let ids: Vec<Uuid> = chain.iter().map(|row| row.id).collect();
         let stored = load::rules(db, space_id, permission_overrides::Column::FileId, &ids).await?;
+        let audiences = match owner {
+            Some(person) => Some(with_audiences(db, space_id, person, &stored).await?),
+            None => None,
+        };
+        let owner = audiences.as_ref();
         let mut levels = Vec::new();
         let mut facts = Facts {
             author: file.owner_id == Some(user_id),
@@ -802,7 +853,11 @@ async fn file_decision(
                 rules,
             });
         }
-        decision = resolve(subject, &levels, facts, explain);
+        decision = match owner {
+            Some(person) => resolved(person, &levels, facts, explain),
+            // Somebody who left the space: only the participant's right, no rules.
+            None => resolve(subject, &levels, facts, explain),
+        };
         // A conversation's file is its readers', whatever the space-wide right says.
         let view = match conversation {
             Conversation::None => None,
