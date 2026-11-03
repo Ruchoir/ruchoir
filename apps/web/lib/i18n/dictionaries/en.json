@@ -1765,6 +1765,11 @@
     "goneBody": "This link is no longer valid. Start again from the Ruchoir app."
   },
   "desktop": {
+    "files": {
+      "openMenu": "Open {{name}}",
+      "openWindow": "Open in a window",
+      "openLocal": "Open with the computer’s app"
+    },
     "add": {
       "title": "Add a Ruchoir instance",
       "subtitle": "The address of your organisation’s instance, as you open it in a browser.",

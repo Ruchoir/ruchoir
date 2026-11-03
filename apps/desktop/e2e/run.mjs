@@ -453,6 +453,45 @@ async function main() {
     await sleep(1500);
     await frameShot("channel-two-attachments");
 
+    // 6d. The attachment's "open" entries: a window of its own (one per address), and the computer's app.
+    const handles = async () => (await wd("GET", `/session/${id}/window/handles`)).length;
+    const menuItem = (label) =>
+      until(`the "${label}" entry`, () =>
+        run("const el = [...document.querySelectorAll('[role=menuitem]')].find((x) => x.textContent.trim() === arguments[0]); if (el) el.click(); return !!el;", [label]),
+      );
+    const windowsBefore = await handles();
+    await clickAria(`Ouvrir ${pickedName}`);
+    await until("the open menu", () => run("return !!document.querySelector('[role=menu]');"));
+    await sleep(300);
+    await frameShot("open-menu");
+    await menuItem("Ouvrir dans une fenêtre");
+    await until("a window of its own", async () => (await handles()) === windowsBefore + 1);
+    // The same address again brings the window forward instead of opening a second one.
+    await clickAria(`Ouvrir ${pickedName}`);
+    await menuItem("Ouvrir dans une fenêtre");
+    await sleep(1500);
+    if ((await handles()) !== windowsBefore + 1) throw new Error("a second click opened a second window");
+    // Its screenshot, then back to the main window.
+    const all6 = await wd("GET", `/session/${id}/window/handles`);
+    const mainHandle = await wd("GET", `/session/${id}/window`);
+    const fileHandle = all6.find((h) => h !== mainHandle);
+    await wd("POST", `/session/${id}/window`, { handle: fileHandle });
+    await sleep(1500);
+    await frameShot("file-window");
+    await wd("POST", `/session/${id}/window`, { handle: mainHandle });
+    console.log("ok: attachment opens in a window of its own, once");
+    // The computer's app: the stand-in opener records the path the core handed it.
+    const linesBefore = existsSync(OPENED) ? readFileSync(OPENED, "utf8").trim().split("\n").length : 0;
+    await clickAria(`Ouvrir ${pickedName}`);
+    await menuItem("Ouvrir avec l\u2019application de l\u2019ordinateur");
+    const recorded = await until("the opener to be called", () => {
+      if (!existsSync(OPENED)) return null;
+      const lines = readFileSync(OPENED, "utf8").trim().split("\n");
+      return lines.length > linesBefore ? lines.at(-1) : null;
+    });
+    if (!recorded.includes(pickedName)) throw new Error(`the opener was given ${recorded}, expected the file ${pickedName}`);
+    console.log(`ok: attachment opened with the computer's app (${recorded})`);
+
     // 7. A second instance (optional): add it, sign in, both headings in the rail, one click back.
     const secondInstance = process.env.E2E_INSTANCE_2;
     if (secondInstance) {

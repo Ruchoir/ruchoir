@@ -1899,6 +1899,11 @@
     "goneBody": "Ten link jest już nieważny. Zacznij od nowa w aplikacji Ruchoir."
   },
   "desktop": {
+    "files": {
+      "openMenu": "Otwórz {{name}}",
+      "openWindow": "Otwórz w oknie",
+      "openLocal": "Otwórz w aplikacji komputera"
+    },
     "add": {
       "title": "Dodaj instancję Ruchoir",
       "subtitle": "Adres instancji Twojej organizacji, taki jak otwierasz w przeglądarce.",

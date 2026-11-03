@@ -5,6 +5,8 @@ import { IconButton } from "@/components/ds";
 import { filePreviewUrl } from "@/lib/data/api";
 import type { SpaceFile } from "@/lib/data/types";
 import { useTranslation } from "@/lib/i18n";
+import { isDesktop } from "@/lib/desktop/runtime";
+import { OpenFileEntries } from "../desktop/OpenFileEntries";
 import { formatBytes } from "@/lib/i18n/format";
 import { printUrl, type ViewerActions } from "./FileViewer";
 
@@ -161,7 +163,8 @@ export function ImageViewer({ file, images, onNavigate, onClose, onDownload, onN
           </small>
         </div>
         <div className="wc-imgv__bar">
-          <IconButton icon="printer" label={t("files.print")} onClick={() => file.id && printUrl(url)} />
+          {isDesktop ? <OpenFileEntries href={url} name={file.name} size="md" /> : null}
+          <IconButton icon="printer" label={t("files.print")} onClick={() => file.id && printUrl(url, file.name)} />
           <IconButton icon="download" label={t("message.download")} onClick={onDownload} />
           {onNewVersion ? <IconButton icon="upload" label={t("files.newVersion")} onClick={onNewVersion} /> : null}
           {onDelete ? <IconButton icon="trash-2" label={t("common.delete")} onClick={onDelete} /> : null}

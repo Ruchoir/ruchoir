@@ -6,6 +6,7 @@
  */
 import { downloadOpen, downloadSave } from "./bridge";
 import { downloadName } from "./downloadName";
+import { FILE_ERROR_EVENT } from "./files";
 
 export type DownloadRequest = { href: string; name: string; open: boolean };
 
@@ -28,6 +29,12 @@ export function catchDownloads(onError: (code: string) => void): () => void {
     const done = request.open ? downloadOpen(request.href, request.name) : downloadSave(request.href, request.name);
     void done.catch((code: unknown) => onError(typeof code === "string" ? code : "failed"));
   };
+  // A file the interface failed to open (a window, the computer's app) is told the same way.
+  const onFileError = (event: Event) => onError(String((event as CustomEvent).detail ?? "failed"));
   document.addEventListener("click", onClick, true);
-  return () => document.removeEventListener("click", onClick, true);
+  window.addEventListener(FILE_ERROR_EVENT, onFileError);
+  return () => {
+    document.removeEventListener("click", onClick, true);
+    window.removeEventListener(FILE_ERROR_EVENT, onFileError);
+  };
 }

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { IconButton, IconLink } from "@/components/ds";
 import type { InlineImage as InlineImageData } from "@/lib/data";
 import { useTranslation } from "@/lib/i18n";
+import { isDesktop } from "@/lib/desktop/runtime";
+import { OpenFileEntries } from "../desktop/OpenFileEntries";
 
 /**
  * A sample chart drawn as inline SVG. Stands in for a real uploaded image: this exploration
@@ -119,14 +121,18 @@ export function InlineImage({ image }: { image: InlineImageData }) {
               {/* Full quality in a tab, and saving the original: the lightbox shows the image
                   scaled to the viewport, which is not the same thing as having the file. */}
               {image.src ? (
-                <IconLink
-                  icon="external-link"
-                  label={t("image.openInNewTab")}
-                  variant="outlined"
-                  href={image.src}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                />
+                isDesktop ? (
+                  <OpenFileEntries href={image.src} name={image.alt} size="md" iconVariant="outlined" />
+                ) : (
+                  <IconLink
+                    icon="external-link"
+                    label={t("image.openInNewTab")}
+                    variant="outlined"
+                    href={image.src}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  />
+                )
               ) : null}
               {image.downloadUrl ? (
                 <IconLink

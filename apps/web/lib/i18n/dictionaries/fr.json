@@ -1791,6 +1791,11 @@
     "goneBody": "Ce lien n’est plus valable. Recommencez depuis l’appli Ruchoir."
   },
   "desktop": {
+    "files": {
+      "openMenu": "Ouvrir {{name}}",
+      "openWindow": "Ouvrir dans une fenêtre",
+      "openLocal": "Ouvrir avec l’application de l’ordinateur"
+    },
     "add": {
       "title": "Ajouter une instance Ruchoir",
       "subtitle": "L’adresse de l’instance de votre organisation, telle que vous l’ouvrez dans un navigateur.",
