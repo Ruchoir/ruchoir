@@ -51,7 +51,8 @@ export function permissionRow(
     // Rule 2: what the viewer does not hold, they neither give nor take away.
     locked: !ctx.viewerRights.includes(permission),
     changed: on !== ctx.role.permissions.includes(permission),
-    givenByMembers: ctx.role.systemKey !== "members" && ctx.membersBase.includes(permission),
+    // Only a role of its own says so: @members is the base itself, and a guest never holds it.
+    givenByMembers: !ctx.role.systemKey && ctx.membersBase.includes(permission),
   };
 }
 
@@ -73,19 +74,19 @@ export function orderAllowed(current: RoleLike[], wanted: string[]): boolean {
 }
 
 /** What a member's "Gestion" tab (and the Members tab's dialog) offers the viewer. */
-export type MemberAccess =
+export type MemberAccess<R extends RoleLike = RoleLike> =
   | { mode: "none" }
   | { mode: "above" }
   | { mode: "frozen" }
   | { mode: "fixed" }
-  | { mode: "roles"; choices: { role: RoleLike; checked: boolean; disabled: boolean }[] };
+  | { mode: "roles"; choices: { role: R; checked: boolean; disabled: boolean }[] };
 
-export function memberAccessFor(input: {
+export function memberAccessFor<R extends RoleLike>(input: {
   member: { userId: string; roleIds?: string[]; manageable?: boolean };
   me: string;
   edition: "community" | "enterprise" | "frozen";
-  roles: RoleLike[];
-}): MemberAccess {
+  roles: R[];
+}): MemberAccess<R> {
   if (input.member.userId === input.me) return { mode: "none" };
   if (!input.member.manageable) return { mode: "above" };
   if (input.edition === "frozen") return { mode: "frozen" };
@@ -97,4 +98,40 @@ export function memberAccessFor(input: {
       .filter((r) => r.systemKey !== "members" && r.systemKey !== "guests")
       .map((role) => ({ role, checked: held.has(role.id), disabled: !role.manageable })),
   };
+}
+
+/**
+ * The legacy roles a membership can hold, weakest first: what a community space offers, and the
+ * standing (guest or member) of anyone in a licensed one. The same order the API ranks them in,
+ * mirrored to offer only what it would accept; the API refuses the rest whatever this says.
+ */
+export const LEGACY_ROLES = ["guest", "member", "admin", "owner"];
+
+function legacyRank(role: string): number {
+  return LEGACY_ROLES.indexOf(role) + 1;
+}
+
+/**
+ * The legacy roles `mine` may give to someone holding `theirs`, or none when they may not touch that
+ * membership. Only below one's own rank, and the owner may hand the space over, which costs them the
+ * role in the same write.
+ */
+export function grantableRoles(mine: string, theirs: string): string[] {
+  if (legacyRank(theirs) >= legacyRank(mine)) return [];
+  const below = LEGACY_ROLES.filter((r) => legacyRank(r) < legacyRank(mine));
+  return mine === "owner" ? [...below, "owner"] : below;
+}
+
+/**
+ * What a row of the roles list does for the viewer: `edit` opens the editor, `fixed` is
+ * Administrator for whoever may give it (all the rights, never edited), the others say why it does
+ * not open.
+ */
+export type RoleRowState = "edit" | "fixed" | "mine" | "above" | "frozen";
+
+export function roleRowState(role: RoleLike, ctx: { myTopRoleId?: string; frozen: boolean }): RoleRowState {
+  if (role.id === ctx.myTopRoleId) return "mine";
+  if (!role.manageable) return "above";
+  if (role.systemKey === "administrator") return "fixed";
+  return ctx.frozen ? "frozen" : "edit";
 }

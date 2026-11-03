@@ -1,26 +1,30 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useRef, useState, useSyncExternalStore } from "react";
-import { Avatar, Button, Card, Field, Icon, IconButton, type IconName, Input, Select, Tag } from "@/components/ds";
-import type { Presence } from "@/components/ds";
+import { Avatar, Button, Field, Icon, type IconName, Input, Select } from "@/components/ds";
 import type { Toast } from "../app/types";
 import { clearSpaceIcon, renameSpace, setDefaultChannel, setSpaceIcon } from "@/lib/data/api";
 import type { Channel } from "@/lib/data";
+import type { Role, SpaceEdition } from "@/lib/data/types";
 import { ImageCropDialog } from "../app/ImageCropDialog";
-import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { formatDate } from "@/lib/i18n/format";
 import { BackHeading } from "../app/BackHeading";
+import { MembersSettings, type SettingsMember } from "./MembersSettings";
+import { RolesSettings } from "./RolesSettings";
 
-type NavKey = "general" | "members";
+type NavKey = "general" | "members" | "roles";
 
 /**
- * The sections, with the dictionary key of each label. The member list is administration (who is
- * here, what each may do, who gets shown the door), so it is not drawn for someone the API would
- * refuse; everyone keeps the general section, which is also where leaving the space lives.
+ * The sections, with the dictionary key of each label. The member list and the roles are
+ * administration (who is here, what each may do, who gets shown the door), so they are not drawn
+ * for someone the API would refuse; everyone keeps the general section, which is also where leaving
+ * the space lives.
  */
 const NAV: [NavKey, TranslationKey, IconName][] = [
   ["general", key("space.general"), "settings"],
   ["members", key("conversation.members"), "users"],
+  ["roles", key("roles.title"), "shield"],
 ];
 
 const st: Record<string, CSSProperties> = {
@@ -76,6 +80,18 @@ const st: Record<string, CSSProperties> = {
   },
   rowT: { fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" },
   rowD: { fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2, maxWidth: 420 },
+  banner: {
+    flex: "none",
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 8,
+    padding: "10px 20px",
+    background: "var(--sky)",
+    color: "var(--on-pastel)",
+    borderBottom: "1.5px solid var(--on-pastel)",
+    fontSize: "var(--text-xs)",
+    lineHeight: "var(--leading-snug)",
+  },
 };
 
 function navItem(on: boolean, compact = false): CSSProperties {
@@ -113,40 +129,6 @@ function SettingRow({ title, desc, children }: { title: string; desc?: string; c
   );
 }
 
-/**
- * The roles a membership can hold, weakest first. The same order the API ranks them in, mirrored
- * here for one reason: to offer only what it would accept. It is not the guard, it is the
- * politeness. The API refuses the rest whatever this list says.
- */
-const ROLES = ["guest", "member", "admin", "owner"];
-
-/** Where a role sits in {@link ROLES}; an unknown one ranks lowest and can authorise nothing. */
-function roleRank(role: string): number {
-  return ROLES.indexOf(role) + 1;
-}
-
-/**
- * The roles `mine` may give to someone currently holding `theirs`, or an empty list when they may
- * not touch that membership at all.
- *
- * One rule, the API's: you may only act on someone ranked below you, and only hand out a rank below
- * your own. The exception is the owner handing the space over, which is the one way `owner` is ever
- * given, and costs the giver the role in the same write.
- */
-function grantableRoles(mine: string, theirs: string): string[] {
-  if (roleRank(theirs) >= roleRank(mine)) return [];
-  const below = ROLES.filter((role) => roleRank(role) < roleRank(mine));
-  return mine === "owner" ? [...below, "owner"] : below;
-}
-
-/** The space roles the API uses, as dictionary keys. */
-const ROLE_LABEL: Record<string, TranslationKey> = {
-  owner: key("role.owner"),
-  admin: key("role.admin"),
-  member: key("role.member"),
-  guest: key("role.guest"),
-};
-
 export type WorkspaceSettingsProps = {
   workspaceName: string;
   /** The space being configured; needed to address its icon. */
@@ -159,22 +141,34 @@ export type WorkspaceSettingsProps = {
    */
   canEditIdentity: boolean;
   /**
-   * Whether the caller administers the space: owner or admin. Gates the member list and the
-   * invitation, both of which the API refuses to anyone else.
+   * Whether the caller administers people here (`members.manage` or `roles.manage`). Gates the
+   * member list and the roles, which the API refuses to anyone else.
    */
   canManageMembers: boolean;
+  /** Whether the caller may invite (`members.invite`). */
+  canInvite: boolean;
+  /** The edition the space runs, which decides how roles are given. */
+  edition: SpaceEdition;
+  /** When the space's licence expired, for the frozen banner; and its owners' names. */
+  frozenSince?: string;
+  ownerNames: string[];
+  /** The space's roles, strongest first (empty from an instance without them). */
+  roles: Role[];
+  /** What the caller holds in the space, by permission name. */
+  myRights: string[];
+  /** The caller's id, to find their own membership. */
+  myUserId?: string;
+  /** Where the publisher's prices are, for the community roles' one line about more. */
+  pricingUrl?: string;
+  /** The roles or someone's roles changed: read them again. */
+  onAccessChanged: () => Promise<void>;
+  /** Set one person's roles, strongest first; resolves to whether it was saved. */
+  onSaveMemberRoles: (userId: string, roleIds: string[]) => Promise<boolean>;
   /** Channels in this space, used to select the arrival channel. */
   channels: Channel[];
   defaultChannelId?: string;
-  members: {
-    /** Needed to address the membership: a role is changed by id, never by display name. */
-    userId: string;
-    name: string;
-    presence: Presence;
-    role: string;
-    title?: string;
-    bot: boolean;
-  }[];
+  /** The space's members as the API lists them, with their live presence. */
+  members: SettingsMember[];
   /** The caller's own role in this space, which decides which roles they may hand out. */
   myRole: string;
   /**
@@ -220,6 +214,16 @@ export function WorkspaceSettings({
   iconUrl,
   canEditIdentity,
   canManageMembers,
+  canInvite,
+  edition,
+  frozenSince,
+  ownerNames,
+  roles,
+  myRights,
+  myUserId,
+  pricingUrl,
+  onAccessChanged,
+  onSaveMemberRoles,
   channels,
   defaultChannelId,
   members,
@@ -239,13 +243,8 @@ export function WorkspaceSettings({
 }: WorkspaceSettingsProps) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<NavKey>("general");
-  const sections = NAV.filter(([id]) => id !== "members" || canManageMembers);
-  // Read as what it is: a value owned by the browser. Empty for the static export's render, which
-  // has no location, so nothing flashes a guessed address before the real one.
-  const [memberQuery, setMemberQuery] = useState("");
-  const shownMembers = members.filter((m) =>
-    m.name.toLowerCase().includes(memberQuery.trim().toLowerCase()),
-  );
+  const sections = NAV.filter(([id]) => id === "general" || canManageMembers);
+  const me = members.find((m) => m.userId === myUserId);
   // Counted rather than asserted: the line used to read "2 invités externes, 1 bot" whatever the
   // space held.
   const memberSummary = (() => {
@@ -348,6 +347,15 @@ export function WorkspaceSettings({
           {t("sidebar.spaceSettings")}
         </h1>
       </BackHeading>
+      {edition === "frozen" ? (
+        <div role="status" style={st.banner}>
+          <Icon name="clock" size={15} style={{ flex: "none", marginTop: 1 }} />
+          <span>
+            <b>{frozenSince ? t("roles.frozenBannerSince", { date: formatDate(frozenSince) }) : t("roles.frozenBanner")}</b>{" "}
+            {t("roles.frozenBannerRest", { owners: ownerNames.join(", "), count: ownerNames.length })}
+          </span>
+        </div>
+      ) : null}
       <div style={compact ? { ...st.body, flexDirection: "column" } : st.body}>
         <div
           style={
@@ -481,101 +489,38 @@ export function WorkspaceSettings({
           ) : null}
 
           {tab === "members" && canManageMembers ? (
-            <>
-              <h2 style={st.h}>{t("conversation.members")}</h2>
-              <p style={st.sub}>{memberSummary}</p>
-              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                <div style={{ width: 260 }}>
-                  <Input
-                    size="sm"
-                    icon="search"
-                    placeholder={t("space.searchMember")}
-                    value={memberQuery}
-                    onChange={(e) => setMemberQuery(e.target.value)}
-                  />
-                </div>
-                <div style={{ flex: 1 }} />
-                <Button size="sm" variant="primary" iconLeft="user-plus" onClick={onInvite}>
-                  {t("space.invite")}
-                </Button>
-              </div>
-              <Card>
-                {shownMembers.map((m, i) => {
-                  const role = ROLE_LABEL[m.role] ?? key("role.member");
-                  const guest = m.role === "guest";
-                  return (
-                    <div
-                      key={m.userId}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: "10px 14px",
-                        borderTop: i ? "1px solid var(--border-subtle)" : "none",
-                      }}
-                    >
-                      <Avatar name={m.name} src={getAvatar(m.name)} size={28} presence={m.presence} shape={guest ? "round" : "square"} />
-                      {/* Identity on the left, tags with it: what someone *is* belongs next to their
-                          name. Left where they were, at the edge of the role column, "Bot" read as a
-                          role rather than as a kind of account. */}
-                      <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>{m.name}</div>
-                          {/* Their job title when they have set one. The address used to be shown here,
-                              invented from the first name and a domain nobody owns. */}
-                          {m.title ? <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{m.title}</div> : null}
-                        </span>
-                        {m.bot ? <Tag>{t("sidebar.bot")}</Tag> : null}
-                        {guest ? <Tag tone="warning">{t("space.external")}</Tag> : null}
-                      </span>
-                      {/* One slot for the role, the height of the control it may hold. Fixed, because
-                          a select is taller than a line of text: rows that held one and rows that
-                          held the other did not have the same height, and the list breathed unevenly
-                          down the card. */}
-                      {/* Wide enough for the longest role name: "Administrateur" was drawn as
-                          "Administrateu" at 130. */}
-                      <div style={{ width: 164, height: 28, flex: "none", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                        {/* A bot has no role: nobody promotes a piece of software, and the "Bot" tag
-                            next to its name already says what it is. Settable for everyone this
-                            caller outranks; a plain reading for the rest, their own row included. */}
-                        {m.bot ? null : grantableRoles(myRole, m.role).length > 0 ? (
-                          // The width lives on the wrapper, not on the control: a `.wc-sel` is
-                          // `width: 100%` by design, so a width passed to it reaches the inner
-                          // `<select>` and the shell still eats the row, name and all.
-                          <Select
-                            size="sm"
-                            aria-label={t("channel.roleOf", { name: m.name })}
-                            value={m.role}
-                            onChange={(e) => onChangeRole({ userId: m.userId, name: m.name }, e.target.value)}
-                            options={grantableRoles(myRole, m.role).map((value) => ({
-                              value,
-                              label: t(ROLE_LABEL[value] ?? key("role.member")),
-                            }))}
-                          />
-                        ) : (
-                          <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t(role)}</span>
-                        )}
-                      </div>
-                      {/* Removing sits next to the role and not in it: a role is what someone may do
-                          here, being shown the door is not one of its values. Offered on exactly the
-                          memberships this caller outranks, which is what the API accepts. */}
-                      <div style={{ width: 28, flex: "none", display: "flex", justifyContent: "flex-end" }}>
-                        {!m.bot && grantableRoles(myRole, m.role).length > 0 ? (
-                          <IconButton
-                            icon="user-minus"
-                            size="sm"
-                            label={t("space.removeNamed", { name: m.name })}
-                            onClick={() => onRemoveMember({ userId: m.userId, name: m.name })}
-                          />
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </Card>
-            </>
+            <MembersSettings
+              spaceName={workspaceName}
+              edition={edition}
+              members={members}
+              me={me}
+              myRole={myRole}
+              roles={roles}
+              canInvite={canInvite}
+              summary={memberSummary}
+              onInvite={onInvite}
+              onChangeRole={onChangeRole}
+              onRemoveMember={onRemoveMember}
+              onSaveMemberRoles={onSaveMemberRoles}
+              compact={compact}
+            />
           ) : null}
 
+          {tab === "roles" && canManageMembers ? (
+            <RolesSettings
+              spaceId={spaceId}
+              spaceName={workspaceName}
+              edition={edition}
+              roles={roles}
+              members={members}
+              me={me}
+              myRights={myRights}
+              pricingUrl={pricingUrl}
+              onChanged={onAccessChanged}
+              onSetMemberRoles={onSaveMemberRoles}
+              onNotify={onNotify}
+            />
+          ) : null}
         </div>
       </div>
 

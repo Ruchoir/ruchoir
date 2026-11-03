@@ -81,7 +81,11 @@ import {
   verifyPasskey,
   verifyRecoveryCode,
   verifyTotp,
+  listRoles,
+  refusalOf,
+  setMemberRoles as apiSetMemberRoles,
 } from "@/lib/data/api";
+import type { Role } from "@/lib/data/types";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { authMessage } from "@/features/auth/authMessage";
 import { forgetRecentReactions, noteReaction } from "@/lib/data/recentReactions";
@@ -129,6 +133,8 @@ import { InviteScreen, type InviteStatus } from "@/features/auth/InviteScreen";
 import { VerifyEmailScreen, type VerifyEmailStatus } from "@/features/auth/VerifyEmailScreen";
 import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
+import { MemberManagement, MemberRolesSummary, refusalMessage } from "@/features/settings/MemberAccess";
+import { FAMILIES } from "@/features/settings/rolesLogic";
 import { ActivityView } from "./ActivityView";
 import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
 import {
@@ -507,6 +513,8 @@ function AppShell() {
   // Hiding a direct conversation is the account's (`account_preferences`): an instance from before
   // it (the desktop app reaches older ones) has nowhere to keep it, so the action is not offered.
   const [canHideDms, setCanHideDms] = useState(false);
+  /** Where the publisher's prices are, when the instance says. */
+  const [pricingUrl, setPricingUrl] = useState<string>();
   /**
    * An invitation the visitor arrived with, held across the whole authentication flow: they may have
    * to sign in or register first, and the token has to survive that. Kept in memory only, like the
@@ -521,6 +529,10 @@ function AppShell() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [dms, setDms] = useState<DirectMessage[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  /** The space's roles, strongest first: the settings and the profiles read them. */
+  const [spaceRoles, setSpaceRoles] = useState<Role[]>([]);
+  /** The latest {@link refreshAccess}, for the realtime handlers bound once. */
+  const refreshAccessRef = useRef<() => Promise<void>>(async () => {});
   // The space's files (root folder), for the in-channel file panel and search. The full Files screen
   // manages its own folder navigation separately.
   const [spaceFiles, setSpaceFiles] = useState<SpaceFile[]>([]);
@@ -792,6 +804,7 @@ function AppShell() {
     // The people of the space being left are not an approximation of the people of the one being
     // entered, not even for the few hundred milliseconds the fetch takes.
     setMembers([]);
+    setSpaceRoles([]);
     if (!activeWs) {
       setChannels([]);
       setDms([]);
@@ -827,6 +840,13 @@ function AppShell() {
     staleRef.current.clear();
     setChannels(chans);
     setMembers(memberList);
+    // The roles, for the settings and the profiles: read beside the rest, never holding it up. A
+    // guest may not read them (no directory), nor may an instance older than them answer.
+    void listRoles(activeWs)
+      .then((roles) => {
+        if (loadingSpaceRef.current === activeWs) setSpaceRoles(roles);
+      })
+      .catch(() => {});
     setPresence(presenceMap);
     // Each conversation's notification setting comes with it from the server, which is where it is
     // kept (and obeyed, for pushes and emails).
@@ -1087,6 +1107,7 @@ function AppShell() {
         setEmailDelivery(capabilities.emailDelivery);
         setCanReplyToChannel(supports(capabilities, "reply_to_channel"));
         setCanHideDms(supports(capabilities, "account_preferences"));
+        setPricingUrl(capabilities.pricingUrl);
       })
       .catch(() => {});
     return () => {
@@ -1464,6 +1485,21 @@ function AppShell() {
           }
           return touched ? next : prev;
         });
+      },
+      onPermissionsChanged: (spaceId) => {
+        // Someone's roles or a role's rights moved: the open space's people and roles are read
+        // again, and the caller's own rights there with the space list.
+        if (spaceId !== liveRef.current.ws) return;
+        void refreshAccessRef.current();
+        void getWorkspaces()
+          .then((spaces) => {
+            const fresh = spaces.find((w) => w.id === spaceId);
+            if (!fresh) return;
+            setWorkspaces((prev) =>
+              prev.map((w) => (w.id === spaceId ? { ...w, role: fresh.role, myPermissions: fresh.myPermissions, edition: fresh.edition, licence: fresh.licence } : w)),
+            );
+          })
+          .catch(() => {});
       },
       onChannelsReordered: (spaceId) => {
         // Only the space on screen: the others are read in their new order when next opened. The
@@ -3256,6 +3292,47 @@ function AppShell() {
 
   /** The space on screen, when there is one: the name and role the two exit dialogs are about. */
   const currentWorkspace = workspaces.find((w) => w.id === ws);
+  /**
+   * What the caller holds in the open space, by permission name. An instance older than the
+   * permissions says nothing: its owners and administrators held everything, the others nothing of
+   * what the settings administer.
+   */
+  const myRights =
+    currentWorkspace?.myPermissions ??
+    (["owner", "admin"].includes(currentWorkspace?.role ?? "") ? FAMILIES.flatMap((f) => f.permissions) : []);
+  /** Whether the caller administers people here: the member list, the roles, someone's "Gestion". */
+  const managesPeople = myRights.includes("members.manage") || myRights.includes("roles.manage");
+
+  /**
+   * What someone's profile says about them in this space (their roles), and the "Gestion" tab when
+   * the caller may manage them: the Members tab's own component, so both offer the same things.
+   */
+  const memberAccessOf = (userId: string) => {
+    const member = members.find((m) => m.userId === userId);
+    if (!member || !currentWorkspace || member.bot) return undefined;
+    const self = userId === session?.id;
+    const me = members.find((m) => m.userId === session?.id);
+    return {
+      summary:
+        spaceRoles.length > 0 ? (
+          <MemberRolesSummary member={member} roles={spaceRoles} spaceName={currentWorkspace.name} isSelf={self} viewerManages={managesPeople} />
+        ) : undefined,
+      manage:
+        !self && managesPeople && member.manageable ? (
+          <MemberManagement
+            identity
+            member={member}
+            me={me}
+            myRole={currentWorkspace.role}
+            edition={currentWorkspace.edition}
+            roles={spaceRoles}
+            onSaveRoles={(roleIds) => saveMemberRoles(userId, roleIds)}
+            onChangeRole={(role) => void changeMemberRole({ userId, name: member.name }, role)}
+            onRemove={() => setRemoving({ userId, name: member.name })}
+          />
+        ) : undefined,
+    };
+  };
 
   /**
    * What the caller counts as inside a channel. A space owner or administrator counts as its owner,
@@ -3350,6 +3427,38 @@ function AppShell() {
    * role change that acts on two people, since the giver steps down to admin in the same write and
    * only the new owner can give it back.
    */
+  /**
+   * Read the people and the roles of the open space again, after a change to either: a role's
+   * holders, someone's roles, Administrator given through the legacy column all move both lists.
+   */
+  const refreshAccess = async () => {
+    const space = ws;
+    const [fresh, roles] = await Promise.all([
+      getSpaceMembers(space).catch(() => null),
+      listRoles(space).catch(() => null),
+    ]);
+    if (liveRef.current.ws !== space) return;
+    if (fresh) setMembers(fresh);
+    if (roles) setSpaceRoles(roles);
+  };
+  useEffect(() => {
+    refreshAccessRef.current = refreshAccess;
+  });
+
+  /** Set one person's roles from the settings or their profile; resolves to whether it was saved. */
+  const saveMemberRoles = async (userId: string, roleIds: string[]): Promise<boolean> => {
+    const name = members.find((m) => m.userId === userId)?.name ?? "";
+    try {
+      await apiSetMemberRoles(ws, userId, roleIds);
+      await refreshAccess();
+      showToast({ tone: "success", title: t("toast.roleChanged"), description: name });
+      return true;
+    } catch (err) {
+      showToast({ tone: "danger", title: t("toast.roleFailed"), description: refusalMessage(refusalOf(err), t, t("common.tryAgain")) });
+      return false;
+    }
+  };
+
   const changeMemberRole = async (member: { userId: string; name: string }, role: string) => {
     if (role === "owner") {
       setTransferTo(member);
@@ -3360,13 +3469,16 @@ function AppShell() {
       const changes = await apiSetMemberRole(ws, member.userId, role);
       for (const change of changes) applyRoleChange(ws, change.userId, change.role);
       showToast({ tone: "success", title: t("toast.roleChanged"), description: member.name });
+      // Administrator follows the legacy column, and a guest made a member takes a seat: the roles
+      // and their holders are read again.
+      void refreshAccess();
     } catch (err) {
       // Nothing was written, so nothing on screen may pretend otherwise.
       if (previous) applyRoleChange(ws, member.userId, previous);
       showToast({
         tone: "danger",
         title: t("toast.roleFailed"),
-        description: isApiError(err, 403) ? t("error.noSpaceRights") : t("common.tryAgain"),
+        description: refusalMessage(refusalOf(err), t, isApiError(err, 403) ? t("error.noSpaceRights") : t("common.tryAgain")),
       });
     }
   };
@@ -4146,6 +4258,7 @@ function AppShell() {
       {contentView === "channel" && channelId ? (
         <ChannelScreen
           rosterVersion={rosterVersion}
+          memberAccess={memberAccessOf}
           timeZone={viewerTimeZone}
           onOpenEvent={openCalendarEvent}
           onPlanEvent={() => planEventIn(channelId)}
@@ -4269,7 +4382,17 @@ function AppShell() {
           // else on this screen (the people, their roles, who is shown the door) stays with the
           // administrators, which is the line the API draws too.
           canEditIdentity={currentWorkspace?.role === "owner"}
-          canManageMembers={["owner", "admin"].includes(currentWorkspace?.role ?? "")}
+          canManageMembers={managesPeople}
+          canInvite={myRights.includes("members.invite")}
+          edition={currentWorkspace?.edition ?? "community"}
+          frozenSince={currentWorkspace?.licence?.validUntil}
+          ownerNames={members.filter((m) => m.role === "owner").map((m) => m.name)}
+          roles={spaceRoles}
+          myRights={myRights}
+          myUserId={session?.id}
+          pricingUrl={pricingUrl}
+          onAccessChanged={refreshAccess}
+          onSaveMemberRoles={saveMemberRoles}
           channels={channels}
           defaultChannelId={currentWorkspace?.defaultChannelId}
           onIconChanged={applySpaceIcon}
@@ -4279,14 +4402,7 @@ function AppShell() {
           }
           // The real records, so the screen shows the role the server holds rather than a mapping
           // by display name, and can say how many guests and bots there are instead of asserting it.
-          members={members.map((m) => ({
-            userId: m.userId,
-            name: m.name,
-            presence: presence[m.userId] ?? "offline",
-            role: m.role,
-            title: m.title,
-            bot: m.bot,
-          }))}
+          members={members.map((m) => ({ ...m, presence: presence[m.userId] ?? "offline" }))}
           myRole={currentWorkspace?.role ?? "member"}
           onChangeRole={(member, role) => void changeMemberRole(member, role)}
           onRemoveMember={setRemoving}
@@ -4374,7 +4490,7 @@ function AppShell() {
       {modal === "invite" ? (
         <InviteDialog
           onClose={() => setModal(null)}
-          canInvite={["owner", "admin"].includes(workspaces.find((w) => w.id === ws)?.role ?? "")}
+          canInvite={myRights.includes("members.invite")}
           invitations={invitations}
           emailDelivery={emailDelivery}
           onCreate={async ({ email, role }) => {

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { changedPermissions, FAMILIES, memberAccessFor, orderAllowed, permissionRow } from "./rolesLogic.ts";
+import { changedPermissions, FAMILIES, grantableRoles, memberAccessFor, orderAllowed, permissionRow, roleRowState } from "./rolesLogic.ts";
 
 const role = (id: string, over: Partial<{ systemKey: "administrator" | "members" | "guests"; permissions: string[]; manageable: boolean; position: number }> = {}) => ({
   id,
@@ -33,6 +33,9 @@ test("a_row_is_locked_when_the_viewer_lacks_the_permission", () => {
   // @members itself never says "already given by @members".
   const base = role("m", { systemKey: "members", permissions: ["channels.create"] });
   assert.equal(permissionRow("channels.create", { role: base, draft: new Set(base.permissions), viewerRights: viewer, membersBase: members }).givenByMembers, false);
+  // Nor does @invités: a guest never holds what @members gives.
+  const guests = role("g", { systemKey: "guests" });
+  assert.equal(permissionRow("channels.create", { role: guests, draft: new Set(), viewerRights: viewer, membersBase: members }).givenByMembers, false);
 });
 
 test("changes_are_counted_both_ways", () => {
@@ -60,4 +63,25 @@ test("the_gestion_tab_offers_what_the_viewer_may_do", () => {
   assert.equal(memberAccessFor({ member: hugo, me: "karim", edition: "frozen", roles }).mode, "frozen");
   assert.equal(memberAccessFor({ member: { ...hugo, manageable: false }, me: "karim", edition: "enterprise", roles }).mode, "above");
   assert.equal(memberAccessFor({ member: hugo, me: "hugo", edition: "enterprise", roles }).mode, "none");
+});
+
+test("the_legacy_roles_one_may_hand_out_stay_below_ones_own", () => {
+  assert.deepEqual(grantableRoles("admin", "member"), ["guest", "member"]);
+  assert.deepEqual(grantableRoles("owner", "admin"), ["guest", "member", "admin", "owner"]);
+  assert.deepEqual(grantableRoles("admin", "admin"), [], "nobody acts on an equal");
+  assert.deepEqual(grantableRoles("member", "guest"), ["guest"]);
+});
+
+test("a_row_of_the_roles_list_says_why_it_cannot_be_opened", () => {
+  const admin = role("a", { systemKey: "administrator", manageable: false });
+  const hr = role("hr", { manageable: false });
+  const compta = role("c");
+  const members = role("m", { systemKey: "members" });
+  assert.equal(roleRowState(admin, { myTopRoleId: "hr", frozen: false }), "above");
+  assert.equal(roleRowState(hr, { myTopRoleId: "hr", frozen: false }), "mine");
+  assert.equal(roleRowState(compta, { myTopRoleId: "hr", frozen: false }), "edit");
+  assert.equal(roleRowState(members, { myTopRoleId: "hr", frozen: false }), "edit");
+  assert.equal(roleRowState(compta, { myTopRoleId: "hr", frozen: true }), "frozen");
+  // The owner manages Administrator, whose rights are all of them and never edited.
+  assert.equal(roleRowState({ ...admin, manageable: true }, { frozen: false }), "fixed");
 });

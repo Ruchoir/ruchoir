@@ -10,6 +10,7 @@ import { COMMANDS, formatChord, isMac } from "./shortcuts";
 import { useSettings } from "./settings";
 import { getAvatar } from "@/lib/data";
 import { key, type Translate, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { refusalOf } from "@/lib/data/api";
 
 /** The other road offered inside a dialog: a rule, a word, and a card you can press. */
 const sep: Record<string, CSSProperties> = {
@@ -199,6 +200,17 @@ const INVITE_ROLES = [
 const inviteStyles: Record<string, CSSProperties> = {
   body: { display: "flex", flexDirection: "column", gap: 16 },
   section: { display: "flex", flexDirection: "column", gap: 8 },
+  seats: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: "12px 14px",
+    borderRadius: "var(--radius-md)",
+    background: "var(--sun)",
+    color: "var(--on-pastel)",
+    fontSize: "var(--text-xs)",
+    lineHeight: "var(--leading-snug)",
+  },
   sectionTitle: { fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-muted)" },
   link: {
     display: "flex",
@@ -303,6 +315,8 @@ export function InviteDialog({
   const [role, setRole] = useState("member");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<TranslationKey | null>(null);
+  /** The space's seats are all taken: members wait for a bigger licence, guests take none. */
+  const [seatsFull, setSeatsFull] = useState<{ seats: number; pricingUrl: string } | null>(null);
   const [created, setCreated] = useState<{ url: string; emailed: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -327,8 +341,10 @@ export function InviteDialog({
     try {
       setCreated(await onCreate({ email: addressed ? address : undefined, role }));
       setEmail("");
-    } catch {
-      setError(key("dialogs.inviteFailed"));
+    } catch (err) {
+      const refusal = refusalOf(err);
+      if (refusal?.code === "seats_full") setSeatsFull({ seats: refusal.seats, pricingUrl: refusal.pricingUrl });
+      else setError(key("dialogs.inviteFailed"));
     } finally {
       setPending(false);
     }
@@ -355,7 +371,7 @@ export function InviteDialog({
             <Button
               variant="primary"
               iconLeft={addressed ? "send" : "external-link"}
-              disabled={pending}
+              disabled={pending || (seatsFull !== null && role !== "guest")}
               onClick={() => void submit()}
             >
               {addressed ? t("dialogs.sendInvite") : t("dialogs.createLink")}
@@ -407,6 +423,24 @@ export function InviteDialog({
           <p role="alert" style={{ ...inviteStyles.empty, color: "var(--status-danger-fg)" }}>
             {t(error)}
           </p>
+        ) : null}
+
+        {seatsFull ? (
+          <div role="alert" style={inviteStyles.seats}>
+            <Icon name="alert-triangle" size={16} style={{ flex: "none", marginTop: 1 }} />
+            <span>
+              <b>{t("dialogs.seatsFull", { count: seatsFull.seats })}</b> {t("dialogs.seatsFullRest")}
+              {seatsFull.pricingUrl ? (
+                <>
+                  <br />
+                  <a className="wc-btn wc-btn--link wc-btn--sm" style={{ padding: 0, marginTop: 6 }} href={seatsFull.pricingUrl} target="_blank" rel="noreferrer">
+                    {t("roles.seePricing")}
+                    <Icon name="external-link" size={13} />
+                  </a>
+                </>
+              ) : null}
+            </span>
+          </div>
         ) : null}
 
         {created ? (

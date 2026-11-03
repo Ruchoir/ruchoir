@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
-import { Avatar, Button, Icon, type IconName, IconButton, Input, Select, Tag, Textarea, Tooltip } from "@/components/ds";
+import { Avatar, Button, Icon, type IconName, IconButton, Input, Select, Tabs, Tag, Textarea, Tooltip } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
 import type { Profile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
@@ -107,6 +107,11 @@ export type ProfilePanelProps = {
    */
   onAvatarChanged?: (url?: string) => void;
   onNotify: (toast: Toast) => void;
+  /**
+   * Their place in the space: `summary` (their roles) joins the profile, `manage` is the "Gestion"
+   * tab, given only to someone allowed to manage them and never on one's own profile.
+   */
+  access?: { summary?: ReactNode; manage?: ReactNode };
 };
 
 /** Full user profile in the right sidebar. Editable when it is the current user's own profile. */
@@ -119,6 +124,7 @@ export function ProfilePanel({
   onMessage,
   onAvatarChanged,
   onNotify,
+  access,
 }: ProfilePanelProps) {
   // Fetch the real profile when we have the member's id; fall back to the mock profile (by name)
   // while it loads or when the id is unknown (e.g. a member with no endpoint-backed identity).
@@ -143,6 +149,15 @@ export function ProfilePanel({
   // twenty minutes wrong, which is worse than showing none because it is precise.
   const localTime = useLocalTime(p.timezone);
   const isOwn = name === getCurrentUser().name;
+  const [tab, setTab] = useState<"profile" | "manage">("profile");
+  // The tab belongs to the person shown: another profile opens on "Profil".
+  const [tabFor, setTabFor] = useState(userId);
+  if (tabFor !== userId) {
+    setTabFor(userId);
+    setTab("profile");
+  }
+  const manage = !isOwn ? access?.manage : undefined;
+  const managing = tab === "manage" && manage !== undefined;
   const desktop = useDesktop();
   const [editing, setEditing] = useState(!!startEditing && isOwn);
   const [role, setRole] = useState(p.role);
@@ -214,8 +229,22 @@ export function ProfilePanel({
 
   return (
     <div style={styles.panel}>
-      <PanelHead title={isOwn ? t("shell.myProfile") : t("profile.title")} closeLabel={t("profile.close")} onClose={onClose} />
-      <div style={styles.scroll}>
+      {/* With a "Gestion" tab, the head names the person: the tabs below say which side of them. */}
+      <PanelHead title={isOwn ? t("shell.myProfile") : manage ? p.name : t("profile.title")} closeLabel={t("profile.close")} onClose={onClose} />
+      {manage ? (
+        <div style={{ flex: "none", padding: "0 12px", borderBottom: "1px solid var(--border-subtle)" }}>
+          <Tabs
+            items={[
+              { value: "profile", label: t("profile.title") },
+              { value: "manage", label: t("profile.tabManage") },
+            ]}
+            value={tab}
+            onChange={(value) => setTab(value === "manage" ? "manage" : "profile")}
+          />
+        </div>
+      ) : null}
+      {managing ? <div style={styles.scroll}>{manage}</div> : null}
+      <div style={managing ? { display: "none" } : styles.scroll}>
         <div style={styles.hero} className="wc-pastel">
           {/* While editing, the photo is the control: clicking it picks a new one. Outside editing it
               is just a photo, like everyone else's. The form below used to carry a second, smaller
@@ -309,6 +338,8 @@ export function ProfilePanel({
             )}
           </div>
         </div>
+
+        {access?.summary && !(isOwn && editing) ? access.summary : null}
 
         {isOwn && editing ? (
           <div style={styles.section}>
