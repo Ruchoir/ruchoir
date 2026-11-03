@@ -68,6 +68,15 @@ older way taken. A name, once listed, is never removed nor reused for something 
 | `recent_reactions` | v0.3.0 | `GET /api/v1/me/recent-reactions`: the emoji someone reacted with last, which the quick reactions lead with |
 | `reply_to_channel` | v0.3.0 | a thread reply may be sent to its channel too (`also_in_channel`), shown there under a line naming its thread (`thread_root`) |
 | `permissions` | after v0.4.0 | spaces, channels and listed files carry `my_permissions` (what the caller may do there, by permission name, catalogue order); `permissions.changed { space_id }` says when to ask again (ADR 0009). An older instance sends neither: the role decides, as before |
+| `licences` | enterprise edition | `GET`/`PUT`/`DELETE /api/v1/spaces/{id}/licence` for the space's owners (installed by and when included), `GET /api/v1/admin/licences` for the instance's administrator (ADR 0010) |
+| `custom_roles` | enterprise edition | `POST /api/v1/spaces/{id}/roles`, `PATCH`/`DELETE .../roles/{role}`, `PUT .../roles/order` and `PUT .../members/{user}/roles`: a licensed space's own roles, ranked, with the four delegation rules |
+
+The last two are the enterprise edition's own names, listed after the instance's by that build
+only (`Edition::features`). What every instance of this version answers, whatever its edition,
+needs no name: a space's `edition` and, for its owners, `licence`; `GET .../roles` and
+`GET .../audit`; a member's `role_ids`, `manageable` and `joined_at` in the space's member list;
+`pricing_url` here. An older instance answers `404` or leaves the fields out, and the apps read that
+as the community edition with nothing to show.
 
 Adding one: a name in `compat::FEATURES` (lowercase, underscores), a line in this table, and the
 apps' check before they use it.
