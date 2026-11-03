@@ -11,6 +11,7 @@ pub mod delegation;
 pub mod engine;
 pub mod group_routes;
 pub mod groups;
+pub mod levels;
 pub mod load;
 pub mod roles;
 pub mod system_roles;

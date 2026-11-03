@@ -42,5 +42,11 @@ pub use crate::permissions::group_routes::{group_dto, group_dtos, GroupDto, Grou
 pub use crate::permissions::groups::{
     actor, decide, group, groups_of, GroupAct, GroupActor, GroupRow, Paid, Refusal,
 };
+/// The preset levels (Read, Contribute, Manage) and their rule sets, for the access dialogs.
+#[allow(unused_imports)]
+pub use crate::permissions::levels::{
+    clamp_for_guest, guest_may, level_of, level_sets, nearest_level, rule_sets, summary, Kind,
+    Level, LevelError, LevelRead, Target as RuleTarget, TriState,
+};
 pub use crate::permissions::roles::{roles_of, validate_role_name, RoleDto, ROLE_COLOURS};
 pub use crate::permissions::system_roles::GUEST_CEILING;
