@@ -8,7 +8,7 @@ import type { Group, Role, SpaceEdition } from "@/lib/data/types";
 import { useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
 import { useDragReorder } from "../app/useDragReorder";
-import { refusalMessage, RoleDot, roleLabel } from "./MemberAccess";
+import { refusalMessage, RoleDot, roleLabel } from "./roleChips";
 import { ColourPicker, RoleEditor } from "./RoleEditor";
 import { FAMILY_TEXT, PERMISSION_TEXT } from "./permissionText";
 import { FAMILIES, holdsEverything, orderAllowed, type RoleRowState, roleRowState } from "./rolesLogic";

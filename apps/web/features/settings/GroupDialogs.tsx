@@ -6,7 +6,7 @@ import { deleteGroup, refusalOf } from "@/lib/data/api";
 import type { Group, Role } from "@/lib/data/types";
 import { useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
-import { refusalMessage, roleLabel } from "./MemberAccess";
+import { refusalMessage, roleLabel } from "./roleChips";
 
 export type Common = { spaceId: string; group: Group; onChanged: () => Promise<void>; onNotify: (toast: Toast) => void };
 

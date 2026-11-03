@@ -11,7 +11,7 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
 import { GroupIcon } from "../groups/GroupIcon";
 import { rolePeople } from "./groupsLogic.ts";
-import { refusalMessage, roleColour, roleLabel } from "./MemberAccess";
+import { refusalMessage, roleColour, roleLabel } from "./roleChips";
 import { FAMILY_TEXT, PERMISSION_TEXT } from "./permissionText";
 import { changedPermissions, FAMILIES, GUEST_CEILING, permissionRow } from "./rolesLogic";
 

@@ -7,7 +7,7 @@ import { refusalOf, setGroupRoles } from "@/lib/data/api";
 import type { Group, Role } from "@/lib/data/types";
 import { useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
-import { refusalMessage, RoleChip, roleLabel } from "./MemberAccess";
+import { refusalMessage, RoleChip, roleLabel } from "./roleChips";
 
 const st: Record<string, CSSProperties> = {
   intro: { display: "flex", gap: 8, alignItems: "flex-start", fontSize: "var(--text-xs)", color: "var(--text-body)", margin: "16px 0 12px", lineHeight: "var(--leading-snug)" },

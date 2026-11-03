@@ -11,7 +11,7 @@ import type { Toast } from "../app/types";
 import { GroupIcon } from "../groups/GroupIcon";
 import { GroupEditor } from "./GroupEditor";
 import { groupPeople, groupRow, foldName, sortGroups } from "./groupsLogic.ts";
-import { refusalMessage, RoleChip, roleLabel } from "./MemberAccess";
+import { refusalMessage, RoleChip, roleLabel } from "./roleChips";
 
 const st: Record<string, CSSProperties> = {
   h: { fontSize: "clamp(28px, 3.4vw, 40px)", fontWeight: 700, letterSpacing: "var(--tracking-display)", lineHeight: 1.05, color: "var(--text-strong)", marginBottom: 10 },

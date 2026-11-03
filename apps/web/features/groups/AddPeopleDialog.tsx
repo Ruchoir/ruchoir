@@ -10,7 +10,7 @@ import { key, useTranslation } from "@/lib/i18n";
 import { formatList } from "@/lib/i18n/format";
 import { foldName } from "../settings/groupsLogic.ts";
 import type { Common } from "../settings/GroupDialogs";
-import { refusalMessage, RoleChip } from "../settings/MemberAccess";
+import { refusalMessage, RoleChip } from "../settings/roleChips";
 import { addBlockFor, guestCeilingApplies } from "./groupPanelLogic.ts";
 
 /** Marks where the role chips go in a translated sentence. */

@@ -14,7 +14,7 @@ import { GroupIcon } from "../groups/GroupIcon";
 import { DeleteGroupDialog } from "./GroupDialogs";
 import { GroupRolesTab } from "./GroupRolesTab";
 import { foldName, groupPeople, groupRow } from "./groupsLogic.ts";
-import { refusalMessage, roleLabel } from "./MemberAccess";
+import { refusalMessage, roleLabel } from "./roleChips";
 
 const st: Record<string, CSSProperties> = {
   crumb: { display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: 14 },

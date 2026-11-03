@@ -9,7 +9,7 @@ import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatDayHeading, formatTime, formatUtcDate } from "@/lib/i18n/format";
 import { auditLine, dayKey, type Sentence, type Slot } from "./auditLogic";
-import { RoleDot, ROLE_LABEL, roleLabel } from "./MemberAccess";
+import { RoleDot, ROLE_LABEL, roleLabel } from "./roleChips";
 import { PERMISSION_TEXT } from "./permissionText";
 
 /** Each sentence's words, with `{{actor}}` and the other slots and values to fill. */

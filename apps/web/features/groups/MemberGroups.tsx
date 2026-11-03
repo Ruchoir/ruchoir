@@ -10,7 +10,7 @@ import { formatList } from "@/lib/i18n/format";
 import { MenuPopover } from "../app/MenuPopover";
 import type { Toast } from "../app/types";
 import { groupsOf, sortGroups } from "../settings/groupsLogic.ts";
-import { refusalMessage, roleLabel } from "../settings/MemberAccess";
+import { refusalMessage, roleLabel } from "../settings/roleChips";
 import { addBlockFor, removalOf } from "./groupPanelLogic.ts";
 
 const s: Record<string, CSSProperties> = {

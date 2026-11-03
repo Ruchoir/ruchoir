@@ -12,7 +12,7 @@ import { AddPeopleDialog } from "../groups/AddPeopleDialog";
 import { isManagerOf, offersLeaving, offersManagement, removalOf } from "../groups/groupPanelLogic.ts";
 import { groupColour, GroupIcon } from "../groups/GroupIcon";
 import { groupPeople } from "../settings/groupsLogic.ts";
-import { refusalMessage, RoleChip, roleLabel } from "../settings/MemberAccess";
+import { refusalMessage, RoleChip, roleLabel } from "../settings/roleChips";
 import { PanelHead } from "./PanelHead";
 
 const st: Record<string, CSSProperties> = {
