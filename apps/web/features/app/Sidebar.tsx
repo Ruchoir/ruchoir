@@ -21,7 +21,7 @@ const styles: Record<string, CSSProperties> = {
   side: {
     width: "var(--sidebar-width)",
     flex: "none",
-    background: "var(--surface-chrome)",
+    background: "var(--sidebar-bg)",
     borderRight: "1.5px solid var(--border-subtle)",
     display: "flex",
     flexDirection: "column",
@@ -63,7 +63,7 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--text-subtle)",
   },
   sect: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     display: "flex",
     alignItems: "center",
     gap: 8,
@@ -97,9 +97,9 @@ function item(on: boolean): CSSProperties {
     padding: "0 8px",
     border: 0,
     borderRadius: "var(--radius-sm)",
-    background: on ? "var(--acc)" : "transparent",
+    background: on ? "var(--sidebar-selected-bg)" : "transparent",
     // The active row is filled with the theme's pastel, and a pastel always carries the dark ink.
-    color: on ? "var(--on-pastel)" : "var(--text-body)",
+    color: on ? "var(--sidebar-selected-fg)" : "var(--text-body)",
     cursor: "pointer",
     fontFamily: "var(--font-sans)",
     fontSize: "var(--text-sm)",
@@ -124,7 +124,7 @@ const menuStyle: CSSProperties = {
   minWidth: 200,
   padding: 4,
   background: "var(--surface-raised)",
-  border: "2px solid var(--ink)",
+  border: "2px solid var(--edge-float)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
 };
@@ -225,7 +225,7 @@ function SideItem({ icon, label, active: activeProp, unread, mentioned, muted, n
   // Active fill: the theme's pastel, whole, so the open conversation is legible at a glance in the
   // day and the night themes alike.
   const bg = active
-    ? "var(--acc)"
+    ? "var(--sidebar-selected-bg)"
     : hover || menuOpen
       ? "var(--surface-hover)"
       : "transparent";
@@ -297,13 +297,13 @@ function SideItem({ icon, label, active: activeProp, unread, mentioned, muted, n
           ...reorder?.style,
         }}
       >
-        {children ?? <Icon name={icon ?? "hash"} size={14} style={{ color: active ? "var(--on-pastel)" : muted ? "var(--text-subtle)" : "var(--text-muted)" }} />}
+        {children ?? <Icon name={icon ?? "hash"} size={14} style={{ color: active ? "var(--sidebar-selected-fg)" : muted ? "var(--text-subtle)" : "var(--text-muted)" }} />}
         <span
           style={{
             ...styles.name,
             fontWeight: unread ? 500 : undefined,
             // De-emphasise muted (archived) channels with a token, not opacity, so contrast stays measurable.
-            color: active ? "var(--on-pastel)" : unread ? "var(--text-strong)" : muted ? "var(--text-subtle)" : undefined,
+            color: active ? "var(--sidebar-selected-fg)" : unread ? "var(--text-strong)" : muted ? "var(--text-subtle)" : undefined,
           }}
         >
           {label}
@@ -662,6 +662,8 @@ export function Sidebar({
   return (
     <nav
       aria-label={t("sidebar.channelsAndMessages")}
+      // The hook a style scopes the pane's own colours on (tokens.css).
+      className="wc-pane-sidebar"
       // On a phone the list is the screen itself: the canvas, like its header, not a column's white.
       style={{
         ...styles.side,

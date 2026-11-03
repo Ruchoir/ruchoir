@@ -250,7 +250,7 @@ export function CalendarSettingsDialog({
                     height: 28,
                     borderRadius: 8,
                     background: colorVar(c),
-                    border: color === c ? "2px solid var(--ink)" : "2px solid transparent",
+                    border: color === c ? "2px solid var(--edge-focus)" : "2px solid transparent",
                     outline: color === c ? "2px solid var(--surface)" : undefined,
                     outlineOffset: -4,
                     cursor: "pointer",

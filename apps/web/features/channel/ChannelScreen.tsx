@@ -202,7 +202,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
     padding: "7px 14px",
     borderRadius: 999,
-    border: "2px solid var(--ink)",
+    border: "2px solid var(--edge-float)",
     background: "var(--ink)",
     color: "var(--on-ink)",
     fontSize: "var(--text-xs)",
@@ -223,7 +223,7 @@ const styles: Record<string, CSSProperties> = {
   },
   // The day reads as a tag, in the monospace face of every label.
   dayLbl: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
@@ -236,7 +236,7 @@ const styles: Record<string, CSSProperties> = {
   // What is new is the one place the alarm colour appears in a conversation.
   unreadLine: { flex: 1, height: 2, background: "var(--alarm)" },
   unreadLabel: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     fontWeight: 600,
     color: "var(--on-pastel)",

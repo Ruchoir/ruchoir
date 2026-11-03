@@ -16,7 +16,7 @@ const sep: Record<string, CSSProperties> = {
   row: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0" },
   line: { flex: 1, height: 1, background: "var(--border-default)" },
   word: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontWeight: 500,
     fontSize: "var(--text-2xs)",
     color: "var(--text-muted)",
@@ -199,7 +199,7 @@ const INVITE_ROLES = [
 const inviteStyles: Record<string, CSSProperties> = {
   body: { display: "flex", flexDirection: "column", gap: 16 },
   section: { display: "flex", flexDirection: "column", gap: 8 },
-  sectionTitle: { fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-muted)" },
+  sectionTitle: { fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-muted)" },
   link: {
     display: "flex",
     alignItems: "center",
@@ -212,7 +212,7 @@ const inviteStyles: Record<string, CSSProperties> = {
   linkText: {
     flex: 1,
     minWidth: 0,
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     color: "var(--text-default)",
     overflow: "hidden",
@@ -808,7 +808,7 @@ export function HelpDialog({
       >
         <span
           style={{
-            fontFamily: "var(--font-mono)",
+            fontFamily: "var(--label-font)",
             fontSize: "var(--text-2xs)",
             fontWeight: 500,
             color: "var(--text-muted)",
@@ -831,7 +831,7 @@ export function HelpDialog({
               {keys ? (
                 <kbd
                   style={{
-                    fontFamily: "var(--font-mono)",
+                    fontFamily: "var(--label-font)",
                     fontSize: "var(--text-2xs)",
                     color: "var(--text-strong)",
                     background: "var(--surface-card)",

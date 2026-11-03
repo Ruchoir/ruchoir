@@ -948,7 +948,7 @@ export function ImportScreen({
       <h2 className="wc-imp-title">{t(key("import.planTitle"))}</h2>
       <p className="wc-imp-lead" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 16, fontSize: "var(--text-xs)" }}>
         {sourceBrand ? <BrandIcon name={sourceBrand} size={13} /> : null}
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-body)", overflowWrap: "anywhere" }}>
+        <span style={{ fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-body)", overflowWrap: "anywhere" }}>
           {file}
         </span>
         <span>· {t(key("import.planNothingYet"))}</span>

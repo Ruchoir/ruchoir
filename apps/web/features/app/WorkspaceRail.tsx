@@ -12,7 +12,7 @@ import { useDesktop, type OtherInstance } from "@/features/desktop/DesktopContex
 const rail: CSSProperties = {
   width: "var(--rail-width)",
   flex: "none",
-  background: "var(--surface-canvas)",
+  background: "var(--rail-bg)",
   borderRight: "1.5px solid var(--border-subtle)",
   display: "flex",
   flexDirection: "column",
@@ -209,7 +209,7 @@ export function WorkspaceRail({
   const reorder = useDragReorder({ count: workspaces.length, onMove: (from, to) => move(workspaces[from].id, to) });
 
   return (
-    <div style={rail}>
+    <div style={rail} className="wc-pane-rail">
       <div style={railList}>
         {desktop ? <InstanceHeading label={desktop.instanceLabel} host={desktop.instanceHost} /> : null}
         {workspaces.map((w, index) => {

@@ -16,6 +16,7 @@ import { LinkPreviewCard } from "./LinkPreviewCard";
 import { MessageMenu } from "./MessageMenu";
 import { ReactionMenu } from "./ReactionMenu";
 import { ReadReceipt } from "./ReadReceipt";
+import { msgRowPadding, msgRowStyle } from "./rowStyles";
 import { useTranslation } from "@/lib/i18n";
 import { formatBytes, formatDateTime, formatRelativeStamp, formatStamp, formatTime, isSameDay } from "@/lib/i18n/format";
 import { haptic } from "@/lib/haptics";
@@ -49,23 +50,14 @@ export type MessageActions = {
 };
 
 const styles: Record<string, CSSProperties> = {
-  msg: {
-    display: "flex",
-    gap: 14,
-    // Bottom padding reserves room for the hover read receipt so it never overlaps content.
-    padding: "6px 8px 18px",
-    margin: "0 -8px",
-    borderRadius: "var(--radius-md)",
-    position: "relative",
-    transition: "background-color var(--duration-fast) var(--ease-out)",
-  },
+  msg: msgRowStyle,
   author: { display: "flex", alignItems: "baseline", gap: 8 },
   gutterTime: {
     flex: "none",
     width: 34,
     paddingTop: 3,
     textAlign: "right",
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     lineHeight: "var(--leading-normal)",
     color: "var(--text-subtle)",
@@ -94,7 +86,7 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
   },
   threadExcerpt: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-muted)" },
-  time: { fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
+  time: { fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
   body: {
     fontSize: "var(--text-base)",
     lineHeight: "var(--leading-normal)",
@@ -103,7 +95,7 @@ const styles: Record<string, CSSProperties> = {
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
   },
-  edited: { fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" },
+  edited: { fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" },
   editedLine: { display: "block", marginTop: 2 },
   attachmentName: {
     display: "block",
@@ -124,7 +116,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 2,
     padding: 2,
     background: "var(--surface-raised)",
-    border: "2px solid var(--ink)",
+    border: "2px solid var(--edge-float)",
     borderRadius: "var(--radius-sm)",
     boxShadow: "var(--shadow-offset-sm)",
   },
@@ -178,7 +170,7 @@ function AttachmentCard({ attachment }: { attachment: MessageAttachment }) {
             <span style={styles.attachmentName} title={attachment.name}>
               {attachment.name}
             </span>
-            <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+            <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontFamily: "var(--label-font)" }}>
               {formatBytes(attachment.sizeBytes)}
             </span>
           </span>
@@ -216,11 +208,11 @@ function reactionPill(mine?: boolean): CSSProperties {
     gap: 5,
     height: 28,
     padding: "0 9px",
-    border: `1.5px solid ${mine ? "var(--ink)" : "var(--control-line)"}`,
+    border: `1.5px solid ${mine ? "var(--edge-focus)" : "var(--control-line)"}`,
     // One's own reaction is filled with the theme's pastel, which carries the dark ink.
     background: mine ? "var(--acc)" : "var(--surface-card)",
     borderRadius: "var(--radius-full)",
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     fontWeight: 600,
     color: mine ? "var(--on-pastel)" : "var(--text-body)",
@@ -415,12 +407,9 @@ export function MessageRow({
       style={{
         ...styles.msg,
         borderRadius: mentionsMe ? undefined : styles.msg.borderRadius,
-        // The two halves of the gap are decided separately, because they answer different questions.
-        // Above: is this line continuing the one before it. Below: is anything continuing this one,
-        // which is also what says whether the hover receipt needs room. Tying the bottom to
-        // "grouped" instead left the full reserve under the *first* line of a block, so a run opened
-        // with a gap its own members did not have.
-        padding: `${grouped ? 2 : 6}px 8px ${endsRun ? 18 : 4}px`,
+        // Tying the bottom to "grouped" instead left the full reserve under the *first* line of a
+        // block, so a run opened with a gap its own members did not have (see msgRowPadding).
+        padding: msgRowPadding(grouped, endsRun),
         // A message that mentions the current user is washed in the theme's pastel: the colour that
         // means "yours" everywhere else (the open conversation, one's own reaction).
         background: deleted

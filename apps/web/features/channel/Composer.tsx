@@ -11,6 +11,7 @@ import { useLayout, useTouch } from "../app/useLayout";
 import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
 import { useEditLastKey } from "./useEditLastKey";
+import { composerShellStyle } from "./rowStyles";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatBytes } from "@/lib/i18n/format";
 
@@ -37,7 +38,7 @@ const styles: Record<string, CSSProperties> = {
   hint: {
     maxWidth: "var(--channel-measure)",
     margin: "6px auto 0",
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     color: "var(--text-muted)",
   },
@@ -363,7 +364,7 @@ export function Composer({
           ...(phone ? { padding: "6px 6px 6px 12px" } : null),
           // Correcting a message sets the box on a peach offset, the colour of a change under way;
           // files held over it fill it with the accent.
-          ...(editing ? { boxShadow: "4px 4px 0 var(--peach)" } : draggingFiles ? { background: "var(--surface-selected)" } : {}),
+          ...composerShellStyle(!!editing, draggingFiles),
         }}
         onDragEnter={(event) => {
           if (event.dataTransfer.types.includes("Files")) setDraggingFiles(true);

@@ -694,7 +694,7 @@ export function CalendarScreen({
               border: "none",
               background: "var(--action-primary-bg)",
               color: "var(--action-primary-fg)",
-              boxShadow: "3px 3px 0 var(--bee)",
+              boxShadow: "var(--shadow-lift-sm)",
               display: "grid",
               placeItems: "center",
               cursor: "pointer",

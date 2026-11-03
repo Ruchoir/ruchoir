@@ -59,7 +59,7 @@ const st: Record<string, CSSProperties> = {
   linkText: {
     flex: 1,
     minWidth: 0,
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     color: "var(--text-default)",
     overflow: "hidden",

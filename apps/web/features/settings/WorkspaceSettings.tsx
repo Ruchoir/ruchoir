@@ -58,7 +58,7 @@ const st: Record<string, CSSProperties> = {
   },
   sub: { fontSize: "var(--text-md)", color: "var(--text-body)", marginBottom: 20 },
   sect: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
