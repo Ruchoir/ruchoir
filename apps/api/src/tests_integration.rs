@@ -10458,7 +10458,7 @@ async fn an_office_token_names_one_member_one_file_and_expires() {
 
     let Some(app) = boot().await else { return };
     let (user, file) = (Uuid::new_v4(), Uuid::new_v4());
-    let (token, grant) = tokens::mint(&app.valkey, user, file, Mode::Edit, 2)
+    let (token, grant) = tokens::mint(&app.valkey, user, file, Mode::Edit, 2, None)
         .await
         .expect("mint");
     assert_eq!(token.len(), 64);
@@ -10572,6 +10572,7 @@ async fn edit_token(app: &TestApp, user: Uuid, file: Uuid) -> String {
         file,
         crate::office::discovery::Mode::Edit,
         3600,
+        None,
     )
     .await
     .expect("mint")
@@ -10801,6 +10802,7 @@ async fn converting_makes_a_copy_beside_the_original_and_never_overwrites() {
         original,
         crate::office::discovery::Mode::Convert,
         3600,
+        None,
     )
     .await
     .unwrap()
@@ -10857,6 +10859,7 @@ async fn converting_makes_a_copy_beside_the_original_and_never_overwrites() {
         original,
         crate::office::discovery::Mode::Edit,
         3600,
+        None,
     )
     .await
     .unwrap()
@@ -11202,7 +11205,7 @@ async fn the_office_hostname_is_relayed_without_credentials_and_only_there() {
     // The engine's own pages frame each other (the WOPI page frames the editor), and every ancestor
     // must be allowed: the editor's origin itself, then Ruchoir's.
     assert!(csp.contains(&format!(
-        "frame-ancestors 'self' {}",
+        "frame-ancestors 'self' {} ruchoir-app://localhost http://ruchoir-app.localhost",
         app.config.public_base_url
     )));
     let seen: Value = relayed.json().await.unwrap();
@@ -11297,6 +11300,7 @@ async fn a_converted_copy_takes_the_extension_the_engine_announces() {
         original,
         crate::office::discovery::Mode::Convert,
         3600,
+        None,
     )
     .await
     .unwrap()
@@ -11471,7 +11475,9 @@ async fn the_engine_is_told_ruchoirs_origin_even_with_a_trailing_slash() {
         .unwrap()
         .to_owned();
     assert!(
-        csp.ends_with("frame-ancestors 'self' http://localhost:8080"),
+        csp.ends_with(
+            "frame-ancestors 'self' http://localhost:8080 ruchoir-app://localhost http://ruchoir-app.localhost"
+        ),
         "{csp}"
     );
 
@@ -11509,6 +11515,7 @@ async fn a_conversion_session_never_locks_or_writes_the_original() {
         original,
         crate::office::discovery::Mode::Convert,
         3600,
+        None,
     )
     .await
     .unwrap()
@@ -11795,6 +11802,7 @@ async fn the_converting_member_learns_which_copy_the_editor_moved_to() {
         original,
         crate::office::discovery::Mode::Convert,
         3600,
+        None,
     )
     .await
     .unwrap()
@@ -11933,6 +11941,59 @@ async fn the_editor_shows_the_members_ruchoir_photo() {
         )),
         "{image}"
     );
+}
+
+#[tokio::test]
+async fn a_desktop_session_names_its_own_origin_for_the_editors_messages() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let open = |body: Value| {
+        let req = app
+            .req(
+                reqwest::Method::POST,
+                &format!("/api/v1/files/{file_id}/office"),
+                &alice,
+            )
+            .json(&body);
+        async move { req.send().await.unwrap() }
+    };
+    let origin_of = |session: Value| {
+        let token = session["access_token"].as_str().unwrap().to_owned();
+        let req = wopi_req(&app, reqwest::Method::GET, file_id, "", &token);
+        async move {
+            let info: Value = req.send().await.unwrap().json().await.unwrap();
+            info["PostMessageOrigin"].clone()
+        }
+    };
+
+    for desktop in ["ruchoir-app://localhost", "http://ruchoir-app.localhost"] {
+        let res = open(json!({ "embed_origin": desktop })).await;
+        assert_eq!(res.status(), 200, "{desktop}");
+        assert_eq!(origin_of(res.json().await.unwrap()).await, desktop);
+    }
+
+    let res = open(json!({})).await;
+    assert_eq!(res.status(), 200);
+    assert_eq!(
+        origin_of(res.json().await.unwrap()).await,
+        app.config.public_base_url,
+        "without it, the instance's own origin"
+    );
+
+    for foreign in [
+        "https://evil.org",
+        "ruchoir-app://localhost/",
+        "RUCHOIR-APP://localhost",
+        " ruchoir-app://localhost",
+        "",
+    ] {
+        let res = open(json!({ "embed_origin": foreign })).await;
+        assert_eq!(res.status(), 400, "{foreign:?} is not a desktop origin");
+    }
 }
 
 #[tokio::test]

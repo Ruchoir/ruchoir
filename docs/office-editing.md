@@ -140,7 +140,7 @@ ways. Conversely, the relay answers nothing on Ruchoir's own host.
   engine, and `Set-Cookie` from the engine is dropped. `Authorization` is relayed: Ruchoir never uses
   it (its session is a cookie), and what a browser sends the office host there is the engine's own
   session token, set by the engine's pages (an image upload needs it).
-- The engine's pages carry `frame-ancestors 'self' <Ruchoir's origin>` (`'self'` because the engine's WOPI page frames its own editor page, and every ancestor is checked); Ruchoir's own CSP gains
+- The engine's pages carry `frame-ancestors 'self' <Ruchoir's origin> ruchoir-app://localhost http://ruchoir-app.localhost` (the last two are the desktop app's own origins, always listed because the relay serves the pages without knowing the session; a framing page still needs an access token, which only the API gives to the person's own session; `'self'` because the engine's WOPI page frames its own editor page, and every ancestor is checked); Ruchoir's own CSP gains
   `frame-src <office origin>` so it can frame them, and nothing else changes for it.
 - Only the paths the editor needs are relayed (observed during the test of 2026-10-01): the versioned
   static tree (`/<version>-<hash>/…`: `sdkjs`, `fonts`, `web-apps`, `doc` (the co-editing socket),
@@ -196,7 +196,7 @@ token, and the public surface does not grow.
 
 | WOPI operation | Behaviour |
 |---|---|
-| `CheckFileInfo` | Name, size, version, owner, the member's id and display name, `UserCanWrite`, `SupportsLocks`, `SupportsUpdate`, `SupportsGetLock`, `UserCanNotWriteRelative` (false only for a convert session), `PostMessageOrigin` (Ruchoir's public origin, the page that frames the editor). |
+| `CheckFileInfo` | Name, size, version, owner, the member's id and display name, `UserCanWrite`, `SupportsLocks`, `SupportsUpdate`, `SupportsGetLock`, `UserCanNotWriteRelative` (false only for a convert session), `PostMessageOrigin` (the page that frames the editor: Ruchoir's public origin, or the desktop app's own origin when the session was opened with `embed_origin`, one of `ruchoir-app://localhost` and `http://ruchoir-app.localhost` and nothing else, stored in the token's grant; feature `office_desktop_embed`). |
 | `GetFile` | The bytes of the current version, from the object store. |
 | `PutFile` | A new version (see [Saving](#saving)). Refused with `409` if the lock does not match, `413` above the upload cap. |
 | `Lock`, `Unlock`, `RefreshLock`, `GetLock`, unlock-and-relock | Standard WOPI semantics. The lock lives in Valkey (`office:lock:<file>`, 30 minutes, refreshed by the engine every 10), so several API instances agree. |

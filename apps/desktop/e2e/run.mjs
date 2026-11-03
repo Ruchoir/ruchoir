@@ -395,9 +395,8 @@ async function main() {
     await frameShot("viewer-pdf");
     console.log(`ok: dropped file attached, viewer frame shown (${JSON.stringify(frame)})`);
 
-    // Opt-in (E2E_OFFICE=1) until the API lets the desktop's own origins frame the engine: it sends
-    // `frame-ancestors 'self' <instance origin>` (`office/proxy.rs`, `frame_for`), and the window's
-    // page is `ruchoir-app://localhost`, so the engine's page loads and is then refused.
+    // Opt-in (E2E_OFFICE=1) until the instance has `office_desktop_embed`: only then does the API list
+    // the desktop's origins in the engine's `frame-ancestors` (`office/proxy.rs`, `frame_for`).
     if (process.env.E2E_OFFICE) {
       // The office editor: the engine's host is a frame of the interface, which the window must let load
       // (WebKit hands a frame's navigation to the window's rules), and which must not go to the browser.

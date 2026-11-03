@@ -4431,6 +4431,13 @@
               "null"
             ]
           },
+          "embed_origin": {
+            "description": "The desktop app's own origin (`office_desktop_embed`): the editor then posts its messages\nthere instead of to the instance's origin. Only the desktop origins are accepted.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "locale": {
             "description": "Interface language (`fr`, `en`, `es`, `de`, `it`, `pl`).",
             "type": [

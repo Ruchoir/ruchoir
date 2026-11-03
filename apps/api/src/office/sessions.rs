@@ -34,6 +34,9 @@ pub struct SessionRequest {
     pub mode: Option<String>,
     /// A touch screen (phone, tablet): the engine's mobile editor.
     pub mobile: Option<bool>,
+    /// The desktop app's own origin (`office_desktop_embed`): the editor then posts its messages
+    /// there instead of to the instance's origin. Only the desktop origins are accepted.
+    pub embed_origin: Option<String>,
 }
 
 /// An editing session: where to post the token, and what to tell the engine.
@@ -76,6 +79,12 @@ pub async fn open_session(
 ) -> Result<Json<SessionResponse>, OfficeError> {
     let office = state.office.as_ref().ok_or(OfficeError::Disabled)?;
     let discovery = office.discovery().ok_or(OfficeError::EngineUnavailable)?;
+    // Whoever the origin names receives the editor's messages, so it is a fixed list, not an echo.
+    if let Some(origin) = request.embed_origin.as_deref() {
+        if !super::DESKTOP_ORIGINS.contains(&origin) {
+            return Err(FileError::BadRequest("invalid embed_origin").into());
+        }
+    }
     let access = authz::ensure_readable(&state.db, file_id, session.user_id).await?;
     if access.file.kind == "folder" {
         return Err(OfficeError::Unsupported);
@@ -110,6 +119,7 @@ pub async fn open_session(
         file_id,
         mode,
         state.config.office_token_ttl_secs,
+        request.embed_origin.clone(),
     )
     .await?;
     // The member's Ruchoir photo, for the editor's own avatar (and the co-authors'): served by

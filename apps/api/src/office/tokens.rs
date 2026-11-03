@@ -25,15 +25,21 @@ pub struct Grant {
     pub mode: Mode,
     /// Unix seconds.
     pub expires_at: i64,
+    /// Where the editor page posts its messages, when that is not the instance's origin (the desktop
+    /// app's own origin). `default`: tokens minted before this field existed still read.
+    #[serde(default)]
+    pub post_message_origin: Option<String>,
 }
 
-/// Mint a token for `user_id` on `file_id`, valid `ttl_secs`.
+/// Mint a token for `user_id` on `file_id`, valid `ttl_secs`. `post_message_origin` is where the
+/// editor posts its messages when the page is not the instance's own (`None` otherwise).
 pub async fn mint(
     valkey: &Pool,
     user_id: Uuid,
     file_id: Uuid,
     mode: Mode,
     ttl_secs: i64,
+    post_message_origin: Option<String>,
 ) -> Result<(String, Grant), OfficeError> {
     let token = random_token()?;
     let grant = Grant {
@@ -41,6 +47,7 @@ pub async fn mint(
         file_id,
         mode,
         expires_at: now_secs() + ttl_secs,
+        post_message_origin,
     };
     let json = serde_json::to_string(&grant).map_err(|_| OfficeError::Internal)?;
     let key = format!("{PREFIX}{token}");

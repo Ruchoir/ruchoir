@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { endOfficeHeartbeat, getConvertedCopy, officeHeartbeat, openOfficeSession } from "@/lib/data/api";
+import {
+  endOfficeHeartbeat,
+  getConvertedCopy,
+  getInstanceCapabilities,
+  officeHeartbeat,
+  openOfficeSession,
+  supports,
+} from "@/lib/data/api";
 import { isApiError } from "@/lib/data/http";
 import type { FileEditor, OfficeSession, SpaceFile } from "@/lib/data/types";
 import { isDesktop } from "@/lib/desktop/runtime";
@@ -46,6 +53,20 @@ function failureOf(err: unknown): OfficeFailure {
   return "failed";
 }
 
+/**
+ * The desktop page's own origin, for an instance that knows it (`office_desktop_embed`): the editor
+ * then posts its messages there. Elsewhere nothing is sent (an older instance would not know it).
+ */
+async function embedOrigin(): Promise<string | undefined> {
+  if (!isDesktop) return undefined;
+  try {
+    const caps = await getInstanceCapabilities();
+    return supports(caps, "office_desktop_embed") ? window.location.origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** An id this tab keeps for its life, so the API tells two tabs of one member apart. */
 function newTabId(): string {
   try {
@@ -66,10 +87,15 @@ export function useOfficeSession(
 ): { state: OfficeSessionState; leave: () => Promise<void>; noteChange: () => void } {
   const [state, setState] = useState<OfficeSessionState>({ status: "loading", editors: [] });
   const [tab] = useState(newTabId);
+  // Asked once per mount: the first open and the conversion poll share the answer.
+  const [embed] = useState(embedOrigin);
 
   useEffect(() => {
     let cancelled = false;
-    openOfficeSession(fileId, { theme: officeTheme(), accent: officeAccent(), mode: convert ? "convert" : undefined, mobile: touchScreen() })
+    embed
+      .then((origin) =>
+        openOfficeSession(fileId, { theme: officeTheme(), accent: officeAccent(), mode: convert ? "convert" : undefined, mobile: touchScreen(), embedOrigin: origin }),
+      )
       .then(async (session) => {
         // The desktop's window only lets a frame load from an origin it was told about (WebKit
         // routes frame navigations through the window's rules): tell it before the frame exists.
@@ -91,7 +117,7 @@ export function useOfficeSession(
     return () => {
       cancelled = true;
     };
-  }, [fileId, convert]);
+  }, [fileId, convert, embed]);
 
   const mode = state.status === "ready" ? state.session.mode : null;
   const copy = state.status === "ready" ? state.copy : undefined;
@@ -117,7 +143,7 @@ export function useOfficeSession(
         .then(async (found) => {
           if (cancelled || !found?.id) return;
           opening = true;
-          const next = await openOfficeSession(found.id, { theme: officeTheme(), accent: officeAccent(), mobile: touchScreen() });
+          const next = await openOfficeSession(found.id, { theme: officeTheme(), accent: officeAccent(), mobile: touchScreen(), embedOrigin: await embed });
           if (!cancelled) setState({ status: "ready", session: next, copy: found, editors: next.file.editors ?? [] });
         })
         .catch(() => {
@@ -129,7 +155,7 @@ export function useOfficeSession(
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [awaitingCopy, fileId]);
+  }, [awaitingCopy, fileId, embed]);
 
   /** The file this tab may edit: the session's own file, once it is an edit session. */
   const editableId = state.status === "ready" && state.session.mode === "edit" ? (state.session.file.id ?? null) : null;

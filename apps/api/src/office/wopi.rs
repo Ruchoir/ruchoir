@@ -201,7 +201,10 @@ async fn check_file_info(
         "UserCanNotWriteRelative": grant.mode != Mode::Convert,
         "SupportsRename": false,
         "UserCanRename": false,
-        "PostMessageOrigin": state.config.public_origin(),
+        "PostMessageOrigin": grant
+            .post_message_origin
+            .clone()
+            .unwrap_or_else(|| state.config.public_origin()),
         // The editor page posts `Edit_Notification` to Ruchoir when the document changes: a member
         // who only reads is not shown as editing.
         "EditNotificationPostMessage": true,
@@ -389,6 +392,7 @@ async fn put_relative(
         created.id,
         Mode::Edit,
         state.config.office_token_ttl_secs,
+        grant.post_message_origin.clone(),
     )
     .await?;
     tokens::remember_copy(

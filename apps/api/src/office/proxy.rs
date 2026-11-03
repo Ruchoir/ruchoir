@@ -238,11 +238,20 @@ pub fn forwardable(name: &HeaderName) -> bool {
     !(DROPPED.contains(&name) || name.starts_with("x-forwarded-"))
 }
 
-/// Let Ruchoir, and only Ruchoir, frame the engine's pages.
+/// Let Ruchoir, and only Ruchoir, frame the engine's pages: its own origin and the desktop app's.
+///
+/// The desktop origins are listed for every page because this serves the engine's pages without
+/// knowing the session. That is safe: a page that frames the editor still needs an access token,
+/// which only the API gives, to the signed-in person's own session; and the desktop names
+/// (`ruchoir-app://localhost`, `*.localhost`) resolve to the person's own machine, so another site
+/// cannot be served from them.
 pub fn frame_for(headers: &mut HeaderMap, ruchoir_origin: &str) {
     // `'self'` too: the engine's WOPI page frames its own editor page, and a browser checks every
     // ancestor of a frame against this list, the editor's own origin included.
-    let ours = format!("frame-ancestors 'self' {ruchoir_origin}");
+    let ours = format!(
+        "frame-ancestors 'self' {ruchoir_origin} {}",
+        super::DESKTOP_ORIGINS.join(" ")
+    );
     let policy = match headers
         .get(CONTENT_SECURITY_POLICY)
         .and_then(|v| v.to_str().ok())
@@ -529,7 +538,7 @@ mod tests {
         frame_for(&mut headers, "https://ruchoir.example.org");
         assert_eq!(
             headers[CONTENT_SECURITY_POLICY],
-            "frame-ancestors 'self' https://ruchoir.example.org"
+            "frame-ancestors 'self' https://ruchoir.example.org ruchoir-app://localhost http://ruchoir-app.localhost"
         );
 
         let mut headers = HeaderMap::new();
@@ -541,7 +550,7 @@ mod tests {
         frame_for(&mut headers, "https://ruchoir.example.org");
         assert_eq!(
             headers[CONTENT_SECURITY_POLICY],
-            "default-src 'self'; frame-ancestors 'self' https://ruchoir.example.org"
+            "default-src 'self'; frame-ancestors 'self' https://ruchoir.example.org ruchoir-app://localhost http://ruchoir-app.localhost"
         );
         assert!(headers.get("x-frame-options").is_none());
     }
