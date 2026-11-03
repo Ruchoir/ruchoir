@@ -522,6 +522,24 @@ usage with the design-system oxlint config.
   width of the thread panel (`threadWidth`, bounded by `THREAD_WIDTH_MIN`/`MAX`, written on mouse-up
   rather than on every move). A layout the reader adjusts by hand belongs here: one that lives in a
   component's state has to be adjusted again at every reopening.
+- **Which settings follow the account** (decided 2026-11-03): `features/app/accountPrefs.ts` names
+  them (`isAccountSetting`, `WEB_ACCOUNT_KEYS`, `toWire`/`fromWire`, tested) and how they read on the
+  wire: the typeface, the language, the rail order, folded sections, shortcuts, the getting-started
+  checklist, the files layout, the default panel, the external-link warning, emoji animation and the
+  calendar's settings (flattened into `calendar_*`, since the phone knows two of them). **The theme
+  (accent, mode), the text size, `threadWidth` and the flags about this browser or app stay here
+  only.** `settings.set` reports an account change (`onAccountChange`) and `settings.adopt` takes
+  one from the server without sending it back. `useAccountPrefsSync` (wired in `AppRoot`) reconciles
+  at sign-in with `reconcileAccountPrefs` from `@ruchoir/client` (the first device sends its own,
+  otherwise the server's win; the desktop app's are the person's once `accountShared`), queues
+  changes in `localStorage` (`ruchoir.pendingAccountPrefs`, so an offline change goes up later),
+  sends them (`PATCH /me/preferences`; on a 400 the server's value comes back) and applies
+  `preferences.updated`. A server without the route (404) leaves everything local. A new setting:
+  decide which side it is on, and if it follows the account, add its key to `accountPrefs.ts` **and**
+  to the server's closed list (`apps/api/src/preferences/document.rs`).
+- **Hidden direct conversations are the account's** (`DirectMessage.hidden`, `setDmHidden`,
+  `dm.hidden`): the server clears the flag for everyone in it on a new message, and the sidebar keeps
+  the one being read. A browser's old `hiddenDms` are sent up once (`takeLegacyHiddenDms`).
 - **Keyboard shortcuts.** Commands and their default chords live in `features/app/shortcuts.ts`
   (`COMMANDS`, `DEFAULT_BINDINGS`, plus `eventToChord`/`formatChord`; `Mod` = Cmd on macOS, Ctrl
   elsewhere). Bindings persist in the settings and are user-editable in Préférences > Raccourcis

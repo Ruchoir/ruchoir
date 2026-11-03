@@ -343,6 +343,16 @@ context and takes precedence here.
   counts public, active channels only). Language: `RUCHOIR_DEFAULT_LOCALE`. Every asset (fonts, bee,
   emoji, avatars, mark) is embedded from `assets/og` and the image resolver refuses anything else.
   After changing a card or a sentence, `RUCHOIR_OG_DUMP=<dir> cargo test og::` writes them all out.
+- `src/preferences/` - the preferences that follow an account across devices (`GET`/`PATCH
+  /api/v1/me/preferences`, caller only). `document` holds the **closed list of keys** (`KEYS`), what
+  each accepts, and the merge (key by key, `null` back to the default, `calendar_work_start <
+  calendar_work_end` across keys, 16 KiB at most): an unknown key or a bad value refuses the whole
+  change with a 400. Stored in `user_preferences`: `font` and `emoji_animated` in their columns, the
+  rest in `ui_state`; `theme` and `text_size` stay unused, the theme and text size being each
+  device's own (decided 2026-11-03). A change is pushed as `preferences.updated` to the caller's own
+  connections. Hidden direct conversations are `dm_participants.hidden` (`PUT /me/dms/{id}/hidden`,
+  `dm.hidden`, `hidden` on the list), cleared for everyone in `send_message` and for the caller when
+  `create_dm` answers an existing conversation. Feature name: `account_preferences`.
 - `src/notify/`   - reaching someone with no Ruchoir page open (ADR 0001). `prefs`: the notification
   preferences, held server-side, in three layers where **the nearest one that says something wins**:
   the conversation's level (`channel_members` / `dm_participants`: `default`, `all`, `mentions`,

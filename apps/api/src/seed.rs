@@ -162,13 +162,12 @@ async fn seed_atelier(txn: &DatabaseTransaction, users: &SeedUsers) -> Result<()
     .update(txn)
     .await?;
 
-    // Representative client preferences for the owner (theme/font/text size + JSON blobs).
+    // Representative preferences for the owner, as the account keeps them (`crate::preferences`):
+    // the typeface and the emoji animation in their columns, the other keys in `ui_state`. The
+    // theme and the text size are each device's own, so the server holds none.
     user_preferences::ActiveModel {
         user_id: Set(users.admin),
-        theme: Set(Some("system".to_owned())),
-        font: Set(Some("plex-sans".to_owned())),
-        text_size: Set(Some("comfortable".to_owned())),
-        emoji_pack: Set(Some("fluent".to_owned())),
+        font: Set(Some("plex".to_owned())),
         emoji_animated: Set(Some(true)),
         notifications: Set(Some(
             "{\"enabled\":true,\"sound\":true,\"quietHours\":false}".to_owned(),

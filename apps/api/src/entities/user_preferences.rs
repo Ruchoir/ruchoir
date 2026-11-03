@@ -1,9 +1,13 @@
 //! The `user_preferences` table: per-user client preferences, so they follow a user across devices.
 //!
-//! Typed columns cover the common toggles (theme, font, text size, emoji pack). The two text blobs
-//! hold flexible JSON the notifications feature will firm up: `notifications` (enabled, sound,
-//! quiet hours, ...) and `ui_state` (keyboard shortcuts, onboarding checklist, ...). Stored as text
-//! rather than jsonb because the `with-json` SeaORM feature is not enabled; never secret.
+//! - `notifications`: the notification settings (`crate::notify::prefs`).
+//! - `font`, `emoji_animated` and `ui_state`: the account preferences (`crate::preferences`), the
+//!   first two in their typed columns, every other key of its closed list as JSON in `ui_state`.
+//! - `theme` and `text_size` stay empty by decision (2026-11-03): the theme and the text size are
+//!   each device's own. `emoji_pack` is unused too.
+//!
+//! Stored as text rather than jsonb because the `with-json` SeaORM feature is not enabled; never
+//! secret.
 
 use sea_orm::entity::prelude::*;
 
