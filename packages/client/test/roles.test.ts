@@ -86,12 +86,17 @@ test("the_audit_log_is_read_a_page_at_a_time", async () => {
 });
 
 test("a_licence_is_installed_read_and_removed", async () => {
-  const view = { licence_id: "l1", organisation: "Atelier SARL", seats: 25, used: 8, valid_until: "2027-12-31T23:59:59Z", edition: "enterprise" };
+  const view = {
+    licence_id: "l1", organisation: "Atelier SARL", seats: 25, used: 8, valid_until: "2027-12-31T23:59:59Z", edition: "enterprise",
+    installed_at: "2026-11-02T17:20:00Z", installed_by: { id: "u0", display_name: "Camille" },
+  };
   const calls = fakeFetch({ body: view }, { body: view }, { status: 404, body: { error: "not_found" } }, { status: 204 });
   const client = api();
   const installed = await client.putLicence("s1", "RUCHOIR-LICENCE-1.x.y");
   assert.equal(installed.organisation, "Atelier SARL");
   assert.equal(installed.validUntil, "2027-12-31T23:59:59Z");
+  assert.equal(installed.installedAt, "2026-11-02T17:20:00Z");
+  assert.deepEqual(installed.installedBy, { id: "u0", name: "Camille" });
   assert.deepEqual(JSON.parse(String(calls[0].init.body)), { licence: "RUCHOIR-LICENCE-1.x.y" });
   assert.equal((await client.getLicence("s1"))?.seats, 25);
   assert.equal(await client.getLicence("s1"), null);

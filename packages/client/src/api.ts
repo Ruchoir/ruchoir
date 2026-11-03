@@ -114,6 +114,8 @@ type LicenceViewDto = {
   used: number;
   valid_until: string;
   edition: "enterprise" | "frozen";
+  installed_at?: string;
+  installed_by?: { id: string; display_name: string } | null;
 };
 
 function toRole(dto: RoleDto): Role {
@@ -137,6 +139,8 @@ function toLicenceView(dto: LicenceViewDto): LicenceView {
     used: dto.used,
     validUntil: dto.valid_until,
     edition: dto.edition,
+    installedAt: dto.installed_at || undefined,
+    installedBy: dto.installed_by ? { id: dto.installed_by.id, name: dto.installed_by.display_name } : undefined,
   };
 }
 

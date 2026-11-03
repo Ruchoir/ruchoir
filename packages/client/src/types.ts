@@ -123,6 +123,10 @@ export type LicenceView = {
   used: number;
   validUntil: string;
   edition: "enterprise" | "frozen";
+  /** When it was installed (ISO 8601); absent from an instance older than this field. */
+  installedAt?: string;
+  /** Who installed it; absent once their account is deleted. */
+  installedBy?: { id: string; name: string };
 };
 
 /**
