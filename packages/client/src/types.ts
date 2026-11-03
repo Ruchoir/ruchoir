@@ -78,7 +78,6 @@ export type SpaceLicence = {
   expiresInDays: number;
 };
 
-/** One role of a space, as `GET /spaces/{id}/roles` lists it (strongest first). */
 /** A group of a space: a named set of people, which may carry roles. */
 export type Group = {
   id: string;
@@ -95,6 +94,7 @@ export type Group = {
   may: { edit: boolean; delete: boolean; changeMembers: boolean; changeRoles: boolean; appoint: boolean };
 };
 
+/** One role of a space, as `GET /spaces/{id}/roles` lists it (strongest first). */
 export type Role = {
   id: string;
   /** `administrator`, `members` or `guests` for a system role, whose name the app translates. */
