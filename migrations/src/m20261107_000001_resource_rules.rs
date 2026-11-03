@@ -1,8 +1,10 @@
 //! Resource rules aimed at a group or at the readers of a channel (permissions lot 4).
 //!
 //! - `permission_overrides.group_id` makes a group a rule's target, beside a role or a person. The
-//!   foreign key is `ON DELETE RESTRICT`: a rule that denies something never goes silently with the
-//!   group it names (the routes remove the rules first, in the same transaction).
+//!   foreign key is `ON DELETE NO ACTION`, checked at statement end rather than at once as RESTRICT
+//!   is: deleting a whole space never depends on cascade order, while a plain group delete is still
+//!   refused. A rule that denies something never goes silently with the group it names (the routes
+//!   remove the rules first, in the same transaction).
 //! - `permission_overrides.audience_channel_id` makes "whoever reads this channel" a target, on
 //!   files and folders only (the CHECK keeps it off channels and calendars). The rule goes with the
 //!   channel it names.
@@ -21,7 +23,7 @@ ALTER TABLE permission_overrides
     ADD COLUMN group_id uuid,
     ADD COLUMN audience_channel_id uuid;
 ALTER TABLE permission_overrides
-    ADD FOREIGN KEY (group_id, space_id) REFERENCES space_groups (id, space_id) ON DELETE RESTRICT,
+    ADD FOREIGN KEY (group_id, space_id) REFERENCES space_groups (id, space_id) ON DELETE NO ACTION,
     ADD FOREIGN KEY (audience_channel_id, space_id) REFERENCES channels (id, space_id) ON DELETE CASCADE;
 
 ALTER TABLE permission_overrides DROP CONSTRAINT permission_overrides_one_target;
@@ -42,19 +44,9 @@ CREATE INDEX permission_overrides_group ON permission_overrides (group_id) WHERE
 CREATE INDEX permission_overrides_audience ON permission_overrides (audience_channel_id)
     WHERE audience_channel_id IS NOT NULL;
 
-DO $$
-DECLARE
-    v_name text;
-BEGIN
-    SELECT conname INTO v_name FROM pg_constraint
-     WHERE conrelid = 'space_audit_log'::regclass AND contype = 'c'
-       AND pg_get_constraintdef(oid) LIKE '%target_kind%';
-    IF v_name IS NOT NULL THEN
-        EXECUTE format('ALTER TABLE space_audit_log DROP CONSTRAINT %I', v_name);
-    END IF;
-    ALTER TABLE space_audit_log ADD CONSTRAINT space_audit_log_target_kind_check
-        CHECK (target_kind IN ('member', 'role', 'channel', 'calendar', 'space', 'licence', 'group', 'file'));
-END $$;
+ALTER TABLE space_audit_log DROP CONSTRAINT space_audit_log_target_kind_check;
+ALTER TABLE space_audit_log ADD CONSTRAINT space_audit_log_target_kind_check
+    CHECK (target_kind IN ('member', 'role', 'channel', 'calendar', 'space', 'licence', 'group', 'file'));
 "#;
 
 // The audit log is append-only: DOWN leaves its `target_kind` check accepting `file`. The rules
