@@ -216,9 +216,12 @@ pub fn forget_saves<R: Runtime>(app: &AppHandle<R>, instance: &str) {
     }
 }
 
+/// The server refused the instance's token (a 401): the session and the summaries go, but the
+/// opened copies and their watches stay (`SessionEnd::Expired`), so an edited file is still there to
+/// send or keep once the person signs in again.
 pub(crate) fn signed_out<R: Runtime>(app: &AppHandle<R>, id: &str) {
     app.state::<Desktop>().forget_session(id);
-    crate::files::forget_instance(app, id);
+    crate::files::session_ended(app, id, ruchoir_desktop_core::files::SessionEnd::Expired);
     crate::summaries::forget(app, id);
     changed(app);
 }

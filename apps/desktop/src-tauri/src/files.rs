@@ -12,9 +12,9 @@ use std::sync::{Mutex, PoisonError};
 use std::time::{Instant, SystemTime};
 
 use ruchoir_desktop_core::files::{
-    forget_instance_copies, hash_bytes, is_executable_type, is_file_bytes_path, is_link_to_file,
-    local_path, multipart_file, open_root, own_path, step, sweep_old_copies, window_label,
-    window_title, Seen, Watched, Watches, LIFETIME, POLL,
+    forget_instance_copies, hash_bytes, hash_file, is_file_bytes_path, is_link_to_file,
+    is_unsafe_to_open, local_path, multipart_file, open_root, own_path, step, sweep_old_copies,
+    window_label, window_title, Seen, SessionEnd, Watched, Watches, LIFETIME, POLL,
 };
 use ruchoir_desktop_core::proxy;
 use serde::Serialize;
@@ -150,8 +150,9 @@ fn open_folder<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, Str
 
 /// Download a file to the cache, open it with the computer's app and, when `base_version` is given
 /// (the person may add a version), watch it for saves. The copy is replaced at each opening.
-/// Errors: `unsafe_type` (a file the system would run), `refused` (a link that is not this file's bytes on this instance, or a bad id), `signed_out`, `unreachable`,
-/// `no_app` (nothing on the computer opens it), `failed`.
+/// A copy holding an unsent edit is opened as it is, not replaced. Errors: `unsafe_type` (a file
+/// the system would run), `refused` (a link that is not this file's bytes on this instance, or a
+/// bad id), `signed_out`, `unreachable`, `no_app` (nothing on the computer opens it), `failed`.
 #[tauri::command]
 pub async fn file_open_local<R: Runtime>(
     app: AppHandle<R>,
@@ -161,19 +162,32 @@ pub async fn file_open_local<R: Runtime>(
     href: String,
     base_version: Option<String>,
 ) -> Result<(), String> {
-    if is_executable_type(&name) {
+    // The name as given and as it will be kept (`safe_name` may cut it down to an executable one).
+    if is_unsafe_to_open(&name) {
         return Err("unsafe_type".into());
     }
     let root = open_folder(&app)?;
     let path = local_path(&root, &instance, &file_id, &name).ok_or("refused")?;
+    if path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(is_unsafe_to_open)
+    {
+        return Err("unsafe_type".into());
+    }
     // The bytes, the instance they come from and the file the copy is later sent to must agree.
     let own = own_path(&href, crate::APP_SCHEME).ok_or("refused")?;
     let on_screen = app.state::<Desktop>().view().id;
     if !is_link_to_file(&own, on_screen.as_deref(), &instance, &file_id) {
         return Err("refused".into());
     }
-    let bytes = crate::downloads::fetch(&app, &href).await?;
     let watcher = app.state::<Watcher>();
+    // A copy holding an edit that was not sent is never overwritten: it is opened as it is, and
+    // its watch stays.
+    if has_unsent_edit(&watcher, &instance, &file_id).await {
+        return open_copy(&app, &path);
+    }
+    let bytes = crate::downloads::fetch(&app, &href).await?;
     // The watch first, with the new content's hash: rewriting the copy under an older watch would
     // let the poller read the new bytes as the person's edit.
     let watching = base_version.is_some();
@@ -201,6 +215,12 @@ pub async fn file_open_local<R: Runtime>(
             }
         }
     }
+    // Opened without the right to add a version: no watch, and an earlier one for this file ends.
+    if !watching {
+        if let Ok(mut list) = watcher.watches.lock() {
+            list.remove(&instance, &file_id);
+        }
+    }
     let stop = |app: &AppHandle<R>| {
         if watching {
             if let Ok(mut list) = app.state::<Watcher>().watches.lock() {
@@ -215,15 +235,38 @@ pub async fn file_open_local<R: Runtime>(
         stop(&app);
         return Err("failed".into());
     }
-    if app
-        .opener()
-        .open_path(path.to_string_lossy(), None::<&str>)
-        .is_err()
-    {
+    if let Err(error) = open_copy(&app, &path) {
         stop(&app);
-        return Err("no_app".into());
+        return Err(error);
     }
     Ok(())
+}
+
+fn open_copy<R: Runtime>(app: &AppHandle<R>, path: &std::path::Path) -> Result<(), String> {
+    app.opener()
+        .open_path(path.to_string_lossy(), None::<&str>)
+        .map_err(|_| "no_app".to_owned())
+}
+
+/// Whether the file is watched and its copy holds something not sent: a save waiting to settle, or
+/// content that differs from what the watch last accepted.
+async fn has_unsent_edit(watcher: &Watcher, instance: &str, file_id: &str) -> bool {
+    let known = {
+        let Ok(mut list) = watcher.watches.lock() else {
+            return false;
+        };
+        list.find(instance, file_id)
+            .map(|w| (w.path.clone(), w.hash, w.settling.is_some()))
+    };
+    let Some((path, hash, settling)) = known else {
+        return false;
+    };
+    if settling {
+        return true;
+    }
+    tauri::async_runtime::spawn_blocking(move || hash_file(&path).is_ok_and(|h| h != hash))
+        .await
+        .unwrap_or(false)
 }
 
 /// The person turned the offer down: the file is no longer watched (opening it again restarts it).
@@ -236,7 +279,9 @@ pub fn file_dismiss(watcher: tauri::State<'_, Watcher>, instance: String, file_i
 
 /// Send the saved copy as a new version of its file, with the instance's session. On success the
 /// watch ends, unless a newer save is already waiting. Errors: `busy` (an upload of this file is
-/// running), `not_watched` (the watch ended or never began), `signed_out`, `unreachable`, `failed`.
+/// running), `not_watched` (the watch ended or never began), `unchanged` (the copy equals the version
+/// it came from: nothing is uploaded), `signed_out` (the session is dropped, the copies stay),
+/// `forbidden`, `too_large`, `unreachable`, `failed`.
 #[tauri::command]
 pub async fn file_send_version<R: Runtime>(
     app: AppHandle<R>,
@@ -252,6 +297,16 @@ pub async fn file_send_version<R: Runtime>(
     };
     let bytes = tokio::fs::read(&path).await.map_err(|_| "failed")?;
     let hash = hash_bytes(&bytes);
+    // Nothing differs from the version the copy came from (an edit undone): nothing to upload.
+    let same = watcher
+        .watches
+        .lock()
+        .map_err(|_| "failed")?
+        .find(&instance, &file_id)
+        .is_some_and(|w| w.hash == hash);
+    if same {
+        return Err("unchanged".into());
+    }
     let desktop = app.state::<Desktop>();
     let (origin, token) = desktop.credentials(&instance).ok_or("signed_out")?;
     let token = token.ok_or("signed_out")?;
@@ -280,6 +335,14 @@ pub async fn file_send_version<R: Runtime>(
             if let Ok(mut list) = watcher.watches.lock() {
                 if let Some(w) = list.find(&instance, &file_id) {
                     w.mark_sent(hash);
+                    // The answer is the file with its new current version: the next check is made
+                    // against that one, not the version the copy was opened from.
+                    let sent = serde_json::from_slice::<serde_json::Value>(&answer.body)
+                        .ok()
+                        .and_then(|v| v.get("version_id")?.as_str().map(str::to_owned));
+                    if let Some(version) = sent {
+                        w.base_version = version;
+                    }
                     // A save made while this one was going up stays offered, or one the poller
                     // has not seen yet (the file's time moved since it looked).
                     let moved =
@@ -326,8 +389,14 @@ pub async fn file_keep_copy<R: Runtime>(
     Ok(true)
 }
 
-/// An instance signed out or removed: stop watching its copies and delete them.
-pub fn forget_instance<R: Runtime>(app: &AppHandle<R>, instance: &str) {
+/// A session ended. A deliberate sign-out or removal stops the instance's watches, drops its save
+/// notices and deletes its copies, and tells the interface (`file:forgotten`) to drop the banners.
+/// An expired one keeps all of it: the person signs in again and the edited file can still be sent
+/// or kept.
+pub fn session_ended<R: Runtime>(app: &AppHandle<R>, instance: &str, end: SessionEnd) {
+    if end.keeps_copies() {
+        return;
+    }
     if let Some(watcher) = app.try_state::<Watcher>() {
         if let Ok(mut list) = watcher.watches.lock() {
             list.forget_instance(instance);
@@ -337,6 +406,7 @@ pub fn forget_instance<R: Runtime>(app: &AppHandle<R>, instance: &str) {
     if let Ok(root) = open_folder(app) {
         forget_instance_copies(&root, instance);
     }
+    let _ = app.emit("file:forgotten", instance);
 }
 
 /// The offer for a file that is still watched, or `None`.
@@ -382,8 +452,7 @@ fn look(path: &std::path::Path, last: Option<SystemTime>) -> Option<(SystemTime,
     if Some(mtime) == last {
         return None;
     }
-    let bytes = std::fs::read(path).ok()?;
-    Some((mtime, hash_bytes(&bytes)))
+    Some((mtime, hash_file(path).ok()?))
 }
 
 async fn round<R: Runtime>(app: &AppHandle<R>) {

@@ -297,9 +297,69 @@ pub fn is_link_to_file(
 /// Extensions the system would run rather than show: a file of one of these types is never opened
 /// from the app (it is still saved with "Save as", where the person chooses).
 const EXECUTABLE: &[&str] = &[
-    "exe", "com", "bat", "cmd", "msi", "msp", "scr", "pif", "cpl", "ps1", "psm1", "vbs", "vbe",
-    "js", "jse", "wsf", "wsh", "hta", "jar", "lnk", "url", "reg", "sh", "bash", "zsh", "command",
-    "desktop", "app", "appimage", "run", "deb", "rpm", "pkg", "dmg",
+    "exe",
+    "com",
+    "bat",
+    "cmd",
+    "msi",
+    "msp",
+    "scr",
+    "pif",
+    "cpl",
+    "ps1",
+    "psm1",
+    "vbs",
+    "vbe",
+    "js",
+    "jse",
+    "wsf",
+    "wsh",
+    "hta",
+    "jar",
+    "lnk",
+    "url",
+    "reg",
+    "sh",
+    "bash",
+    "zsh",
+    "command",
+    "desktop",
+    "app",
+    "appimage",
+    "run",
+    "deb",
+    "rpm",
+    "pkg",
+    "dmg",
+    "xll",
+    "wll",
+    "jnlp",
+    "scf",
+    "chm",
+    "msc",
+    "inf",
+    "ws",
+    "wsc",
+    "vb",
+    "py",
+    "pyw",
+    "pl",
+    "ps1xml",
+    "appref-ms",
+    "application",
+    "msix",
+    "appx",
+    "msixbundle",
+    "appxbundle",
+    "scpt",
+    "workflow",
+    "terminal",
+    "action",
+    "csh",
+    "ksh",
+    "fish",
+    "gadget",
+    "mde",
 ];
 
 /// Whether the file name ends in an extension that would be executed (case-insensitive; trailing
@@ -308,6 +368,36 @@ pub fn is_executable_type(name: &str) -> bool {
     let name = name.trim_end_matches(['.', ' ']);
     name.rsplit_once('.')
         .is_some_and(|(_, ext)| EXECUTABLE.contains(&ext.to_ascii_lowercase().as_str()))
+}
+
+/// Whether a file of this name must not be opened from the app: its name as given, or as it will be
+/// kept (`safe_name` can cut a long name so that an earlier `.exe` becomes the extension).
+pub fn is_unsafe_to_open(name: &str) -> bool {
+    is_executable_type(name) || is_executable_type(&safe_name(name))
+}
+
+/// The SHA-256 of a file, read in pieces (a large file is never held whole in memory).
+pub fn hash_file(path: &Path) -> std::io::Result<[u8; 32]> {
+    let mut hasher = Sha256::new();
+    std::io::copy(&mut std::fs::File::open(path)?, &mut hasher)?;
+    Ok(hasher.finalize().into())
+}
+
+/// How a session ended, for what becomes of the opened copies.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SessionEnd {
+    /// The server refused the token (a 401): the person signs in again and carries on.
+    Expired,
+    /// The person signed out or removed the instance.
+    Deliberate,
+}
+
+impl SessionEnd {
+    /// An expired session keeps the watches and the copies, so the edited file is still there to
+    /// send or keep once the person signs in again; only a deliberate end deletes them.
+    pub fn keeps_copies(self) -> bool {
+        self == SessionEnd::Expired
+    }
 }
 
 /// The SHA-256 of a content, as `step` and `mark_sent` compare it.
@@ -898,5 +988,34 @@ mod tests {
         ] {
             assert!(!is_executable_type(n), "{n}");
         }
+    }
+
+    #[test]
+    fn a_cut_name_is_checked_as_it_will_be_kept() {
+        let name = format!("{}.exe.{}", "a".repeat(146), "b".repeat(25));
+        assert!(!is_executable_type(&name));
+        assert!(safe_name(&name).ends_with(".exe"));
+        assert!(is_unsafe_to_open(&name));
+        assert!(!is_unsafe_to_open("report.docx"));
+        for n in ["a.xll", "a.PY", "a.appref-ms", "a.fish", "a.msix", "a.jnlp"] {
+            assert!(is_executable_type(n), "{n}");
+        }
+        assert!(!is_executable_type("a.mdb"));
+    }
+
+    #[test]
+    fn an_expired_session_keeps_the_copies_and_a_deliberate_end_does_not() {
+        assert!(SessionEnd::Expired.keeps_copies());
+        assert!(!SessionEnd::Deliberate.keeps_copies());
+    }
+
+    #[test]
+    fn a_file_is_hashed_like_its_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("f");
+        let big = vec![7u8; 300_000];
+        std::fs::write(&p, &big).unwrap();
+        assert_eq!(hash_file(&p).unwrap(), hash_bytes(&big));
+        assert!(hash_file(&dir.path().join("none")).is_err());
     }
 }

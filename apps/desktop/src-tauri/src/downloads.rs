@@ -41,7 +41,10 @@ pub(crate) async fn fetch<R: Runtime>(app: &AppHandle<R>, href: &str) -> Result<
     .await;
     match answer.status {
         200..=299 => Ok(answer.body),
-        401 => Err("signed_out".into()),
+        401 => {
+            crate::notify::signed_out(app, &instance);
+            Err("signed_out".into())
+        }
         502 => Err("unreachable".into()),
         _ => Err("failed".into()),
     }
