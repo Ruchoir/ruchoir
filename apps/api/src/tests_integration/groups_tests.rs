@@ -366,12 +366,13 @@ async fn the_groups_migration_round_trips() {
 
     let owner = make_user(db, "owner").await;
     let space = crate::testkit::make_space(db, owner, "Trip").await;
+    // The message goes in the conversation of this space's own default channel, made just above.
     let message = Uuid::new_v4();
     exec(
         db,
         "INSERT INTO messages (id, conversation_id, author_id) \
-         SELECT $1, id, $2 FROM conversations LIMIT 1",
-        vec![message.into(), owner.into()],
+         SELECT $1, default_channel_id, $2 FROM spaces WHERE id = $3",
+        vec![message.into(), owner.into(), space.into()],
     )
     .await
     .expect("message");
