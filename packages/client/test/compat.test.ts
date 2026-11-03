@@ -17,6 +17,14 @@ test("an_instance_says_its_version_and_what_it_can_do", async () => {
   assert.ok(!supports(caps, "something_later"));
 });
 
+test("an_instance_says_where_its_prices_are", async () => {
+  fakeFetch({ body: { ...base, features: [], pricing_url: "https://prix.example/" } });
+  assert.equal((await createClient({ baseUrl: "https://a.test" }).getInstanceCapabilities()).pricingUrl, "https://prix.example/");
+  // An older instance does not say: nothing is offered rather than a guessed address.
+  fakeFetch({ body: { ...base } });
+  assert.equal((await createClient({ baseUrl: "https://a.test" }).getInstanceCapabilities()).pricingUrl, undefined);
+});
+
 test("an_older_instance_still_answers_and_lacks_what_it_does_not_name", async () => {
   // v0.2.0 and before: no version, no features, only the booleans of its day.
   fakeFetch({ body: { ...base, native_sessions: true } });

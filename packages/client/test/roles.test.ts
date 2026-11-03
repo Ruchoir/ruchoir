@@ -40,10 +40,11 @@ test("roles_are_read_strongest_first_with_what_they_grant", async () => {
 });
 
 test("members_carry_their_roles_and_whether_one_may_manage_them", async () => {
-  fakeFetch({ body: [{ user_id: "u1", display_name: "Hugo", role: "member", is_bot: false, role_ids: ["r2"], manageable: true }] });
+  fakeFetch({ body: [{ user_id: "u1", display_name: "Hugo", role: "member", is_bot: false, role_ids: ["r2"], manageable: true, joined_at: "2026-03-12T09:00:00Z" }] });
   const [hugo] = await api().getSpaceMembers("s1");
   assert.deepEqual(hugo.roleIds, ["r2"]);
   assert.equal(hugo.manageable, true);
+  assert.equal(hugo.joinedAt, "2026-03-12T09:00:00Z");
 });
 
 test("role_writes_send_what_the_routes_expect", async () => {

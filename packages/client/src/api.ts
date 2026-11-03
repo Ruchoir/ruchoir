@@ -367,6 +367,8 @@ export type InstanceCapabilities = {
   version?: string;
   /** The major version of its paths: 1 for `/api/v1` (assumed from an instance that does not say). */
   apiVersion: number;
+  /** Where the publisher's prices are, for a paid feature offered to an unlicensed space. */
+  pricingUrl?: string;
   /**
    * What it can do beyond every `/api/v1` instance, by name (`apps/api/src/compat.rs`). Ask with
    * `supports` before using what a name stands for, and do without when it is absent: an instance
@@ -579,6 +581,7 @@ type MemberDto = {
   avatar_url?: string;
   role_ids?: string[];
   manageable?: boolean;
+  joined_at?: string;
 };
 
 /** A space member as the app holds it. Presence is overlaid separately (by user id). */
@@ -594,6 +597,8 @@ export type Member = {
   roleIds?: string[];
   /** Whether the caller may manage them (their roles, their removal). */
   manageable?: boolean;
+  /** When they joined the space (ISO 8601), from the space's member list. */
+  joinedAt?: string;
 };
 
 // --- Messages ---
@@ -1834,6 +1839,7 @@ export function createApi(transport: Transport) {
       version?: string;
       api_version?: number;
       features?: unknown[];
+      pricing_url?: string;
     }>("/instance", signal);
     // An instance older than the feature list said what it could do with booleans of its own.
     const features = Array.isArray(dto.features) ? dto.features.filter((f): f is string => typeof f === "string") : [];
@@ -1847,6 +1853,7 @@ export function createApi(transport: Transport) {
       trashRetentionDays: dto.trash_retention_days,
       publicLinks: dto.public_links === true,
       nativeSessions: features.includes("native_sessions"),
+      pricingUrl: typeof dto.pricing_url === "string" && dto.pricing_url ? dto.pricing_url : undefined,
       office: {
         enabled: dto.office?.enabled === true,
         edit: dto.office?.edit ?? [],
@@ -2481,6 +2488,7 @@ export function createApi(transport: Transport) {
       avatarUrl: m.avatar_url,
       roleIds: m.role_ids,
       manageable: m.manageable,
+      joinedAt: m.joined_at,
     }));
   }
 
