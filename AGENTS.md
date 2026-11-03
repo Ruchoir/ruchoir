@@ -345,6 +345,8 @@ What cost time while integrating Euro-Office (2026-10-01), so it is not paid twi
 
 - A custom protocol drops file-backed request bodies: uploads from the desktop go through
   `inMemoryUploads` (the client sends one buffer), never a streamed form.
+- An expired session keeps the opened copies and their watches; only a sign-out or a removal of the
+  instance deletes them (`SessionEnd` in the desktop core).
 
 ## Design system
 

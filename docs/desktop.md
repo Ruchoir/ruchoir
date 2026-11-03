@@ -57,8 +57,12 @@ the interface (`file:saved`, also when its system notification is clicked) and s
 any screen: "Send" reads the versions again and, if the current one is still the one the file was
 opened from, sends the copy (`file_send_version`); otherwise it asks first ("Send anyway" or "Keep
 my copy", a plain "Save as"). One banner per file, three in view at most. Limits: a file the person
-cannot replace is opened but not watched; the copy is forgotten when the instance is signed out or
-removed; a 403 on sending says the person may not replace the file. The check and the send are two
+cannot replace is opened but not watched; the copies are deleted, and their banners dropped, when the
+person signs out of the instance or removes it (`file:forgotten`), but an expired session (a 401, on
+sending or anywhere else) keeps them: the banner says signed out and works again after signing in;
+a file whose name or kept name ends in an executable extension is never opened (`unsafe_type`); a
+copy with an unsent edit is not overwritten by opening the file again; sending a copy equal to the
+version it came from uploads nothing (`unchanged`); a 403 on sending says the person may not replace the file. The check and the send are two
 calls: a version added between them is not caught, and the server keeps the newest.
 
 ## Building
