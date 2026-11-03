@@ -27,7 +27,13 @@ context and takes precedence here.
   space missing its system roles; never reads another space's rows), `check` (what handlers ask:
   `can`, `effective`, `effective_many`, `files_effective`, `holders`, the channel and calendar
   helpers, `standing`), `changed` (`permissions.changed`). Every domain's `authz` asks it; nothing
-  compares role strings to decide a right, only the rank ladders and the last-owner guard do. **The
+  compares role strings to decide a right. Role strings are still read by the rank ladders (space and
+  channel roles), the last-owner guard, the rule that a reservation must include the actor's own
+  role, and the default calendar's choice of an owner for its colour; they move onto roles when roles
+  become editable (permissions lot 2). **The loader repairs a space whose new model lost part of the
+  old one** (a system role gone, an administrator without the Administrator role) by deriving it
+  again from the old columns (`permissions_convert_space`): once roles are granted directly, that
+  repair must only restore the system roles, never undo an assignment. **The
   new model is derived by the database** from the old columns (`role`, `channel_role_access`,
   `write_access`) through the foundation migration's triggers, so tests and imports writing role
   strings stay correct. The parity oracle (`tests_integration/permissions_parity`) keeps the old

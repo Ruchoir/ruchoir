@@ -436,6 +436,24 @@ async fn the_engine_decides_what_the_old_rules_decided() {
             );
         }
 
+        // The bulk answer a listing gets is the single one, file by file.
+        let all_files: Vec<Uuid> = file_cases.iter().map(|case| case.id).collect();
+        let bulk = check::files_effective(db, space, person, &all_files)
+            .await
+            .expect("bulk");
+        for case in &file_cases {
+            let single = check::effective(db, space, person, Resource::File(case.id))
+                .await
+                .expect("single");
+            diff.compare(
+                "bulk equals single",
+                who,
+                &case.label,
+                true,
+                bulk.get(&case.id).copied().unwrap_or_default() == single,
+            );
+        }
+
         for (label, id, model) in &calendar_cases {
             let got = check::effective(db, space, person, Resource::Calendar(*id))
                 .await

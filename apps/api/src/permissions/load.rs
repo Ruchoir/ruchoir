@@ -10,7 +10,7 @@
 //! - **Only rows of the space being asked about are ever read**, so a channel, file or calendar of
 //!   another space is never resolved against this space's roles.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use sea_orm::{
     ColumnTrait, ConnectionTrait, DatabaseBackend, DbErr, EntityTrait, FromQueryResult,
@@ -20,7 +20,9 @@ use uuid::Uuid;
 
 use super::catalogue::{Permission, PermissionSet};
 use super::engine::{Facts, Level, LevelKind, Rule, Source, Standing, Subject, TargetRef};
-use crate::entities::{calendars, channel_members, channels, permission_overrides};
+use crate::entities::{
+    calendars, channel_members, channels, conversations, dm_participants, permission_overrides,
+};
 
 /// What a permission is checked on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -121,10 +123,43 @@ pub fn queries_issued(space_id: Uuid) -> u64 {
         .unwrap_or(0)
 }
 
+#[cfg(test)]
+static PEOPLE_READ: std::sync::Mutex<Option<HashMap<Uuid, u64>>> = std::sync::Mutex::new(None);
+
+/// How many people the loader has read on behalf of a space since the process started (tests only).
+#[cfg(test)]
+pub fn people_read(space_id: Uuid) -> u64 {
+    PEOPLE_READ
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .as_ref()
+        .and_then(|counts| counts.get(&space_id).copied())
+        .unwrap_or(0)
+}
+
+fn read_people(space_id: Uuid, count: usize) {
+    #[cfg(test)]
+    {
+        let mut counts = PEOPLE_READ
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *counts
+            .get_or_insert_with(HashMap::new)
+            .entry(space_id)
+            .or_default() += count as u64;
+    }
+    #[cfg(not(test))]
+    let _ = (space_id, count);
+}
+
 #[derive(FromQueryResult)]
 struct PersonRow {
     user_id: Uuid,
     standing: String,
+    /// How many of the three system roles the space holds.
+    system_roles: i64,
+    /// An administrator by the old column, without the Administrator role in the new model.
+    admin_unassigned: bool,
     role_id: Option<Uuid>,
     system_key: Option<String>,
     permissions: Option<Vec<String>>,
@@ -133,13 +168,19 @@ struct PersonRow {
 /// One row per (person, role they hold or their standing implies). An expired guest is no longer
 /// in the space, and is not returned.
 const PEOPLE: &str = "\
-SELECT m.user_id, m.standing, r.id AS role_id, r.system_key, r.permissions \
+SELECT m.user_id, m.standing, r.id AS role_id, r.system_key, r.permissions, \
+       (SELECT count(*) FROM space_roles s \
+         WHERE s.space_id = m.space_id AND s.system_key IS NOT NULL) AS system_roles, \
+       (m.role = 'admin' AND NOT EXISTS ( \
+            SELECT 1 FROM space_role_assignments a JOIN space_roles s ON s.id = a.role_id \
+             WHERE a.space_id = m.space_id AND a.user_id = m.user_id \
+               AND s.system_key = 'administrator')) AS admin_unassigned \
   FROM space_members m \
   LEFT JOIN space_roles r ON r.space_id = m.space_id \
    AND (r.system_key = CASE WHEN m.standing = 'guest' THEN 'guests' ELSE 'members' END \
         OR EXISTS (SELECT 1 FROM space_role_assignments a \
                     WHERE a.role_id = r.id AND a.user_id = m.user_id)) \
- WHERE m.space_id = $1 AND ($2::uuid IS NULL OR m.user_id = $2) \
+ WHERE m.space_id = $1 AND ($2::uuid[] IS NULL OR m.user_id = ANY($2)) \
    AND (m.expires_at IS NULL OR m.expires_at > now())";
 
 /// The people of a space (or only `user`), keyed by id. Repairs a space whose system roles are
@@ -149,18 +190,47 @@ pub(super) async fn people<C: ConnectionTrait>(
     space_id: Uuid,
     user: Option<Uuid>,
 ) -> Result<BTreeMap<Uuid, Person>, DbErr> {
+    people_where(db, space_id, user.map(|user| vec![user])).await
+}
+
+/// [`people`] restricted to some of them (a channel's members, say): who is not in the space is
+/// left out.
+pub(super) async fn people_among<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    users: &[Uuid],
+) -> Result<BTreeMap<Uuid, Person>, DbErr> {
+    if users.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+    people_where(db, space_id, Some(users.to_vec())).await
+}
+
+async fn people_where<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    users: Option<Vec<Uuid>>,
+) -> Result<BTreeMap<Uuid, Person>, DbErr> {
+    let users: sea_orm::Value = match users {
+        Some(users) => users.into(),
+        None => sea_orm::Value::Array(sea_orm::sea_query::ArrayType::Uuid, None),
+    };
     let mut repaired = false;
     loop {
         issued(space_id);
         let rows = PersonRow::find_by_statement(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             PEOPLE,
-            [space_id.into(), user.into()],
+            [space_id.into(), users.clone()],
         ))
         .all(db)
         .await?;
         let mut people: BTreeMap<Uuid, Person> = BTreeMap::new();
+        // The new model lost part of what the old columns say: a system role gone (a manual
+        // delete, a partial restore), or an administrator without the Administrator role.
+        let mut drifted = false;
         for row in rows {
+            drifted |= row.system_roles < 3 || row.admin_unassigned;
             let standing = match row.standing.as_str() {
                 "owner" => Standing::Owner,
                 "member" => Standing::Member,
@@ -188,7 +258,8 @@ pub(super) async fn people<C: ConnectionTrait>(
                 _ => person.subject.roles.push((role_id, permissions)),
             }
         }
-        let broken = people.values().any(|person| person.base_role.is_none());
+        read_people(space_id, people.len());
+        let broken = drifted || people.values().any(|person| person.base_role.is_none());
         if !broken || repaired {
             return Ok(people);
         }
@@ -390,6 +461,80 @@ pub(super) async fn file_chains<C: ConnectionTrait>(
         });
     }
     Ok(chains)
+}
+
+/// The kind (`channel`, `direct`) of each conversation of the space among `ids`.
+pub(super) async fn conversation_kinds<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    ids: &[Uuid],
+) -> Result<HashMap<Uuid, String>, DbErr> {
+    if ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    issued(space_id);
+    Ok(conversations::Entity::find()
+        .filter(conversations::Column::SpaceId.eq(space_id))
+        .filter(conversations::Column::Id.is_in(ids.iter().copied()))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|conversation| (conversation.id, conversation.kind))
+        .collect())
+}
+
+/// The direct messages among `ids` that `user` takes part in.
+pub(super) async fn dm_participation<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    user: Uuid,
+    ids: &[Uuid],
+) -> Result<HashSet<Uuid>, DbErr> {
+    if ids.is_empty() {
+        return Ok(HashSet::new());
+    }
+    issued(space_id);
+    Ok(dm_participants::Entity::find()
+        .filter(dm_participants::Column::UserId.eq(user))
+        .filter(dm_participants::Column::DmId.is_in(ids.iter().copied()))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|participant| participant.dm_id)
+        .collect())
+}
+
+#[derive(FromQueryResult)]
+struct PostedRow {
+    file_id: Uuid,
+    conversation_id: Uuid,
+}
+
+/// The conversations of the space each of `file_ids` was posted in (attached to a message there),
+/// as (file, conversation).
+pub(super) async fn posted_in<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    file_ids: &[Uuid],
+) -> Result<Vec<(Uuid, Uuid)>, DbErr> {
+    if file_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    issued(space_id);
+    Ok(PostedRow::find_by_statement(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT DISTINCT a.file_id, m.conversation_id \
+           FROM message_attachments a \
+           JOIN messages m ON m.id = a.message_id \
+           JOIN conversations c ON c.id = m.conversation_id \
+          WHERE a.file_id = ANY($1) AND c.space_id = $2",
+        [file_ids.to_vec().into(), space_id.into()],
+    ))
+    .all(db)
+    .await?
+    .into_iter()
+    .map(|row| (row.file_id, row.conversation_id))
+    .collect())
 }
 
 /// What a channel role adds inside its channel: running it.

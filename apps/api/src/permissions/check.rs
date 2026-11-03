@@ -162,10 +162,11 @@ pub async fn standing(
         .map(|person| person.subject.standing))
 }
 
-/// [`effective`] on many files of a space at once (a folder's entries, a search's results): the
-/// folders above them and every rule on them read in one go. A file this cannot settle that way (a
-/// conversation's, or one the person does not read from the space) is decided on its own. A file
-/// that is not in the space is left out of the map.
+/// [`effective`] on many files of a space at once (a folder's entries, a search's results, what was
+/// shared in conversations): the folders above them, every rule on them, the conversations they hang
+/// off and the conversations they were posted in, each read in one go. Only a file that none of
+/// those paths opens (a calendar event's file, a person no longer in the space) is decided on its
+/// own. A file that is not in the space is left out of the map.
 pub async fn files_effective(
     db: &DatabaseConnection,
     space_id: Uuid,
@@ -173,50 +174,165 @@ pub async fn files_effective(
     file_ids: &[Uuid],
 ) -> Result<HashMap<Uuid, PermissionSet>, DbErr> {
     let people = load::people(db, space_id, Some(user_id)).await?;
-    let person = people.get(&user_id);
+    let mut out = HashMap::new();
+    let Some(person) = people.get(&user_id) else {
+        for id in file_ids {
+            out.insert(*id, file_rights(db, space_id, user_id, *id).await?.granted);
+        }
+        return Ok(out);
+    };
     let chains = load::file_chains(db, space_id, file_ids).await?;
     let mut every: Vec<Uuid> = chains.values().flatten().map(|row| row.id).collect();
     every.sort();
     every.dedup();
     let stored = load::rules(db, space_id, permission_overrides::Column::FileId, &every).await?;
-    let mut out = HashMap::new();
+    let levels_of = |chain: &[load::FileRow]| -> Vec<Level> {
+        chain
+            .iter()
+            .map(|row| Level {
+                kind: if row.kind == "folder" {
+                    LevelKind::Folder
+                } else {
+                    LevelKind::File
+                },
+                id: row.id,
+                rules: person.rules(
+                    stored.iter().filter(|rule| rule.file_id == Some(row.id)),
+                    None,
+                ),
+            })
+            .collect()
+    };
+    let files_only = PermissionSet::of_family(Family::Files);
+
+    // First the space tree: what the person reads from the space settles it. What they do not
+    // (a guest) waits for the conversations it was posted in.
+    let mut unseen_tree: Vec<(Uuid, PermissionSet)> = Vec::new();
+    let mut carried: Vec<(Uuid, Uuid)> = Vec::new();
     for id in file_ids {
-        let Some(chain) = chains.get(id) else {
+        let Some(file) = chains.get(id).and_then(|chain| chain.last()) else {
             continue;
         };
-        let Some(file) = chain.last() else {
+        if let Some(conversation_id) = file.conversation_id {
+            carried.push((*id, conversation_id));
             continue;
+        }
+        let facts = Facts {
+            author: file.owner_id == Some(user_id),
+            ..Facts::default()
         };
-        if let (Some(person), None) = (person, file.conversation_id) {
-            let levels: Vec<Level> = chain
-                .iter()
-                .map(|row| Level {
-                    kind: if row.kind == "folder" {
-                        LevelKind::Folder
-                    } else {
-                        LevelKind::File
-                    },
-                    id: row.id,
-                    rules: person.rules(
-                        stored.iter().filter(|rule| rule.file_id == Some(row.id)),
-                        None,
-                    ),
-                })
-                .collect();
-            let facts = Facts {
-                author: file.owner_id == Some(user_id),
-                ..Facts::default()
-            };
-            let granted = resolve(&person.subject, &levels, facts, false)
+        let granted = resolve(&person.subject, &levels_of(&chains[id]), facts, false)
+            .granted
+            .intersect(files_only);
+        if granted.contains(Permission::FilesView) {
+            out.insert(*id, granted);
+        } else {
+            unseen_tree.push((*id, granted));
+        }
+    }
+
+    // The conversations involved, read once: those carrying files, those files were posted in.
+    let unseen_ids: Vec<Uuid> = unseen_tree.iter().map(|(id, _)| *id).collect();
+    let posted = load::posted_in(db, space_id, &unseen_ids).await?;
+    let mut conversation_ids: Vec<Uuid> = carried
+        .iter()
+        .map(|(_, conversation)| *conversation)
+        .chain(posted.iter().map(|(_, conversation)| *conversation))
+        .collect();
+    conversation_ids.sort();
+    conversation_ids.dedup();
+    let kinds = load::conversation_kinds(db, space_id, &conversation_ids).await?;
+    let of_kind = |wanted: &str| -> Vec<Uuid> {
+        kinds
+            .iter()
+            .filter(|(_, kind)| kind.as_str() == wanted)
+            .map(|(id, _)| *id)
+            .collect()
+    };
+    let channel_ids = of_kind("channel");
+    let channels = load::channels_of(db, space_id, &channel_ids).await?;
+    let channel_rules = load::rules(
+        db,
+        space_id,
+        permission_overrides::Column::ChannelId,
+        &channel_ids,
+    )
+    .await?;
+    let memberships = load::memberships(db, space_id, &channel_ids, Some(user_id)).await?;
+    let channel_by_id: HashMap<Uuid, &channels::Model> = channels
+        .iter()
+        .map(|channel| (channel.id, channel))
+        .collect();
+    let participating = load::dm_participation(db, space_id, user_id, &of_kind("direct")).await?;
+    let reads = |conversation: Uuid| match kinds.get(&conversation).map(String::as_str) {
+        Some("channel") => channel_by_id.get(&conversation).is_some_and(|channel| {
+            channel_decision(person, channel, &channel_rules, &memberships, false)
                 .granted
-                .intersect(PermissionSet::of_family(Family::Files));
-            // Read from the space: the whole answer. Otherwise the paths that are not rules decide.
-            if granted.contains(Permission::FilesView) {
-                out.insert(*id, granted);
+                .contains(Permission::ChannelView)
+        }),
+        Some("direct") => participating.contains(&conversation),
+        _ => false,
+    };
+
+    let mut alone: Vec<Uuid> = Vec::new();
+    // A conversation's file is its readers', and never published by link.
+    for (id, conversation_id) in carried {
+        let chain = &chains[&id];
+        let file = chain.last().expect("a chain holds its file");
+        let mut levels = Vec::new();
+        let mut facts = Facts {
+            author: file.owner_id == Some(user_id),
+            ..Facts::default()
+        };
+        let view = match kinds.get(&conversation_id).map(String::as_str) {
+            Some("channel") => {
+                let Some(channel) = channel_by_id.get(&conversation_id) else {
+                    // Its channel is gone, or another space's: nothing, as on its own.
+                    out.insert(id, PermissionSet::EMPTY);
+                    continue;
+                };
+                let (level, channel_facts) =
+                    load::channel_level(person, channel, &channel_rules, &memberships);
+                facts.private_channel = channel_facts.private_channel;
+                facts.joined = channel_facts.joined;
+                facts.archived = channel_facts.archived;
+                levels.push(level);
+                None
+            }
+            Some("direct") => Some(participating.contains(&conversation_id)),
+            _ => {
+                out.insert(id, PermissionSet::EMPTY);
                 continue;
             }
+        };
+        levels.extend(levels_of(chain));
+        let resolved = resolve(&person.subject, &levels, facts, false).granted;
+        let view = view.unwrap_or_else(|| resolved.contains(Permission::ChannelView));
+        if !view {
+            alone.push(id);
+            continue;
         }
-        out.insert(*id, file_rights(db, space_id, user_id, *id).await?.granted);
+        let mut granted = resolved.intersect(files_only);
+        granted.insert(Permission::FilesView);
+        granted.remove(Permission::FilesPublicLink);
+        out.insert(id, granted);
+    }
+    // A space-tree file is read by whoever reads a message it is attached to.
+    for (id, granted) in unseen_tree {
+        let through_a_message = posted
+            .iter()
+            .any(|(file, conversation)| *file == id && reads(*conversation));
+        if through_a_message {
+            let mut granted = granted;
+            granted.insert(Permission::FilesView);
+            out.insert(id, granted);
+        } else {
+            alone.push(id);
+        }
+    }
+    // What none of that opens: a calendar event may still, one file at a time.
+    for id in alone {
+        out.insert(id, file_rights(db, space_id, user_id, id).await?.granted);
     }
     Ok(out)
 }
@@ -373,6 +489,37 @@ pub async fn channel_holders<C: ConnectionTrait>(
     permission: Permission,
 ) -> Result<Vec<Uuid>, DbErr> {
     let people = load::people(db, space_id, None).await?;
+    let channels = load::channels_of(db, space_id, &[channel_id]).await?;
+    let Some(channel) = channels.first() else {
+        return Ok(Vec::new());
+    };
+    let ids = [channel_id];
+    let rules = load::rules(db, space_id, permission_overrides::Column::ChannelId, &ids).await?;
+    let memberships = load::memberships(db, space_id, &ids, None).await?;
+    Ok(people
+        .values()
+        .filter(|person| {
+            channel_decision(person, channel, &rules, &memberships, false)
+                .granted
+                .contains(permission)
+        })
+        .map(|person| person.user_id)
+        .collect())
+}
+
+/// [`channel_holders`] among some members only (a channel's rows): what an audience asks, without
+/// reading the rest of the space.
+pub async fn channel_holders_among<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    channel_id: Uuid,
+    permission: Permission,
+    among: &[Uuid],
+) -> Result<Vec<Uuid>, DbErr> {
+    let people = load::people_among(db, space_id, among).await?;
+    if people.is_empty() {
+        return Ok(Vec::new());
+    }
     let channels = load::channels_of(db, space_id, &[channel_id]).await?;
     let Some(channel) = channels.first() else {
         return Ok(Vec::new());

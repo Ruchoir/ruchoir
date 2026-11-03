@@ -521,10 +521,10 @@ pub async fn import_spaces<C: ConnectionTrait>(
             // A scoped import resumes only into a space its importer still runs: having created it
             // once is not a standing right to write into it after being demoted or removed.
             if let Some(importer) = mapper.owner() {
-                let runs_it = space_members::Entity::find_by_id((existing, importer))
-                    .one(db)
+                // Running a space is the permission engine's `members.manage` there.
+                let runs_it = crate::permissions::check::space_rights(db, existing, importer)
                     .await?
-                    .is_some_and(|member| matches!(member.role.as_str(), "owner" | "admin"));
+                    .contains(crate::permissions::catalogue::Permission::MembersManage);
                 if !runs_it {
                     return Err(RunError::Ambiguous(format!(
                         "an earlier import brought {} over, and you no longer administer that space",

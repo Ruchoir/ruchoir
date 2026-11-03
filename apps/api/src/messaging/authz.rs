@@ -166,11 +166,16 @@ pub async fn channel_audience<C: ConnectionTrait>(
     };
     // Its readers (`channel.view`, resolved for the whole space at once): the same rule as
     // [`ensure_conversation_access`]. Someone with a row but no longer in the space reads nothing.
-    let readers: HashSet<Uuid> =
-        check::channel_holders(db, channel.space_id, channel_id, Permission::ChannelView)
-            .await?
-            .into_iter()
-            .collect();
+    let readers: HashSet<Uuid> = check::channel_holders_among(
+        db,
+        channel.space_id,
+        channel_id,
+        Permission::ChannelView,
+        &members,
+    )
+    .await?
+    .into_iter()
+    .collect();
     Ok(members
         .into_iter()
         .filter(|user_id| readers.contains(user_id))
