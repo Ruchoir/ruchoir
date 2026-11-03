@@ -57,7 +57,13 @@ pub fn safe_name(name: &str) -> String {
 /// The title of a viewer window: the file's name as the person knows it, so punctuation stays (a
 /// title is no path); control characters go, and it is cut to 120 characters. Never empty.
 pub fn window_title(title: &str) -> String {
-    let cleaned: String = title.chars().filter(|c| !c.is_control()).collect();
+    // Control characters and bidirectional overrides (they reorder the text around them) go.
+    let cleaned: String = title
+        .chars()
+        .filter(|c| {
+            !c.is_control() && !matches!(c, '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
+        })
+        .collect();
     let cleaned = cleaned.trim();
     if cleaned.is_empty() {
         return "Ruchoir".to_owned();
@@ -67,6 +73,31 @@ pub fn window_title(title: &str) -> String {
         return format!("{}...", cut.trim_end());
     }
     cleaned.to_owned()
+}
+
+/// Whether `path` (path and query) is the bytes of a file: its preview, or the converted document
+/// the viewer shows for an office file, of an instance. Only those open in a file window: they are
+/// the paths the API serves with a script-less policy, and nothing else of the API belongs in a
+/// window of its own.
+pub fn is_file_bytes_path(path: &str) -> bool {
+    let path = path.split_once('?').map_or(path, |(p, _)| p);
+    let parts: Vec<&str> = path.split('/').collect();
+    // "", "i", <instance>, "api", "v1", "files", <uuid>, <kind>
+    let [_, "i", instance, "api", "v1", "files", id, kind] = parts[..] else {
+        return false;
+    };
+    let uuid = id.len() == 36
+        && id.char_indices().all(|(i, c)| {
+            if matches!(i, 8 | 13 | 18 | 23) {
+                c == '-'
+            } else {
+                c.is_ascii_hexdigit()
+            }
+        });
+    if !uuid || instance.is_empty() || !instance.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return false;
+    }
+    matches!(kind, "preview" | "document")
 }
 
 /// The label of the window showing `path`: `viewer-` and the first 16 hex characters of its sha256
@@ -132,6 +163,7 @@ mod tests {
     fn a_title_is_cleaned_not_renamed() {
         assert_eq!(window_title("Devis: 2026?.pdf"), "Devis: 2026?.pdf");
         assert_eq!(window_title("  a\nb\u{7}c  "), "abc");
+        assert_eq!(window_title("a\u{202E}b\u{2066}c\u{2069}"), "abc");
         assert_eq!(window_title(" \n "), "Ruchoir");
         let long = "é".repeat(200);
         let t = window_title(&long);
@@ -156,5 +188,31 @@ mod tests {
         assert!(a.starts_with("viewer-"));
         assert_eq!(a.len(), "viewer-".len() + 16);
         assert!(a["viewer-".len()..].chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn only_file_bytes_open_in_a_window() {
+        let id = "0b9d9c5e-5e1a-4267-85f4-bfcec5b0bd3b";
+        for ok in [
+            format!("/i/57268a15/api/v1/files/{id}/preview"),
+            format!("/i/57268a15/api/v1/files/{id}/document?v=2026-11-03T10%3A00%3A00Z"),
+            format!("/i/57268a15/api/v1/files/{id}/preview?x=1"),
+        ] {
+            assert!(is_file_bytes_path(&ok), "{ok}");
+        }
+        for bad in [
+            "/".to_owned(),
+            "/api/v1/files/x/preview".to_owned(),
+            format!("/i/57268a15/api/v1/files/{id}/download"),
+            format!("/i/57268a15/api/v1/files/{id}/preview/x"),
+            format!("/i/57268a15/api/v1/files/{id}"),
+            "/i/57268a15/api/v1/files/not-a-uuid/preview".to_owned(),
+            "/i/57268a15/api/v1/me".to_owned(),
+            format!("/i/../api/v1/files/{id}/preview"),
+            format!("/i/57268a15/api/v1/files/{id}/preview/../../me"),
+            "/i/57268a15/emoji/a.svg".to_owned(),
+        ] {
+            assert!(!is_file_bytes_path(&bad), "{bad}");
+        }
     }
 }

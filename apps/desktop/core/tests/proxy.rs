@@ -132,7 +132,6 @@ fn downstream_drops_set_cookie() {
     let down = downstream_headers(&upstream);
     assert!(down.get("set-cookie").is_none());
     assert!(down.get("strict-transport-security").is_none());
-    assert!(down.get("content-security-policy").is_none());
     assert!(down.get("connection").is_none());
     assert_eq!(down.get("content-type").unwrap(), "application/json");
     assert_eq!(down.get("etag").unwrap(), "\"1\"");
@@ -230,4 +229,49 @@ fn the_emoji_cache_keeps_what_it_can() {
     assert!(cache.get("/emoji/a").is_none());
     assert!(cache.get("/emoji/b").is_some());
     assert!(cache.get("/emoji/c").is_some());
+}
+
+#[test]
+fn downstream_passes_the_instances_policy_through() {
+    let mut upstream = HeaderMap::new();
+    upstream.insert(
+        "content-security-policy",
+        HeaderValue::from_static("default-src 'none'; frame-ancestors 'self'"),
+    );
+    upstream.insert("content-disposition", HeaderValue::from_static("inline"));
+    let down = downstream_headers(&upstream);
+    assert_eq!(
+        down.get("content-security-policy").unwrap(),
+        "default-src 'none'; frame-ancestors 'self'"
+    );
+}
+
+#[test]
+fn downstream_adds_a_policy_to_an_inline_file_without_one() {
+    let mut upstream = HeaderMap::new();
+    upstream.insert(
+        "content-disposition",
+        HeaderValue::from_static("Inline; filename=\"a.svg\""),
+    );
+    let down = downstream_headers(&upstream);
+    assert_eq!(
+        down.get("content-security-policy").unwrap(),
+        ruchoir_desktop_core::proxy::INLINE_FILE_CSP
+    );
+}
+
+#[test]
+fn downstream_leaves_other_responses_without_a_policy() {
+    let mut upstream = HeaderMap::new();
+    upstream.insert("content-type", HeaderValue::from_static("application/json"));
+    assert!(downstream_headers(&upstream)
+        .get("content-security-policy")
+        .is_none());
+    upstream.insert(
+        "content-disposition",
+        HeaderValue::from_static("attachment"),
+    );
+    assert!(downstream_headers(&upstream)
+        .get("content-security-policy")
+        .is_none());
 }

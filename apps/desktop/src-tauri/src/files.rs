@@ -1,10 +1,13 @@
 //! File windows. The viewer's "open in a new tab" has no tab to open in here, so the interface asks
-//! for a window of its own: a decorated one showing the file's address on the app's protocol, which
-//! the webview renders as a browser tab would (a PDF, an image). It shows a file and no interface,
-//! so it holds no capability and no command can be called from it. It follows the main window's
-//! rules for navigation, new windows and downloads.
+//! for a window of its own: a decorated one showing a file's bytes (its preview, or the converted
+//! document) on the app's protocol, which the webview renders as a browser tab would (a PDF, an
+//! image). Only those two paths are accepted. The window shows a file and no interface, and holds
+//! no capability, so no command can be called from it. What keeps a script in an SVG or HTML file
+//! from running there is the response's policy (the instance's own, or `INLINE_FILE_CSP` added by
+//! the core's proxy), not this window. It follows the main window's rules for navigation, new
+//! windows and downloads.
 
-use ruchoir_desktop_core::files::{own_path, window_label, window_title};
+use ruchoir_desktop_core::files::{is_file_bytes_path, own_path, window_label, window_title};
 use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
 /// Open the app's own `href` in a window, or bring forward the one already showing it.
@@ -15,6 +18,10 @@ pub async fn file_window<R: Runtime>(
     title: String,
 ) -> Result<(), String> {
     let path = own_path(&href, crate::APP_SCHEME).ok_or("refused")?;
+    // Only a file's bytes: nothing else of the API belongs in a window of its own.
+    if !is_file_bytes_path(&path) {
+        return Err("refused".into());
+    }
     let label = window_label(&path);
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.show();
