@@ -528,7 +528,12 @@ usage with the design-system oxlint config.
   (`ShortcutsSection` in `PreferencesScreen.tsx`, capture-to-rebind). `features/app/useGlobalShortcuts.ts`
   matches keydowns against the live bindings and runs the handler wired in `AppRoot`; it is suspended
   while any modal/dialog/preferences overlay is open. The `HelpDialog` shortcut list reads the same
-  live bindings. The quick switcher (`QuickSwitcher.tsx`, default `Mod+J`) jumps to a channel/DM;
+  live bindings. A command with `scope: "composer"` (today only `editLast`, "edit my last message",
+  default a bare `ArrowUp`) is not wired in `AppRoot`: the channel and thread composers catch it
+  through `features/channel/useEditLastKey.ts`, only while their editor is empty and nothing else
+  (an open edit, pending files, the `@`/`#` suggestions) wants the key, and open the message
+  `lastOwnMessage.ts` picks. The preferences list it under its own heading, and flag a chord shared
+  with a global command like any other duplicate. The quick switcher (`QuickSwitcher.tsx`, default `Mod+J`) jumps to a channel/DM;
   global search (`GlobalSearchDialog.tsx`, default `Mod+K`) spans messages/files/people. Both support
   arrow + Enter selection.
 - **Avatars** are generated locally with DiceBear (`lib/avatar.ts`, `@dicebear/core` v10 +

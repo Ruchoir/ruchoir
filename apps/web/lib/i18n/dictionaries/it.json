@@ -381,7 +381,11 @@
     "filesWalk": "Passare da un elemento all'altro",
     "filesExtend": "Estendere la selezione",
     "filesToggle": "Selezionare o deselezionare",
-    "filesMenu": "Aprire il menu delle azioni"
+    "filesMenu": "Aprire il menu delle azioni",
+    "editLast": "Modifica il mio ultimo messaggio",
+    "editLastHint": "Riaprire il tuo ultimo messaggio per modificarlo, quando la casella di testo è vuota",
+    "inComposer": "Nella casella di testo",
+    "inComposerHint": "Questi tasti agiscono nella casella di testo di una conversazione o di una discussione."
   },
   "key": {
     "escape": "Esc",

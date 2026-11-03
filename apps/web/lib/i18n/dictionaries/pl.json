@@ -381,7 +381,11 @@
     "filesWalk": "Przechodzenie między elementami",
     "filesExtend": "Rozszerzenie zaznaczenia",
     "filesToggle": "Zaznaczenie lub odznaczenie",
-    "filesMenu": "Otwarcie menu działań"
+    "filesMenu": "Otwarcie menu działań",
+    "editLast": "Edytuj moją ostatnią wiadomość",
+    "editLastHint": "Ponowne otwarcie ostatniej wiadomości do edycji, gdy pole tekstowe jest puste",
+    "inComposer": "W polu tekstowym",
+    "inComposerHint": "Te klawisze działają w polu tekstowym rozmowy lub wątku."
   },
   "key": {
     "escape": "Esc",

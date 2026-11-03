@@ -2,7 +2,7 @@
 
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Icon, IconButton, Skeleton, SkeletonGroup, Tooltip } from "@/components/ds";
-import { getAvatar, getChannelMembers } from "@/lib/data";
+import { getAvatar, getChannelMembers, getCurrentUser } from "@/lib/data";
 import { getConversationFiles, getPinnedMessages, listChannelMembers } from "@/lib/data/api";
 import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
@@ -23,6 +23,7 @@ import {
 import { SearchPanel } from "./SearchPanel";
 import { type ChannelMember, SidePanel } from "./SidePanel";
 import { Composer } from "./Composer";
+import { lastOwnMessage } from "./lastOwnMessage";
 import { MessageRow, type MessageActions } from "./MessageRow";
 import { SystemMessage } from "./SystemMessage";
 import { ChannelEvents } from "@/features/calendar/ChannelEvents";
@@ -598,6 +599,17 @@ export function ChannelScreen({
   const userIdByName = new Map(members.map((m) => [m.name, m.userId] as const));
   const threadParent = threadId != null ? messages.find((m) => m.id === threadId) : undefined;
   /**
+   * The "edit my last message" shortcut, for one composer: it opens the last message one wrote among
+   * `list` (the feed for the channel's composer, the thread for the thread's), through the same
+   * action as the row's own "Modifier".
+   */
+  const editLastIn = (list: readonly Message[]) => () => {
+    const last = lastOwnMessage(list, { id: myUserId, name: getCurrentUser().name });
+    if (!last) return false;
+    actions.edit(last.id);
+    return true;
+  };
+  /**
    * Everything a row can do, for one message. Shared: a reply in the thread panel is acted on
    * through the very same handlers as a message in the feed, so the two can never drift.
    */
@@ -807,6 +819,7 @@ export function ChannelScreen({
       editing={editingInThread ? editing : null}
       onSaveEdit={onSaveEdit}
       onCancelEdit={onCancelEdit}
+      onEditLast={editLastIn([threadParent, ...threadReplies])}
       onUpload={onUploadAttachment}
       onNotify={onNotify}
       onClose={onCloseThread}
@@ -1145,6 +1158,7 @@ export function ChannelScreen({
             editing={editingInThread ? null : editing}
             onSaveEdit={onSaveEdit}
             onCancelEdit={onCancelEdit}
+            onEditLast={editLastIn(messages)}
           />
         )}
       </div>

@@ -10,6 +10,7 @@ import { useCompact } from "../app/useCompact";
 import { useLayout, useTouch } from "../app/useLayout";
 import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
+import { useEditLastKey } from "./useEditLastKey";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatBytes } from "@/lib/i18n/format";
 
@@ -208,6 +209,11 @@ export type ComposerProps = {
   onSaveEdit?: (text: string, attachments?: MessageAttachment[]) => void;
   /** Leave the edit without saving. */
   onCancelEdit?: () => void;
+  /**
+   * Open the last message one wrote here for editing, from the "edit my last message" shortcut.
+   * Answers whether there was one. Without it, the shortcut does nothing in this composer.
+   */
+  onEditLast?: () => boolean;
 };
 
 /** Message composer with a working formatting toolbar and file attachment. */
@@ -220,6 +226,7 @@ export function Composer({
   editing,
   onSaveEdit,
   onCancelEdit,
+  onEditLast,
 }: ComposerProps) {
   const { t } = useTranslation();
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -242,6 +249,7 @@ export function Composer({
   // A touch screen, a phone or a tablet: one line (the text, a file, send), no formatting toolbar.
   // Its buttons are sized for a finger, and a tablet's keyboard covers the same half of the screen.
   const phone = layout === "phone" || touch;
+  const editLastKey = useEditLastKey(editorRef, !!editing || pending.length > 0, onEditLast);
 
   // Fire a typing signal at most every 2s while composing; input events bubble up from the editor.
   const signalTyping = () => {
@@ -378,7 +386,9 @@ export function Composer({
           if (editing && e.key === "Escape") {
             e.stopPropagation();
             cancelEdit();
+            return;
           }
+          editLastKey(e);
         }}
       >
         {editing ? (

@@ -381,7 +381,11 @@
     "filesWalk": "Move between items",
     "filesExtend": "Extend the selection",
     "filesToggle": "Select or deselect",
-    "filesMenu": "Open the actions menu"
+    "filesMenu": "Open the actions menu",
+    "editLast": "Edit my last message",
+    "editLastHint": "Reopen your last message to edit it, when the message box is empty",
+    "inComposer": "In the message box",
+    "inComposerHint": "These keys act in the message box of a conversation or a thread."
   },
   "key": {
     "escape": "Esc",

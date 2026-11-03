@@ -17,7 +17,8 @@ export type ShortcutId =
   | "nextUnread"
   | "prevUnread"
   | "markRead"
-  | "help";
+  | "help"
+  | "editLast";
 
 /** A binding per command. Missing or empty means the command has no shortcut. */
 export type Bindings = Record<ShortcutId, string>;
@@ -30,6 +31,13 @@ export type CommandDef = {
   hint: TranslationKey;
   /** Factory-default chord. */
   defaultChord: string;
+  /**
+   * Where the shortcut acts. `global` (the default) is caught by the whole app, through
+   * `useGlobalShortcuts`. `composer` is caught by a message composer only, while it has the focus:
+   * that is what lets a bare key such as ArrowUp be a shortcut there without being stolen from
+   * every other field. The preferences list both, and flag a chord used twice across them.
+   */
+  scope?: "global" | "composer";
 };
 
 /**
@@ -50,7 +58,16 @@ export const COMMANDS: CommandDef[] = [
   { id: "prevUnread", label: key("shortcut.prevUnread"), hint: key("shortcut.prevUnreadHint"), defaultChord: "Alt+Shift+ArrowUp" },
   { id: "markRead", label: key("sidebar.markRead"), hint: key("shortcut.markReadHint"), defaultChord: "Shift+Escape" },
   { id: "help", label: key("shortcut.help"), hint: key("shortcut.helpHint"), defaultChord: "?" },
+  // ArrowUp only opens the last message when the composer is empty, so it never takes the key from
+  // someone moving the caret up through a text they are writing.
+  { id: "editLast", label: key("shortcut.editLast"), hint: key("shortcut.editLastHint"), defaultChord: "ArrowUp", scope: "composer" },
 ];
+
+/** The commands the whole app catches, in the order shown. */
+export const GLOBAL_COMMANDS = COMMANDS.filter((c) => (c.scope ?? "global") === "global");
+
+/** The commands a message composer catches, in the order shown. */
+export const COMPOSER_COMMANDS = COMMANDS.filter((c) => c.scope === "composer");
 
 // No positional "switch to space N" command. Every modifier plus a digit is taken by some browser
 // for its own tabs (Alt under Firefox on Linux, Ctrl under Chrome), and on an AZERTY keyboard the

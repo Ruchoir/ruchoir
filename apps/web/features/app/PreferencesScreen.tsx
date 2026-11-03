@@ -40,11 +40,14 @@ import {
 import { WordmarkLockup } from "./Wordmark";
 import {
   COMMANDS,
+  COMPOSER_COMMANDS,
   DEFAULT_BINDINGS,
   eventToChord,
   FILE_KEYS,
   formatChord,
+  GLOBAL_COMMANDS,
   isMac,
+  type CommandDef,
   type ShortcutId,
 } from "./shortcuts";
 import type { Toast } from "./types";
@@ -756,6 +759,14 @@ const kbdStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
+/** The heading of a group of keys under the commands: the composer's, the files list's. */
+const subheadStyle: CSSProperties = {
+  margin: "28px 0 4px",
+  fontSize: "var(--text-sm)",
+  fontWeight: 600,
+  color: "var(--text-strong)",
+};
+
 /** One editable shortcut row: label + hint on the left, current chord and controls on the right. */
 function ShortcutRow({
   id,
@@ -1003,6 +1014,20 @@ function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
     return other ? COMMANDS.find((c) => c.id === other)!.label : null;
   };
 
+  const row = (c: CommandDef) => (
+    <ShortcutRow
+      key={c.id}
+      id={c.id}
+      capturing={capturing === c.id}
+      chord={bindings[c.id]}
+      isDefault={bindings[c.id] === c.defaultChord}
+      conflict={conflictLabel(c.id)}
+      mac={mac}
+      onStart={() => setCapturing((prev) => (prev === c.id ? null : c.id))}
+      onReset={() => s.set("shortcuts", { ...bindings, [c.id]: c.defaultChord })}
+    />
+  );
+
   const resetAll = () => {
     setRef.current("shortcuts", { ...DEFAULT_BINDINGS });
     setCapturing(null);
@@ -1016,25 +1041,16 @@ function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
       <p style={st.sub}>
         {t("shortcut.customizeHint")}
       </p>
-      {COMMANDS.map((c) => (
-        <ShortcutRow
-          key={c.id}
-          id={c.id}
-          capturing={capturing === c.id}
-          chord={bindings[c.id]}
-          isDefault={bindings[c.id] === c.defaultChord}
-          conflict={conflictLabel(c.id)}
-          mac={mac}
-          onStart={() => setCapturing((prev) => (prev === c.id ? null : c.id))}
-          onReset={() => s.set("shortcuts", { ...bindings, [c.id]: c.defaultChord })}
-        />
-      ))}
+      {GLOBAL_COMMANDS.map(row)}
+      <h3 style={subheadStyle}>{t("shortcut.inComposer")}</h3>
+      <p style={st.sub}>{t("shortcut.inComposerHint")}</p>
+      {COMPOSER_COMMANDS.map(row)}
       <div style={{ marginTop: 18 }}>
         <Button variant="secondary" iconLeft="refresh-cw" onClick={resetAll}>
           {t("shortcut.resetAll")}
         </Button>
       </div>
-      <h3 style={{ margin: "28px 0 4px", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{t("shortcut.inFiles")}</h3>
+      <h3 style={subheadStyle}>{t("shortcut.inFiles")}</h3>
       <p style={st.sub}>{t("shortcut.inFilesHint")}</p>
       {FILE_KEYS.map((k) => (
         <div key={k.chords.join()} style={rowStyle}>
