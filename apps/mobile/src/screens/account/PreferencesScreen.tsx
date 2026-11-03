@@ -21,6 +21,7 @@ import { Sheet } from "../../ui/Sheet";
 import { Text } from "../../ui/Text";
 import { NotificationPrefs } from "./NotificationPrefs";
 import { Section } from "./Section";
+import { StylePicker } from "./StylePicker";
 
 const MODE_TEXT: Record<ThemeMode, ReturnType<typeof key>> = {
   auto: key("prefs.modeAuto"),
@@ -77,25 +78,37 @@ export function PreferencesScreen() {
             style={styles.segmented}
           />
           <Text variant="smallStrong" style={styles.gap}>
-            {t("prefs.accent")}
+            {t("prefs.style")}
           </Text>
-          <View style={styles.swatches}>
-            {ACCENTS.map((accent) => {
-              const on = prefs.accent === accent;
-              return (
-                <Pressable
-                  key={accent}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={t(ACCENT_TEXT[accent])}
-                  onPress={() => setPrefs({ accent })}
-                  style={[styles.swatch, { backgroundColor: c[accent], borderColor: on ? c.ink : c.line }]}
-                >
-                  {on ? <Check size={20} color={c.onPastel} strokeWidth={3} /> : null}
-                </Pressable>
-              );
-            })}
-          </View>
+          <Text variant="small" tone="muted">
+            {t("prefs.styleHint")}
+          </Text>
+          <StylePicker />
+          {/* A variant brings its own colours: the accent, kept, is chosen with the Ruchoir style. */}
+          {prefs.style === "ruchoir" ? (
+            <>
+              <Text variant="smallStrong" style={styles.gap}>
+                {t("prefs.accent")}
+              </Text>
+              <View style={styles.swatches}>
+                {ACCENTS.map((accent) => {
+                  const on = prefs.accent === accent;
+                  return (
+                    <Pressable
+                      key={accent}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: on }}
+                      accessibilityLabel={t(ACCENT_TEXT[accent])}
+                      onPress={() => setPrefs({ accent })}
+                      style={[styles.swatch, { backgroundColor: c[accent], borderColor: on ? c.ink : c.line }]}
+                    >
+                      {on ? <Check size={20} color={c.onPastel} strokeWidth={3} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          ) : null}
           <Text variant="smallStrong" style={styles.gap}>
             {t("prefs.textSize")}
           </Text>
