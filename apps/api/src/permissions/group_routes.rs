@@ -31,6 +31,9 @@ use crate::state::AppState;
 /// The longest group description, in characters (the table's own limit).
 const DESCRIPTION_MAX: usize = 280;
 
+/// The most people one request may put in a group.
+const ADD_MAX: usize = 500;
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -424,7 +427,7 @@ pub async fn delete_group(
 /// People to put in a group.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct AddGroupMembersRequest {
-    /// People of the space, of any standing. Those already in are ignored.
+    /// People of the space, of any standing; at most 500 per request. Those already in are ignored.
     pub user_ids: Vec<Uuid>,
 }
 
@@ -439,7 +442,7 @@ pub struct AddGroupMembersRequest {
     request_body = AddGroupMembersRequest,
     responses(
         (status = 200, description = "The group as it is now", body = GroupDto),
-        (status = 400, description = "`not_in_space`: someone is not a person of this space"),
+        (status = 400, description = "`not_in_space`: someone is not a person of this space; `too_many_people`: more than 500 in one request"),
         (status = 402, description = "`licence_required`: the group carries roles, or the caller acts as its manager"),
         (status = 403, description = "Neither `groups.manage` nor a manager of the group; `role_above_you`, `no_self_role`"),
         (status = 404, description = "Not a group of this space"),
@@ -452,6 +455,12 @@ pub async fn add_group_members(
     Path((space_id, group_id)): Path<(Uuid, Uuid)>,
     Json(body): Json<AddGroupMembersRequest>,
 ) -> Result<Json<GroupDto>, ApiError> {
+    if body.user_ids.len() > ADD_MAX {
+        return Err(ApiError::BadRequestCode {
+            code: "too_many_people",
+            message: "At most 500 people can be added to a group in one request.",
+        });
+    }
     let actor = caller(&state, space_id, session.user_id).await?;
     let mut ids = body.user_ids;
     ids.sort();
@@ -459,29 +468,31 @@ pub async fn add_group_members(
 
     let txn = state.db.begin().await?;
     let current = lock(&txn, space_id, group_id).await?;
-    decide(&actor, &current, GroupAct::Add(&ids)).map_err(|r| refused(&state, r))?;
+    // Only the people not in yet are being added: someone re-adding themselves to a group they
+    // are already in changes nothing. Authority is checked even when there is nobody to add.
+    let fresh: Vec<Uuid> = ids
+        .into_iter()
+        .filter(|id| !current.members.iter().any(|m| m.user_id == *id))
+        .collect();
+    decide(&actor, &current, GroupAct::Add(&fresh)).map_err(|r| refused(&state, r))?;
+    if fresh.is_empty() {
+        return Ok(Json(dto_of(&actor, &current)));
+    }
     let known = txn
         .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
             "SELECT count(*)::bigint AS n FROM space_members \
               WHERE space_id = $1 AND user_id = ANY($2)",
-            [space_id.into(), ids.clone().into()],
+            [space_id.into(), fresh.clone().into()],
         ))
         .await?
         .ok_or(ApiError::NotFound)?
         .try_get::<i64>("", "n")?;
-    if known != ids.len() as i64 {
+    if known != fresh.len() as i64 {
         return Err(ApiError::BadRequestCode {
             code: "not_in_space",
             message: "Everyone added to a group must be a person of the space.",
         });
-    }
-    let fresh: Vec<Uuid> = ids
-        .into_iter()
-        .filter(|id| !current.members.iter().any(|m| m.user_id == *id))
-        .collect();
-    if fresh.is_empty() {
-        return Ok(Json(dto_of(&actor, &current)));
     }
     txn.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,

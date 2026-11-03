@@ -22,7 +22,7 @@
         "description": "People to put in a group.",
         "properties": {
           "user_ids": {
-            "description": "People of the space, of any standing. Those already in are ignored.",
+            "description": "People of the space, of any standing; at most 500 per request. Those already in are ignored.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -2748,7 +2748,7 @@
             "type": "string"
           },
           "group_ids": {
-            "description": "The groups they are in, by group name. Only in the space's member list.",
+            "description": "The groups they are in, sorted by group name. Only in the space's member list.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -12566,7 +12566,7 @@
             "description": "The group as it is now"
           },
           "400": {
-            "description": "`not_in_space`: someone is not a person of this space"
+            "description": "`not_in_space`: someone is not a person of this space; `too_many_people`: more than 500 in one request"
           },
           "402": {
             "description": "`licence_required`: the group carries roles, or the caller acts as its manager"

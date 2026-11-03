@@ -3,6 +3,8 @@
 
 use super::*;
 
+use sea_orm::TransactionTrait;
+
 use super::delegation_tests::{assign, make_role};
 use super::edition_tests::{FrozenEdition, LicensedEdition};
 use super::groups_tests::{count, give_role_to_group, make_group, put_in_group};
@@ -412,8 +414,7 @@ async fn nobody_gives_themselves_a_role_through_a_group() {
     assert_eq!(status, 200);
     let (status, _) = add(&app, fx.owner, fx.space, group, &[fx.owner]).await;
     assert_eq!(status, 200);
-    // Taking oneself out is not giving oneself anything, but it is not Leave's path for a
-    // role-carrying group either: the caller is in, so it is a Leave.
+    // Taking oneself out of a role-carrying group is a plain leave, and is allowed.
     let (status, _) = remove(&app, fx.hr, fx.space, group, fx.hr).await;
     assert_eq!(status, 204);
 }
@@ -843,42 +844,92 @@ async fn concurrent_group_writes_stay_consistent() {
     .await;
     assert_eq!(leftovers, 0);
 
-    // A removal racing a manager flag written by SQL: the person is either out, or in and managing.
+    // A removal racing a writer that behaves like the manager route: lock the group, set the flag
+    // only if the person is still in, commit. Whatever the order, nobody ends up managing a group
+    // they are no longer in.
     for _ in 0..5 {
         let team = make_group(&app.db, fx.space, &format!("Equipe {}", Uuid::new_v4())).await;
         put_in_group(&app.db, team, fx.space, fx.member, false).await;
         let (removed, ()) = tokio::join!(
             remove(&app, fx.admin, fx.space, team, fx.member),
-            make_manager(&app.db, team, fx.member),
+            appoint_if_still_in(&app.db, team, fx.member),
         );
         assert_eq!(removed.0, 204, "{removed:?}");
-        let orphans = count(
-            &app.db,
-            "SELECT count(*)::bigint AS n FROM space_group_members m \
-              WHERE m.group_id = $1 AND NOT EXISTS ( \
-                SELECT 1 FROM space_members s WHERE s.space_id = m.space_id AND s.user_id = m.user_id)",
-            vec![team.into()],
-        )
-        .await;
-        assert_eq!(orphans, 0);
-        let managers_outside = count(
+        let managing_outside = count(
             &app.db,
             "SELECT count(*)::bigint AS n FROM space_group_members \
-              WHERE group_id = $1 AND is_manager AND user_id <> $2",
+              WHERE group_id = $1 AND is_manager AND user_id = $2",
             vec![team.into(), fx.member.into()],
         )
         .await;
-        assert_eq!(managers_outside, 0);
-        let still_in = count(
+        assert_eq!(managing_outside, 0);
+        let rows = count(
             &app.db,
             "SELECT count(*)::bigint AS n FROM space_group_members WHERE group_id = $1",
             vec![team.into()],
         )
         .await;
-        // The remove locked the group before reading it: it saw the person (it answered 204 and
-        // wrote its audit row), so they are gone, whatever the flag did.
-        assert_eq!(still_in, 0);
+        assert_eq!(rows, 0, "the removal saw them, so they are gone");
     }
+}
+
+/// What the manager route will do: lock the group, set the flag if the member row is still there.
+async fn appoint_if_still_in(db: &DatabaseConnection, group: Uuid, user: Uuid) {
+    let txn = db.begin().await.expect("begin");
+    txn.execute_raw(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM space_groups WHERE id = $1 FOR UPDATE",
+        [group.into()],
+    ))
+    .await
+    .expect("lock");
+    txn.execute_raw(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE space_group_members SET is_manager = true WHERE group_id = $1 AND user_id = $2",
+        [group.into(), user.into()],
+    ))
+    .await
+    .expect("appoint");
+    txn.commit().await.expect("commit");
+}
+
+#[tokio::test]
+async fn re_adding_oneself_to_a_group_one_is_in_changes_nothing() {
+    let Some(app) = licensed().await else { return };
+    let fx = fixture(&app).await;
+    let role = make_role(&app.db, fx.space, "Comptable", 40, &[]).await;
+    let group = make_group(&app.db, fx.space, "Compta").await;
+    give_role_to_group(&app.db, group, fx.space, role)
+        .await
+        .expect("role");
+    put_in_group(&app.db, group, fx.space, fx.hr, false).await;
+    let before = actions(&app.db, fx.space).await.len();
+    let (status, body) = add(&app, fx.hr, fx.space, group, &[fx.hr]).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(actions(&app.db, fx.space).await.len(), before);
+    // Authority is still checked when there is nobody to add.
+    let (status, _) = add(&app, fx.member, fx.space, group, &[fx.hr]).await;
+    assert_eq!(status, 403);
+    // And joining a role-carrying group oneself is still refused.
+    let (status, body) = add(&app, fx.member, fx.space, group, &[fx.member]).await;
+    assert_eq!(status, 403, "{body}");
+    let (status, body) = add(&app, fx.hr, fx.space, group, &[fx.hr, fx.member]).await;
+    assert_eq!(status, 200, "{body}");
+}
+
+#[tokio::test]
+async fn at_most_five_hundred_people_at_a_time() {
+    let Some(app) = boot().await else { return };
+    let fx = fixture(&app).await;
+    let group = make_group(&app.db, fx.space, "Equipe").await;
+    let many: Vec<Uuid> = (0..501).map(|_| Uuid::new_v4()).collect();
+    let (status, body) = add(&app, fx.admin, fx.space, group, &many).await;
+    assert_eq!(status, 400, "{body}");
+    assert_eq!(body["error"], "too_many_people");
+    // 500 unknown people are refused for what they are, not for their number.
+    let (status, body) = add(&app, fx.admin, fx.space, group, &many[..500]).await;
+    assert_eq!(status, 400, "{body}");
+    assert_eq!(body["error"], "not_in_space");
 }
 
 #[tokio::test]

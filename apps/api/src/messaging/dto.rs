@@ -407,7 +407,7 @@ pub struct MemberDto {
     /// strongest first. Only in the space's member list.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role_ids: Option<Vec<Uuid>>,
-    /// The groups they are in, by group name. Only in the space's member list.
+    /// The groups they are in, sorted by group name. Only in the space's member list.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub group_ids: Option<Vec<Uuid>>,
     /// Whether the caller may manage them: change their roles, take them out (they rank strictly
