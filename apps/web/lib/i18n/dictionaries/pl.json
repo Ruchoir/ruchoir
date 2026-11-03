@@ -2172,7 +2172,8 @@
       "hasRules": "Ta rola jest wymieniona w regułach kanału, folderu lub kalendarza: najpierw je usuń.",
       "beyondGuestCeiling": "Gość nigdy nie może mieć tego uprawnienia.",
       "memberFirst": "Najpierw zrób z tej osoby członka."
-    }
+    },
+    "colPerson": "Osoba"
   },
   "licence": {
     "refusal": {

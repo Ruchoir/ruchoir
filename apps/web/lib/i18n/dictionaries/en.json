@@ -2024,7 +2024,8 @@
       "hasRules": "Channel, folder or calendar rules name this role: remove them first.",
       "beyondGuestCeiling": "A guest can never hold this right.",
       "memberFirst": "Make this person a member first."
-    }
+    },
+    "colPerson": "Person"
   },
   "licence": {
     "refusal": {

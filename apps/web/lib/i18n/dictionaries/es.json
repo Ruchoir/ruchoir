@@ -2098,7 +2098,8 @@
       "hasRules": "Hay reglas de canal, carpeta o calendario que nombran este rol: quítalas primero.",
       "beyondGuestCeiling": "Un invitado nunca puede tener este permiso.",
       "memberFirst": "Primero haz miembro a esta persona."
-    }
+    },
+    "colPerson": "Persona"
   },
   "licence": {
     "refusal": {

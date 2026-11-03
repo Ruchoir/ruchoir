@@ -30,6 +30,8 @@ export type MembersSettingsProps = {
   /** The viewer's own membership. */
   me?: SettingsMember;
   myRole: string;
+  /** What the viewer holds in the space. */
+  myRights: string[];
   /** The space's roles, strongest first (empty from an instance without them). */
   roles: Role[];
   canInvite: boolean;
@@ -83,6 +85,13 @@ export function MembersSettings(props: MembersSettingsProps) {
         ) : null}
       </div>
       <Card>
+        {licensed && !compact ? (
+          <div style={{ ...st.row, padding: "8px 14px", fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)" }}>
+            <span style={{ flex: 1 }}>{t("roles.colPerson")}</span>
+            <span style={st.roles}>{t("roles.title")}</span>
+            <span style={st.act} />
+          </div>
+        ) : null}
         {shown.map((m, i) =>
           licensed ? (
             <LicensedRow key={m.userId} member={m} first={i === 0} me={me} roles={roles} compact={compact} onManage={() => setManaging(m.userId)} />
@@ -110,6 +119,7 @@ export function MembersSettings(props: MembersSettingsProps) {
               member={managed}
               me={me}
               myRole={myRole}
+              myRights={props.myRights}
               edition={edition}
               roles={roles}
               onSaveRoles={(roleIds) => props.onSaveMemberRoles(managed.userId, roleIds)}

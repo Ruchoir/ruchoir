@@ -34,6 +34,16 @@ export function formatDateTime(at: Date | string | number, locale: Locale = curr
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
+/**
+ * A day fixed in universal time, medium length: a licence ends at an instant its issuer chose in
+ * UTC (the last second of the 31st), which the reader's own zone would push to the next day.
+ */
+export function formatUtcDate(at: Date | string | number, locale: Locale = currentLocale()): string {
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" }).format(date);
+}
+
 /** Date alone, medium length: for a key added on, a session opened on. */
 export function formatDate(at: Date | string | number, locale: Locale = currentLocale()): string {
   const date = new Date(at);

@@ -2098,7 +2098,8 @@
       "hasRules": "Regole di canale, cartella o calendario nominano questo ruolo: rimuovile prima.",
       "beyondGuestCeiling": "Un ospite non può mai avere questo diritto.",
       "memberFirst": "Prima fai diventare membro questa persona."
-    }
+    },
+    "colPerson": "Persona"
   },
   "licence": {
     "refusal": {

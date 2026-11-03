@@ -2024,7 +2024,8 @@
       "hasRules": "Kanal-, Ordner- oder Kalenderregeln nennen diese Rolle: Entfernen Sie sie zuerst.",
       "beyondGuestCeiling": "Ein Gast kann dieses Recht nie haben.",
       "memberFirst": "Machen Sie diese Person zuerst zum Mitglied."
-    }
+    },
+    "colPerson": "Person"
   },
   "licence": {
     "refusal": {

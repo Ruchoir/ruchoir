@@ -7,7 +7,7 @@ import { getAudit } from "@/lib/data/api";
 import type { AuditEntry, Role } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
-import { formatDate, formatDayHeading, formatTime } from "@/lib/i18n/format";
+import { formatDayHeading, formatTime, formatUtcDate } from "@/lib/i18n/format";
 import { auditLine, dayKey, type Sentence, type Slot } from "./auditLogic";
 import { RoleDot, ROLE_LABEL } from "./MemberAccess";
 import { PERMISSION_TEXT } from "./permissionText";
@@ -124,7 +124,7 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
     const line = auditLine(entry);
     const fill: Record<string, string | number> = {};
     for (const name of Object.keys(line.slots)) fill[name] = `${MARK}${name}${MARK}`;
-    for (const [name, value] of Object.entries(line.values)) fill[name] = name === "until" && typeof value === "string" ? formatDate(value) : value;
+    for (const [name, value] of Object.entries(line.values)) fill[name] = name === "until" && typeof value === "string" ? formatUtcDate(value) : value;
     if (line.sentence === "licenceInstalled") fill.count = line.values.seats;
     const text = t(SENTENCE[line.sentence], fill);
     // Every odd piece is a slot's name: the sentence keeps its own word order in every language.

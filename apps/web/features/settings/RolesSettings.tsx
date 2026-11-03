@@ -248,9 +248,11 @@ function RankedRoles({ spaceId, roles, me, myRights, edition, onChanged, onNotif
           {dragIndex !== undefined ? <Icon name="grip-vertical" size={16} /> : null}
         </span>
         <RoleDot role={role} size={10} />
-        <span style={st.name}>
-          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{roleLabel(role, t)}</span>
-          {role.systemKey === "administrator" ? <Tag>{t("roles.system")}</Tag> : null}
+        <span style={isBase ? { ...st.name, flexDirection: "column", alignItems: "flex-start", gap: 2 } : st.name}>
+          <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, maxWidth: "100%" }}>
+            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{roleLabel(role, t)}</span>
+            {role.systemKey === "administrator" ? <Tag>{t("roles.system")}</Tag> : null}
+          </span>
           {isBase ? <span style={st.note}>{role.systemKey === "members" ? t("roles.membersLead") : t("roles.guestsNote")}</span> : null}
         </span>
         <span style={st.count}>{role.systemKey === "members" ? t("roles.everyMember") : role.holders}</span>

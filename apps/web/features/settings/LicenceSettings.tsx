@@ -5,7 +5,7 @@ import { Button, Card, Dialog, Field, Icon, Tag, Textarea } from "@/components/d
 import { deleteLicence, getLicence, putLicence, refusalOf } from "@/lib/data/api";
 import type { LicenceView, SpaceEdition, SpaceLicence } from "@/lib/data/types";
 import { useTranslation } from "@/lib/i18n";
-import { formatDate } from "@/lib/i18n/format";
+import { formatDate, formatUtcDate } from "@/lib/i18n/format";
 import type { Toast } from "../app/types";
 import { daysLeftBanner } from "./auditLogic";
 import { refusalMessage } from "./MemberAccess";
@@ -149,7 +149,7 @@ export function LicenceSettings({ spaceId, spaceName, edition, licence, pricingU
             </div>
             <div>
               <span style={st.k}>{t("licence.validUntil")}</span>
-              <span style={st.v}>{formatDate(view.validUntil)}</span>
+              <span style={st.v}>{formatUtcDate(view.validUntil)}</span>
               <span style={st.hint}>{t("licence.reminders")}</span>
             </div>
             {view.installedAt ? (

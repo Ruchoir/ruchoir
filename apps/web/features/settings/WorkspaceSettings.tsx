@@ -8,7 +8,7 @@ import type { Channel } from "@/lib/data";
 import type { Role, SpaceEdition, SpaceLicence } from "@/lib/data/types";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
-import { formatDate } from "@/lib/i18n/format";
+import { formatUtcDate } from "@/lib/i18n/format";
 import { BackHeading } from "../app/BackHeading";
 import { MembersSettings, type SettingsMember } from "./MembersSettings";
 import { RolesSettings } from "./RolesSettings";
@@ -372,7 +372,7 @@ export function WorkspaceSettings({
         <div role="status" style={st.banner}>
           <Icon name="clock" size={15} style={{ flex: "none", marginTop: 1 }} />
           <span>
-            <b>{frozenSince ? t("roles.frozenBannerSince", { date: formatDate(frozenSince) }) : t("roles.frozenBanner")}</b>{" "}
+            <b>{frozenSince ? t("roles.frozenBannerSince", { date: formatUtcDate(frozenSince) }) : t("roles.frozenBanner")}</b>{" "}
             {t("roles.frozenBannerRest", { owners: ownerNames.join(", "), count: ownerNames.length })}
           </span>
         </div>
@@ -516,6 +516,7 @@ export function WorkspaceSettings({
               members={members}
               me={me}
               myRole={myRole}
+              myRights={myRights}
               roles={roles}
               canInvite={canInvite}
               summary={memberSummary}
