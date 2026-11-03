@@ -60,6 +60,8 @@ pub async fn effective(
 }
 
 /// [`effective`] with every step that led to it: "why may they?".
+// Shown by the access screens of permissions lot 4; held to the decision by the tests now.
+#[allow(dead_code)]
 pub async fn explain(
     db: &DatabaseConnection,
     space_id: Uuid,
@@ -107,6 +109,15 @@ pub async fn holders(
     resource: Resource,
     permission: Permission,
 ) -> Result<Vec<Uuid>, DbErr> {
+    match resource {
+        Resource::Channel(channel_id) => {
+            return channel_holders(db, space_id, channel_id, permission).await;
+        }
+        Resource::Calendar(calendar_id) => {
+            return calendar_holders(db, space_id, calendar_id, permission).await;
+        }
+        Resource::Space | Resource::File(_) => {}
+    }
     let people = load::people(db, space_id, None).await?;
     let mut holding = Vec::new();
     match resource {
@@ -120,27 +131,7 @@ pub async fn holders(
                 }
             }
         }
-        Resource::Channel(channel_id) => {
-            let channels = load::channels_of(db, space_id, &[channel_id]).await?;
-            let Some(channel) = channels.first() else {
-                return Ok(holding);
-            };
-            let ids = [channel_id];
-            let rules =
-                load::rules(db, space_id, permission_overrides::Column::ChannelId, &ids).await?;
-            let memberships = load::memberships(db, space_id, &ids, None).await?;
-            for person in people.values() {
-                if channel_decision(person, channel, &rules, &memberships, false)
-                    .granted
-                    .contains(permission)
-                {
-                    holding.push(person.user_id);
-                }
-            }
-        }
-        Resource::Calendar(calendar_id) => {
-            return calendar_holders(db, space_id, calendar_id, permission).await;
-        }
+        Resource::Channel(_) | Resource::Calendar(_) => {}
         Resource::File(_) => {
             // One person at a time: a file's paths through messages and events are per person.
             for person in people.values() {
@@ -305,8 +296,8 @@ pub async fn sees_channel(
 
 /// The members of the space who would see the channel under `assume`, in a fixed number of
 /// queries.
-pub async fn channel_viewers(
-    db: &DatabaseConnection,
+pub async fn channel_viewers<C: ConnectionTrait>(
+    db: &C,
     space_id: Uuid,
     channel_id: Uuid,
     assume: Assume,
@@ -314,8 +305,35 @@ pub async fn channel_viewers(
     channel_viewers_among(db, space_id, channel_id, None, assume).await
 }
 
-async fn channel_viewers_among(
-    db: &DatabaseConnection,
+/// The members of the space who hold `permission` on one of its channels, as it is, on any
+/// connection (a transaction included): who a channel's content may be sent to, for one.
+pub async fn channel_holders<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    channel_id: Uuid,
+    permission: Permission,
+) -> Result<Vec<Uuid>, DbErr> {
+    let people = load::people(db, space_id, None).await?;
+    let channels = load::channels_of(db, space_id, &[channel_id]).await?;
+    let Some(channel) = channels.first() else {
+        return Ok(Vec::new());
+    };
+    let ids = [channel_id];
+    let rules = load::rules(db, space_id, permission_overrides::Column::ChannelId, &ids).await?;
+    let memberships = load::memberships(db, space_id, &ids, None).await?;
+    Ok(people
+        .values()
+        .filter(|person| {
+            channel_decision(person, channel, &rules, &memberships, false)
+                .granted
+                .contains(permission)
+        })
+        .map(|person| person.user_id)
+        .collect())
+}
+
+async fn channel_viewers_among<C: ConnectionTrait>(
+    db: &C,
     space_id: Uuid,
     channel_id: Uuid,
     user: Option<Uuid>,

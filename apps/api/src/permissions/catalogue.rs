@@ -33,6 +33,8 @@ macro_rules! catalogue {
             pub const ALL: [Permission; catalogue!(@count $($variant)*)] = [$(Permission::$variant,)*];
 
             /// The stored and published name, `family.action`.
+            // Published by `my_permissions` (TEMP: allow removed with it, permissions lot 1 Task 11).
+            #[cfg_attr(not(test), allow(dead_code))]
             pub fn name(self) -> &'static str {
                 match self {
                     $(Permission::$variant => $name,)*
@@ -56,6 +58,8 @@ macro_rules! catalogue {
 
             /// Whether a rule on a channel, folder, file or calendar may set it. The space-wide
             /// ones (inviting, deleting channels, emptying the trash...) are only set on roles.
+            // Read once rules are written by hand (permissions lot 4).
+            #[allow(dead_code)]
             pub fn resource_level(self) -> bool {
                 match self {
                     $(Permission::$variant => $resource,)*
@@ -143,6 +147,7 @@ impl PermissionSet {
         PermissionSet(self.0 & other.0)
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn is_empty(self) -> bool {
         self.0 == 0
     }
@@ -176,6 +181,8 @@ impl PermissionSet {
     }
 
     /// The names to store or publish, in catalogue order.
+    // Published by `my_permissions` (TEMP: allow removed with it, permissions lot 1 Task 11).
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn to_names(self) -> Vec<String> {
         self.iter()
             .map(|permission| permission.name().to_owned())

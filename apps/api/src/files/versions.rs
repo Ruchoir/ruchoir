@@ -16,7 +16,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::config::Config;
-use crate::entities::{file_versions, files, space_members};
+use crate::entities::{file_versions, files};
 use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
 use crate::storage::S3Store;
@@ -225,15 +225,17 @@ pub(crate) async fn file_audience(
                 Err(_) => Vec::new(),
             }
         }
-        // The space's members other than its guests. Read directly rather than through the actor,
-        // so a change nobody made (an editor's tab lapsing) still reaches them.
-        None => space_members::Entity::find()
-            .filter(space_members::Column::SpaceId.eq(file.space_id))
-            .filter(space_members::Column::Role.ne("guest"))
-            .all(db)
-            .await
-            .map(|rows| rows.into_iter().map(|m| m.user_id).collect())
-            .unwrap_or_default(),
+        // Whoever reads the space's files (`files.view`: not its guests). Resolved for the space
+        // rather than through the actor, so a change nobody made (an editor's tab lapsing) still
+        // reaches them.
+        None => crate::permissions::check::holders(
+            db,
+            file.space_id,
+            crate::permissions::check::Resource::Space,
+            crate::permissions::catalogue::Permission::FilesView,
+        )
+        .await
+        .unwrap_or_default(),
     }
 }
 

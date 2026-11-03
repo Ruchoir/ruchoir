@@ -2,6 +2,12 @@
 //!
 //! Three are system roles every space holds (`system_key`): `administrator`, and the base roles
 //! `members` and `guests`, which nobody is assigned (the standing implies them).
+//!
+//! Written by the database alone while the old `role` column is the one the code writes (the
+//! permission foundation's triggers), and read in SQL by the loader; this model serves the tests,
+//! and the code once roles are edited.
+
+#![allow(dead_code)]
 
 use sea_orm::entity::prelude::*;
 

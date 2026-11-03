@@ -931,3 +931,53 @@ async fn a_channel_lists_its_people_only_to_its_readers() {
     join_as(&app.db, open, fx.guest, "member").await;
     assert_eq!(list(open, fx.guest).await, 200);
 }
+
+// ---- Audiences and lists in bulk (Task 10) ----
+
+/// The sidebar of a large space is resolved in a fixed number of queries, whatever its size.
+#[tokio::test]
+async fn listing_a_space_resolves_in_bulk() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "WITH made AS ( \
+                 INSERT INTO conversations (id, space_id, kind, created_at) \
+                 SELECT gen_random_uuid(), $1, 'channel', now() FROM generate_series(1, 300) \
+                 RETURNING id) \
+             INSERT INTO channels (id, space_id, name, type) \
+             SELECT id, $1, 'bulk-' || row_number() OVER (ORDER BY id), 'public' FROM made",
+            [fx.space_id.into()],
+        ))
+        .await
+        .expect("300 channels");
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO channel_role_access (channel_id, role) \
+             SELECT id, 'admin' FROM channels WHERE space_id = $1 ORDER BY name LIMIT 60",
+            [fx.space_id.into()],
+        ))
+        .await
+        .expect("60 reserved");
+    let cookie = app.cookie_for(fx.member).await;
+    let before = crate::permissions::load::queries_issued(fx.space_id);
+    let started = std::time::Instant::now();
+    let listed = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("list");
+    let elapsed = started.elapsed();
+    assert_eq!(listed.status(), 200);
+    let listed: Value = listed.json().await.expect("json");
+    assert_eq!(listed.as_array().map(Vec::len), Some(240));
+    let issued = crate::permissions::load::queries_issued(fx.space_id) - before;
+    eprintln!("sidebar of 300 channels: {elapsed:?}, {issued} permission queries");
+    assert!(issued <= 6, "the listing made {issued} permission queries");
+}

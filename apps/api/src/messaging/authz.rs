@@ -161,27 +161,19 @@ pub async fn channel_audience<C: ConnectionTrait>(
     if members.is_empty() {
         return Ok(members);
     }
-    let Some(allowed) = channel_allowed_roles(db, channel_id).await? else {
-        return Ok(members);
-    };
     let Some(channel) = channels::Entity::find_by_id(channel_id).one(db).await? else {
         return Ok(Vec::new());
     };
-    // The same test as [`role_admitted`], for the whole list at once: the space's owner always, and
-    // otherwise a role the reservation names. Someone with a row but no space role is no longer in
-    // the space, and is admitted to nothing.
-    let admitted: HashSet<Uuid> = space_members::Entity::find()
-        .filter(space_members::Column::SpaceId.eq(channel.space_id))
-        .filter(space_members::Column::UserId.is_in(members.clone()))
-        .all(db)
-        .await?
-        .into_iter()
-        .filter(|member| member.role == "owner" || allowed.contains(&member.role))
-        .map(|member| member.user_id)
-        .collect();
+    // Its readers (`channel.view`, resolved for the whole space at once): the same rule as
+    // [`ensure_conversation_access`]. Someone with a row but no longer in the space reads nothing.
+    let readers: HashSet<Uuid> =
+        check::channel_holders(db, channel.space_id, channel_id, Permission::ChannelView)
+            .await?
+            .into_iter()
+            .collect();
     Ok(members
         .into_iter()
-        .filter(|user_id| admitted.contains(user_id))
+        .filter(|user_id| readers.contains(user_id))
         .collect())
 }
 

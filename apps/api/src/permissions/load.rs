@@ -29,6 +29,9 @@ pub enum Resource {
     Channel(Uuid),
     /// A file or a folder.
     File(Uuid),
+    // The calendar code asks through `check::calendar_rights_many` (it runs inside transactions);
+    // `explain` and the tests ask through this variant.
+    #[allow(dead_code)]
     Calendar(Uuid),
 }
 
@@ -307,12 +310,10 @@ pub(super) async fn calendars_of<C: ConnectionTrait>(
 #[derive(Clone, Debug, FromQueryResult)]
 pub(super) struct FileRow {
     pub id: Uuid,
-    pub space_id: Uuid,
     pub owner_id: Option<Uuid>,
     pub conversation_id: Option<Uuid>,
     /// `file` or `folder`.
     pub kind: String,
-    pub depth: i32,
 }
 
 const FILE_CHAIN: &str = "\
