@@ -9,6 +9,7 @@ import { formatBytes } from "@/lib/i18n/format";
 import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
 import { MessageRow, type MessageActions } from "./MessageRow";
+import { useEditLastKey } from "./useEditLastKey";
 import { useStickToBottom } from "./useStickToBottom";
 import { THREAD_WIDTH_MAX, THREAD_WIDTH_MIN, useSettings } from "../app/settings";
 import { useTranslation } from "@/lib/i18n";
@@ -104,6 +105,8 @@ export type ThreadPanelProps = {
   editing?: { id: string; body: string } | null;
   onSaveEdit?: (text: string, attachments?: MessageAttachment[]) => void;
   onCancelEdit?: () => void;
+  /** Open the last message one wrote in this thread for editing; answers whether there was one. */
+  onEditLast?: () => boolean;
   /** Store a file selected while editing a reply. */
   onUpload: (file: File) => Promise<MessageAttachment>;
   onNotify: (toast: Toast) => void;
@@ -136,6 +139,7 @@ export function ThreadPanel({
   editing,
   onSaveEdit,
   onCancelEdit,
+  onEditLast,
   onUpload,
   onNotify,
   onClose,
@@ -161,6 +165,7 @@ export function ThreadPanel({
   const [editPending, setEditPending] = useState<MessageAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const activeUploads = useRef(0);
+  const editLastKey = useEditLastKey(editorRef, !!editing, onEditLast);
 
   // Tombstones stay on screen (a thread reads as it happened) but are not replies any more, so this
   // count says the same thing as the one the feed draws under the root message.
@@ -326,7 +331,9 @@ export function ThreadPanel({
                 if (editing && e.key === "Escape") {
                   e.stopPropagation();
                   cancelEdit();
+                  return;
                 }
+                editLastKey(e);
               }}
             >
               <MessageEditor

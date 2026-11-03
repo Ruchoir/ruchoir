@@ -381,7 +381,11 @@
     "filesWalk": "Pasar de un elemento a otro",
     "filesExtend": "Ampliar la selección",
     "filesToggle": "Seleccionar o deseleccionar",
-    "filesMenu": "Abrir el menú de acciones"
+    "filesMenu": "Abrir el menú de acciones",
+    "editLast": "Editar mi último mensaje",
+    "editLastHint": "Volver a abrir tu último mensaje para editarlo, cuando el cuadro de texto está vacío",
+    "inComposer": "En el cuadro de texto",
+    "inComposerHint": "Estas teclas actúan en el cuadro de texto de una conversación o de un hilo."
   },
   "key": {
     "escape": "Esc",

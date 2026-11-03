@@ -381,7 +381,11 @@
     "filesWalk": "Zwischen Elementen wechseln",
     "filesExtend": "Auswahl erweitern",
     "filesToggle": "Auswählen oder abwählen",
-    "filesMenu": "Aktionsmenü öffnen"
+    "filesMenu": "Aktionsmenü öffnen",
+    "editLast": "Meine letzte Nachricht bearbeiten",
+    "editLastHint": "Ihre letzte Nachricht wieder öffnen, um sie zu bearbeiten, wenn das Eingabefeld leer ist",
+    "inComposer": "Im Eingabefeld",
+    "inComposerHint": "Diese Tasten wirken im Eingabefeld einer Unterhaltung oder eines Threads."
   },
   "key": {
     "escape": "Esc",

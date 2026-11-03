@@ -381,7 +381,11 @@
     "filesWalk": "Passer d'un élément à l'autre",
     "filesExtend": "Étendre la sélection",
     "filesToggle": "Sélectionner ou désélectionner",
-    "filesMenu": "Ouvrir le menu d'actions"
+    "filesMenu": "Ouvrir le menu d'actions",
+    "editLast": "Modifier mon dernier message",
+    "editLastHint": "Rouvrir votre dernier message pour le modifier, quand la zone de saisie est vide",
+    "inComposer": "Dans la zone de saisie",
+    "inComposerHint": "Ces touches agissent dans la zone de saisie d'une conversation ou d'un fil."
   },
   "key": {
     "escape": "Échap",
