@@ -913,4 +913,71 @@ mod tests {
         assert!(got.contains(ChannelView));
         assert_eq!(got.intersect(GUEST_CEILING), PermissionSet::EMPTY);
     }
+
+    /// The line a lifted private lock leaves in the explanation, with who lifted it.
+    fn lift_of(decision: &Decision) -> Option<Source> {
+        decision
+            .trace
+            .iter()
+            .find(|step| matches!(step.source, Source::Lifted(_)))
+            .map(|step| step.source)
+    }
+
+    #[test]
+    fn the_traced_lift_names_a_role_a_person_or_a_group() {
+        let group = Uuid::new_v4();
+        let role = Uuid::new_v4();
+        let mut subject = member(&[ChannelView]);
+        subject.roles.push((role, PermissionSet::EMPTY));
+        for (rule, opener) in [
+            (
+                lifting(TargetRef::Group(group), &[ChannelView], &[]),
+                Opener::Group(group),
+            ),
+            (lifting(TargetRef::User, &[ChannelView], &[]), Opener::User),
+            (
+                lifting(TargetRef::Role(role), &[ChannelView], &[]),
+                Opener::Role(role),
+            ),
+        ] {
+            let decision = resolve(&subject, &channel(vec![rule]), private(), true);
+            assert!(decision.granted.contains(ChannelView));
+            assert_eq!(lift_of(&decision), Some(Source::Lifted(opener)));
+            assert!(!decision
+                .trace
+                .iter()
+                .any(|step| step.source == Source::Implicit("private")));
+        }
+        // Not traced when nothing is locked: a joined member, a public channel.
+        let rule = lifting(TargetRef::User, &[ChannelView], &[]);
+        let decision = resolve(&subject, &channel(vec![rule.clone()]), joined(), true);
+        assert_eq!(lift_of(&decision), None);
+        assert_eq!(
+            lift_of(&resolve(
+                &subject,
+                &channel(vec![rule]),
+                Facts::default(),
+                true
+            )),
+            None
+        );
+    }
+
+    #[test]
+    fn a_deny_after_a_lift_records_no_opener_and_the_channel_closes() {
+        let group = Uuid::new_v4();
+        let subject = member(&[ChannelView]);
+        let chain = channel(vec![
+            lifting(TargetRef::Group(group), &[ChannelView], &[]),
+            rule(TargetRef::User, &[], &[ChannelView]),
+        ]);
+        let decision = resolve(&subject, &chain, private(), true);
+        assert!(!decision.granted.contains(ChannelView));
+        assert_eq!(lift_of(&decision), None);
+        // The view was taken by the deny, so no lock line follows: nothing was left to lock.
+        assert!(decision
+            .trace
+            .iter()
+            .any(|step| step.source == Source::User && step.effect == Effect::Removed));
+    }
 }

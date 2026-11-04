@@ -8,8 +8,12 @@
 //! somebody else, whoever holds `members.view` (a guest never does). Nothing is named that the
 //! asker could not see in the access dialog: a folder above they cannot open, a channel whose
 //! readers a rule names and they cannot read stay "hidden".
+//!
+//! A hidden step still says that a rule exists there, without naming its resource: this is
+//! deliberate, the person's access depends on it and an explanation that skipped it would
+//! disagree with the decision.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use axum::extract::{Path, Query, State};
 use axum::Json;
@@ -47,13 +51,16 @@ pub struct WhyGroupDto {
     pub name: String,
 }
 
-/// A role a step is about, and the group that carries it when the person holds it that way.
+/// A role a step is about, and how the person holds it.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct WhyRoleDto {
     pub id: Uuid,
     pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub via_group: Option<WhyGroupDto>,
+    /// The role is given to the person themselves (or, for a role no group carries, by their
+    /// standing). It can be true together with `via_groups`: they hold it both ways.
+    pub direct: bool,
+    /// Every group of theirs that carries the role, sorted by name.
+    pub via_groups: Vec<WhyGroupDto>,
 }
 
 /// One change, in the order the engine applied it.
@@ -123,6 +130,8 @@ struct Names<'a> {
     asker: Uuid,
     resource: ResourceRef,
     person: WhyPersonDto,
+    /// The roles given to the person themselves, not through a group.
+    direct_roles: HashSet<Uuid>,
     cache: HashMap<(&'static str, Uuid), Option<String>>,
     seen: HashMap<(&'static str, Uuid), bool>,
 }
@@ -147,7 +156,8 @@ impl Names<'_> {
         Ok(found)
     }
 
-    /// Whether the asker may see this folder or channel (the resource itself always).
+    /// Whether the asker may see this folder or channel (the resource itself always, since the
+    /// asker was let in to explain it).
     async fn visible(&mut self, resource: Resource, id: Uuid) -> Result<bool, ApiError> {
         if id == self.resource.id() {
             return Ok(true);
@@ -177,6 +187,8 @@ impl Names<'_> {
             LevelKind::Calendar => ("calendar", "calendars", Resource::Calendar(id)),
             LevelKind::Folder | LevelKind::File => ("file", "files", Resource::File(id)),
         };
+        // A calendar level is always the calendar being explained (calendars do not nest), which
+        // the asker may already open, so it is shown; folders and channels may be someone else's.
         let shown = if kind == LevelKind::Calendar {
             true
         } else {
@@ -274,14 +286,14 @@ impl Names<'_> {
         let (kind, target, role) = match step.source {
             Source::BaseRole if !at_a_level => ("base", None, None),
             Source::Role(id) if !at_a_level => {
-                let via_group = match explained
-                    .role_groups
-                    .get(&id)
-                    .and_then(|groups| groups.first())
-                {
-                    Some(group) => self.group(*group).await?,
-                    None => None,
-                };
+                // Every group of the person's is visible to whoever may ask: a guest only ever
+                // explains themselves, so the groups are their own.
+                let mut via_groups = Vec::new();
+                for group in explained.role_groups.get(&id).into_iter().flatten() {
+                    via_groups.extend(self.group(*group).await?);
+                }
+                via_groups.sort_by_key(|group| group.name.to_lowercase());
+                let direct = self.direct_roles.contains(&id) || via_groups.is_empty();
                 let name = self.name("space_roles", id).await?.unwrap_or_default();
                 (
                     "role",
@@ -289,7 +301,8 @@ impl Names<'_> {
                     Some(WhyRoleDto {
                         id,
                         name,
-                        via_group,
+                        direct,
+                        via_groups,
                     }),
                 )
             }
@@ -326,6 +339,26 @@ impl Names<'_> {
             role,
         })
     }
+}
+
+async fn direct_roles_of(
+    state: &AppState,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<HashSet<Uuid>, ApiError> {
+    let mut roles = HashSet::new();
+    for row in state
+        .db
+        .query_all_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT role_id FROM space_role_assignments WHERE space_id = $1 AND user_id = $2",
+            [space_id.into(), user_id.into()],
+        ))
+        .await?
+    {
+        roles.insert(row.try_get("", "role_id")?);
+    }
+    Ok(roles)
 }
 
 #[utoipa::path(
@@ -404,6 +437,7 @@ pub async fn read_why(
         asker,
         resource,
         person: person.clone(),
+        direct_roles: direct_roles_of(&state, space_id, person_id).await?,
         cache: HashMap::new(),
         seen: HashMap::new(),
     };

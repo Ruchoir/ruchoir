@@ -70,14 +70,14 @@ pub fn router() -> Router<AppState> {
 /// A thing of the space, named: the folder an entry is inherited from, a file's parent.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct NamedRefDto {
-    /// `file` (a folder is a file) for now.
+    /// `file` (a folder is a file), `channel` or `calendar`.
     pub kind: &'static str,
     /// Absent when the viewer cannot open that folder.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    /// A folder the viewer cannot open: no id, no name.
+    /// A folder or channel the viewer cannot open: no id, no name.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hidden: Option<bool>,
 }

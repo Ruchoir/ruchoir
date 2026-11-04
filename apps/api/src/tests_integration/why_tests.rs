@@ -6,7 +6,7 @@ use super::*;
 use crate::permissions::catalogue::{Family, Permission, PermissionSet};
 use crate::permissions::check::{self, Resource};
 
-use super::delegation_tests::make_role;
+use super::delegation_tests::{assign, make_role};
 use super::groups_tests::{give_role_to_group, make_group, put_in_group};
 use super::permissions_tests::{join_as, ladder, space_calendar};
 
@@ -194,7 +194,8 @@ async fn why_names_the_group_carrying_a_role() {
             .find(|s| s["kind"] == "role" && s["role"]["name"] == role)
             .unwrap_or_else(|| panic!("{role} in {body}"));
         assert_eq!(step["permission"], permission);
-        assert_eq!(step["role"]["via_group"]["name"], group, "{step}");
+        assert_eq!(step["role"]["direct"], false, "{step}");
+        assert_eq!(step["role"]["via_groups"][0]["name"], group, "{step}");
     }
     assert_eq!(result_of(&body, "files.manage")["granted"], true);
     // Steps are numbered from one, in order.
@@ -574,4 +575,60 @@ async fn why_is_read_only_and_audits_nothing() {
     assert_eq!(status, 200);
     assert_eq!(audit_count(&app.db, fx.space_id).await, audits);
     assert_eq!(rule_total(&app.db, fx.space_id).await, rules);
+}
+
+/// How a role reaches a person, as the step of that role says it.
+async fn role_step_held(app: &TestApp, direct: bool, carrying: &[&str]) -> Value {
+    let fx = ladder(&app.db).await;
+    let folder = make_node(&app.db, fx.space_id, fx.owner, "Compta", "folder", None).await;
+    let role = make_role(&app.db, fx.space_id, "Comptable", 5, &["files.manage"]).await;
+    if direct {
+        assign(&app.db, fx.space_id, fx.member, role).await;
+    }
+    for name in carrying {
+        let group = make_group(&app.db, fx.space_id, name).await;
+        give_role_to_group(&app.db, group, fx.space_id, role)
+            .await
+            .expect("carries");
+        put_in_group(&app.db, group, fx.space_id, fx.member, false).await;
+    }
+    let (status, body) = why(app, fx.admin, fx.space_id, "file", folder, fx.member).await;
+    assert_eq!(status, 200, "{body}");
+    steps(&body)
+        .iter()
+        .find(|s| s["kind"] == "role")
+        .unwrap_or_else(|| panic!("role step in {body}"))["role"]
+        .clone()
+}
+
+#[tokio::test]
+async fn why_says_whether_a_role_is_direct_and_every_group_carrying_it() {
+    let Some(app) = boot().await else { return };
+    let names = |role: &Value| -> Vec<String> {
+        role["via_groups"]
+            .as_array()
+            .map(|groups| {
+                groups
+                    .iter()
+                    .map(|g| g["name"].as_str().expect("name").to_owned())
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let role = role_step_held(&app, true, &[]).await;
+    assert_eq!(role["direct"], true, "{role}");
+    assert!(names(&role).is_empty(), "{role}");
+
+    let role = role_step_held(&app, false, &["Compta"]).await;
+    assert_eq!(role["direct"], false, "{role}");
+    assert_eq!(names(&role), ["Compta"]);
+
+    let role = role_step_held(&app, true, &["Compta"]).await;
+    assert_eq!(role["direct"], true, "{role}");
+    assert_eq!(names(&role), ["Compta"]);
+
+    // Every carrying group, sorted by name.
+    let role = role_step_held(&app, false, &["Zeta", "alpha", "Beta"]).await;
+    assert_eq!(role["direct"], false, "{role}");
+    assert_eq!(names(&role), ["alpha", "Beta", "Zeta"]);
 }

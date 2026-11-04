@@ -3453,7 +3453,7 @@
         "description": "A thing of the space, named: the folder an entry is inherited from, a file's parent.",
         "properties": {
           "hidden": {
-            "description": "A folder the viewer cannot open: no id, no name.",
+            "description": "A folder or channel the viewer cannot open: no id, no name.",
             "type": [
               "boolean",
               "null"
@@ -3468,7 +3468,7 @@
             ]
           },
           "kind": {
-            "description": "`file` (a folder is a file) for now.",
+            "description": "`file` (a folder is a file), `channel` or `calendar`.",
             "type": "string"
           },
           "name": {
@@ -6153,8 +6153,12 @@
         "type": "object"
       },
       "WhyRoleDto": {
-        "description": "A role a step is about, and the group that carries it when the person holds it that way.",
+        "description": "A role a step is about, and how the person holds it.",
         "properties": {
+          "direct": {
+            "description": "The role is given to the person themselves (or, for a role no group carries, by their\nstanding). It can be true together with `via_groups`: they hold it both ways.",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -6162,20 +6166,19 @@
           "name": {
             "type": "string"
           },
-          "via_group": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/WhyGroupDto"
-              }
-            ]
+          "via_groups": {
+            "description": "Every group of theirs that carries the role, sorted by name.",
+            "items": {
+              "$ref": "#/components/schemas/WhyGroupDto"
+            },
+            "type": "array"
           }
         },
         "required": [
           "id",
-          "name"
+          "name",
+          "direct",
+          "via_groups"
         ],
         "type": "object"
       }

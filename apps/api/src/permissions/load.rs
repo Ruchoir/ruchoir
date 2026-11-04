@@ -694,3 +694,80 @@ pub(super) fn channel_level(
     };
     (level, facts)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn person(base: Uuid, group: Uuid, custom: Uuid, system: Uuid, audience: Uuid) -> Person {
+        Person {
+            user_id: Uuid::new_v4(),
+            subject: Subject {
+                standing: Standing::Member,
+                base: PermissionSet::EMPTY,
+                roles: vec![
+                    (custom, PermissionSet::EMPTY),
+                    (system, PermissionSet::EMPTY),
+                ],
+            },
+            base_role: Some(base),
+            groups: vec![group],
+            role_groups: HashMap::new(),
+            readable_audiences: HashSet::from([audience]),
+            custom_roles: HashSet::from([custom]),
+            ceiling: None,
+        }
+    }
+
+    fn aimed(f: impl FnOnce(&mut StoredRule)) -> StoredRule {
+        let mut rule = StoredRule {
+            channel_id: Some(Uuid::new_v4()),
+            file_id: None,
+            calendar_id: None,
+            role_id: None,
+            user_id: None,
+            group_id: None,
+            audience_channel_id: None,
+            allow: PermissionSet::of(&[crate::permissions::catalogue::Permission::ChannelView]),
+            deny: PermissionSet::EMPTY,
+        };
+        f(&mut rule);
+        rule
+    }
+
+    /// Only a group, a person or a custom role opens a private channel: never a base role, the
+    /// Administrator (a system role) or the readers of a channel.
+    #[test]
+    fn lifts_lock_is_never_true_on_a_base_role_a_system_role_or_an_audience() {
+        let (base, group, custom, system, audience) = (
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+        );
+        let who = person(base, group, custom, system, audience);
+        let stored = [
+            aimed(|r| r.role_id = Some(base)),
+            aimed(|r| r.role_id = Some(system)),
+            aimed(|r| r.audience_channel_id = Some(audience)),
+            aimed(|r| r.role_id = Some(custom)),
+            aimed(|r| r.group_id = Some(group)),
+            aimed(|r| r.user_id = Some(who.user_id)),
+        ];
+        let rules = who.rules(stored.iter(), None);
+        let lifts: Vec<(TargetRef, bool)> =
+            rules.iter().map(|r| (r.target, r.lifts_lock)).collect();
+        assert_eq!(
+            lifts,
+            [
+                (TargetRef::BaseRole, false),
+                (TargetRef::Role(system), false),
+                (TargetRef::Audience(audience), false),
+                (TargetRef::Role(custom), true),
+                (TargetRef::Group(group), true),
+                (TargetRef::User, true),
+            ]
+        );
+    }
+}
