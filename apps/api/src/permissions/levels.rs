@@ -72,7 +72,7 @@ fn view_of(kind: Kind) -> Permission {
     }
 }
 
-fn family_of(kind: Kind) -> Family {
+pub(super) fn family_of(kind: Kind) -> Family {
     match kind {
         Kind::Channel => Family::Channel,
         Kind::File => Family::Files,

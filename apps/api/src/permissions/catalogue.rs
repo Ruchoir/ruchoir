@@ -56,8 +56,6 @@ macro_rules! catalogue {
 
             /// Whether a rule on a channel, folder, file or calendar may set it. The space-wide
             /// ones (inviting, deleting channels, emptying the trash...) are only set on roles.
-            // Read once rules are written by hand (permissions lot 4).
-            #[allow(dead_code)]
             pub fn resource_level(self) -> bool {
                 match self {
                     $(Permission::$variant => $resource,)*

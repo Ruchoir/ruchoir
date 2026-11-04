@@ -60,6 +60,13 @@
             "description": "Write rules that match no preset, and name custom roles (enterprise edition).",
             "type": "boolean"
           },
+          "held": {
+            "description": "The resource-level permissions of this resource's family the viewer holds here: what\nPersonnaliser may let them set (rule 2). Empty for somebody who edits nothing here.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "manage_target_levels": {
             "description": "The levels the caller may give here (`none` only to those who may reserve).",
             "items": {
@@ -78,7 +85,8 @@
         "required": [
           "edit",
           "fine",
-          "manage_target_levels"
+          "manage_target_levels",
+          "held"
         ],
         "type": "object"
       },
@@ -5338,6 +5346,13 @@
               }
             ]
           },
+          "rule_level": {
+            "description": "The level of the rule behind a `rule` step (`none`, `read`, `contribute`, `manage` or\n`custom`), read like the access dialog reads it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "target": {
             "oneOf": [
               {
@@ -5822,7 +5837,22 @@
             "description": "`channel`, `file` or `calendar`.",
             "type": "string"
           },
+          "level": {
+            "description": "The level of the rule that names the group or role: `none`, `read`, `contribute`, `manage`\nor `custom`. Absent on a hidden place.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parent_id": {
+            "description": "For a file or folder: the folder it sits in, so the screen can open it.",
+            "format": "uuid",
             "type": [
               "string",
               "null"

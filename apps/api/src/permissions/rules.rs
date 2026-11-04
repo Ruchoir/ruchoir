@@ -486,6 +486,13 @@ pub struct UsedIn {
     /// A place the caller cannot open: no id, no name.
     #[serde(skip_serializing_if = "is_false")]
     pub hidden: bool,
+    /// The level of the rule that names the group or role: `none`, `read`, `contribute`, `manage`
+    /// or `custom`. Absent on a hidden place.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level: Option<&'static str>,
+    /// For a file or folder: the folder it sits in, so the screen can open it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<Uuid>,
 }
 
 fn is_false(flag: &bool) -> bool {
@@ -513,6 +520,21 @@ pub async fn hide_unopened(
             _ => (Resource::Calendar(id), Permission::CalendarView),
         };
         if super::check::can(db, space_id, viewer, resource, permission).await? {
+            let mut place = place;
+            // The folder above is named only to who may open it, like the place itself.
+            if let Some(parent) = place.parent_id {
+                if !super::check::can(
+                    db,
+                    space_id,
+                    viewer,
+                    Resource::File(parent),
+                    Permission::FilesView,
+                )
+                .await?
+                {
+                    place.parent_id = None;
+                }
+            }
             shown.push(place);
         } else {
             shown.push(UsedIn {
@@ -520,10 +542,40 @@ pub async fn hide_unopened(
                 id: None,
                 name: None,
                 hidden: true,
+                level: None,
+                parent_id: None,
             });
         }
     }
     Ok(shown)
+}
+
+/// Whether the role is a system one (the Administrator and the base roles).
+async fn role_is_system(db: &impl ConnectionTrait, role: Uuid) -> Result<bool, DbErr> {
+    Ok(db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT system_key IS NOT NULL AS system FROM space_roles WHERE id = $1",
+            [role.into()],
+        ))
+        .await?
+        .map(|row| row.try_get::<bool>("", "system"))
+        .transpose()?
+        .unwrap_or(false))
+}
+
+/// The word of a stored rule's level, read as the access dialog reads it: a preset level, or
+/// `custom`.
+pub(super) fn rule_level_word(
+    kind: Kind,
+    class: Target,
+    allow: PermissionSet,
+    deny: PermissionSet,
+) -> &'static str {
+    match level_of(kind, class, allow, deny) {
+        LevelRead::Level(level) => level_name(level),
+        LevelRead::NoRule | LevelRead::Custom => "custom",
+    }
 }
 
 /// Whom a rule is aimed at, for [`uses_of`].
@@ -545,14 +597,26 @@ pub async fn uses_of(
         Named::Group(id) => ("group_id", id),
         Named::User(id) => ("user_id", id),
     };
+    let system = match target {
+        Named::Role(id) => role_is_system(db, id).await?,
+        _ => false,
+    };
+    let class = match target {
+        Named::Role(_) => Target::Role { system },
+        Named::Group(_) => Target::Group,
+        Named::User(_) => Target::User,
+    };
     let sql = format!(
-        "SELECT 'channel' AS kind, r.id, r.name::text AS name FROM permission_overrides o \
+        "SELECT 'channel' AS kind, r.id, r.name::text AS name, o.allow, o.deny, NULL::uuid AS parent \
+           FROM permission_overrides o \
            JOIN channels r ON r.id = o.channel_id WHERE o.space_id = $1 AND o.{column} = $2 \
          UNION ALL \
-         SELECT 'file', r.id, r.name::text FROM permission_overrides o \
+         SELECT 'file', r.id, r.name::text, o.allow, o.deny, r.parent_folder_id \
+           FROM permission_overrides o \
            JOIN files r ON r.id = o.file_id WHERE o.space_id = $1 AND o.{column} = $2 \
          UNION ALL \
-         SELECT 'calendar', r.id, r.name::text FROM permission_overrides o \
+         SELECT 'calendar', r.id, r.name::text, o.allow, o.deny, NULL::uuid \
+           FROM permission_overrides o \
            JOIN calendars r ON r.id = o.calendar_id WHERE o.space_id = $1 AND o.{column} = $2 \
          ORDER BY name, id"
     );
@@ -566,15 +630,25 @@ pub async fn uses_of(
         .await?
     {
         let kind: String = row.try_get("", "kind")?;
+        let (kind, level_kind) = match kind.as_str() {
+            "channel" => ("channel", Kind::Channel),
+            "file" => ("file", Kind::File),
+            _ => ("calendar", Kind::Calendar),
+        };
+        let allow: Vec<String> = row.try_get("", "allow")?;
+        let deny: Vec<String> = row.try_get("", "deny")?;
         used.push(UsedIn {
-            kind: match kind.as_str() {
-                "channel" => "channel",
-                "file" => "file",
-                _ => "calendar",
-            },
+            kind,
             id: Some(row.try_get("", "id")?),
             name: Some(row.try_get("", "name")?),
             hidden: false,
+            level: Some(rule_level_word(
+                level_kind,
+                class,
+                PermissionSet::from_names(&allow),
+                PermissionSet::from_names(&deny),
+            )),
+            parent_id: row.try_get("", "parent")?,
         });
     }
     Ok(used)
@@ -845,6 +919,26 @@ pub async fn log_rule(
         ResourceRef::File(id) => AuditTarget::File(id),
         ResourceRef::Calendar(id) => AuditTarget::Calendar(id),
     };
+    // The names as they are now: a snapshot, so the log reads after a rename or a deletion.
+    let resource_name = name_of(
+        txn,
+        match resource {
+            ResourceRef::Channel(_) => "channels",
+            ResourceRef::File(_) => "files",
+            ResourceRef::Calendar(_) => "calendars",
+        },
+        "name",
+        resource.id(),
+    )
+    .await?;
+    let target_name = match subject {
+        RuleSubject::Everyone { .. } | RuleSubject::Role { .. } => {
+            name_of(txn, "space_roles", "name", subject.id()).await?
+        }
+        RuleSubject::Group(id) => name_of(txn, "space_groups", "name", id).await?,
+        RuleSubject::User(id) => name_of(txn, "users", "display_name", id).await?,
+        RuleSubject::Audience(id) => name_of(txn, "channels", "name", id).await?,
+    };
     record(
         txn,
         space_id,
@@ -854,11 +948,30 @@ pub async fn log_rule(
         serde_json::json!({
             "target_kind": subject.kind_name(),
             "target_id": subject.id(),
+            "resource_name": resource_name,
+            "target_name": target_name,
             "before": shown.before,
             "after": shown.after,
         }),
     )
     .await
+}
+
+/// A name from `table`, for the log; `null` when the row is gone.
+async fn name_of(
+    txn: &impl ConnectionTrait,
+    table: &str,
+    column: &str,
+    id: Uuid,
+) -> Result<Option<String>, DbErr> {
+    txn.query_one_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        format!("SELECT {column}::text AS name FROM {table} WHERE id = $1"),
+        [id.into()],
+    ))
+    .await?
+    .map(|row| row.try_get("", "name"))
+    .transpose()
 }
 
 #[cfg(test)]

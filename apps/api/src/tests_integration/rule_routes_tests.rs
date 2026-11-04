@@ -184,6 +184,13 @@ fn everyone_entry(body: &Value) -> &Value {
         .expect("the members line")
 }
 
+/// Whether `used_in` names this place (its `level` and `parent_id` are checked elsewhere).
+fn names_place(used: &[Value], kind: &str, id: Uuid, name: &str) -> bool {
+    used.iter().any(|u| {
+        u["kind"] == kind && u["id"] == id.to_string() && u["name"] == name && u["hidden"].is_null()
+    })
+}
+
 async fn rules_on(
     db: &DatabaseConnection,
     column: &str,
@@ -998,8 +1005,8 @@ async fn a_group_named_by_a_rule_is_not_deleted() {
     assert_eq!(body["error"], "group_has_rules");
     let used = body["used_in"].as_array().expect("used_in");
     assert_eq!(used.len(), 2, "{body}");
-    assert!(used.contains(&json!({ "kind": "channel", "id": channel, "name": "salon" })));
-    assert!(used.contains(&json!({ "kind": "file", "id": file, "name": "plan.txt" })));
+    assert!(names_place(used, "channel", channel, "salon"));
+    assert!(names_place(used, "file", file, "plan.txt"));
 
     // Nothing was removed; once the rules go the group goes.
     assert_eq!(
@@ -2398,7 +2405,7 @@ async fn a_group_in_use_names_only_what_the_caller_can_open() {
     assert_eq!(status, 409, "{body}");
     let used = body["used_in"].as_array().expect("used_in");
     assert_eq!(used.len(), 2, "{body}");
-    assert!(used.contains(&json!({ "kind": "channel", "id": open, "name": "salon" })));
+    assert!(names_place(used, "channel", open, "salon"));
     assert!(
         used.contains(&json!({ "kind": "channel", "hidden": true })),
         "the private channel the administrator never joined is not named: {body}"
@@ -2408,10 +2415,12 @@ async fn a_group_in_use_names_only_what_the_caller_can_open() {
     // The owner reads private channels without joining.
     let (status, body) = call(&app, fx.owner, reqwest::Method::DELETE, &url, None).await;
     assert_eq!(status, 409, "{body}");
-    assert!(body["used_in"]
-        .as_array()
-        .expect("used_in")
-        .contains(&json!({ "kind": "channel", "id": secret, "name": "secret" })));
+    assert!(names_place(
+        body["used_in"].as_array().expect("used_in"),
+        "channel",
+        secret,
+        "secret"
+    ));
 }
 
 #[tokio::test]
@@ -2461,4 +2470,276 @@ async fn person_level_denies_are_shown_to_editors_only() {
         entry_of(&body, "user", friend).is_some(),
         "an allow is not hidden"
     );
+}
+
+// -- the public write path (`write_entry`), as an edition calls it ---------------------------------
+
+use crate::auth::extract::AuthSession;
+use crate::permissions::catalogue::PermissionSet;
+use crate::permissions::levels::{rule_sets, Kind, Level, Target};
+use crate::permissions::rule_routes::{write_entry, Change, Pick};
+use crate::permissions::rules::ResourceRef;
+
+fn session_of(user: Uuid) -> AuthSession {
+    AuthSession {
+        user_id: user,
+        session_id: "test".to_owned(),
+        mfa_level: "none".to_owned(),
+    }
+}
+
+/// The error code of a refused write: the `BadRequestCode` code, `not_found`, or `other`.
+fn refusal<T>(result: Result<T, crate::messaging::error::ApiError>) -> &'static str {
+    use crate::messaging::error::ApiError;
+    match result {
+        Ok(_) => "ok",
+        Err(ApiError::BadRequestCode { code, .. }) => code,
+        Err(ApiError::NotFound) => "not_found",
+        Err(_) => "other",
+    }
+}
+
+#[tokio::test]
+async fn write_entry_validates_the_sets_itself() {
+    let Some(app) = licensed().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let owner = session_of(fx.owner);
+    let go = |allow: PermissionSet, deny: PermissionSet| {
+        write_entry(
+            &app.state,
+            &owner,
+            fx.space_id,
+            ResourceRef::Channel(channel),
+            Pick::Group(group),
+            Change::Sets { allow, deny },
+        )
+    };
+    // A space-level permission is no rule on a channel, whatever the caller built.
+    let invite = PermissionSet::of(&[Permission::MembersInvite]);
+    assert_eq!(
+        refusal(go(invite, PermissionSet::EMPTY).await),
+        "wrong_family"
+    );
+    assert_eq!(
+        refusal(go(PermissionSet::EMPTY, invite).await),
+        "wrong_family"
+    );
+    // A permission of another family.
+    let files = PermissionSet::of(&[Permission::FilesView]);
+    assert_eq!(
+        refusal(go(files, PermissionSet::EMPTY).await),
+        "wrong_family"
+    );
+    // One permission on both sides.
+    let send = PermissionSet::of(&[Permission::MessageSend]);
+    assert_eq!(refusal(go(send, send).await), "permission_in_both");
+    assert!(rules_on(&app.db, "channel_id", channel).await.is_empty());
+}
+
+#[tokio::test]
+async fn sets_on_a_base_role_must_be_exactly_a_level() {
+    let Some(app) = licensed().await else { return };
+    let fx = ladder(&app.db).await;
+    let calendar = space_calendar(&app.db, fx.space_id, "admins").await;
+    let (allow, deny) =
+        rule_sets(Kind::Calendar, Target::Everyone, Level::Contribute).expect("sets");
+    let missing_write = allow.minus(PermissionSet::of(&[Permission::CalendarWrite]));
+    assert_ne!(missing_write, allow, "Contribute carries calendar.write");
+    let owner = session_of(fx.owner);
+    let go = |allow, deny| {
+        write_entry(
+            &app.state,
+            &owner,
+            fx.space_id,
+            ResourceRef::Calendar(calendar),
+            Pick::Everyone(None),
+            Change::Sets { allow, deny },
+        )
+    };
+    assert_eq!(
+        refusal(go(missing_write, deny).await),
+        "base_role_levels_only"
+    );
+    assert_eq!(write_access(&app.db, calendar).await, "admins");
+    assert!(rules_on(&app.db, "calendar_id", calendar).await.is_empty());
+    // The exact sets of the level are the level.
+    assert_eq!(refusal(go(allow, deny).await), "ok");
+    assert_eq!(write_access(&app.db, calendar).await, "members");
+}
+
+#[tokio::test]
+async fn empty_sets_are_a_deletion() {
+    let Some(app) = licensed().await else { return };
+    let fx = ladder(&app.db).await;
+    let admin = session_of(fx.admin);
+    let empty = Change::Sets {
+        allow: PermissionSet::EMPTY,
+        deny: PermissionSet::EMPTY,
+    };
+
+    // Bridged: two calendars in the same state, one closed by DELETE, one by empty sets.
+    let by_delete = space_calendar(&app.db, fx.space_id, "members").await;
+    let by_sets = space_calendar(&app.db, fx.space_id, "members").await;
+    for calendar in [by_delete, by_sets] {
+        let (status, _) = put(
+            &app,
+            fx.admin,
+            fx.space_id,
+            "calendar",
+            calendar,
+            everyone(),
+            "read",
+        )
+        .await;
+        assert_eq!(status, 200);
+    }
+    let (_, body) = read(&app, fx.admin, fx.space_id, "calendar", by_delete).await;
+    let rule_id: Option<Uuid> = everyone_entry(&body)["id"]
+        .as_str()
+        .map(|s| s.parse().expect("uuid"));
+    assert!(
+        rule_id.is_some(),
+        "the lowered calendar keeps a rule: {body}"
+    );
+    let deleted_with_rule = match rule_id {
+        Some(id) => {
+            remove(&app, fx.admin, fx.space_id, "calendar", by_delete, id)
+                .await
+                .0
+        }
+        None => 404,
+    };
+    let sets_result = refusal(
+        write_entry(
+            &app.state,
+            &admin,
+            fx.space_id,
+            ResourceRef::Calendar(by_sets),
+            Pick::Everyone(None),
+            empty,
+        )
+        .await,
+    );
+    // Same answer as DELETE on the same state (a rule there: gone; none: not found)...
+    assert_eq!(
+        sets_result == "ok",
+        deleted_with_rule == 204,
+        "{sets_result} / {deleted_with_rule}"
+    );
+    // ...and the same legacy setting afterwards.
+    assert_eq!(
+        write_access(&app.db, by_sets).await,
+        write_access(&app.db, by_delete).await
+    );
+
+    // Not bridged: a group's rule on a channel, then none.
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let clear = || {
+        write_entry(
+            &app.state,
+            &admin,
+            fx.space_id,
+            ResourceRef::Channel(channel),
+            Pick::Group(group),
+            empty,
+        )
+    };
+    // No rule: not a silent no-op, a 404 like DELETE.
+    assert_eq!(refusal(clear().await), "not_found");
+    let (status, _) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        group_target(group),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(refusal(clear().await), "ok");
+    assert_eq!(
+        rule_count(&app.db, "channel_id", channel, ("group_id", group)).await,
+        0
+    );
+    let actions: Vec<String> = audit_rows(&app.db, fx.space_id)
+        .await
+        .into_iter()
+        .map(|(a, _)| a)
+        .collect();
+    assert_eq!(actions.last().map(String::as_str), Some("rule.deleted"));
+}
+
+#[tokio::test]
+async fn the_dialog_says_what_the_viewer_holds_here() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    join_as(&app.db, channel, fx.member, "admin").await;
+    let (status, body) = read(&app, fx.member, fx.space_id, "channel", channel).await;
+    assert_eq!(status, 200, "{body}");
+    let held: Vec<String> = body["may"]["held"]
+        .as_array()
+        .unwrap_or_else(|| panic!("held in {body}"))
+        .iter()
+        .map(|p| p.as_str().expect("name").to_owned())
+        .collect();
+    assert!(!held.is_empty());
+    for permission in Permission::ALL {
+        let family_here = permission.family() == crate::permissions::catalogue::Family::Channel
+            && permission.resource_level();
+        let expected =
+            family_here && can(&app, &fx, fx.member, Resource::Channel(channel), permission).await;
+        assert_eq!(
+            held.iter().any(|h| h == permission.name()),
+            expected,
+            "{}",
+            permission.name()
+        );
+    }
+    // Somebody who edits nothing here holds nothing to show.
+    let other = make_channel(&app.db, fx.space_id, "autre", "public").await;
+    let (status, body) = read(&app, fx.member, fx.space_id, "channel", other).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["may"]["held"], json!([]));
+}
+
+#[tokio::test]
+async fn rule_log_lines_carry_the_names_at_write_time() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let (status, body) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        group_target(group),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200);
+    let rule: Uuid = entry_of(&body, "group", group).expect("line")["id"]
+        .as_str()
+        .expect("id")
+        .parse()
+        .expect("uuid");
+    let (status, _) = remove(&app, fx.admin, fx.space_id, "channel", channel, rule).await;
+    assert_eq!(status, 204);
+    let lines = audit_rows(&app.db, fx.space_id).await;
+    let ours: Vec<&Value> = lines
+        .iter()
+        .filter(|(_, d)| d["target_id"] == group.to_string())
+        .map(|(_, d)| d)
+        .collect();
+    assert_eq!(ours.len(), 2, "{lines:?}");
+    for details in ours {
+        assert_eq!(details["resource_name"], "salon");
+        assert_eq!(details["target_name"], "Compta");
+    }
 }
