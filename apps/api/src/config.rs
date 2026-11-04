@@ -68,6 +68,11 @@ pub struct Config {
     /// Per-person rate limit on the sensitive routes: interval, in ms, after which one request is
     /// replenished.
     pub sensitive_rate_period_ms: u64,
+    /// Per-person rate limit on the plain reads of the permissions screens (roles, groups, access,
+    /// "why"), which a session makes on every reload: burst capacity.
+    pub read_rate_burst: u32,
+    /// Per-person rate limit on those reads: interval, in ms, after which one request is replenished.
+    pub read_rate_period_ms: u64,
     /// SMTP relay host for outgoing email. When unset, email is logged for local dev instead of sent.
     pub smtp_host: Option<String>,
     /// SMTP relay port (STARTTLS submission is 587 by default).
@@ -312,6 +317,15 @@ impl Config {
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_SENSITIVE_RATE_PERIOD_MS"))?;
 
+        // The plain reads of the permissions screens have a bucket of their own, looser: a session
+        // with realtime reloads reads them several times a second.
+        let read_rate_burst: u32 = env_or("RUCHOIR_READ_RATE_BURST", "240")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_READ_RATE_BURST"))?;
+        let read_rate_period_ms: u64 = env_or("RUCHOIR_READ_RATE_PERIOD_MS", "250")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_READ_RATE_PERIOD_MS"))?;
+
         // Email. When SMTP_HOST is unset, the mailer logs messages for local dev instead of sending.
         let smtp_host = env_opt("RUCHOIR_SMTP_HOST");
         let smtp_port: u16 = env_or("RUCHOIR_SMTP_PORT", "587")
@@ -486,6 +500,8 @@ impl Config {
             auth_rate_period_ms,
             sensitive_rate_burst,
             sensitive_rate_period_ms,
+            read_rate_burst,
+            read_rate_period_ms,
             smtp_host,
             smtp_port,
             smtp_username,
