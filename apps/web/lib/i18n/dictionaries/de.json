@@ -2063,7 +2063,7 @@
     "fromNothing": "Eine leere Rolle",
     "fromNothingDesc": "Sie fügt @Mitglieder nichts hinzu, solange nichts angehakt ist.",
     "fromCopy": "Eine Kopie einer bestehenden Rolle",
-    "fromCopyDesc": "Unter denen, die Sie verwalten können.",
+    "fromCopyDesc": "Unter den Rollen, die Sie verwalten können.",
     "colRole": "Rolle",
     "system": "System",
     "baseSeparator": "Grundrollen, immer ganz unten",

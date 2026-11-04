@@ -1091,7 +1091,7 @@
     "leaveTitle": "{{name}} verlassen?",
     "leaveBody": "Sie verlieren den Zugriff auf seine Kanäle, Nachrichten und Dateien. Für eine Rückkehr brauchen Sie eine neue Einladung. Was Sie dort geschrieben haben, bleibt.",
     "leaveConfirm": "Verlassen",
-    "leaveLastOwner": "Sie sind der letzte Eigentümer dieses Bereichs. Ernennen Sie einen anderen Eigentümer oder löschen Sie den Bereich.",
+    "leaveLastOwner": "Sie sind die letzte Eigentümerin oder der letzte Eigentümer dieses Bereichs. Machen Sie jemand anderen zur Eigentümerin oder zum Eigentümer, oder löschen Sie den Bereich.",
     "left": "Bereich verlassen",
     "leaveFailed": "Der Bereich konnte nicht verlassen werden.",
     "general": "Allgemein",

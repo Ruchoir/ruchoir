@@ -107,10 +107,10 @@
   "system": {
     "memberJoined": "{{who}} se unió al espacio.",
     "memberLeft": "{{who}} salió del espacio.",
-    "memberRemoved": "{{who}} fue expulsado del espacio.",
+    "memberRemoved": "{{who}} ya no forma parte del espacio.",
     "channelJoined": "{{who}} se unió al canal.",
     "channelLeft": "{{who}} salió del canal.",
-    "channelRemoved": "{{who}} fue expulsado del canal.",
+    "channelRemoved": "{{who}} ya no forma parte del canal.",
     "channelCreated": "Se creó el canal.",
     "channelRenamed": "{{who}} cambió el nombre del canal a #{{detail}}.",
     "channelTopicChanged": "{{who}} cambió el tema del canal: {{detail}}",
@@ -846,7 +846,7 @@
     "roleChanged": "Rol de {{name}} modificado",
     "roleFailed": "No se pudo cambiar el rol.",
     "remove": "Quitar del canal",
-    "removed": "{{name}} quitado del canal",
+    "removed": "{{name}} ya no está en el canal",
     "removeFailed": "No se pudo quitar a la persona.",
     "added_many": "{{count}} personas añadidas"
   },
@@ -1143,7 +1143,7 @@
     "leaveTitle": "¿Salir de {{name}}?",
     "leaveBody": "Perderá el acceso a sus canales, sus mensajes y sus archivos. Para volver necesitará una nueva invitación. Lo que escribió allí se queda.",
     "leaveConfirm": "Salir",
-    "leaveLastOwner": "Es el último propietario de este espacio. Nombre a otro propietario o elimine el espacio.",
+    "leaveLastOwner": "Es la única persona propietaria de este espacio. Nombre a otra persona propietaria o elimine el espacio.",
     "left": "Ha salido del espacio",
     "leaveFailed": "No se ha podido salir del espacio.",
     "general": "General",
@@ -1275,13 +1275,13 @@
   },
   "channelInvite": {
     "title": "Invitar a #{{name}}",
-    "hint": "La persona recibe una invitación de un solo uso, se une al espacio como invitada y solo ve este canal.",
+    "hint": "La persona recibe una invitación de un solo uso, se une al espacio como persona invitada y solo ve este canal.",
     "forbidden": "Solo quienes gestionan este canal pueden invitar a él.",
     "refused": "Dirección rechazada, o canal archivado."
   },
   "saved": {
     "title": "Mensajes guardados",
-    "hint": "Los que tienes a mano",
+    "hint": "Los mensajes que tienes a mano",
     "empty": "Nada guardado",
     "emptyText": "Guarda un mensaje desde su menú (pulsación larga) para encontrarlo aquí.",
     "removeTitle": "¿Quitar este mensaje de guardados?",

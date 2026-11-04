@@ -10,7 +10,18 @@ const DICTIONARIES = [
   "../../../apps/mobile/src/i18n/dictionaries/fr.json",
 ];
 
-const GENDERED = /prévenu|prévenue|ceux qui|celles qui|ceux et celles|celles et ceux|l'est la veille|connecté|\(e\)|\(e?s\)/i;
+const GENDERED = new RegExp(
+  [
+    "prévenu|prévenue|ceux qui|celles qui|ceux et celles|celles et ceux|l'est la veille|connecté|\\(e\\)|\\(e?s\\)",
+    "ceux (que|dont|qui)|celles|invitée|vous a invité|en invitée|le dernier propriétaire|dernier propriétaire",
+    // "Vous êtes / avez été" + a participle that agrees with the person. The noun "invité" as a standing
+    // name ("L'invité le reçoit la veille", "Invité jusqu'au") is not flagged: only these forms are.
+    "vous (êtes|avez été|serez) (\\w+ )?(invité|retiré|connecté|ajouté|averti|prévenu|nommé|promu|rétrogradé|exclu|bloqué|inscrit|abonné)",
+    "\\{\\{(who|name|actor|target)\\}\\} (a été|est|sera) (invité|retiré|ajouté|nommé|promu|rétrogradé|exclu|bloqué)",
+    "(sera|seront) (retiré|ajouté)|^Retiré du canal",
+  ].join("|"),
+  "i",
+);
 
 function strings(node: unknown, path: string, out: [string, string][]): void {
   if (typeof node === "string") out.push([path, node]);
