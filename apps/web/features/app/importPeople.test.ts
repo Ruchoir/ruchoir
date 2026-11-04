@@ -104,8 +104,8 @@ test("a_fallback_is_said_per_space_with_its_fixed_role", () => {
   const line = peopleLines(view, "mattermost").find((l) => l.kind === "fallbacks");
   assert.ok(line);
   const sentences = line.fallbacks.map((f) => fallbackSentence(f, t));
-  assert.equal(sentences[0], "Rôle « Comptable » ramené à Membre dans Atelier Dupont (édition communautaire), 2 personnes");
-  assert.equal(sentences[1], "Rôle « Chef de chantier » ramené à Administrateur dans Bureau Rennes (édition communautaire), 1 personne");
+  assert.equal(sentences[0], "Rôle « Comptable » ramené à Membre dans l'espace Atelier Dupont (édition communautaire), 2 personnes");
+  assert.equal(sentences[1], "Rôle « Chef de chantier » ramené à Administrateur dans l'espace Bureau Rennes (édition communautaire), 1 personne");
   assert.equal(line.titleKey, "import.peopleFallbacksMixed");
 });
 
@@ -293,5 +293,20 @@ test("the_pricing_link_has_a_new_tab_name_and_a_fallback_sentence", () => {
     const d = dict(locale);
     assert.ok(d.import.seatsPricingNewTab?.trim(), `${locale} link name`);
     assert.ok(d.import.seatsNoPricing?.trim(), `${locale} no-pricing sentence`);
+  }
+});
+
+test("the_owner_and_fallback_sentences_use_the_space_noun_before_a_name", () => {
+  const t = frT();
+  assert.equal(
+    t("import.peopleOwnerNamed", { name: "Camille Martin", space: "Atelier Dupont" }),
+    "Camille Martin reste propriétaire de l'espace Atelier Dupont : personne ne le devient par l'import.",
+  );
+  const noun = { fr: /l'espace \{\{space\}\}/, en: /the space \{\{space\}\}/, de: /Bereichs \{\{space\}\}/, es: /del espacio \{\{space\}\}/, it: /dello spazio \{\{space\}\}/, pl: /przestrzeni \{\{space\}\}/ };
+  for (const [locale, re] of Object.entries(noun)) {
+    assert.match(dict(locale).import.peopleOwnerNamed, re, locale);
+    for (const k of ["fallbackMemberIn_one", "fallbackAdminIn_other"]) {
+      assert.ok(!/ (dans|in|en|w) \{\{space\}\}/.test(dict(locale).import[k]), `${locale} ${k} has a bare name after a preposition`);
+    }
   }
 });
