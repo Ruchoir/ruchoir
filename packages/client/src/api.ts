@@ -1676,6 +1676,8 @@ export type PeopleSummary = {
   customRoles: number;
   fallbacks: FallbackSummary[];
   seats: SeatsSummary[];
+  /** The names of the spaces the job created (the others were filled). */
+  createdSpaces: string[];
 };
 
 /** What an import would do, from `POST /imports/plan`. Nothing is written to produce it. */
@@ -1741,6 +1743,8 @@ export type ImportJob = {
   people: PeopleSummary | null;
   /** The producer's own words about what it left behind, kept for the done screen. */
   limits: string[];
+  /** Who started it; null once their account is gone. */
+  startedBy: { id: string; name: string } | null;
 };
 
 type ImportJobDto = {
@@ -1763,6 +1767,7 @@ type ImportJobDto = {
   finished_at: string | null;
   people?: PeopleSummaryDto | null;
   limits?: string[];
+  started_by?: { id: string; name: string } | null;
 };
 
 type PeopleSummaryDto = {
@@ -1776,6 +1781,7 @@ type PeopleSummaryDto = {
   custom_roles: number;
   fallbacks?: { space: string; role_name: string; fixed: string; people: number }[];
   seats?: { space: string; used_before: number; added: number; total: number }[];
+  created_spaces?: string[];
 };
 
 const fixedRole = (v: string): "member" | "admin" => (v === "admin" ? "admin" : "member");
@@ -1792,6 +1798,7 @@ export function toPeopleSummary(dto: PeopleSummaryDto): PeopleSummary {
     customRoles: dto.custom_roles,
     fallbacks: (dto.fallbacks ?? []).map((f) => ({ space: f.space, roleName: f.role_name, fixed: fixedRole(f.fixed), people: f.people })),
     seats: (dto.seats ?? []).map((x) => ({ space: x.space, usedBefore: x.used_before, added: x.added, total: x.total })),
+    createdSpaces: dto.created_spaces ?? [],
   };
 }
 
@@ -1816,6 +1823,7 @@ function toImportJob(dto: ImportJobDto): ImportJob {
     finishedAt: dto.finished_at,
     people: dto.people ? toPeopleSummary(dto.people) : null,
     limits: dto.limits ?? [],
+    startedBy: dto.started_by ?? null,
   };
 }
 

@@ -611,15 +611,15 @@ export function ImportScreen({
    * The plan's people, with the server's own refusal laid over the seats when the start answered 402:
    * it knows the count at the moment of the run, which may be newer than the plan's.
    */
+  /** Before the run: the person importing stays owner of each space the plan creates. */
+  const stayingOwner = plan && ownerName ? { name: ownerName, spaces: plan.spaces.filter((x) => x.outcome === "created").map((x) => x.name) } : null;
   const planPeople: PeopleView | null = plan
-    ? { ...viewFromPlan(plan.people), seats: seatsRefusal ? [seatsFromRefusal(seatsRefusal)] : viewFromPlan(plan.people).seats }
+    ? { ...viewFromPlan(plan.people, stayingOwner), seats: seatsRefusal ? [seatsFromRefusal(seatsRefusal)] : viewFromPlan(plan.people).seats }
     : null;
   /** The source's name on the done screen, where the job (not the plan) says where it came from. */
   const doneSource = job ? PLATFORMS.find((p) => p.toLowerCase() === job.source.toLowerCase()) : undefined;
   const doneSourceName = brandFor(doneSource) ?? t(key("import.sourceUnknown"));
   const tooFewSeats = planPeople ? startDisabled(planPeople) : false;
-  /** Who stays owner is only known for a space the import creates, which is the importer's own. */
-  const stayingOwner = plan && plan.spaces.length > 0 && plan.spaces.every((x) => x.outcome === "created") ? ownerName : null;
 
   // --- the pieces ------------------------------------------------------------------------------
   const colClass = `wc-imp-col${compact ? " wc-imp-col--compact" : ""}`;
@@ -1028,7 +1028,7 @@ export function ImportScreen({
         ))}
       </div>
 
-      <ImportPeopleBlock people={planPeople} source={plan.source} sourceName={sourceName} ownerName={stayingOwner} pricingUrl={pricingUrl || seatsRefusal?.pricingUrl || undefined} />
+      <ImportPeopleBlock people={planPeople} source={plan.source} sourceName={sourceName} pricingUrl={pricingUrl || seatsRefusal?.pricingUrl || undefined} />
 
       <div className="wc-imp-card">
         {!instanceAdmin ? (
@@ -1326,10 +1326,9 @@ export function ImportScreen({
           {/* What crossed, as the run wrote it (so the same after a reload), then what the producer
               left behind, again: the done screen is where somebody checks the move is complete. */}
           <ImportPeopleBlock
-            people={job.people ? viewFromSummary(job.people) : null}
+            people={job.people ? viewFromSummary(job.people, job.startedBy) : null}
             source={job.source}
             sourceName={doneSourceName}
-            ownerName={stayingOwner}
             pricingUrl={pricingUrl}
           />
           {job.limits.length > 0 ? (

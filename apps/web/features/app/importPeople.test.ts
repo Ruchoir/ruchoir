@@ -33,7 +33,7 @@ const full = {
 };
 
 test("copy_follows_the_source", () => {
-  const key = (source: string) => peopleLines(viewFromPlan(full), source, null).find((l) => l.kind === "admins")?.bodyKey;
+  const key = (source: string) => peopleLines(viewFromPlan(full), source).find((l) => l.kind === "admins")?.bodyKey;
   assert.equal(key("slack"), "import.peopleAdminsSlack");
   assert.equal(key("teams"), "import.peopleAdminsTeams");
   assert.equal(key("mattermost"), "import.peopleAdminsMattermost");
@@ -41,17 +41,22 @@ test("copy_follows_the_source", () => {
 });
 
 test("no_line_for_a_zero_count", () => {
-  const lines = peopleLines(viewFromPlan({ ...full, guests: 0, moderators: 0, groups: 0, groupNames: [] }), "mattermost", null);
+  const lines = peopleLines(viewFromPlan({ ...full, guests: 0, moderators: 0, groups: 0, groupNames: [] }), "mattermost");
   assert.deepEqual(lines.map((l) => l.kind), ["admins"]);
-  assert.deepEqual(peopleLines(viewFromPlan({ ...full, administrators: 0, guests: 0, moderators: 0, groups: 0 }), "slack", null), []);
+  assert.deepEqual(peopleLines(viewFromPlan({ ...full, administrators: 0, guests: 0, moderators: 0, groups: 0 }), "slack"), []);
 });
 
+const OWNER = { name: "Camille Martin", spaces: ["Atelier Dupont"] };
+
 test("the_owner_line_names_who_stays_owner", () => {
-  const named = peopleLines(viewFromPlan(full), "mattermost", "Camille Martin").find((l) => l.kind === "admins");
-  assert.equal(named?.ownerKey, "import.peopleOwnerNamed");
-  assert.equal(named?.ownerName, "Camille Martin");
-  const unnamed = peopleLines(viewFromPlan(full), "mattermost", null).find((l) => l.kind === "admins");
-  assert.equal(unnamed?.ownerKey, "import.peopleOwnerNobody");
+  const named = peopleLines(viewFromPlan(full, OWNER), "mattermost").find((l) => l.kind === "admins");
+  assert.deepEqual(named?.owners, [{ name: "Camille Martin", space: "Atelier Dupont" }]);
+  // One sentence per space the import created, none for an existing one.
+  const two = peopleLines(viewFromPlan(full, { name: "Camille Martin", spaces: ["A", "B"] }), "slack").find((l) => l.kind === "admins");
+  assert.deepEqual(two?.owners.map((o) => o.space), ["A", "B"]);
+  // Unknown owner, or no created space: the sentence is hidden, never "Personne".
+  assert.deepEqual(peopleLines(viewFromPlan(full, null), "mattermost").find((l) => l.kind === "admins")?.owners, []);
+  assert.deepEqual(peopleLines(viewFromPlan(full, { name: "Camille Martin", spaces: [] }), "mattermost").find((l) => l.kind === "admins")?.owners, []);
 });
 
 test("over_seats_disables_start_and_counts_the_missing_place", () => {
@@ -96,7 +101,7 @@ test("a_fallback_is_said_per_space_with_its_fixed_role", () => {
       { space: "Bureau Rennes", roleName: "Chef de chantier", fixed: "admin", people: 1 },
     ],
   });
-  const line = peopleLines(view, "mattermost", null).find((l) => l.kind === "fallbacks");
+  const line = peopleLines(view, "mattermost").find((l) => l.kind === "fallbacks");
   assert.ok(line);
   const sentences = line.fallbacks.map((f) => fallbackSentence(f, t));
   assert.equal(sentences[0], "Rôle « Comptable » ramené à Membre dans Atelier Dupont (édition communautaire), 2 personnes");
@@ -150,12 +155,12 @@ const frame4 = { ...full, seats: [{ space: "Atelier Dupont", used: 8, incoming: 
 const frame8 = { ...full, moderators: 0, groups: 0, groupNames: [], administrators: 2, guests: 1, seats: [{ space: "Atelier Dupont", used: 1, incoming: 7, total: 25, over: false }] };
 
 test("the_block_lists_only_the_rows_with_something", () => {
-  assert.deepEqual(blockView(viewFromPlan(frame1), "mattermost", "Camille Martin")?.lines.map((l) => l.kind), ["admins", "guests", "moderators", "groups"]);
-  assert.deepEqual(blockView(viewFromPlan(frame4), "mattermost", null)?.lines.map((l) => l.kind), ["admins", "guests", "moderators", "groups", "kept"]);
+  assert.deepEqual(blockView(viewFromPlan(frame1, OWNER), "mattermost")?.lines.map((l) => l.kind), ["admins", "guests", "moderators", "groups"]);
+  assert.deepEqual(blockView(viewFromPlan(frame4), "mattermost")?.lines.map((l) => l.kind), ["admins", "guests", "moderators", "groups", "kept"]);
 });
 
 test("frame_1_rows_and_seats_line", () => {
-  const b = blockView(viewFromPlan(frame1), "mattermost", "Camille Martin");
+  const b = blockView(viewFromPlan(frame1, OWNER), "mattermost");
   assert.ok(b);
   assert.deepEqual(b.lines.map((l) => l.count), [3, 2, 4, 5]);
   assert.deepEqual(b.lines[3].names, ["Comptabilité", "Communication", "Chantier Rennes"]);
@@ -171,7 +176,7 @@ test("frame_1_rows_and_seats_line", () => {
 
 test("frame_2_is_red_and_lancer_is_disabled", () => {
   const view = viewFromPlan(frame2);
-  const b = blockView(view, "mattermost", "Camille Martin");
+  const b = blockView(view, "mattermost");
   assert.ok(b);
   assert.equal(b.over, true);
   assert.equal(b.missing, 1);
@@ -181,18 +186,18 @@ test("frame_2_is_red_and_lancer_is_disabled", () => {
 });
 
 test("frame_3_fallback_rows_and_pricing_link", () => {
-  const b = blockView(viewFromPlan(frame3), "mattermost", null);
+  const b = blockView(viewFromPlan(frame3), "mattermost");
   assert.ok(b);
   const line = b.lines.find((l) => l.kind === "fallbacks");
   assert.equal(line?.count, 2);
   assert.equal(line?.titleKey, "import.peopleFallbacksMember");
   assert.equal(b.pricing, true);
   assert.equal(b.seats.length, 0, "no seats line in community edition");
-  assert.equal(blockView(viewFromPlan(frame1), "mattermost", null)?.pricing, false);
+  assert.equal(blockView(viewFromPlan(frame1, OWNER), "mattermost")?.pricing, false);
 });
 
 test("frame_4_kept_row_with_names", () => {
-  const b = blockView(viewFromPlan(frame4), "mattermost", null);
+  const b = blockView(viewFromPlan(frame4), "mattermost");
   const kept = b?.lines.find((l) => l.kind === "kept");
   assert.equal(kept?.count, 4);
   assert.deepEqual(kept?.names, ["Camille Martin", "Sophie Leroy", "Karim Benali"]);
@@ -202,20 +207,21 @@ test("frame_4_kept_row_with_names", () => {
 });
 
 test("frame_8_slack_shows_two_rows", () => {
-  const b = blockView(viewFromPlan(frame8), "slack", "Camille Martin");
+  const b = blockView(viewFromPlan(frame8), "slack");
   assert.deepEqual(b?.lines.map((l) => l.kind), ["admins", "guests"]);
   assert.equal(b?.lines[0].bodyKey, "import.peopleAdminsSlack");
   assert.equal(b?.seats[0].usedAfter, 8);
 });
 
 test("the_block_is_absent_when_the_archive_has_no_people", () => {
-  assert.equal(blockView(viewFromPlan({ ...full, administrators: 0, guests: 0, moderators: 0, groups: 0, groupNames: [], seats: [] }), "slack", null), null);
-  assert.equal(blockView(null, "slack", null), null);
+  assert.equal(blockView(viewFromPlan({ ...full, administrators: 0, guests: 0, moderators: 0, groups: 0, groupNames: [], seats: [] }), "slack"), null);
+  assert.equal(blockView(null, "slack"), null);
 });
 
 // --- the done screen (Task 15) -----------------------------------------------------------------------
 
 const summary = {
+  createdSpaces: ["Atelier Dupont"],
   administrators: 3, guests: 2, moderators: 4, groups: 5,
   groupNames: ["Comptabilité", "Communication", "Chantier Rennes", "Direction", "Bureau d'études"],
   kept: 0, keptNames: [], customRoles: 0, fallbacks: [],
@@ -224,7 +230,7 @@ const summary = {
 const LIMITS = ["Les appels et leur historique (Calls) ne sont pas exportés par Mattermost.", "Les réglages de notification de chaque personne ne sont pas exportés."];
 
 test("frame_5_done_shows_what_crossed_and_the_limits_again", () => {
-  const done = doneView({ source: "mattermost", people: summary, limits: LIMITS }, "Camille Martin");
+  const done = doneView({ source: "mattermost", people: summary, limits: LIMITS, startedBy: { name: "Camille Martin" } });
   assert.deepEqual(done.block?.lines.map((l) => l.kind), ["admins", "guests", "moderators", "groups"]);
   assert.equal(done.block?.seats[0].usedAfter, 12);
   assert.equal(done.block?.seats[0].free, 13);
@@ -234,19 +240,24 @@ test("frame_5_done_shows_what_crossed_and_the_limits_again", () => {
 
 test("a_found_again_job_shows_the_same_block_without_a_plan", () => {
   // The screen found the job again: no plan in state, only what the job kept.
-  const found = doneView({ source: "mattermost", people: summary, limits: LIMITS }, null);
-  const fresh = doneView({ source: "mattermost", people: summary, limits: LIMITS }, null);
+  const found = doneView({ source: "mattermost", people: summary, limits: LIMITS, startedBy: { name: "Camille Martin" } });
+  const fresh = doneView({ source: "mattermost", people: summary, limits: LIMITS, startedBy: { name: "Camille Martin" } });
   assert.deepEqual(found.block?.lines.map((l) => [l.kind, l.count]), [["admins", 3], ["guests", 2], ["moderators", 4], ["groups", 5]]);
   assert.deepEqual(found, fresh);
-  assert.equal(found.block?.lines[0].ownerKey, "import.peopleOwnerNobody");
+  // The owner comes from the job (who started it, which spaces it created), so a reload says it too.
+  assert.deepEqual(found.block?.lines[0].owners, [{ name: "Camille Martin", space: "Atelier Dupont" }]);
+  const unknown = doneView({ source: "mattermost", people: summary, limits: LIMITS, startedBy: null });
+  assert.deepEqual(unknown.block?.lines[0].owners, [], "no name known: the sentence is hidden");
+  const filled = doneView({ source: "mattermost", people: { ...summary, createdSpaces: [] }, limits: LIMITS, startedBy: { name: "Camille Martin" } });
+  assert.deepEqual(filled.block?.lines[0].owners, [], "no space created: nobody is named");
 });
 
 test("a_job_without_a_summary_shows_no_block", () => {
   // An import from before lot 6: no `people` on the job. The limits it kept still show.
-  const old = doneView({ source: "slack", people: null, limits: [] }, null);
+  const old = doneView({ source: "slack", people: null, limits: [], startedBy: null });
   assert.equal(old.block, null);
   assert.deepEqual(old.limits, []);
-  assert.deepEqual(doneView({ source: "slack", people: null, limits: LIMITS }, null).limits, LIMITS);
+  assert.deepEqual(doneView({ source: "slack", people: null, limits: LIMITS, startedBy: { name: "Camille Martin" } }).limits, LIMITS);
 });
 
 // --- review fixes -------------------------------------------------------------------------------------

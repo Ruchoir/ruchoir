@@ -17,7 +17,12 @@ export type PeopleView = {
   keptNames: string[];
   fallbacks: FallbackView[];
   seats: SeatsInput[];
+  /** Who stays owner of the spaces the import created; null when that is not known. */
+  owner: OwnerInfo | null;
 };
+
+/** The person who ran the import, and the names of the spaces it created (where they stay owner). */
+export type OwnerInfo = { name: string; spaces: string[] };
 
 /** A role of the source brought down to a fixed one. `space` is known once the run is over. */
 export type FallbackView = { space?: string; role: string; fixed: "member" | "admin"; people: number };
@@ -36,9 +41,8 @@ export type PeopleLine = {
   /** Plural title: the count goes in as `count`. */
   titleKey: string;
   bodyKey: string;
-  /** Administrators only: the sentence about who stays owner, with the name when it is known. */
-  ownerKey?: string;
-  ownerName?: string;
+  /** Administrators only: who stays owner of which created space. Empty when unknown: nothing is said. */
+  owners: { name: string; space: string }[];
   /** Chips: the names shown, and how many more there are. */
   names: string[];
   more: number;
@@ -65,12 +69,14 @@ type SummaryPeople = {
   groupNames: string[];
   kept: number;
   keptNames: string[];
+  createdSpaces?: string[];
   fallbacks: { space: string; roleName: string; fixed: "member" | "admin"; people: number }[];
   seats: { space: string; usedBefore: number; added: number; total: number }[];
 };
 
-export function viewFromPlan(p: PlanPeople): PeopleView {
+export function viewFromPlan(p: PlanPeople, owner: OwnerInfo | null = null): PeopleView {
   return {
+    owner,
     administrators: p.administrators,
     guests: p.guests,
     moderators: p.moderators,
@@ -83,8 +89,9 @@ export function viewFromPlan(p: PlanPeople): PeopleView {
   };
 }
 
-export function viewFromSummary(p: SummaryPeople): PeopleView {
+export function viewFromSummary(p: SummaryPeople, startedBy: { name: string } | null = null): PeopleView {
   return {
+    owner: startedBy && (p.createdSpaces?.length ?? 0) > 0 ? { name: startedBy.name, spaces: p.createdSpaces ?? [] } : null,
     administrators: p.administrators,
     guests: p.guests,
     moderators: p.moderators,
@@ -118,12 +125,12 @@ const ADMIN_BODY: Record<string, string> = {
 /**
  * The rows of the block, in the order of the mockups, and none for a zero.
  *
- * `ownerName` is who stays owner of a space the import creates (the person importing); null when
- * that is not known or not true, which says only that nobody becomes owner.
+ * `people.owner` is who stays owner of each space the import created (the person who ran it): one
+ * sentence per created space, and none when the name or the spaces are not known.
  */
-export function peopleLines(people: PeopleView, source: string, ownerName: string | null): PeopleLine[] {
+export function peopleLines(people: PeopleView, source: string): PeopleLine[] {
   const lines: PeopleLine[] = [];
-  const base = { names: [], more: 0, fallbacks: [] };
+  const base = { names: [], more: 0, fallbacks: [], owners: [] };
   if (people.administrators > 0) {
     lines.push({
       ...base,
@@ -133,8 +140,7 @@ export function peopleLines(people: PeopleView, source: string, ownerName: strin
       tone: "accent",
       titleKey: "import.peopleAdminsTitle",
       bodyKey: ADMIN_BODY[source] ?? "import.peopleAdminsOther",
-      ownerKey: ownerName ? "import.peopleOwnerNamed" : "import.peopleOwnerNobody",
-      ownerName: ownerName ?? undefined,
+      owners: people.owner ? people.owner.spaces.map((space) => ({ name: people.owner?.name ?? "", space })) : [],
     });
   }
   if (people.guests > 0) {
@@ -229,9 +235,9 @@ export type BlockView = {
 };
 
 /** The block for an archive, or null when it says nothing about people (an old archive). */
-export function blockView(people: PeopleView | null, source: string, ownerName: string | null): BlockView | null {
+export function blockView(people: PeopleView | null, source: string): BlockView | null {
   if (!people) return null;
-  const lines = peopleLines(people, source, ownerName);
+  const lines = peopleLines(people, source);
   const seats = people.seats.map(seatsView);
   if (lines.length === 0 && seats.length === 0) return null;
   return { lines, seats, over: seats.some((s) => s.tone === "over"), missing: missingPlaces(people), pricing: people.fallbacks.length > 0 };
@@ -243,11 +249,10 @@ export function blockView(people: PeopleView | null, source: string, ownerName: 
  * the producer's limits again, in its own words and in full.
  */
 export function doneView(
-  job: { source: string; people: SummaryPeople | null; limits: string[] },
-  ownerName: string | null,
+  job: { source: string; people: SummaryPeople | null; limits: string[]; startedBy: { name: string } | null },
 ): { block: BlockView | null; limits: string[] } {
   return {
-    block: blockView(job.people ? viewFromSummary(job.people) : null, job.source.toLowerCase(), ownerName),
+    block: blockView(job.people ? viewFromSummary(job.people, job.startedBy) : null, job.source.toLowerCase()),
     limits: job.limits,
   };
 }

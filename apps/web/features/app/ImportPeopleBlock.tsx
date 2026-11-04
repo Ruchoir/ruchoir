@@ -20,7 +20,6 @@ export function ImportPeopleBlock({
   people,
   source,
   sourceName,
-  ownerName,
   pricingUrl,
 }: {
   people: PeopleView | null;
@@ -28,12 +27,10 @@ export function ImportPeopleBlock({
   source: string;
   /** The product's name, for the sentences that name it. */
   sourceName: string;
-  /** Who stays owner of a space the import creates; null when that is not known. */
-  ownerName: string | null;
   pricingUrl?: string;
 }) {
   const { t } = useTranslation();
-  const view = blockView(people, source.toLowerCase(), ownerName);
+  const view = blockView(people, source.toLowerCase());
   if (!view) return null;
   const tt: Translate = (name, vars) => t(dyn(name), vars);
   // Always something to say: the link when the instance knows its prices page, else who to ask.
@@ -73,7 +70,9 @@ function PeopleRow({ line, sourceName, tt, pricing }: { line: PeopleLine; source
         <div className="wc-imp-people__title">{tt(line.titleKey, vars)}</div>
         <div className="wc-imp-people__text">
           {tt(line.bodyKey, vars)}
-          {line.ownerKey ? <> {tt(line.ownerKey, { name: line.ownerName ?? "" })}</> : null}
+          {line.owners.map((o) => (
+            <span key={o.space}> {tt("import.peopleOwnerNamed", { name: o.name, space: o.space })}</span>
+          ))}
         </div>
         {line.kind === "fallbacks" ? (
           <>
