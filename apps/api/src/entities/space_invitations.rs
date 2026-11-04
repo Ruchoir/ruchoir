@@ -29,6 +29,9 @@ pub struct Model {
     /// The group the invitee joins on acceptance, instead of the space's default channel; `None`
     /// for an invitation into the space at large.
     pub channel_id: Option<Uuid>,
+    /// The end of access handed to the guest this invitation admits (guest invitations only);
+    /// unrelated to the link's own `expires_at`.
+    pub guest_expires_at: Option<TimeDateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

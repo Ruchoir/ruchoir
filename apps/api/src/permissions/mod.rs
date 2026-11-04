@@ -13,6 +13,7 @@ pub mod group_routes;
 pub mod groups;
 pub mod levels;
 pub mod load;
+pub mod membership;
 pub mod preview;
 pub mod roles;
 pub mod rule_routes;

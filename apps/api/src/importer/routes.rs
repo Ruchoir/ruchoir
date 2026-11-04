@@ -823,6 +823,7 @@ async fn invite_one(
         revoked_at: Set(None),
         created_at: Set(now),
         channel_id: Set(None),
+        ..Default::default()
     }
     .insert(&state.db)
     .await

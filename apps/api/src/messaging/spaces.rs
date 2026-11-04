@@ -196,6 +196,7 @@ pub(crate) async fn create_owned_space<C: ConnectionTrait>(
         role: Set("owner".to_owned()),
         invited_by: Set(None),
         joined_at: Set(now),
+        ..Default::default()
     }
     .insert(txn)
     .await?;

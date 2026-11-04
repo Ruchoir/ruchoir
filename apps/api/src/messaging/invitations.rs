@@ -242,6 +242,7 @@ async fn issue(state: &AppState, issue: Issue) -> Result<CreatedInvitationDto, A
         revoked_at: Set(None),
         created_at: Set(now),
         channel_id: Set(issue.channel_id),
+        ..Default::default()
     }
     .insert(&state.db)
     .await?;
@@ -482,6 +483,7 @@ pub async fn accept_invitation(
                 role: Set(record.role.clone()),
                 invited_by: Set(record.created_by),
                 joined_at: Set(now),
+                ..Default::default()
             }
             .insert(&txn)
             .await?;

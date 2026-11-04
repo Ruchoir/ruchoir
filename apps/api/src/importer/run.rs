@@ -631,6 +631,7 @@ async fn create_space<C: ConnectionTrait>(db: &C, name: &str, owner: Uuid) -> Re
         role: Set("owner".to_owned()),
         invited_by: Set(None),
         joined_at: Set(now),
+        ..Default::default()
     }
     .insert(db)
     .await?;
@@ -793,6 +794,7 @@ pub async fn import_conversations<C: ConnectionTrait>(
                     role: Set("member".to_owned()),
                     invited_by: Set(None),
                     joined_at: Set(now),
+                    ..Default::default()
                 }
                 .insert(db)
                 .await?;

@@ -2,7 +2,8 @@
 //!
 //! One row per delivered notification. `kind` is `mention`, `broadcast`, `reply`, `dm`, `message`,
 //! `calendar_reminder`, or one of the invitation kinds `calendar_invitation`, `calendar_update`,
-//! `calendar_cancel` and `calendar_declined` (enforced by a CHECK constraint). A message notification
+//! `calendar_cancel` and `calendar_declined`, or one of the guest notices `guest_expiry_soon` and
+//! `guest_access_ending` (enforced by a CHECK constraint). A message notification
 //! carries its conversation and message, a reminder its event and occurrence, an invitation kind its
 //! event (none for a cancellation, which outlives it) and a `payload`, never the other pair (a second
 //! CHECK). `read_at` NULL means unread. Rows cascade away with their subject or the recipient;
@@ -17,7 +18,8 @@ pub struct Model {
     pub id: Uuid,
     pub user_id: Uuid,
     /// One of `mention`, `broadcast`, `reply`, `dm`, `message`, `calendar_reminder`,
-    /// `calendar_invitation`, `calendar_update`, `calendar_cancel`, `calendar_declined`.
+    /// `calendar_invitation`, `calendar_update`, `calendar_cancel`, `calendar_declined`,
+    /// `guest_expiry_soon`, `guest_access_ending`.
     pub kind: String,
     pub conversation_id: Option<Uuid>,
     pub message_id: Option<Uuid>,

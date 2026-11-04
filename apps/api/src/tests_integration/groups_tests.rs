@@ -391,7 +391,17 @@ async fn the_groups_migration_round_trips() {
     .await
     .expect("group audit");
 
-    Migrator::down(db, Some(2)).await.expect("down");
+    // Back to just before the groups, whatever was added after them.
+    let after_groups = Migrator::get_applied_migrations(db)
+        .await
+        .expect("applied")
+        .iter()
+        .rev()
+        .take_while(|m| m.name() != "m20261105_000001_space_audit_log")
+        .count();
+    Migrator::down(db, Some(after_groups as u32))
+        .await
+        .expect("down");
     assert_eq!(count(db, tables, vec![]).await, 0);
     assert_eq!(
         count(
