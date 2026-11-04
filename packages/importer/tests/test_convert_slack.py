@@ -505,6 +505,53 @@ class ConverterCase(unittest.TestCase):
         limits = " ".join(json.loads((out / "manifest.json").read_text())["limits"])
         self.assertNotIn("public channels only", limits)
 
+    # -- owners, admins and guests (format 2) -------------------------------------------------------
+    def roles(self, out: Path) -> dict[str, str]:
+        return {m["user"]: m["role"] for m in read_jsonl(out, "members.jsonl")}
+
+    def test_owners_and_admins_are_administrators(self) -> None:
+        people = [
+            user("U1", "alice", is_owner=True),
+            user("U2", "bob", is_admin=True),
+            user("U3", "carol"),
+        ]
+        roles = self.roles(self.convert(users=people))
+        self.assertEqual(roles, {"U1": "admin", "U2": "admin", "U3": "member"})
+
+    def test_the_primary_owner_is_an_administrator_not_more(self) -> None:
+        out = self.convert(users=[user("U1", "alice", is_primary_owner=True, is_owner=True)])
+        self.assertEqual(read_jsonl(out, "members.jsonl"), [{"space": "slack", "user": "U1", "role": "admin"}])
+
+    def test_restricted_and_ultra_restricted_are_guests(self) -> None:
+        people = [
+            user("U1", "alice", is_restricted=True),
+            user("U2", "bob", is_restricted=True, is_ultra_restricted=True),
+            user("U3", "carol", is_ultra_restricted=True),
+        ]
+        self.assertEqual(self.roles(self.convert(users=people)), {"U1": "guest", "U2": "guest", "U3": "guest"})
+
+    def test_an_admin_who_is_also_restricted_stays_a_guest(self) -> None:
+        out = self.convert(users=[user("U1", "alice", is_admin=True, is_restricted=True)])
+        self.assertEqual(self.roles(out), {"U1": "guest"})
+
+    def test_bots_get_no_line(self) -> None:
+        people = [user("U1", "alice"), dict(user("B1", "robot"), is_bot=True, is_admin=True)]
+        self.assertEqual(self.roles(self.convert(users=people)), {"U1": "member"})
+
+    def test_the_manifest_is_format_2_with_counts(self) -> None:
+        out = self.convert()
+        manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["format_version"], 2)
+        self.assertEqual(manifest["counts"]["members"], 2)
+        report = validator.validate(out)
+        self.assertEqual(report.errors, [])
+
+    def test_the_user_groups_limit_is_kept(self) -> None:
+        limits = json.loads((self.convert() / "manifest.json").read_text(encoding="utf-8"))["limits"]
+        line = next(l for l in limits if "User groups" in l)
+        self.assertIn("plain text", line)
+        self.assertIn("API", line)
+
     def test_the_archive_satisfies_the_contract_checker(self) -> None:
         out = self.convert(
             days={
