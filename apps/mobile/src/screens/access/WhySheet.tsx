@@ -56,8 +56,17 @@ export function WhySheet() {
   const { spaceId, view, error, reload } = useAccess(kind, resourceId, { toastWhenGone: false });
   const { members, roles } = useAccessNames(spaceId);
   const why = useLoad(spaceId ? `why:${spaceId}:${kind}:${resourceId}:${userId}` : null, () => explainAccess(spaceId!, kind, resourceId, userId));
-  useReloadOn((e) => !!spaceId && affects.access(e, kind, spaceId, resourceId), why.reload, 300);
-  const chain = useLoad(spaceId && view ? `whyChain:${spaceId}:${kind}:${resourceId}` : null, () => chainOf(getAccess, spaceId!, view!, title));
+  // The chain climbs the parents: it is read again when the access changes, and when the item moves
+  // to another folder (the parent is part of its key).
+  const chain = useLoad(spaceId && view ? `whyChain:${spaceId}:${kind}:${resourceId}:${view.resource.parent?.id ?? ""}` : null, () => chainOf(getAccess, spaceId!, view!, title));
+  useReloadOn(
+    (e) => !!spaceId && affects.access(e, kind, spaceId, resourceId),
+    () => {
+      why.reload();
+      chain.reload();
+    },
+    300,
+  );
 
   const name = why.data?.person.name ?? members.find((m) => m.userId === userId)?.name ?? "";
   const resource = kind === "channel" ? `#${title}` : title;

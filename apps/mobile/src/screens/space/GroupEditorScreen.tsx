@@ -19,7 +19,7 @@ import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
-import { groupAbilities, pickablePeople, personActions, roleToggleRows, togglePayload, type PersonAction } from "../../logic/groupEditor";
+import { groupAbilities, pickablePeople, personActions, roleToggleRows, settledRoles, togglePayload, type PersonAction } from "../../logic/groupEditor";
 import { roleColourKey } from "../../logic/memberScreen";
 import { refusalSaid } from "../../logic/refusals";
 import type { RootParams } from "../../navigation/types";
@@ -72,8 +72,20 @@ function Editor({ spaceId }: { spaceId: string }) {
   }, [reloadGroups, reloadRoles, reloadMembers]);
   // The group, its people, the roles or the caller's own rights changed here or elsewhere: read them again.
   useReloadOn((e) => affects.permissions(e, spaceId), reloadAll, 300);
-  // Back from the name sheet (or the picker's work): what was saved there is read again.
-  useEffect(() => navigation.addListener("focus", reloadAll), [navigation, reloadAll]);
+  // Back from the name sheet (or the picker's work): what was saved there is read again. The first
+  // focus is the screen opening, whose own load is already on its way.
+  useEffect(() => {
+    let away = false;
+    const stopBlur = navigation.addListener("blur", () => (away = true));
+    const stopFocus = navigation.addListener("focus", () => {
+      if (away) reloadAll();
+      away = false;
+    });
+    return () => {
+      stopBlur();
+      stopFocus();
+    };
+  }, [navigation, reloadAll]);
 
   const group = groups.data?.find((g) => g.id === params.groupId);
   // A group deleted elsewhere while it was open: nothing left to edit, and the person is told. My own deletion says its own.
@@ -126,6 +138,14 @@ function Body({
   const [busy, setBusy] = useState(false);
   // The roles as the toggles show them while a change is on its way, so the switch does not spring back.
   const [pending, setPending] = useState<string[] | null>(null);
+  // The group as it was when the last role toggle was saved: once a different one arrives, the reload is in.
+  const writtenFrom = useRef<Group | null>(null);
+  useEffect(() => {
+    if (pending && writtenFrom.current && writtenFrom.current !== group) {
+      writtenFrom.current = null;
+      setPending(null);
+    }
+  }, [pending, group]);
 
   const edition = current?.edition ?? "community";
   const licensed = edition !== "community";
@@ -139,7 +159,7 @@ function Body({
   const directory = group.source === "directory";
   const managers = group.managerIds.map((id) => members.find((m) => m.userId === id)).filter((m): m is Member => !!m);
   const pickable = pickablePeople(members, group, { carriesRoles: licensed && carries.length > 0, viewerId, viewerIsOwner: mine?.role === "owner" });
-  const shownRoles = pending ?? group.roleIds;
+  const shownRoles = settledRoles(pending, group.roleIds) ?? group.roleIds;
   const toggles = roleToggleRows({ roleIds: shownRoles }, roles, { myTopRoleId: mine?.roleIds?.[0], editable: can.rolesEditable && !busy });
   const inGroup = group.memberIds.includes(viewerId);
   const list = (names: string[]) => new Intl.ListFormat(locale, { style: "long", type: "conjunction" }).format(names);
@@ -151,17 +171,21 @@ function Body({
   };
 
   /** One write, then the screen reads again whether it went through or not. */
-  const run = async (write: () => Promise<unknown>, done?: string) => {
+  const run = async (write: () => Promise<unknown>, done?: string, keepPending = false) => {
     setBusy(true);
+    let ok = false;
     try {
       await write();
+      ok = true;
       feel("success");
       if (done) toast(done, "success");
     } catch (err) {
       failed(err);
     } finally {
       setBusy(false);
-      setPending(null);
+      // A saved role toggle keeps its place until the reloaded group agrees (see `settledRoles`); a refused one springs back.
+      if (keepPending && ok) writtenFrom.current = group;
+      else setPending(null);
       onChanged();
     }
   };
@@ -201,7 +225,7 @@ function Body({
   const toggleRole = (roleId: string, on: boolean) => {
     const next = togglePayload({ roleIds: shownRoles }, roles, roleId, on);
     setPending(next);
-    void run(() => setGroupRoles(spaceId, group.id, next));
+    void run(() => setGroupRoles(spaceId, group.id, next), undefined, true);
   };
 
   const remove = async () => {

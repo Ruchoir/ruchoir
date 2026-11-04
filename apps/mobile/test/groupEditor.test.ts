@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { GROUP_PASTELS, groupAbilities, groupColour, groupOpens, pickablePeople, personActions, roleToggleRows, rowLine, togglePayload } from "../src/logic/groupEditor.ts";
+import { GROUP_PASTELS, groupAbilities, groupColour, groupOpens, pickablePeople, personActions, roleToggleRows, rowLine, settledRoles, togglePayload } from "../src/logic/groupEditor.ts";
 
 type May = { edit: boolean; delete: boolean; changeMembers: boolean; changeRoles: boolean; appoint: boolean };
 const ALL: May = { edit: true, delete: true, changeMembers: true, changeRoles: true, appoint: true };
@@ -131,4 +131,18 @@ test("a_toggle_sends_the_whole_list_strongest_first_keeping_locked_roles", () =>
 test("a_group_keeps_the_same_pastel_everywhere", () => {
   assert.equal(groupColour("abc"), groupColour("abc"));
   assert.ok((GROUP_PASTELS as readonly string[]).includes(groupColour("0f3c-77")));
+});
+
+test("a_locked_role_the_group_already_holds_survives_any_toggle", () => {
+  const roles = [role("admin", false), role("hr", false), role("acc", true), role("com", true)];
+  // Turning another role on and off never drops the locked ones the group carries.
+  assert.deepEqual(togglePayload(group({ roleIds: ["admin", "hr"] }), roles, "acc", true), ["admin", "hr", "acc"]);
+  assert.deepEqual(togglePayload(group({ roleIds: ["admin", "hr", "acc"] }), roles, "acc", false), ["admin", "hr"]);
+  assert.deepEqual(togglePayload(group({ roleIds: ["hr"] }), roles, "hr", true), ["hr"]);
+});
+
+test("a_toggle_stays_where_it_was_put_until_the_reloaded_roles_agree", () => {
+  assert.deepEqual(settledRoles(["a", "b"], ["a"]), ["a", "b"]);
+  assert.equal(settledRoles(["a", "b"], ["b", "a"]), null);
+  assert.equal(settledRoles(null, ["a"]), null);
 });

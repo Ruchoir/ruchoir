@@ -89,6 +89,16 @@ export function togglePayload(group: Pick<GroupView, "roleIds">, roles: RoleView
   return rolesWith(group.roleIds, ranked, roleId, on);
 }
 
+/**
+ * The roles the toggles keep showing while a save is on its way: `pending` until the reloaded group
+ * carries the same roles (any order), then null, so a switch never springs back and forth.
+ */
+export function settledRoles(pending: string[] | null, actual: string[]): string[] | null {
+  if (!pending) return null;
+  const same = pending.length === actual.length && pending.every((id) => actual.includes(id));
+  return same ? null : pending;
+}
+
 /** The pastels a group's square can wear (the server's role colours), the same for the same group (the web's `groupColour`). */
 export const GROUP_PASTELS = ["sky", "mint", "violet", "pink", "peach", "lime", "sun"] as const;
 
