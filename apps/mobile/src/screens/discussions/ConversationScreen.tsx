@@ -36,6 +36,7 @@ import type { RootParams } from "../../navigation/types";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useRealtimeActions, useRealtimeEvent } from "../../realtime/RealtimeProvider";
 import { useSession } from "../../session/SessionProvider";
+import { useChannelGates } from "../../space/rights";
 import { useSpace } from "../../space/SpaceProvider";
 import { fonts } from "../../theme/fonts";
 import { soft } from "../../theme/lift";
@@ -315,6 +316,8 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
   const me = state.kind === "signedIn" ? state.user : null;
   const navigation = useNavigation();
   const react = useReact();
+  // What the person may do in this channel: write, react, attach. A reader keeps the history and gets a note.
+  const gates = useChannelGates(channel);
   const { emit } = useRealtimeActions();
   const list = useRef<FlatList<Row>>(null);
   const first = useLoad(`messages:${conversationId}`, (signal) => getChannelMessages(conversationId, {}, signal));
@@ -519,7 +522,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
 
   if (!first.data) return <LoadState error={first.error} onRetry={first.reload} />;
 
-  const closed = channel?.type === "archived" ? "archived" : channel?.member === false ? "notMember" : null;
+  const closed = channel?.type === "archived" ? "archived" : channel?.member === false ? "notMember" : channel && !gates.send ? "readOnly" : null;
 
   return (
     <KeyboardArea composer slide={rows.length > 0} style={styles.fill}>
@@ -631,6 +634,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
               avatarOf={members.avatarOf}
               onReact={(emoji) => react(conversationId, item.message, emoji)}
               onAddReaction={() => navigation.navigate("emojiPicker", { conversationId, message: item.message })}
+              reactable={gates.react}
               highlighted={flash === item.message.id}
             />
           );
@@ -660,7 +664,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
           <View style={[styles.closedPill, { backgroundColor: s.sunken }]}>
             <Archive size={16} color={c.muted} />
             <Text variant="small" tone="muted" style={styles.closedText}>
-              {closed === "archived" ? t("compose.archived") : t("compose.notMember")}
+              {closed === "archived" ? t("compose.archived") : closed === "readOnly" ? t("compose.readOnly") : t("compose.notMember")}
             </Text>
             {closed === "notMember" ? <Button label={t("compose.join")} size="sm" variant="secondary" onPress={join} /> : null}
           </View>
@@ -675,7 +679,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
           groups={mentionGroups}
           viewerRole={space.current?.role}
           channels={channels}
-          broadcasts={channel !== undefined}
+          broadcasts={channel !== undefined && gates.mentionAll}
           myUserId={me.id}
           baselineFor={outbox.baselineFor}
           typing={typing}
@@ -683,7 +687,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
           onSaveEdit={edit.save}
           onCancelEdit={edit.cancel}
           onSent={() => list.current?.scrollToOffset({ offset: 0, animated: true })}
-          onAttach={() => navigation.navigate("attachSheet", { draftKey: conversationId })}
+          onAttach={gates.attach ? () => navigation.navigate("attachSheet", { draftKey: conversationId }) : undefined}
           attachments={attachments}
         />
       ) : null}

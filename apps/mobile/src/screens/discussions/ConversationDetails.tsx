@@ -25,6 +25,7 @@ import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { key, useTranslation } from "../../i18n";
 import { canAdminister } from "../../logic/spaceRoles";
+import { useChannelGates } from "../../space/rights";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
 import { styleCache } from "../../theme/themedStyles";
@@ -124,13 +125,24 @@ export function ConversationDetails() {
   // Who reads, takes part in or manages the channel, by levels: an instance that sets access so (the web's channel settings).
   const levels = useSupports("resource_rules");
   const archived = channel?.type === "archived";
-  // The space's owner and admins run every channel; anyone else holds the role of their own row.
-  const myChannelRole = canAdminister(current?.role)
-    ? "owner"
-    : guest
-      ? "member"
-      : (channelMembers.data?.find((m) => m.userId === me)?.role ?? "member");
-  const runs = channelRank(myChannelRole) >= channelRank("admin");
+  const heldRole = channelMembers.data?.find((m) => m.userId === me)?.role ?? "member";
+  // What I may do here: the rights the server listed for this channel, the role on an older instance.
+  const gates = useChannelGates(channel, heldRole);
+  // The rank my rights give me over the others' roles. With the permissions, whoever manages the channel's people
+  // acts as its owner (the server judges the rest); on an older instance the space's owner and admins run every
+  // channel and anyone else holds the role of their own row.
+  const myChannelRole = gates.strict
+    ? gates.manageMembers
+      ? "owner"
+      : heldRole
+    : canAdminister(current?.role)
+      ? "owner"
+      : guest
+        ? "member"
+        : heldRole;
+  const runs = gates.strict ? gates.addPeople : channelRank(myChannelRole) >= channelRank("admin");
+  const mayEdit = gates.strict ? gates.manage : !guest;
+  const mayShare = gates.strict ? gates.manage || gates.manageMembers : !guest;
 
   const [fav, setFav] = useState<boolean | null>(null);
   const favourite = fav ?? channel?.fav ?? false;
@@ -218,7 +230,7 @@ export function ConversationDetails() {
       { text: t("compose.cancel"), style: "cancel" as const },
     ]);
   };
-  const mayDelete = !!channelId && !!current && canAdminister(current.role);
+  const mayDelete = !!channelId && !!current && gates.remove;
   const isDefault = !!channelId && current?.defaultChannelId === channelId;
   const remove = () => {
     if (!channelId || !space) return;
@@ -280,10 +292,10 @@ export function ConversationDetails() {
                 subtitle={t("details.favouriteHint")}
                 trailing={<Toggle value={favourite} onValueChange={toggleFavourite} accessibilityLabel={t("files.favourite")} />}
               />
-              {!guest ? (
+              {mayEdit ? (
                 <ActionRow icon={Pencil} title={t("details.edit")} subtitle={t("details.editHint")} onPress={() => navigation.navigate("channelEdit", { channelId: channelId! })} />
               ) : null}
-              {!guest && levels ? (
+              {mayShare && levels ? (
                 <ActionRow
                   icon={Users}
                   tint={c.mint}
@@ -348,7 +360,7 @@ export function ConversationDetails() {
               members.data.map((m) => {
                 const role = ROLE[m.role];
                 const mayManage =
-                  isChannel && m.userId !== me && channelRank(m.role) < channelRank(myChannelRole) && channelRank(myChannelRole) >= channelRank("admin");
+                  isChannel && m.userId !== me && channelRank(m.role) < channelRank(myChannelRole) && (gates.strict ? gates.manageMembers : channelRank(myChannelRole) >= channelRank("admin"));
                 return (
                   <ActionRow
                     key={m.userId}

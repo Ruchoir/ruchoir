@@ -6,7 +6,7 @@ import type { Workspace } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
-import { Hash, LogOut, Server, Trash2 } from "lucide-react-native";
+import { ArrowUpDown, Hash, LogOut, Server, Trash2 } from "lucide-react-native";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,6 +16,7 @@ import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
 import { memberDoors } from "../../logic/sectionGuard";
+import { channelOrderDoor } from "../../logic/channelOrder";
 import { canAdminister, canDeleteSpace, canEditIdentity } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
 import { affects } from "../../realtime/events";
@@ -62,6 +63,7 @@ function General({ space }: { space: Workspace }) {
   const owner = canEditIdentity(space.role);
   const { supported, gates } = useRights();
   const canDefault = memberDoors(supported, gates, canAdminister(space.role)).defaultChannel;
+  const canOrder = channelOrderDoor(supported, gates, canAdminister(space.role));
   const [name, setName] = useState(space.name);
   const [saving, setSaving] = useState(false);
   const [iconBusy, setIconBusy] = useState(false);
@@ -156,6 +158,15 @@ function General({ space }: { space: Workspace }) {
             title={defaultChannel ? defaultChannel.name : t("spaceAdmin.defaultChannelNone")}
             subtitle={t("spaceAdmin.defaultChannel")}
             onPress={() => navigation.navigate("spaceDefaultChannel")}
+          />
+        ) : null}
+        {canOrder ? (
+          <ActionRow
+            icon={ArrowUpDown}
+            tint={c.mint}
+            title={t("spaceAdmin.channelOrder")}
+            subtitle={t("spaceAdmin.channelOrderRow")}
+            onPress={() => navigation.navigate("spaceChannelOrder")}
           />
         ) : null}
       </Section>

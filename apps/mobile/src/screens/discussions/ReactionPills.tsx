@@ -18,8 +18,9 @@ export function ReactionPills({
   onAdd,
 }: {
   reactions: Reaction[];
-  onToggle: (emoji: string) => void;
-  onAdd: () => void;
+  /** Both absent when the person may not react here: the pills are then only read. */
+  onToggle?: (emoji: string) => void;
+  onAdd?: () => void;
 }) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
@@ -32,7 +33,8 @@ export function ReactionPills({
           accessibilityRole="button"
           accessibilityLabel={t("message.reactionCount", { emoji: r.emoji, count: r.count })}
           accessibilityState={{ selected: !!r.mine }}
-          onPress={() => onToggle(r.emoji)}
+          onPress={onToggle ? () => onToggle(r.emoji) : undefined}
+          disabled={!onToggle}
           onLongPress={() => {
             if (!r.users?.length) return;
             feel("menu");
@@ -50,15 +52,17 @@ export function ReactionPills({
           </Text>
         </Pressable>
       ))}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t("message.moreReactions")}
-        onPress={onAdd}
-        hitSlop={4}
-        style={({ pressed }) => [styles.pill, styles.add, { borderColor: c.line }, pressed && { opacity: 0.6 }]}
-      >
-        <SmilePlus size={16} color={c.muted} />
-      </Pressable>
+      {onAdd ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("message.moreReactions")}
+          onPress={onAdd}
+          hitSlop={4}
+          style={({ pressed }) => [styles.pill, styles.add, { borderColor: c.line }, pressed && { opacity: 0.6 }]}
+        >
+          <SmilePlus size={16} color={c.muted} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
