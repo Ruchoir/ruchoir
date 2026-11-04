@@ -40,3 +40,20 @@ export const CEILING_SENTENCES: CeilingSentence[] = [
 export function rightsEntry(edition: "community" | "enterprise" | "frozen"): "editor" | "summary" {
   return edition === "enterprise" ? "editor" : "summary";
 }
+
+/**
+ * The rights a space may tune for its guests, in the order the "Droits des invités" dialog lists
+ * them. Everything else the guests' role holds (seeing, reading) is not offered as a switch.
+ */
+export const GUEST_TUNABLE = ["message.send", "message.react", "message.attach", "dm.start", "message.pin", "message.mention_all"] as const;
+
+/**
+ * The guests' role permissions once the tunable ones are set to `wanted`: the others are kept as they
+ * are, and nothing from the ceiling can come in.
+ */
+export function guestRightsAfter(current: string[], wanted: ReadonlySet<string>): string[] {
+  const tunable = new Set<string>(GUEST_TUNABLE);
+  const kept = current.filter((p) => !tunable.has(p));
+  const added = GUEST_TUNABLE.filter((p) => wanted.has(p));
+  return [...kept, ...added];
+}

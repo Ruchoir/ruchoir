@@ -11,7 +11,7 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatUtcDate } from "@/lib/i18n/format";
 import { BackHeading } from "../app/BackHeading";
 import { MembersSettings, type SettingsMember } from "./MembersSettings";
-import { GuestRightsDialog } from "./CeilingSummary";
+import { GuestRightsDialog, GuestRightsEditorDialog } from "./CeilingSummary";
 import { rightsEntry } from "./guestCeiling.ts";
 import { RolesSettings } from "./RolesSettings";
 import { GroupsSettings } from "./GroupsSettings";
@@ -280,6 +280,7 @@ export function WorkspaceSettings({
   // "Droits des invités": the guests' role opened in the Rôles tab (licensed), or the read-only summary (community).
   const [openRole, setOpenRole] = useState<string | null>(null);
   const [ceilingOpen, setCeilingOpen] = useState(false);
+  const [editingGuests, setEditingGuests] = useState(false);
   const sections = NAV.filter(([id]) =>
     id === "audit" ? canReadAudit : id === "groups" ? canManageGroups : id === "licence" ? canManageLicence : id === "general" || canManageMembers,
   );
@@ -547,10 +548,9 @@ export function WorkspaceSettings({
               prolongFor={prolongGuestId}
               onGuestRights={() => {
                 const guests = roles.find((r) => r.systemKey === "guests");
-                if (rightsEntry(edition) === "editor" && guests) {
-                  setOpenRole(guests.id);
-                  setTab("roles");
-                } else setCeilingOpen(true);
+                // Licensed: the small dialog of the tunable rights; otherwise the read-only summary.
+                if (rightsEntry(edition) === "editor" && guests) setEditingGuests(true);
+                else setCeilingOpen(true);
               }}
               onGroupsChanged={onAccessChanged}
               onNotify={onNotify}
@@ -607,6 +607,16 @@ export function WorkspaceSettings({
             />
           ) : null}
 
+          {editingGuests && roles.find((r) => r.systemKey === "guests") ? (
+            <GuestRightsEditorDialog
+              spaceId={spaceId}
+              role={roles.find((r) => r.systemKey === "guests")!}
+              myRights={myRights}
+              onChanged={onAccessChanged}
+              onNotify={onNotify}
+              onClose={() => setEditingGuests(false)}
+            />
+          ) : null}
           {ceilingOpen ? <GuestRightsDialog spaceName={workspaceName} pricingUrl={pricingUrl} onClose={() => setCeilingOpen(false)} /> : null}
 
           {tab === "audit" && canReadAudit ? <AuditSettings spaceId={spaceId} spaceName={workspaceName} members={members} roles={roles} /> : null}

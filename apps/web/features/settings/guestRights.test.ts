@@ -141,3 +141,17 @@ test("each_refusal_has_its_sentence", async () => {
     for (const k of keys) assert.ok(guests[k.replace("guests.", "")]?.length > 0, `${locale} ${k}`);
   }
 });
+
+import { GUEST_TUNABLE, guestRightsAfter } from "./guestCeiling.ts";
+
+test("the_tunable_guest_rights_never_overlap_the_ceiling", () => {
+  for (const p of GUEST_TUNABLE) assert.equal((GUEST_CEILING as readonly string[]).includes(p), false, p);
+});
+
+test("saving_the_guest_dialog_changes_only_the_tunable_rights", () => {
+  const current = ["channel.view", "files.view", "message.send", "message.react", "message.pin"];
+  const after = guestRightsAfter(current, new Set(["message.send", "dm.start"]));
+  assert.deepEqual([...after].sort(), ["channel.view", "dm.start", "files.view", "message.send"].sort());
+  // Nothing outside the list can be switched on through it.
+  assert.deepEqual(guestRightsAfter(["channel.view"], new Set(["members.manage"])), ["channel.view"]);
+});
