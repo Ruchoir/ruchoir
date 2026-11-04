@@ -2035,6 +2035,34 @@
         },
         "type": "object"
       },
+      "FallbackSummary": {
+        "description": "A role of the source that this server could not create, and where it went instead.",
+        "properties": {
+          "fixed": {
+            "description": "The fixed role the people got instead: `member` or `admin`.",
+            "type": "string"
+          },
+          "people": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "role_name": {
+            "description": "The role of the source, by name.",
+            "type": "string"
+          },
+          "space": {
+            "description": "The space it happened in.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "space",
+          "role_name",
+          "fixed",
+          "people"
+        ],
+        "type": "object"
+      },
       "FavoriteRequest": {
         "description": "Pin a channel to the caller's favourites, or unpin it.",
         "properties": {
@@ -2354,6 +2382,13 @@
           "id": {
             "format": "uuid",
             "type": "string"
+          },
+          "imported_from": {
+            "description": "The import that made it (`<source>:<job id>`), when one did.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "manager_ids": {
             "description": "The members who manage it.",
@@ -2850,6 +2885,13 @@
             "format": "uuid",
             "type": "string"
           },
+          "limits": {
+            "description": "What the producer said it left behind, again, so the done screen can show it.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "messages_done": {
             "format": "int32",
             "type": "integer"
@@ -2857,6 +2899,17 @@
           "messages_total": {
             "format": "int32",
             "type": "integer"
+          },
+          "people": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PeopleSummary",
+                "description": "What crossed in terms of people, groups and roles, once the run is over (also a cancelled\none); `None` while it runs and for an import from before this was kept."
+              }
+            ]
           },
           "source": {
             "type": "string"
@@ -2880,7 +2933,8 @@
           "calendars_done",
           "calendars_total",
           "events_done",
-          "events_total"
+          "events_total",
+          "limits"
         ],
         "type": "object"
       },
@@ -3114,6 +3168,13 @@
             },
             "type": [
               "array",
+              "null"
+            ]
+          },
+          "imported_from": {
+            "description": "The import that brought them (`<source>:<job id>`), only in the space's member list and only\nfor whoever may manage people there.",
+            "type": [
+              "string",
               "null"
             ]
           },
@@ -4266,6 +4327,75 @@
         ],
         "type": "object"
       },
+      "PeopleSummary": {
+        "description": "What crossed, as the job reports it.",
+        "properties": {
+          "administrators": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "custom_roles": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fallbacks": {
+            "items": {
+              "$ref": "#/components/schemas/FallbackSummary"
+            },
+            "type": "array"
+          },
+          "group_names": {
+            "description": "The first names of the groups the run made.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "groups": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "guests": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "kept": {
+            "description": "People who were in their space already and were left as they were.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "kept_names": {
+            "description": "The first of their names.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "moderators": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/SeatsSummary"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "administrators",
+          "guests",
+          "moderators",
+          "groups",
+          "group_names",
+          "kept",
+          "kept_names",
+          "custom_roles",
+          "fallbacks",
+          "seats"
+        ],
+        "type": "object"
+      },
       "PersonChoice": {
         "description": "What an administrator changed about the people in an archive, after reading the plan and before\nthe run.\n\nHeld apart from the plan because it is not the archive's word: the archive says what its source\nheld, and this says what somebody decided about it. Carried on the job so a run resumed tomorrow\nmakes the same decisions as the one that started today.",
         "properties": {
@@ -5182,6 +5312,36 @@
           "incoming",
           "total",
           "over"
+        ],
+        "type": "object"
+      },
+      "SeatsSummary": {
+        "description": "A licensed space's seats around the run.",
+        "properties": {
+          "added": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "space": {
+            "type": "string"
+          },
+          "total": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "used_before": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "space",
+          "used_before",
+          "added",
+          "total"
         ],
         "type": "object"
       },

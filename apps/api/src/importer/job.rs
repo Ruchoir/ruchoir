@@ -281,12 +281,20 @@ async fn run_passes<S: BlobSink>(
     written.memberships += conversations.memberships;
     written.moderators = conversations.moderators;
     written.people.moderators = conversations.moderators;
+    for (space_id, moderators) in &conversations.moderators_by_space {
+        let name = resolved_name(&index, &resolved, *space_id);
+        written.people.space(*space_id, &name).moderators = *moderators;
+    }
     note_progress(db, job_id, &written).await?;
 
     let groups =
         super::people::import_groups(db, &mapper, &index, &resolved, admin, &source).await?;
     written.people.groups = groups.groups;
     written.people.groups_filled = groups.groups_filled;
+    written.people.group_names = groups.group_names;
+    for counts in &groups.spaces {
+        written.people.space(counts.space_id, &counts.name).groups = counts.groups;
+    }
     note_progress(db, job_id, &written).await?;
 
     let messages = run::import_messages(db, &mapper, archive, passphrase, &resolved).await?;
@@ -306,6 +314,15 @@ async fn run_passes<S: BlobSink>(
         let positions = run::import_read_positions(db, &mapper, &index, &resolved).await?;
         written.read_positions = positions.read_positions;
         note_progress(db, job_id, &written).await?;
+        super::summary::save(
+            db,
+            settings.edition.as_ref(),
+            job_id,
+            admin,
+            &source,
+            &written.people,
+        )
+        .await?;
         run::finish_job(db, job_id, "cancelled").await?;
         return Ok(Outcome {
             written,
@@ -336,6 +353,15 @@ async fn run_passes<S: BlobSink>(
             let positions = run::import_read_positions(db, &mapper, &index, &resolved).await?;
             written.read_positions = positions.read_positions;
             note_progress(db, job_id, &written).await?;
+            super::summary::save(
+                db,
+                settings.edition.as_ref(),
+                job_id,
+                admin,
+                &source,
+                &written.people,
+            )
+            .await?;
             run::finish_job(db, job_id, "cancelled").await?;
             return Ok(Outcome {
                 written,
@@ -378,12 +404,34 @@ async fn run_passes<S: BlobSink>(
     written.read_positions = positions.read_positions;
 
     note_progress(db, job_id, &written).await?;
+    super::summary::save(
+        db,
+        settings.edition.as_ref(),
+        job_id,
+        admin,
+        &source,
+        &written.people,
+    )
+    .await?;
     run::finish_job(db, job_id, "completed").await?;
 
     Ok(Outcome {
         written,
         limits: plan.limits,
     })
+}
+
+/// The name of the archive's space that became `space_id`.
+fn resolved_name(
+    index: &super::archive::Index,
+    resolved: &[(String, Uuid)],
+    space_id: Uuid,
+) -> String {
+    resolved
+        .iter()
+        .find(|(_, id)| *id == space_id)
+        .and_then(|(source_id, _)| index.spaces.iter().find(|s| &s.id == source_id))
+        .map_or_else(String::new, |space| space.name.clone())
 }
 
 /// What the instance already holds, as far as an import run by `importer` is concerned.

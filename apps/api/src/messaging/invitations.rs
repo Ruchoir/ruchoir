@@ -623,6 +623,7 @@ pub async fn accept_invitation(
                 joined_at: None,
                 standing: None,
                 expires_at: None,
+                imported_from: None,
             },
         };
         state

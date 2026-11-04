@@ -971,6 +971,7 @@ pub async fn list_channel_members(
                 joined_at: None,
                 standing: None,
                 expires_at: None,
+                imported_from: None,
             });
         }
     }

@@ -54,12 +54,42 @@ pub struct Fallback {
     pub people: usize,
 }
 
-/// A licensed space's seats once the run is over.
+/// A licensed space's seats around the run.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SeatsUsed {
     pub space: String,
-    pub used: u32,
+    pub used_before: u32,
+    pub added: u32,
     pub total: u32,
+}
+
+/// What the run did in one space, for its journal line and its seats.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SpaceCounts {
+    pub space_id: Uuid,
+    pub name: String,
+    pub administrators: usize,
+    pub guests: usize,
+    pub moderators: usize,
+    pub groups: usize,
+    pub custom_roles: usize,
+    /// Roles of the source that fell back to a fixed role.
+    pub fallbacks: usize,
+    /// People who took a seat (everybody but guests).
+    pub seat_takers: usize,
+}
+
+impl SpaceCounts {
+    /// Whether the run changed anything the journal line would say.
+    pub fn is_empty(&self) -> bool {
+        self.administrators
+            + self.guests
+            + self.moderators
+            + self.groups
+            + self.custom_roles
+            + self.fallbacks
+            == 0
+    }
 }
 
 /// What this run did with people.
@@ -76,6 +106,25 @@ pub struct PeopleWritten {
     pub custom_roles: usize,
     pub fallbacks: Vec<Fallback>,
     pub seats: Vec<SeatsUsed>,
+    /// Names of the groups this run made.
+    pub group_names: Vec<String>,
+    /// The same counts, space by space.
+    pub spaces: Vec<SpaceCounts>,
+}
+
+impl PeopleWritten {
+    /// The counts of a space, started when first asked for.
+    pub fn space(&mut self, space_id: Uuid, name: &str) -> &mut SpaceCounts {
+        if let Some(at) = self.spaces.iter().position(|s| s.space_id == space_id) {
+            return &mut self.spaces[at];
+        }
+        self.spaces.push(SpaceCounts {
+            space_id,
+            name: name.to_owned(),
+            ..Default::default()
+        });
+        self.spaces.last_mut().expect("just pushed")
+    }
 }
 
 /// Put one person in a space, once, within the seats.
@@ -198,6 +247,13 @@ pub async fn import_people(
             .map_or_else(String::new, |space| space.name.clone());
         // The custom roles already counted for this space by this run.
         let mut counted_roles: HashSet<&str> = HashSet::new();
+        let before = (
+            written.administrators,
+            written.guests,
+            written.custom_roles,
+            written.fallbacks.len(),
+        );
+        let mut seat_takers = 0;
         for (user, role) in order {
             let Some(user_id) = mapper.resolve(db, KIND_USER, user, None).await? else {
                 continue;
@@ -211,6 +267,9 @@ pub async fn import_people(
             match admitted {
                 Admitted::Added | Admitted::Earlier => {
                     written.added += 1;
+                    if role != "guest" {
+                        seat_takers += 1;
+                    }
                     match role {
                         "admin" => written.administrators += 1,
                         "guest" => written.guests += 1,
@@ -246,6 +305,19 @@ pub async fn import_people(
                 }
             }
         }
+        let counts = written.space(*space_id, &space_name);
+        counts.seat_takers = seat_takers;
+        let (administrators, guests, roles, fallbacks) = (
+            written.administrators - before.0,
+            written.guests - before.1,
+            written.custom_roles - before.2,
+            written.fallbacks.len() - before.3,
+        );
+        let counts = written.space(*space_id, &space_name);
+        counts.administrators = administrators;
+        counts.guests = guests;
+        counts.custom_roles = roles;
+        counts.fallbacks = fallbacks;
     }
     Ok(written)
 }
@@ -393,6 +465,9 @@ pub async fn import_groups(
                     });
                 if ours {
                     written.groups += 1;
+                    let space_name = space_name_of(index, &group.space);
+                    written.space(space_id, &space_name).groups += 1;
+                    written.group_names.push(group.name.clone());
                 } else {
                     written.groups_filled += 1;
                     txn.commit().await?;
@@ -423,6 +498,9 @@ pub async fn import_groups(
                     .record(&txn, KIND_GROUP, &group.id, Some(space_id), id)
                     .await?;
                 written.groups += 1;
+                let space_name = space_name_of(index, &group.space);
+                written.space(space_id, &space_name).groups += 1;
+                written.group_names.push(group.name.clone());
                 id
             }
         };
@@ -448,6 +526,14 @@ pub async fn import_groups(
         txn.commit().await?;
     }
     Ok(written)
+}
+
+fn space_name_of(index: &Index, source_space: &str) -> String {
+    index
+        .spaces
+        .iter()
+        .find(|space| space.id == source_space)
+        .map_or_else(String::new, |space| space.name.clone())
 }
 
 /// The first of `Name`, `Name (Source)`, `Name (Source) 2`, ... that no group of the space has.

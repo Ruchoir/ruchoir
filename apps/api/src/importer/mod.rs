@@ -14,6 +14,7 @@ pub mod plan;
 pub mod routes;
 pub mod run;
 pub mod scripts;
+pub mod summary;
 pub mod wipe;
 
 use std::path::Path;

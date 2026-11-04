@@ -250,6 +250,11 @@ pub struct JobResponse {
     pub error: Option<String>,
     /// When it ended, for an import the screen finds again rather than one it started itself.
     pub finished_at: Option<String>,
+    /// What crossed in terms of people, groups and roles, once the run is over (also a cancelled
+    /// one); `None` while it runs and for an import from before this was kept.
+    pub people: Option<super::summary::PeopleSummary>,
+    /// What the producer said it left behind, again, so the done screen can show it.
+    pub limits: Vec<String>,
 }
 
 impl From<import_jobs::Model> for JobResponse {
@@ -272,6 +277,13 @@ impl From<import_jobs::Model> for JobResponse {
             events_total: job.events_total,
             error: job.error,
             finished_at: job.finished_at.map(crate::messaging::dto::rfc3339),
+            people: job
+                .summary
+                .and_then(|summary| serde_json::from_value(summary).ok()),
+            limits: job
+                .manifest
+                .and_then(|text| serde_json::from_str(&text).ok())
+                .unwrap_or_default(),
         }
     }
 }

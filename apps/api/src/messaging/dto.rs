@@ -436,6 +436,10 @@ pub struct MemberDto {
     /// (see `standing`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<String>,
+    /// The import that brought them (`<source>:<job id>`), only in the space's member list and only
+    /// for whoever may manage people there.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub imported_from: Option<String>,
 }
 
 /// A space's shared identity after it changed, pushed in real time.

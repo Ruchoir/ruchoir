@@ -2085,3 +2085,233 @@ async fn the_same_role_name_in_two_spaces_gives_two_fallback_lines() {
     assert_ne!(lines[0].space, lines[1].space);
     assert_eq!(lines[0].role_name, lines[1].role_name);
 }
+
+// --- what crossed, the journal line, the job response -----------------------------------------
+
+async fn journal(app: &TestApp, space: Uuid) -> Vec<(String, Option<Uuid>, Value)> {
+    app.db
+        .query_all_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT action, actor_id, details FROM space_audit_log \
+             WHERE space_id = $1 AND action = 'import.applied' ORDER BY at",
+            [space.into()],
+        ))
+        .await
+        .expect("query")
+        .iter()
+        .map(|r| {
+            (
+                r.try_get("", "action").expect("action"),
+                r.try_get("", "actor_id").expect("actor"),
+                r.try_get("", "details").expect("details"),
+            )
+        })
+        .collect()
+}
+
+/// An archive with an administrator, a guest, two members, a group and a role, in a new space.
+fn crossing_archive(name: &str, based_on: &str) -> std::path::PathBuf {
+    let emails: Vec<String> = ["a", "b", "c", "d"].iter().map(|n| address(n)).collect();
+    people_archive_full(
+        2,
+        name,
+        &[
+            ("a", &emails[0]),
+            ("b", &emails[1]),
+            ("c", &emails[2]),
+            ("d", &emails[3]),
+        ],
+        &[
+            ("a", "admin", &[]),
+            ("b", "guest", &[]),
+            ("c", "member", &["r1"]),
+            ("d", "member", &[]),
+        ],
+        &[("general", &["a", "c", "d"], &["a"])],
+        &[("g1", "Design", "", &["c", "d"])],
+        &[("r1", "Comptable", based_on)],
+    )
+}
+
+async fn get_job(app: &TestApp, cookie: &str, job: Uuid) -> Value {
+    app.req(
+        reqwest::Method::GET,
+        &format!("/api/v1/imports/{job}"),
+        cookie,
+    )
+    .send()
+    .await
+    .expect("request")
+    .json()
+    .await
+    .expect("json")
+}
+
+#[tokio::test]
+async fn the_job_carries_what_crossed_and_the_limits_again() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let name = unique_space();
+    let dir = crossing_archive(&name, "admin");
+    let (job, outcome) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    outcome.expect("the run completes");
+    let cookie = app.cookie_for(fx.alice).await;
+    let body = get_job(&app, &cookie, job).await;
+    let people = &body["people"];
+    // Administrators: a, plus c raised by the admin-based role that could not be created.
+    assert_eq!(people["administrators"], 2);
+    assert_eq!(people["guests"], 1);
+    assert_eq!(people["moderators"], 1);
+    assert_eq!(people["groups"], 1);
+    assert_eq!(people["group_names"], json!(["Design"]));
+    assert_eq!(people["kept"], 0);
+    assert_eq!(people["custom_roles"], 0);
+    assert_eq!(
+        people["fallbacks"],
+        json!([{"space": name, "role_name": "Comptable", "fixed": "admin", "people": 1}])
+    );
+    assert_eq!(body["limits"], json!(["nothing in particular"]));
+}
+
+#[tokio::test]
+async fn the_summary_survives_a_reload_of_the_job() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let dir = crossing_archive(&unique_space(), "member");
+    let (job, outcome) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    outcome.expect("the run completes");
+    let stored = crate::entities::import_jobs::Entity::find_by_id(job)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("job");
+    assert!(
+        stored.summary.is_some(),
+        "kept on the row, not only in memory"
+    );
+    let cookie = app.cookie_for(fx.alice).await;
+    let (first, second) = (
+        get_job(&app, &cookie, job).await,
+        get_job(&app, &cookie, job).await,
+    );
+    assert_eq!(first["people"], second["people"]);
+    assert_eq!(first["people"]["fallbacks"][0]["fixed"], "member");
+}
+
+#[tokio::test]
+async fn one_journal_line_per_import_and_space_naming_the_job() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let name = unique_space();
+    let dir = crossing_archive(&name, "member");
+    let (job, outcome) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    outcome.expect("the run completes");
+    let space = space_named(&app, &name).await;
+    let lines = journal(&app, space).await;
+    assert_eq!(lines.len(), 1, "four people, one line: {lines:?}");
+    let (action, actor, details) = &lines[0];
+    assert_eq!(action, "import.applied");
+    assert_eq!(*actor, Some(fx.alice));
+    assert_eq!(details["source"], "mattermost");
+    assert_eq!(details["job_id"], job.to_string());
+    assert_eq!(details["administrators"], 1);
+    assert_eq!(details["guests"], 1);
+    assert_eq!(details["groups"], 1);
+    assert_eq!(details["moderators"], 1);
+    assert_eq!(details["custom_roles"], 0);
+    assert_eq!(details["fallbacks"], 1);
+    assert_eq!(crate::audit::Action::ImportApplied.category(), "members");
+}
+
+#[tokio::test]
+async fn a_resumed_run_writes_no_empty_journal_line() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let name = unique_space();
+    let dir = crossing_archive(&name, "member");
+    run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition))
+        .await
+        .1
+        .expect("first");
+    let space = space_named(&app, &name).await;
+    assert_eq!(journal(&app, space).await.len(), 1);
+    // The same archive again: everybody is there already, nothing is new.
+    run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition))
+        .await
+        .1
+        .expect("second");
+    assert_eq!(
+        journal(&app, space).await.len(),
+        1,
+        "no line for a run that changed nothing"
+    );
+}
+
+#[tokio::test]
+async fn imported_from_is_shown_to_managers_only() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let name = unique_space();
+    let (a, c) = (address("a"), address("c"));
+    let dir = people_archive_full(
+        2,
+        &name,
+        &[("a", &a), ("c", &c)],
+        &[("a", "admin", &[]), ("c", "member", &[])],
+        &[("general", &["a", "c"], &[])],
+        &[("g1", "Design", "", &["c"])],
+        &[],
+    );
+    let (job, outcome) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    outcome.expect("the run completes");
+    let space = space_named(&app, &name).await;
+    let c_id = account_of(&app, &c).await;
+    let wanted = format!("mattermost:{job}");
+
+    let members_as = |cookie: String| {
+        let app = &app;
+        async move {
+            let list: Value = app
+                .req(
+                    reqwest::Method::GET,
+                    &format!("/api/v1/spaces/{space}/members"),
+                    &cookie,
+                )
+                .send()
+                .await
+                .expect("request")
+                .json()
+                .await
+                .expect("json");
+            list.as_array()
+                .expect("a list")
+                .iter()
+                .find(|m| m["user_id"] == c_id.to_string())
+                .cloned()
+                .expect("c is listed")
+        }
+    };
+    let manager = members_as(app.cookie_for(fx.alice).await).await;
+    assert_eq!(manager["imported_from"], wanted.as_str());
+    let plain = members_as(app.cookie_for(c_id).await).await;
+    assert!(plain.get("imported_from").is_none(), "{plain}");
+
+    let groups: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{space}/groups"),
+            &app.cookie_for(fx.alice).await,
+        )
+        .send()
+        .await
+        .expect("request")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(groups[0]["imported_from"], wanted.as_str());
+}

@@ -65,6 +65,8 @@ pub struct Written {
     pub people: super::people::PeopleWritten,
     /// Channel members made administrators of their channel because the source moderated it.
     pub moderators: usize,
+    /// The same, space by space (the space's id here).
+    pub moderators_by_space: Vec<(Uuid, usize)>,
     /// What each pass went through, whether it wrote it or found it already here. This is what the
     /// screen shows as progress. Counting only what was created made a resumed run look frozen:
     /// it walks past thousands of messages an earlier run brought over, and every counter stood at
@@ -865,6 +867,14 @@ pub async fn import_conversations(
                         != Some("guest".to_owned());
                 if moderator {
                     written.moderators += 1;
+                    match written
+                        .moderators_by_space
+                        .iter_mut()
+                        .find(|(space, _)| *space == space_id)
+                    {
+                        Some((_, n)) => *n += 1,
+                        None => written.moderators_by_space.push((space_id, 1)),
+                    }
                 }
                 channel_members::ActiveModel {
                     channel_id: Set(conversation_id),
