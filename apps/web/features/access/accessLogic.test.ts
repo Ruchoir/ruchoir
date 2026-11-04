@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { readFileSync } from "node:fs";
-import { authorNote, delegationIntro, isYou, freeManage, askWho } from "./accessLogic.ts";
+import { fullPath, authorNote, delegationIntro, isYou, freeManage, askWho } from "./accessLogic.ts";
 import { canCustomise } from "./customiseLogic.ts";
 import { everyoneLine, addLevelOptions, calendarLevelOf, canEdit, entryEditable, inheritedLink, withOverrides, entryNote, groupEntries, levelLabelKey, levelOptions, privateNote, readOnlyReason, removable, type EntryLike } from "./accessLogic.ts";
 
@@ -134,7 +134,7 @@ test("entries_are_grouped_everyone_roles_groups_people_with_inherited_last", () 
     return x;
   };
   const rows = groupEntries([e("user", "Marc"), e("group", "Compta"), e("role", "RH"), e("everyone", "Tout"), e("group", "Archive", { inheritedFrom: { kind: "folder", name: "F", hidden: false } })]);
-  assert.deepEqual(rows.map((r) => r.target.name), ["Archive", "Tout", "RH", "Compta", "Marc"]);
+  assert.deepEqual(rows.map((r) => r.target.name), ["Tout", "RH", "Compta", "Archive", "Marc"]);
 });
 
 const folderRef = (id: string | undefined, name?: string) => ({ kind: "folder", id, name, hidden: id === undefined });
@@ -301,4 +301,34 @@ test("no_author_no_line", () => {
     const dict = JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
     for (const key of ["access.givenBy", "access.addedByYou"]) assert.ok(key.split(".").reduce<unknown>((at, p) => (at as Record<string, unknown> | undefined)?.[p], dict) !== undefined, `${locale}: ${key}`);
   }
+});
+
+test("an_override_takes_the_place_of_what_it_replaces", () => {
+  const line = (kind: EntryLike["target"]["kind"], name: string, over: Partial<EntryLike> = {}) => {
+    const e = entry({ kind, ...over });
+    e.target = { kind, id: `${kind}-${name}`, name, hidden: false };
+    return e;
+  };
+  const from = { kind: "file", name: "Compta", hidden: false };
+  // Frame 7: Administrateur, the readers of a channel, the group (its own line, overriding the
+  // inherited one), then people. The override sits where the inherited group line sat, not last.
+  const rows = groupEntries([
+    line("user", "Nadia", { inheritedFrom: from, id: undefined }),
+    line("group", "Comptabilité", { level: "read" }),
+    line("audience", "Lecteurs", { inheritedFrom: from, id: undefined }),
+    line("role", "Administrateur", { inheritedFrom: from, id: undefined }),
+  ]);
+  assert.deepEqual(rows.map((r) => r.target.name), ["Administrateur", "Lecteurs", "Comptabilité", "Nadia"]);
+});
+
+test("inherited_rows_name_no_giver", () => {
+  const inherited = entry({ kind: "user", id: undefined, inheritedFrom: { kind: "file", name: "Compta", hidden: false }, setBy: { id: KARIM, name: "Karim Benali" } });
+  assert.equal(authorNote(inherited, VIEWER), undefined);
+  assert.deepEqual(authorNote(entry({ kind: "user", setBy: { id: KARIM, name: "Karim Benali" } }), VIEWER), { type: "other", name: "Karim Benali" });
+});
+
+test("the_subtitle_gives_the_full_path", () => {
+  assert.equal(fullPath(["Compta", "2026"]), "Compta / 2026");
+  assert.equal(fullPath(["2026"]), "2026");
+  assert.equal(fullPath([]), undefined);
 });

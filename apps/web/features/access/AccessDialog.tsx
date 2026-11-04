@@ -8,7 +8,7 @@ import type { AccessEntry, AccessKind, AccessLevel, AccessView, Group, Role } fr
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { shouldToastRefusal } from "../app/previewLogic.ts";
 import { refusalMessage, roleLabel } from "../settings/roleChips";
-import { askWho, delegationIntro, canEdit, everyoneLine, freeManage, groupEntries, levelDescKey, levelLabelKey, privateNote, readOnlyReason, withOverrides } from "./accessLogic.ts";
+import { askWho, delegationIntro, fullPath, canEdit, everyoneLine, freeManage, groupEntries, levelDescKey, levelLabelKey, privateNote, readOnlyReason, withOverrides } from "./accessLogic.ts";
 import { AddTargetDialog } from "./AddTargetDialog";
 import { CustomiseDialog } from "./CustomiseDialog";
 import { WhyDialog } from "./WhyDialog";
@@ -41,6 +41,10 @@ type PanelProps = {
   onCustomise?: (entry: AccessEntry) => void;
   /** Told each time the view loads, for whoever draws the title around the panel. */
   onLoaded?: (view: AccessView) => void;
+  /** Told the folders above a file or folder as one path ("Compta / 2026"), once known. */
+  onPath?: (path: string | undefined) => void;
+  /** Drawn above the "who can check" block: a file's public link (frame 7). */
+  extra?: React.ReactNode;
 };
 
 /** The name a line goes by in a title: the person's, the group's, the role's, or what the line itself says. */
@@ -57,7 +61,7 @@ function entryDisplayName(entry: AccessEntry, members: Member[], groups: Group[]
 }
 
 /** The line under the title: what this dialog is about, for the kind of thing it shares. */
-export function accessSubtitle(kind: AccessKind, isFolder: boolean, view: AccessView | null, fallbackPrivate: boolean, viewerId?: string): { key: TranslationKey; parent?: string } {
+export function accessSubtitle(kind: AccessKind, isFolder: boolean, view: AccessView | null, fallbackPrivate: boolean, viewerId?: string, path?: string): { key: TranslationKey; parent?: string } {
   // A manager of a free space reads the dialog without changing it (frame 11).
   if (view && freeManage(view, kind, isFolder)) return { key: key("access.freeManage.subtitle") };
   // A local manager of a licensed space reads what their level lets them do (frame 10).
@@ -66,7 +70,7 @@ export function accessSubtitle(kind: AccessKind, isFolder: boolean, view: Access
   if (kind === "calendar") return { key: key("access.subtitleCalendar") };
   if (kind === "file") {
     const parent = view?.resource.parent;
-    const name = parent && !parent.hidden ? parent.name : undefined;
+    const name = path ?? (parent && !parent.hidden ? parent.name : undefined);
     if (name) return { key: isFolder ? key("access.subtitleFolderIn") : key("access.subtitleFileIn"), parent: name };
     return { key: isFolder ? key("access.subtitleFolder") : key("access.subtitleFile") };
   }
@@ -98,6 +102,8 @@ export function AccessPanel({
   onExplain,
   onCustomise,
   onLoaded,
+  onPath,
+  extra,
 }: PanelProps) {
   // Both dialogs belong to the panel; a caller may still take them over with its own handlers.
   const { t } = useTranslation();
@@ -148,6 +154,35 @@ export function AccessPanel({
       active = false;
     };
   }, [spaceId, kind, resourceId, stamp]);
+
+  // The whole path above a file or folder: each parent's own view names the one above it.
+  const pathRef = useRef(onPath);
+  useEffect(() => {
+    pathRef.current = onPath;
+  });
+  const firstParent = kind === "file" && access?.resource.parent && !access.resource.parent.hidden ? access.resource.parent : undefined;
+  useEffect(() => {
+    if (!firstParent) {
+      pathRef.current?.(undefined);
+      return;
+    }
+    let active = true;
+    void (async () => {
+      const names: string[] = [firstParent.name ?? ""];
+      let next: { id?: string; name?: string; hidden: boolean } | undefined = firstParent;
+      for (let depth = 0; depth < 8 && next?.id; depth++) {
+        const view: AccessView | undefined = await getAccess(spaceId, "file", next.id).catch(() => undefined);
+        const up: { id?: string; name?: string; hidden: boolean } | undefined = view?.resource.parent;
+        if (!up || up.hidden) break;
+        names.unshift(up.name ?? "");
+        next = up;
+      }
+      if (active) pathRef.current?.(fullPath(names.filter(Boolean)));
+    })();
+    return () => {
+      active = false;
+    };
+  }, [spaceId, firstParent?.id, firstParent?.name, stamp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const parentId = kind === "file" && access?.resource.parent && !access.resource.parent.hidden ? access.resource.parent.id : undefined;
   useEffect(() => {
@@ -363,6 +398,8 @@ export function AccessPanel({
               </p>
             ) : null}
 
+            {extra}
+
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px dashed var(--border-strong)", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", color: "var(--text-body)" }}>
               <Icon name="user-check" size={16} style={{ flex: "none" }} />
               <span style={{ flex: 1 }}>
@@ -457,8 +494,9 @@ export function AccessPanel({
 export function AccessDialog({ onClose, ...panel }: PanelProps & { onClose: () => void }) {
   const { t } = useTranslation();
   const [view, setView] = useState<AccessView | null>(null);
+  const [path, setPath] = useState<string | undefined>(undefined);
   const { onLoaded } = panel;
-  const sub = accessSubtitle(panel.kind, panel.isFolder ?? false, view, panel.isPrivate ?? false, panel.viewerId);
+  const sub = accessSubtitle(panel.kind, panel.isFolder ?? false, view, panel.isPrivate ?? false, panel.viewerId, path);
   const title =
     panel.kind === "channel"
       ? t("access.title", { name: `#${panel.resourceName}` })
@@ -492,6 +530,7 @@ export function AccessDialog({ onClose, ...panel }: PanelProps & { onClose: () =
     >
       <AccessPanel
         {...panel}
+        onPath={setPath}
         onLoaded={(v) => {
           setView(v);
           onLoaded?.(v);

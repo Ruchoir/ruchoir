@@ -2582,7 +2582,9 @@
     "delegationFoot": "Vous ne donnez que des droits que vous avez vous-même ici. Tout est écrit au journal, sous votre nom.",
     "selectedRemove": "Retirer {{name}} de la sélection",
     "givenBy": "{{name}} le lui a donné",
-    "addedByYou": "Ajoutée par vous"
+    "addedByYou": "Ajoutée par vous",
+    "publicLink": "Lien public",
+    "publicLinkHint": "Quiconque a le lien ouvre le fichier, sans compte. Réservé à ceux qui gèrent."
   },
   "customise": {
     "title": "Personnaliser : {{name}}",
@@ -2694,7 +2696,8 @@
       "other": "Par une autre étape",
       "ruleOn": "Par une règle sur {{where}}, niveau {{level}}",
       "ruleOnHidden": "Par une règle sur un emplacement masqué, niveau {{level}}"
-    }
+    },
+    "locksNone": "Verrous : le verrou privé, le plafond des invités et le statut de propriétaire ne changent rien ici."
   },
   "preview": {
     "viewAs": "Voir en tant que",

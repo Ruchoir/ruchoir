@@ -2548,7 +2548,9 @@
     "delegationFoot": "You only give rights you hold yourself here. Everything is written to the journal under your name.",
     "selectedRemove": "Remove {{name}} from the selection",
     "givenBy": "{{name}} gave it to them",
-    "addedByYou": "Added by you"
+    "addedByYou": "Added by you",
+    "publicLink": "Public link",
+    "publicLinkHint": "Anyone with the link opens the file, without an account. Reserved for those who manage it."
   },
   "customise": {
     "title": "Customise: {{name}}",
@@ -2660,7 +2662,8 @@
       "other": "By another step",
       "ruleOn": "By a rule on {{where}}, level {{level}}",
       "ruleOnHidden": "By a rule on a hidden location, level {{level}}"
-    }
+    },
+    "locksNone": "Locks: the private lock, the guest ceiling and ownership change nothing here."
   },
   "preview": {
     "viewAs": "View as",

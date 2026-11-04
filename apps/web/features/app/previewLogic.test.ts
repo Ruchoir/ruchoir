@@ -65,7 +65,8 @@ test("a_failure_toast_never_hides_the_preview_refusal", () => {
   // The preview toast itself, a success, an info, and a failure long after, all show.
   assert.equal(shouldShowToast(refusedAt, 10_400, { tone: "danger", isPreviewToast: true }), true);
   assert.equal(shouldShowToast(refusedAt, 10_400, { tone: "success", isPreviewToast: false }), true);
-  assert.equal(shouldShowToast(refusedAt, 10_400, { tone: "info", isPreviewToast: false }), true);
+  // The composer says "Message non envoye" as an info toast: it is a failure all the same.
+  assert.equal(shouldShowToast(refusedAt, 10_400, { tone: "info", isPreviewToast: false }), false);
   assert.equal(shouldShowToast(refusedAt, 13_000, failure), true);
   // No refusal yet: everything shows.
   assert.equal(shouldShowToast(undefined, 10_400, failure), true);

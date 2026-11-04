@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useEffect, useState } from "react";
-import { Avatar, Button, Dialog, Field, Icon, IconButton, Input, Select, Skeleton, SkeletonGroup, Tag, Textarea } from "@/components/ds";
+import { Avatar, Button, Dialog, Field, Icon, IconButton, Input, Select, Skeleton, SkeletonGroup, Switch, Tag, Textarea } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import { createLink, type FileLink, listLinks, revokeLink, sendMessage } from "@/lib/data/api";
 import type { AccessView } from "@/lib/data/types";
@@ -82,6 +82,7 @@ export function ShareDialog({
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
   const [links, setLinks] = useState<FileLink[] | null>(null);
+  const [path, setPath] = useState<string | undefined>(undefined);
   const [expiry, setExpiry] = useState<Expiry>("never");
   const [date, setDate] = useState("");
   const [password, setPassword] = useState("");
@@ -176,7 +177,36 @@ export function ShareDialog({
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const sub = levels ? accessSubtitle("file", isFolder, view, false, rules?.viewerId) : undefined;
+  /** The public link as the Access tab draws it (frame 7): one switch, the existing links under it. */
+  const liveLinks = (links ?? []).filter((l) => !l.expired);
+  const linkSwitch = levels && manageLinks && file?.id ? (
+    <div style={{ border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: "12px 14px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <Icon name="link" size={16} style={{ flex: "none", color: "var(--text-body)" }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{t("access.publicLink")}</div>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("access.publicLinkHint")}</div>
+        </div>
+        <Switch
+          aria-label={t("access.publicLink")}
+          checked={liveLinks.length > 0}
+          disabled={links === null || creating}
+          onChange={(e) => {
+            if (e.target.checked) create();
+            else liveLinks.forEach(revoke);
+          }}
+        />
+      </div>
+      {liveLinks.map((link) => (
+        <div key={link.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+          <div style={{ flex: 1, minWidth: 0, fontSize: "var(--text-2xs)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link.url}</div>
+          <IconButton icon="copy" size="sm" label={t("message.copyLink")} onClick={() => copy(link)} />
+        </div>
+      ))}
+    </div>
+  ) : null;
+
+  const sub = levels ? accessSubtitle("file", isFolder, view, false, rules?.viewerId, path) : undefined;
   const tabButton = (id: "access" | "send", label: string) => (
     <button
       key={id}
@@ -229,6 +259,8 @@ export function ShareDialog({
           onExplain={rules.onExplain}
           onNotify={onNotify}
           onLoaded={setView}
+          onPath={setPath}
+          extra={linkSwitch}
         />
       ) : null}
       {showSend ? (
@@ -311,7 +343,7 @@ export function ShareDialog({
         </>
       ) : null}
 
-      {manageLinks && (!levels || tab === "access") ? (
+      {manageLinks && !levels ? (
         <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border-subtle)" }}>
           <h3 style={section}>{t("files.publicLinks")}</h3>
           <p style={muted}>{t("files.publicLinksHint")}</p>

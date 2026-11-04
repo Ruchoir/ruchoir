@@ -2548,7 +2548,9 @@
     "delegationFoot": "Sie vergeben nur Rechte, die Sie hier selbst haben. Alles wird unter Ihrem Namen im Journal festgehalten.",
     "selectedRemove": "{{name}} aus der Auswahl entfernen",
     "givenBy": "{{name}} hat es vergeben",
-    "addedByYou": "Von Ihnen hinzugefügt"
+    "addedByYou": "Von Ihnen hinzugefügt",
+    "publicLink": "Öffentlicher Link",
+    "publicLinkHint": "Wer den Link hat, öffnet die Datei ohne Konto. Nur für Verwalter."
   },
   "customise": {
     "title": "Anpassen: {{name}}",
@@ -2660,7 +2662,8 @@
       "other": "Durch einen anderen Schritt",
       "ruleOn": "Durch eine Regel bei {{where}}, Stufe {{level}}",
       "ruleOnHidden": "Durch eine Regel an einem verborgenen Ort, Stufe {{level}}"
-    }
+    },
+    "locksNone": "Sperren: Privatsperre, Gästegrenze und Inhaberstatus ändern hier nichts."
   },
   "preview": {
     "viewAs": "Ansehen als",

@@ -2746,7 +2746,9 @@
     "delegationFoot": "Nadajesz tylko uprawnienia, które tu posiadasz. Wszystko trafia do dziennika pod Twoim nazwiskiem.",
     "selectedRemove": "Usuń {{name}} z zaznaczenia",
     "givenBy": "Nadano przez: {{name}}",
-    "addedByYou": "Dodane przez Ciebie"
+    "addedByYou": "Dodane przez Ciebie",
+    "publicLink": "Link publiczny",
+    "publicLinkHint": "Każdy, kto ma link, otwiera plik bez konta. Tylko dla osób zarządzających."
   },
   "customise": {
     "title": "Dostosuj: {{name}}",
@@ -2858,7 +2860,8 @@
       "other": "Przez inny krok",
       "ruleOn": "Przez regułę dla {{where}}, poziom {{level}}",
       "ruleOnHidden": "Przez regułę w ukrytej lokalizacji, poziom {{level}}"
-    }
+    },
+    "locksNone": "Blokady: blokada prywatna, limit gości i własność nie zmieniają tu niczego."
   },
   "preview": {
     "viewAs": "Zobacz jako",

@@ -173,24 +173,32 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
           {entry.level === "custom" ? t("access.editDetail") : t("dialogs.customize")}
         </button>
       ) : null}
+      {entry.inheritedFrom ? (
+        // An inherited line is not this item's to change: its level reads as locked text (frame 7).
+        <span style={{ width: 140, flex: "none", display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--text-sm)", color: "var(--text-body)" }}>
+          <Icon name="lock" size={14} aria-hidden style={{ color: "var(--text-muted)" }} />
+          {t(tk(levelLabelKey(ctx.kind, entry.level)))}
+        </span>
+      ) : (
       <span style={{ position: "relative", display: "inline-flex", flex: "none" }}>
-        <Select
-          size="sm"
-          aria-label={t("access.levelFor", { name })}
-          value={entry.level}
-          disabled={!selectable}
-          style={{ minWidth: 140 }}
-          onChange={(e) => ctx.onLevel(entry, e.target.value as Exclude<AccessLevel, "custom">)}
-        >
-          {options.map((o) => (
-            <option key={o.level} value={o.level} disabled={o.disabled && o.level !== entry.level} title={o.reason ? t(OFF_TITLE[o.reason]) : undefined}>
-              {t(tk(levelLabelKey(ctx.kind, o.level)))}
-            </option>
-          ))}
-        </Select>
-        {/* A line the viewer cannot change says so (frame 11); a busy one is only waiting. */}
-        {!editable ? <Icon name="lock" size={14} aria-hidden style={{ position: "absolute", right: 28, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} /> : null}
-      </span>
+          <Select
+            size="sm"
+            aria-label={t("access.levelFor", { name })}
+            value={entry.level}
+            disabled={!selectable}
+            style={{ minWidth: 140 }}
+            onChange={(e) => ctx.onLevel(entry, e.target.value as Exclude<AccessLevel, "custom">)}
+          >
+            {options.map((o) => (
+              <option key={o.level} value={o.level} disabled={o.disabled && o.level !== entry.level} title={o.reason ? t(OFF_TITLE[o.reason]) : undefined}>
+                {t(tk(levelLabelKey(ctx.kind, o.level)))}
+              </option>
+            ))}
+          </Select>
+          {/* A line the viewer cannot change says so (frame 11); a busy one is only waiting. */}
+          {!editable ? <Icon name="lock" size={14} aria-hidden style={{ position: "absolute", right: 28, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} /> : null}
+        </span>
+      )}
       <span style={{ width: 28, flex: "none" }}>
         {canRemove ? (
           <IconButton icon="x" size="sm" label={t("calendar.removeAttendee", { name })} disabled={ctx.busy} onClick={() => ctx.onRemove(entry)} />

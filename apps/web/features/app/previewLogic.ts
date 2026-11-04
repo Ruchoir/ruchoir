@@ -62,6 +62,7 @@ export function shouldShowToast(
   now: number,
   toast: { tone: string; isPreviewToast: boolean },
 ): boolean {
-  if (previewRefusedAt === undefined || toast.tone !== "danger" || toast.isPreviewToast) return true;
+  // Failures come as danger, or as info for a message that was not sent: both are the same refusal.
+  if (previewRefusedAt === undefined || toast.tone === "success" || toast.isPreviewToast) return true;
   return now - previewRefusedAt > 1500;
 }

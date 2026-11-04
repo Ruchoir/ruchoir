@@ -10,7 +10,7 @@ import { key, useTranslation } from "@/lib/i18n";
 import { PERMISSION_TEXT } from "../settings/permissionText";
 import { tk } from "./EntryRow";
 import { formatList } from "@/lib/i18n/format";
-import { cardOf, groupSteps, labelOf, reasonKey, roleSentence, stepSentence } from "./whyLogic.ts";
+import { cardOf, groupSteps, locksQuiet, labelOf, reasonKey, roleSentence, stepSentence } from "./whyLogic.ts";
 
 /**
  * "Pourquoi ?" (frame 9): pick a person, read what the engine did step by step in the order it
@@ -120,7 +120,15 @@ export function WhyDialog({
 
         {why ? (
           <>
-            <ol style={{ listStyle: "none", margin: 0, padding: 0, border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+            <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+              {why.steps.length > 0 && locksQuiet(why.steps) ? (
+                <li style={{ display: "flex", gap: 12, padding: "10px 14px", borderTop: "1px solid var(--border-subtle)", alignItems: "flex-start", order: 99 }}>
+                  <span aria-hidden style={{ width: 24, height: 24, flex: "none", borderRadius: "var(--radius-full)", background: "var(--surface-sunken)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-body)" }}>
+                    {groupSteps(why.steps).length + 1}
+                  </span>
+                  <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", lineHeight: 1.5 }}>{t("why.locksNone")}</span>
+                </li>
+              ) : null}
               {why.steps.length === 0 ? (
                 <li style={{ padding: "12px 14px", fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>{t("why.noSteps")}</li>
               ) : null}

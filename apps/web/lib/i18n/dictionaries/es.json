@@ -2647,7 +2647,9 @@
     "delegationFoot": "Solo das permisos que tienes tú aquí. Todo queda en el diario, a tu nombre.",
     "selectedRemove": "Quitar a {{name}} de la selección",
     "givenBy": "Lo dio {{name}}",
-    "addedByYou": "Añadida por ti"
+    "addedByYou": "Añadida por ti",
+    "publicLink": "Enlace público",
+    "publicLinkHint": "Cualquiera con el enlace abre el archivo, sin cuenta. Reservado a quienes lo gestionan."
   },
   "customise": {
     "title": "Personalizar: {{name}}",
@@ -2759,7 +2761,8 @@
       "other": "Por otro paso",
       "ruleOn": "Por una regla en {{where}}, nivel {{level}}",
       "ruleOnHidden": "Por una regla en una ubicación oculta, nivel {{level}}"
-    }
+    },
+    "locksNone": "Cerrojos: el cerrojo privado, el techo de invitados y la propiedad no cambian nada aquí."
   },
   "preview": {
     "viewAs": "Ver como",

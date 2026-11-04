@@ -136,3 +136,8 @@ export function groupSteps(steps: StepLike[]): StepGroup[] {
   }
   return groups;
 }
+
+/** Whether none of the locks (private, guest ceiling, owner, archive) changed anything: the frame says so in one line. */
+export function locksQuiet(steps: { kind: string }[]): boolean {
+  return !steps.some((s) => ["private_lock", "guest_ceiling", "owner", "archived"].includes(s.kind));
+}

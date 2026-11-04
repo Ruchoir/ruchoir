@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { groupSteps, labelOf, alreadyVia, cardOf, reasonKey, roleSentence, STEP_KINDS, stepSentence, type StepLike } from "./whyLogic.ts";
+import { locksQuiet, groupSteps, labelOf, alreadyVia, cardOf, reasonKey, roleSentence, STEP_KINDS, stepSentence, type StepLike } from "./whyLogic.ts";
 
 const step = (over: Partial<StepLike> = {}): StepLike => ({ n: 1, kind: "base", permission: "files.view", effect: "granted", ...over });
 
@@ -144,4 +144,11 @@ test("steps_of_one_origin_read_as_one_sentence", () => {
   // Every original step is still reachable for the result cards.
   assert.deepEqual(groups[1].ns, [3, 4]);
   assert.equal(groupSteps([]).length, 0);
+});
+
+test("a_quiet_lock_line_closes_the_explanation", () => {
+  // No lock step at all: the three locks changed nothing, and the dialog says so (frame 9).
+  assert.equal(locksQuiet([step({ kind: "base" }), step({ kind: "rule" })]), true);
+  for (const kind of ["private_lock", "guest_ceiling", "owner", "archived"]) assert.equal(locksQuiet([step({ kind })]), false, kind);
+  assert.equal(locksQuiet([]), true);
 });

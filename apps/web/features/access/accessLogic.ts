@@ -142,7 +142,8 @@ export function askWho(members: { name: string; role: string; bot?: boolean }[])
 
 /** Who wrote an entry's rule: the viewer ("Ajoutée par vous"), somebody else ("<Nom> le lui a donné"), or nobody known. */
 export function authorNote(entry: EntryLike, viewerId: string | undefined): { type: "you" } | { type: "other"; name: string } | undefined {
-  if (!entry.setBy) return undefined;
+  // An inherited line was set on the folder above: the giver is not this item's to name.
+  if (!entry.setBy || entry.inheritedFrom) return undefined;
   if (viewerId !== undefined && entry.setBy.id === viewerId) return { type: "you" };
   return { type: "other", name: entry.setBy.name };
 }
@@ -168,6 +169,11 @@ export function delegationIntro(
   return `access.delegation.${kind === "file" && isFolder ? "folder" : kind}`;
 }
 
+/** The folders above an item, outermost first, as one path ("Compta / 2026"); nothing at the top. */
+export function fullPath(folders: string[]): string | undefined {
+  return folders.length > 0 ? folders.join(" / ") : undefined;
+}
+
 export function canEdit(access: AccessLike): boolean {
   return access.may.edit && !access.archived;
 }
@@ -191,11 +197,14 @@ export function privateNote(isPrivate: boolean, addedNames: string[]): { names: 
   return isPrivate && addedNames.length > 0 ? { names: addedNames } : undefined;
 }
 
-const ORDER: Record<TargetKind, number> = { everyone: 0, role: 1, group: 2, audience: 3, user: 4 };
+const ORDER: Record<TargetKind, number> = { everyone: 0, role: 1, audience: 2, group: 3, user: 4 };
 
-/** The lines in the order the dialog shows them: inherited ones first (frames 6 and 7), then Everyone, roles, groups, people. */
+/**
+ * The lines in the order the dialog shows them (frame 7): everyone, roles, the readers of a channel,
+ * groups, people. One list: a line set here that overrides an inherited one takes its place.
+ */
 export function groupEntries<E extends EntryLike>(entries: E[]): E[] {
-  const key = (e: E) => (e.inheritedFrom ? -10 : 0) + ORDER[e.target.kind];
+  const key = (e: E) => ORDER[e.target.kind];
   return entries.map((e, i) => ({ e, i })).sort((a, b) => key(a.e) - key(b.e) || a.i - b.i).map((x) => x.e);
 }
 

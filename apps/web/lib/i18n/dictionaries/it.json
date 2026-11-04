@@ -2647,7 +2647,9 @@
     "delegationFoot": "Dai solo permessi che hai tu qui. Tutto viene scritto nel registro, a tuo nome.",
     "selectedRemove": "Rimuovi {{name}} dalla selezione",
     "givenBy": "Lo ha dato {{name}}",
-    "addedByYou": "Aggiunta da te"
+    "addedByYou": "Aggiunta da te",
+    "publicLink": "Link pubblico",
+    "publicLinkHint": "Chiunque abbia il link apre il file, senza account. Riservato a chi lo gestisce."
   },
   "customise": {
     "title": "Personalizza: {{name}}",
@@ -2759,7 +2761,8 @@
       "other": "Da un altro passaggio",
       "ruleOn": "Da una regola su {{where}}, livello {{level}}",
       "ruleOnHidden": "Da una regola in una posizione nascosta, livello {{level}}"
-    }
+    },
+    "locksNone": "Blocchi: il blocco privato, il tetto degli ospiti e la proprietà non cambiano nulla qui."
   },
   "preview": {
     "viewAs": "Visualizza come",
