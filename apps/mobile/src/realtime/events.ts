@@ -99,7 +99,14 @@ export const affects = {
     e.type === "dmHidden" ||
     e.type === "member" ||
     (e.type === "members" && e.spaceId === spaceId) ||
-    (e.type === "channels" && inSpace(e, spaceId)),
+    (e.type === "channels" && inSpace(e, spaceId)) ||
+    // Each channel carries what I may do in it (`myPermissions`): a role edit moves it.
+    (e.type === "permissions" && e.spaceId === spaceId),
+  /** A space's files and folders, and the marks of what I may do with each. */
+  files: (e: RealtimeEvent, spaceId: string) => (e.type === "files" || e.type === "permissions") && e.spaceId === spaceId,
+  /** The calendars and their events; my rights in the space move which ones I can create or change. */
+  calendars: (e: RealtimeEvent, spaceId: string | undefined) =>
+    e.type === "calendar" || (e.type === "permissions" && (!spaceId || e.spaceId === spaceId)),
   /** The people of a space. */
   members: (e: RealtimeEvent, spaceId: string) => e.type === "member" || (e.type === "members" && e.spaceId === spaceId),
   /** What a space's roles, groups, rules and licence say, and so what I may do in it. */

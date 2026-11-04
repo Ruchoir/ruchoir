@@ -138,3 +138,17 @@ test("a_change_of_permissions_is_relayed_and_only_for_its_space", () => {
   assert.equal(affects.permissions(out[0], "s2"), false);
   assert.equal(affects.permissions({ type: "spaces" }, "s1"), false);
 });
+
+test("a_change_of_rights_reloads_the_lists_that_depend_on_them", () => {
+  const rights: RealtimeEvent = { type: "permissions", spaceId: "s1" };
+  const other: RealtimeEvent = { type: "permissions", spaceId: "s2" };
+  // The channels' own lists of rights ride on the conversations, and files and calendars carry markers of their own.
+  assert.ok(affects.conversations(rights, "s1"));
+  assert.ok(!affects.conversations(other, "s1"));
+  assert.ok(affects.files(rights, "s1"));
+  assert.ok(!affects.files(other, "s1"));
+  assert.ok(affects.files({ type: "files", spaceId: "s1" }, "s1"));
+  assert.ok(affects.calendars(rights, "s1"));
+  assert.ok(!affects.calendars(other, "s1"));
+  assert.ok(affects.calendars({ type: "calendar" }, "s1"));
+});

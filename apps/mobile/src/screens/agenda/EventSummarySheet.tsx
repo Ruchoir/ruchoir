@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
+import { affects } from "../../realtime/events";
 import { key, useTranslation } from "../../i18n";
 import { useSharedT } from "../../i18n/sharedT";
 import { useLocale } from "../../i18n/useLocale";
@@ -87,7 +88,7 @@ export function EventSummary({
     loadOccurrence(api, params.eventId, params.recurrenceId, params.start, signal),
   );
   const reloadEvent = loaded.reload;
-  useReloadOn((e) => e.type === "calendar", reloadEvent);
+  useReloadOn((e) => affects.calendars(e, undefined), reloadEvent);
   // Back from a sheet over it (one's own reminders): read the event again.
   const left = useRef(false);
   useEffect(() => {

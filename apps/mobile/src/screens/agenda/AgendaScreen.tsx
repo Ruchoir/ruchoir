@@ -8,6 +8,7 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
+import { affects } from "../../realtime/events";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { useTabletLayout } from "../../layout/useWide";
@@ -71,7 +72,7 @@ export function AgendaScreen() {
     const occurrences = shown.length ? await listOccurrences(range.from, range.to, shown.map((cal) => cal.id), signal) : [];
     return { occurrences, calendars: new Map(shown.map((cal) => [cal.id, cal])), canCreate: all.some((cal) => cal.canWriteEvents), canShare: all.some((cal) => cal.spaceId === current!.id && cal.canManage) };
   }, { keep: current?.id });
-  useReloadOn((e) => e.type === "calendar", data.reload);
+  useReloadOn((e) => affects.calendars(e, current?.id), data.reload);
 
   const options = useMemo(() => VIEWS.map((v) => ({ key: v.key, label: t(v.label) })), [t]);
   const tablet = useTabletLayout();

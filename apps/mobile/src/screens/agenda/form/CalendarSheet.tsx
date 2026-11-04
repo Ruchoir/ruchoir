@@ -7,6 +7,7 @@ import { StyleSheet } from "react-native";
 import { useApi } from "../../../api/useApi";
 import { useLoad } from "../../../data/useLoad";
 import { useReloadOn } from "../../../data/useReloadOn";
+import { affects } from "../../../realtime/events";
 import { useTranslation } from "../../../i18n";
 import type { RootParams } from "../../../navigation/types";
 import { useSpace } from "../../../space/SpaceProvider";
@@ -32,7 +33,7 @@ export function CalendarSheet() {
   const { spaces, current } = useSpace();
   const draft = useDraft(params.formKey);
   const calendars = useLoad("calendars", (signal) => listCalendars(signal));
-  useReloadOn((e) => e.type === "calendar", calendars.reload);
+  useReloadOn((e) => affects.calendars(e, current?.id), calendars.reload);
   const spaceList = spaces.data ?? [];
   const writable = (calendars.data ?? []).filter((cal) => cal.canWriteEvents);
   const ofSpace = (id: string) => writable.filter((cal) => cal.spaceId === id);
