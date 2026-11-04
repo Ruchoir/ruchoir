@@ -2535,7 +2535,18 @@
         "calendar": "Das Teilen eines Kalenders an dessen Verwalter zu delegieren: Enterprise-Edition.",
         "channel": "Das Teilen eines Kanals an dessen Verwalter zu delegieren: Enterprise-Edition."
       }
-    }
+    },
+    "you": "Sie",
+    "delegation": {
+      "folder": "Sie verwalten diesen Ordner: Sie legen seinen Zugriff fest, im Rahmen Ihrer eigenen Rechte.",
+      "file": "Sie verwalten diese Datei: Sie legen ihren Zugriff fest, im Rahmen Ihrer eigenen Rechte.",
+      "calendar": "Sie verwalten diesen Kalender: Sie legen seinen Zugriff fest, im Rahmen Ihrer eigenen Rechte.",
+      "channel": "Sie verwalten diesen Kanal: Sie legen seinen Zugriff fest, im Rahmen Ihrer eigenen Rechte."
+    },
+    "delegationHead": "Sie haben die Stufe Verwalten für {{name}}.",
+    "delegationBody": "Damit legen Sie den Zugriff anderer hier fest, ohne den ganzen Bereich zu reservieren oder Ihre eigene Zeile zu ändern.",
+    "delegationFoot": "Sie vergeben nur Rechte, die Sie hier selbst haben. Alles wird unter Ihrem Namen im Journal festgehalten.",
+    "selectedRemove": "{{name}} aus der Auswahl entfernen"
   },
   "customise": {
     "title": "Anpassen: {{name}}",

@@ -5,11 +5,12 @@ import { Avatar, Button, Dialog, Icon, Select } from "@/components/ds";
 import { getAvatar } from "@/lib/data";
 import type { Member } from "@/lib/data/api";
 import { explainAccess } from "@/lib/data/api";
-import type { AccessKind, WhyView } from "@/lib/data/types";
+import type { AccessKind, Role, WhyView } from "@/lib/data/types";
 import { key, useTranslation } from "@/lib/i18n";
 import { PERMISSION_TEXT } from "../settings/permissionText";
 import { tk } from "./EntryRow";
-import { cardOf, reasonKey, roleSentence, stepSentence } from "./whyLogic.ts";
+import { formatList } from "@/lib/i18n/format";
+import { cardOf, groupSteps, labelOf, reasonKey, roleSentence, stepSentence } from "./whyLogic.ts";
 
 /**
  * "Pourquoi ?" (frame 9): pick a person, read what the engine did step by step in the order it
@@ -22,6 +23,7 @@ export function WhyDialog({
   resourceId,
   resourceName,
   members,
+  roles,
   viewerId,
   onClose,
 }: {
@@ -30,6 +32,7 @@ export function WhyDialog({
   resourceId: string;
   resourceName: string;
   members: Member[];
+  roles: Role[];
   viewerId: string | undefined;
   onClose: () => void;
 }) {
@@ -58,16 +61,24 @@ export function WhyDialog({
     const text = PERMISSION_TEXT[permission];
     return text ? t(text.title) : permission;
   };
-  const fill = (step: WhyView["steps"][number]) => {
-    const sentence = stepSentence(step);
+  /** A target or role as the UI names it: "Tout l'espace", "Administrateur" for the system ones. */
+  const named = (ref: Parameters<typeof labelOf>[0], hidden: string) => {
+    const label = labelOf(ref, roles);
+    return label.key ? t(tk(label.key)) : (label.name ?? hidden);
+  };
+  const fill = (group: ReturnType<typeof groupSteps>[number]) => {
+    const sentence = stepSentence(group);
+    const role = group.role ? { ...group.role, name: named({ kind: "role", id: group.role.id, name: group.role.name, hidden: false }, group.role.name) } : undefined;
     return {
       key: sentence.key,
+      role: role ? roleSentence(role) : undefined,
       values: {
         ...sentence.values,
+        ...(role ? { role: role.name } : {}),
         where: sentence.values.where || t("why.hiddenPlace"),
-        target: sentence.values.target || t("why.hiddenTarget"),
+        target: named(group.target, t("why.hiddenTarget")),
         person: personName,
-        permission: permissionName(step.permission),
+        permission: formatList(group.permissions.map(permissionName)),
       },
     };
   };
@@ -113,16 +124,16 @@ export function WhyDialog({
               {why.steps.length === 0 ? (
                 <li style={{ padding: "12px 14px", fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>{t("why.noSteps")}</li>
               ) : null}
-              {why.steps.map((step, i) => {
+              {groupSteps(why.steps).map((step, i) => {
                 const sentence = fill(step);
-                const role = step.role ? roleSentence(step.role) : undefined;
+                const role = sentence.role;
                 return (
                   <li key={step.n} style={{ display: "flex", gap: 12, padding: "10px 14px", borderTop: i === 0 ? 0 : "1px solid var(--border-subtle)", alignItems: "flex-start" }}>
                     <span
                       aria-hidden
                       style={{ width: 24, height: 24, flex: "none", borderRadius: "var(--radius-full)", background: "var(--surface-sunken)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-body)" }}
                     >
-                      {step.n}
+                      {i + 1}
                     </span>
                     <span style={{ fontSize: "var(--text-sm)", color: step.effect === "removed" ? "var(--status-danger-fg)" : "var(--text-body)", lineHeight: 1.5 }}>
                       {t(tk(sentence.key), sentence.values)}

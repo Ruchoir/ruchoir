@@ -176,7 +176,7 @@ export function ShareDialog({
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const sub = levels ? accessSubtitle("file", isFolder, view, false) : undefined;
+  const sub = levels ? accessSubtitle("file", isFolder, view, false, rules?.viewerId) : undefined;
   const tabButton = (id: "access" | "send", label: string) => (
     <button
       key={id}

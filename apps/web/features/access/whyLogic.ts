@@ -92,3 +92,47 @@ export function alreadyVia(why: { steps: StepLike[]; result: ResultLike[] }, vie
   if (step.kind === "rule" && step.target && !step.target.hidden && step.target.kind !== "everyone") return step.target.name;
   return undefined;
 }
+
+/** A role as the roles list knows it. */
+type RoleRef = { id: string; name: string; systemKey?: "administrator" | "members" | "guests" };
+
+/**
+ * How the UI names the target or role of a step: the base roles (`@members`, `@guests`) and the
+ * system roles ("Administrator", "Members", "Guests" as stored) by their translated dictionary key,
+ * anything else by its name. Nothing for a hidden place or no target; the dialog words that.
+ */
+export function labelOf(ref: Ref | undefined, roles: RoleRef[]): { key?: string; name?: string } {
+  if (!ref || ref.hidden) return {};
+  if (ref.kind === "everyone") return { key: (ref.name ?? "").startsWith("@guests") ? "access.allGuests" : "channel.everyoneInSpace" };
+  if (ref.kind === "role") {
+    const role = roles.find((r) => r.id === ref.id);
+    const system = role?.systemKey ?? (ref.name === "Administrator" ? "administrator" : undefined);
+    if (system === "administrator") return { key: "role.admin" };
+    if (system === "members") return { key: "roles.everyone" };
+    if (system === "guests") return { key: "roles.guests" };
+  }
+  return ref.name ? { name: ref.name } : {};
+}
+
+/** One sentence's worth of steps: the same origin, one after the other, listing their permissions. */
+export type StepGroup = StepLike & { permissions: string[]; ns: number[] };
+
+/**
+ * The steps as the mockup reads them: consecutive steps of one origin (base, one role, one rule at
+ * one place) and one effect make a single sentence naming every permission, in the engine's order.
+ */
+export function groupSteps(steps: StepLike[]): StepGroup[] {
+  const groups: StepGroup[] = [];
+  const origin = (s: StepLike) =>
+    [s.kind, s.effect, s.role?.id ?? "", s.target?.kind ?? "", s.target?.id ?? s.target?.name ?? "", s.level?.id ?? s.level?.name ?? (s.level?.hidden ? "hidden" : ""), s.ruleLevel ?? ""].join("|");
+  for (const step of steps) {
+    const last = groups[groups.length - 1];
+    if (last && origin(last) === origin(step)) {
+      last.permissions.push(step.permission);
+      last.ns.push(step.n);
+    } else {
+      groups.push({ ...step, permissions: [step.permission], ns: [step.n] });
+    }
+  }
+  return groups;
+}

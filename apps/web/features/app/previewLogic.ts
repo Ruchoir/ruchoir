@@ -51,3 +51,17 @@ export function previewGone(
 export function shouldToastRefusal(refusal: { code: string } | undefined): boolean {
   return refusal?.code !== "preview_read_only";
 }
+
+/**
+ * Whether a toast may be shown. A write refused by a preview is already told once, by the app; the
+ * failure toast the screen raises right after ("Message non envoye") would replace it with a worse
+ * explanation, so for a short moment only the preview's own toast gets through among failures.
+ */
+export function shouldShowToast(
+  previewRefusedAt: number | undefined,
+  now: number,
+  toast: { tone: string; isPreviewToast: boolean },
+): boolean {
+  if (previewRefusedAt === undefined || toast.tone !== "danger" || toast.isPreviewToast) return true;
+  return now - previewRefusedAt > 1500;
+}

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { bannerOf, previewGone, previewToast, shouldToastRefusal, viewAsState } from "./previewLogic.ts";
+import { bannerOf, shouldShowToast, previewGone, previewToast, shouldToastRefusal, viewAsState } from "./previewLogic.ts";
 
 const role = (over: Partial<{ systemKey: "administrator" | "members" | "guests"; manageable: boolean }> = {}) => ({ manageable: true, ...over });
 
@@ -55,4 +55,18 @@ test("a_second_toast_is_skipped_for_a_preview_refusal", () => {
   assert.equal(shouldToastRefusal({ code: "preview_read_only" }), false);
   assert.equal(shouldToastRefusal({ code: "cannot_grant" }), true);
   assert.equal(shouldToastRefusal(undefined), true);
+});
+
+test("a_failure_toast_never_hides_the_preview_refusal", () => {
+  const refusedAt = 10_000;
+  const failure = { tone: "danger" as const, isPreviewToast: false };
+  // Right after a preview refusal, the screen's own "not sent" toast stays quiet.
+  assert.equal(shouldShowToast(refusedAt, 10_400, failure), false);
+  // The preview toast itself, a success, an info, and a failure long after, all show.
+  assert.equal(shouldShowToast(refusedAt, 10_400, { tone: "danger", isPreviewToast: true }), true);
+  assert.equal(shouldShowToast(refusedAt, 10_400, { tone: "success", isPreviewToast: false }), true);
+  assert.equal(shouldShowToast(refusedAt, 10_400, { tone: "info", isPreviewToast: false }), true);
+  assert.equal(shouldShowToast(refusedAt, 13_000, failure), true);
+  // No refusal yet: everything shows.
+  assert.equal(shouldShowToast(undefined, 10_400, failure), true);
 });

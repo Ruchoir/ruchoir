@@ -2634,7 +2634,18 @@
         "calendar": "Delegare la condivisione di un calendario a chi lo gestisce: edizione Enterprise.",
         "channel": "Delegare la condivisione di un canale a chi lo gestisce: edizione Enterprise."
       }
-    }
+    },
+    "you": "Tu",
+    "delegation": {
+      "folder": "Gestisci questa cartella: ne imposti l'accesso, entro i limiti dei tuoi permessi.",
+      "file": "Gestisci questo file: ne imposti l'accesso, entro i limiti dei tuoi permessi.",
+      "calendar": "Gestisci questo calendario: ne imposti l'accesso, entro i limiti dei tuoi permessi.",
+      "channel": "Gestisci questo canale: ne imposti l'accesso, entro i limiti dei tuoi permessi."
+    },
+    "delegationHead": "Hai il livello Gestisci su {{name}}.",
+    "delegationBody": "Ti permette di impostare l'accesso degli altri qui, senza riservare tutto lo spazio né cambiare la tua riga.",
+    "delegationFoot": "Dai solo permessi che hai tu qui. Tutto viene scritto nel registro, a tuo nome.",
+    "selectedRemove": "Rimuovi {{name}} dalla selezione"
   },
   "customise": {
     "title": "Personalizza: {{name}}",

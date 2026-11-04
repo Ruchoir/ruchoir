@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { alreadyVia, cardOf, reasonKey, roleSentence, STEP_KINDS, stepSentence, type StepLike } from "./whyLogic.ts";
+import { groupSteps, labelOf, alreadyVia, cardOf, reasonKey, roleSentence, STEP_KINDS, stepSentence, type StepLike } from "./whyLogic.ts";
 
 const step = (over: Partial<StepLike> = {}): StepLike => ({ n: 1, kind: "base", permission: "files.view", effect: "granted", ...over });
 
@@ -94,4 +94,54 @@ test("why_names_the_place_and_level_of_a_rule", () => {
       assert.ok(key.split(".").reduce<unknown>((at, part) => (at as Record<string, unknown> | undefined)?.[part], dict) !== undefined, `${locale}: ${key}`);
     }
   }
+});
+
+const ID = { admin: "0b1c2d3e-4f50-4a61-8b72-93a4b5c6d7e8", members: "1c2d3e4f-5061-4b72-9c83-a4b5c6d7e8f9", guests: "2d3e4f50-6172-4c83-8d94-b5c6d7e8f9a0", custom: "3e4f5061-7283-4d94-9ea5-c6d7e8f9a0b1" };
+const roles = [
+  { id: ID.admin, name: "Administrator", systemKey: "administrator" as const },
+  { id: ID.members, name: "Members", systemKey: "members" as const },
+  { id: ID.guests, name: "Guests", systemKey: "guests" as const },
+  { id: ID.custom, name: "Comptable" },
+];
+
+test("why_names_system_roles_as_the_ui_does", () => {
+  // The base roles come as @members and @guests: the UI says "Tout l'espace" and "Tous les invités".
+  assert.deepEqual(labelOf({ kind: "everyone", name: "@members", hidden: false }, roles), { key: "channel.everyoneInSpace" });
+  assert.deepEqual(labelOf({ kind: "everyone", name: "@guests", hidden: false }, roles), { key: "access.allGuests" });
+  // The system roles are named by their stored English name: the UI translates them.
+  assert.deepEqual(labelOf({ kind: "role", id: ID.admin, name: "Administrator", hidden: false }, roles), { key: "role.admin" });
+  assert.deepEqual(labelOf({ kind: "role", id: ID.members, name: "Members", hidden: false }, roles), { key: "roles.everyone" });
+  assert.deepEqual(labelOf({ kind: "role", id: ID.guests, name: "Guests", hidden: false }, roles), { key: "roles.guests" });
+  // A role of the space's own keeps its name; a group or a person too.
+  assert.deepEqual(labelOf({ kind: "role", id: ID.custom, name: "Comptable", hidden: false }, roles), { name: "Comptable" });
+  assert.deepEqual(labelOf({ kind: "group", id: ID.custom, name: "Comptabilité", hidden: false }, roles), { name: "Comptabilité" });
+  // Not in the list (the roles did not load): the stored name of a system role still reads right.
+  assert.deepEqual(labelOf({ kind: "role", id: ID.admin, name: "Administrator", hidden: false }, []), { key: "role.admin" });
+  assert.deepEqual(labelOf({ kind: "role", id: ID.custom, name: "Comptable", hidden: false }, []), { name: "Comptable" });
+  // A hidden one says nothing, and the dialog words it.
+  assert.deepEqual(labelOf({ kind: "audience", hidden: true }, roles), {});
+  assert.deepEqual(labelOf(undefined, roles), {});
+});
+
+test("steps_of_one_origin_read_as_one_sentence", () => {
+  const rule = { kind: "group", id: ID.custom, name: "Comptabilité", hidden: false };
+  const folder = { kind: "file", id: ID.admin, name: "Compta", hidden: false };
+  const steps: StepLike[] = [
+    step({ n: 1, kind: "base", permission: "files.view" }),
+    step({ n: 2, kind: "base", permission: "files.create" }),
+    step({ n: 3, kind: "rule", permission: "files.edit", target: rule, level: folder, ruleLevel: "contribute" }),
+    step({ n: 4, kind: "rule", permission: "files.create", target: rule, level: folder, ruleLevel: "contribute" }),
+    step({ n: 5, kind: "base", permission: "files.manage", effect: "removed" }),
+    step({ n: 6, kind: "rule", permission: "files.edit", target: rule, level: { ...folder, name: "2026" }, ruleLevel: "contribute" }),
+  ];
+  const groups = groupSteps(steps);
+  assert.deepEqual(groups.map((g) => [g.n, g.kind, g.effect, g.permissions]), [
+    [1, "base", "granted", ["files.view", "files.create"]],
+    [3, "rule", "granted", ["files.edit", "files.create"]],
+    [5, "base", "removed", ["files.manage"]],
+    [6, "rule", "granted", ["files.edit"]],
+  ]);
+  // Every original step is still reachable for the result cards.
+  assert.deepEqual(groups[1].ns, [3, 4]);
+  assert.equal(groupSteps([]).length, 0);
 });

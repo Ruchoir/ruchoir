@@ -8,7 +8,7 @@ import type { AccessEntry, AccessKind, AccessLevel, AccessView, Group, Role } fr
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { shouldToastRefusal } from "../app/previewLogic.ts";
 import { refusalMessage, roleLabel } from "../settings/roleChips";
-import { askWho, canEdit, everyoneLine, freeManage, groupEntries, levelDescKey, levelLabelKey, privateNote, readOnlyReason, withOverrides } from "./accessLogic.ts";
+import { askWho, delegationIntro, canEdit, everyoneLine, freeManage, groupEntries, levelDescKey, levelLabelKey, privateNote, readOnlyReason, withOverrides } from "./accessLogic.ts";
 import { AddTargetDialog } from "./AddTargetDialog";
 import { CustomiseDialog } from "./CustomiseDialog";
 import { WhyDialog } from "./WhyDialog";
@@ -57,9 +57,12 @@ function entryDisplayName(entry: AccessEntry, members: Member[], groups: Group[]
 }
 
 /** The line under the title: what this dialog is about, for the kind of thing it shares. */
-export function accessSubtitle(kind: AccessKind, isFolder: boolean, view: AccessView | null, fallbackPrivate: boolean): { key: TranslationKey; parent?: string } {
+export function accessSubtitle(kind: AccessKind, isFolder: boolean, view: AccessView | null, fallbackPrivate: boolean, viewerId?: string): { key: TranslationKey; parent?: string } {
   // A manager of a free space reads the dialog without changing it (frame 11).
   if (view && freeManage(view, kind, isFolder)) return { key: key("access.freeManage.subtitle") };
+  // A local manager of a licensed space reads what their level lets them do (frame 10).
+  const delegation = view ? delegationIntro(view, viewerId, kind, isFolder) : undefined;
+  if (delegation) return { key: tk(delegation) };
   if (kind === "calendar") return { key: key("access.subtitleCalendar") };
   if (kind === "file") {
     const parent = view?.resource.parent;
@@ -198,6 +201,7 @@ export function AccessPanel({
   const editable = access ? canEdit(access) : false;
   const readOnly = access ? readOnlyReason(access, kind) : undefined;
   const free = access ? freeManage(access, kind, isFolder) : undefined;
+  const delegated = access ? delegationIntro(access, viewerId, kind, isFolder) : undefined;
   const asked = askWho(members);
   const who = asked.length === 0 ? t("access.freeManage.noNames") : asked.length === 1 ? asked[0] : `${asked.slice(0, -1).join(", ")} ${t("common.or")} ${asked[asked.length - 1]}`;
   const note = access ? privateNote(access.private, added.filter((a) => access.entries.some((e) => targetKey(e.target) === a.key)).map((a) => a.name)) : undefined;
@@ -271,6 +275,15 @@ export function AccessPanel({
               </p>
             ) : null}
 
+            {delegated ? (
+              <p role="status" style={{ ...box, display: "flex", gap: 8, alignItems: "flex-start", background: "var(--status-info-bg)", border: "1px solid var(--status-info-border)" }}>
+                <Icon name="user-check" size={15} style={{ flex: "none", marginTop: 1 }} />
+                <span>
+                  <strong>{t("access.delegationHead", { name: kind === "channel" ? channelName : resourceName })}</strong> {t("access.delegationBody")}
+                </span>
+              </p>
+            ) : null}
+
             {kind === "channel" && onTypeChange ? (
               <div role="radiogroup" aria-label={t("access.typeLabel")} style={{ display: "flex", gap: 12 }}>
                 {typeCard("public")}
@@ -318,14 +331,18 @@ export function AccessPanel({
             <p style={{ margin: 0, display: "flex", gap: 8, fontSize: "var(--text-xs)", color: "var(--text-muted)", lineHeight: 1.5 }}>
               <Icon name="info" size={14} style={{ flex: "none", marginTop: 2 }} />
               <span>
-                {levels.map((level, i) => (
+                {delegated ? (
+                  t("access.delegationFoot")
+                ) : (
+                  levels.map((level, i) => (
                   <span key={level}>
                     <strong style={{ color: "var(--text-body)" }}>{t(tk(levelLabelKey(kind, level)))}</strong>
                     {" "}
                     {t(tk(levelDescKey(kind, level)))}
                     {i < levels.length - 1 ? " " : ""}
                   </span>
-                ))}
+                  ))
+                )}
               </span>
             </p>
 
@@ -410,7 +427,7 @@ export function AccessPanel({
       ) : null}
 
       {explaining ? (
-        <WhyDialog spaceId={spaceId} kind={kind} resourceId={resourceId} resourceName={kind === "channel" ? channelName : resourceName} members={members} viewerId={viewerId} onClose={() => setExplaining(false)} />
+        <WhyDialog spaceId={spaceId} kind={kind} resourceId={resourceId} resourceName={kind === "channel" ? channelName : resourceName} members={members} roles={roles} viewerId={viewerId} onClose={() => setExplaining(false)} />
       ) : null}
 
       {folder ? (
@@ -441,7 +458,7 @@ export function AccessDialog({ onClose, ...panel }: PanelProps & { onClose: () =
   const { t } = useTranslation();
   const [view, setView] = useState<AccessView | null>(null);
   const { onLoaded } = panel;
-  const sub = accessSubtitle(panel.kind, panel.isFolder ?? false, view, panel.isPrivate ?? false);
+  const sub = accessSubtitle(panel.kind, panel.isFolder ?? false, view, panel.isPrivate ?? false, panel.viewerId);
   const title =
     panel.kind === "channel"
       ? t("access.title", { name: `#${panel.resourceName}` })

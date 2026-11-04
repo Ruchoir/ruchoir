@@ -8,7 +8,7 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { GroupIcon } from "../groups/GroupIcon";
 import { roleColour } from "../settings/roleChips";
 import { canCustomise } from "./customiseLogic.ts";
-import { entryEditable, everyoneLine, entryNote, inheritedLink, levelLabelKey, levelOptions, removable, type OffReason, type Override } from "./accessLogic.ts";
+import { entryEditable, everyoneLine, isYou, entryNote, inheritedLink, levelLabelKey, levelOptions, removable, type OffReason, type Override } from "./accessLogic.ts";
 
 /** A key built by the logic module, as the translator takes it (the keys exist: the tests name them). */
 export function tk(name: string): TranslationKey {
@@ -84,7 +84,7 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
     sub = t("access.audienceSub");
     lead = <LeadBox><Icon name="message-square" size={18} /></LeadBox>;
   } else {
-    sub = member?.title;
+    sub = isYou(entry, ctx.viewerId) ? t("access.you") : member?.title;
     lead = <Avatar name={name} src={member?.avatarUrl ?? getAvatar(name)} size={36} />;
   }
 
@@ -144,8 +144,8 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
             <>
               {sub || noteText ? " · " : ""}
               {t("access.inheritedFromLabel")}{" "}
-              <button type="button" onClick={() => ctx.onOpenFolder?.(link)} style={linkButton}>
-                <Icon name="folder" size={12} style={{ verticalAlign: "-1px", marginRight: 3 }} />
+              <button type="button" onClick={() => ctx.onOpenFolder?.(link)} style={{ ...linkButton, display: "inline-flex", alignItems: "center", gap: 4, verticalAlign: "bottom" }}>
+                <Icon name="folder" size={12} />
                 {link.name}
               </button>
             </>

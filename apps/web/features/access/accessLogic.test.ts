@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { readFileSync } from "node:fs";
-import { freeManage, askWho } from "./accessLogic.ts";
+import { delegationIntro, isYou, freeManage, askWho } from "./accessLogic.ts";
 import { canCustomise } from "./customiseLogic.ts";
 import { everyoneLine, addLevelOptions, calendarLevelOf, canEdit, entryEditable, inheritedLink, withOverrides, entryNote, groupEntries, levelLabelKey, levelOptions, privateNote, readOnlyReason, removable, type EntryLike } from "./accessLogic.ts";
 
@@ -134,7 +134,7 @@ test("entries_are_grouped_everyone_roles_groups_people_with_inherited_last", () 
     return x;
   };
   const rows = groupEntries([e("user", "Marc"), e("group", "Compta"), e("role", "RH"), e("everyone", "Tout"), e("group", "Archive", { inheritedFrom: { kind: "folder", name: "F", hidden: false } })]);
-  assert.deepEqual(rows.map((r) => r.target.name), ["Tout", "RH", "Compta", "Marc", "Archive"]);
+  assert.deepEqual(rows.map((r) => r.target.name), ["Archive", "Tout", "RH", "Compta", "Marc"]);
 });
 
 const folderRef = (id: string | undefined, name?: string) => ({ kind: "folder", id, name, hidden: id === undefined });
@@ -228,5 +228,53 @@ test("a_free_space_manager_is_told_who_to_ask", () => {
       for (const key of [keys.lead, keys.detail, keys.cta]) assert.ok(has(key), `${locale}: ${key}`);
     }
     for (const key of ["access.freeManage.subtitle", "access.freeManage.noNames", "common.or", "access.learnMore", "access.verify"]) assert.ok(has(key), `${locale}: ${key}`);
+  }
+});
+
+test("a_guest_is_compared_with_the_guests_line_only", () => {
+  const members = entry({ kind: "everyone", level: "contribute", guest: false });
+  const guests = entry({ kind: "everyone", level: "contribute", guest: true });
+  // A guest at Lire under a guests line at Participer is "au moins Participer"; under only the
+  // members line it says nothing (the members' level is not the guests' floor).
+  const marc = entry({ kind: "user", level: "read", guest: true });
+  assert.deepEqual(entryNote(marc, [members, marc]), undefined);
+  assert.deepEqual(entryNote(marc, [members, guests, marc]), { type: "atLeast", level: "contribute" });
+  // A member keeps comparing with the members line, whatever the guests line says.
+  const hugo = entry({ kind: "user", level: "read", guest: false });
+  assert.deepEqual(entryNote(hugo, [guests, hugo]), undefined);
+  assert.deepEqual(entryNote(hugo, [guests, members, hugo]), { type: "atLeast", level: "contribute" });
+});
+
+test("the_viewers_own_line_is_the_one_tagged_vous", () => {
+  const me = "9f1c6d2e-3b4f-4a5b-8c6d-7e8f9a0b1c2d";
+  const mine = entry({ kind: "user" });
+  mine.target.id = me;
+  assert.equal(isYou(mine, me), true);
+  assert.equal(isYou(mine, "someone-else"), false);
+  assert.equal(isYou(entry({ kind: "group" }), me), false);
+  assert.equal(isYou(mine, undefined), false);
+});
+
+test("a_local_manager_is_told_what_they_may_do", () => {
+  const me = "9f1c6d2e-3b4f-4a5b-8c6d-7e8f9a0b1c2d";
+  const mine = entry({ kind: "user", level: "manage" });
+  mine.target.id = me;
+  const view = (fine: boolean, edit = true, archived = false) => ({ archived, may: { edit, fine, manageTargetLevels: [], reason: undefined }, entries: [mine] });
+  // An editor who holds Gérer here by their own line, with the paid edition: frame 10.
+  assert.equal(delegationIntro(view(true), me, "file", true), "access.delegation.folder");
+  assert.equal(delegationIntro(view(true), me, "file", false), "access.delegation.file");
+  assert.equal(delegationIntro(view(true), me, "calendar", false), "access.delegation.calendar");
+  assert.equal(delegationIntro(view(true), me, "channel", false), "access.delegation.channel");
+  // Not without the paid edition (frame 11 says it differently), not read only, not for someone else.
+  assert.equal(delegationIntro(view(false), me, "file", true), undefined);
+  assert.equal(delegationIntro(view(true, false), me, "file", true), undefined);
+  assert.equal(delegationIntro(view(true), "other", "file", true), undefined);
+  mine.level = "contribute";
+  assert.equal(delegationIntro(view(true), me, "file", true), undefined);
+  for (const locale of ["fr", "en", "de", "es", "it", "pl"]) {
+    const dict = JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
+    for (const key of ["access.delegation.folder", "access.delegation.file", "access.delegation.calendar", "access.delegation.channel", "access.delegationHead", "access.delegationBody", "access.delegationFoot", "access.you"]) {
+      assert.ok(key.split(".").reduce<unknown>((at, p) => (at as Record<string, unknown> | undefined)?.[p], dict) !== undefined, `${locale}: ${key}`);
+    }
   }
 });

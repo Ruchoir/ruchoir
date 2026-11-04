@@ -225,6 +225,30 @@ export function CalendarSettingsDialog({
     }
   };
 
+  // The share dialog replaces the settings dialog (frame 8) rather than stacking over it; closing it
+  // brings the settings back.
+  if (sharing && calendar && accessRules) {
+    return (
+      <AccessDialog
+        spaceId={calendar.spaceId!}
+        kind="calendar"
+        resourceId={calendar.id}
+        resourceName={calendar.name}
+        archived={false}
+        viewerId={accessRules.viewerId}
+        pricingUrl={accessRules.pricingUrl}
+        onChanged={() => {
+          setShared(true);
+          accessRules.onChanged?.();
+        }}
+        onExplain={accessRules.onExplain}
+        onNotify={(toast) => onNotify?.({ tone: toast.tone, title: toast.title })}
+        // What the calendar lists (its write setting) is read again once the levels were touched.
+        onClose={() => (shared ? onDone("saved") : setSharing(false))}
+      />
+    );
+  }
+
   return (
     <Dialog
       size="md"
@@ -347,25 +371,6 @@ export function CalendarSettingsDialog({
           </section>
         ) : null}
       </div>
-      {sharing && calendar && accessRules ? (
-        <AccessDialog
-          spaceId={calendar.spaceId!}
-          kind="calendar"
-          resourceId={calendar.id}
-          resourceName={calendar.name}
-          archived={false}
-          viewerId={accessRules.viewerId}
-          pricingUrl={accessRules.pricingUrl}
-          onChanged={() => {
-            setShared(true);
-            accessRules.onChanged?.();
-          }}
-          onExplain={accessRules.onExplain}
-          onNotify={(toast) => onNotify?.({ tone: toast.tone, title: toast.title })}
-          // What the calendar lists (its write setting) is read again once the levels were touched.
-          onClose={() => (shared ? onDone("saved") : setSharing(false))}
-        />
-      ) : null}
     </Dialog>
   );
 }

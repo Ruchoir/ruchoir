@@ -2634,7 +2634,18 @@
         "calendar": "Delegar el uso compartido de una agenda a quienes la gestionan: edición Enterprise.",
         "channel": "Delegar el uso compartido de un canal a quienes lo gestionan: edición Enterprise."
       }
-    }
+    },
+    "you": "Tú",
+    "delegation": {
+      "folder": "Gestionas esta carpeta: ajustas su acceso, dentro de tus propios permisos.",
+      "file": "Gestionas este archivo: ajustas su acceso, dentro de tus propios permisos.",
+      "calendar": "Gestionas esta agenda: ajustas su acceso, dentro de tus propios permisos.",
+      "channel": "Gestionas este canal: ajustas su acceso, dentro de tus propios permisos."
+    },
+    "delegationHead": "Tienes el nivel Gestionar en {{name}}.",
+    "delegationBody": "Te permite ajustar el acceso de los demás aquí, sin reservar todo el espacio ni cambiar tu propia línea.",
+    "delegationFoot": "Solo das permisos que tienes tú aquí. Todo queda en el diario, a tu nombre.",
+    "selectedRemove": "Quitar a {{name}} de la selección"
   },
   "customise": {
     "title": "Personalizar: {{name}}",

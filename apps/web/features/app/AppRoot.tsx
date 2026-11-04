@@ -206,7 +206,7 @@ import { oneLine } from "./preview";
 import { PreviewBanner } from "./PreviewBanner";
 import type { Place } from "../settings/usedInLogic.ts";
 import { PlaceNavContext } from "./placeNav";
-import { previewGone, previewToast } from "./previewLogic.ts";
+import { previewGone, previewToast, shouldShowToast } from "./previewLogic.ts";
 import { BottomTabs } from "./BottomTabs";
 import { UploadPanel } from "@/features/files/UploadPanel";
 import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchField, QuickLinks, SpaceMark } from "./mobile/MobileScreens";
@@ -1207,6 +1207,8 @@ function AppShell() {
    * the effect's dependencies would tear the WebSocket down and rebuild it on each one.
    */
   const notifyRef = useRef<((toast: Toast) => void) | null>(null);
+  /** When a write was last refused because the space is looked at as a role. */
+  const previewRefusedAt = useRef<number | undefined>(undefined);
   // The spaces whose end of access was already announced: the notice shows once.
   const endedToldRef = useRef(new Set<string>());
   // `switchWorkspace`, for the notice handler declared before it.
@@ -2286,6 +2288,9 @@ function AppShell() {
   };
 
   const showToast = (t: Toast) => {
+    // A write refused by a preview is said once, by the app; the screen's own failure toast that
+    // follows would only replace it with a worse explanation.
+    if (!shouldShowToast(previewRefusedAt.current, Date.now(), { tone: t.tone, isPreviewToast: t.title === tRef.current("preview.readOnlyTitle") })) return;
     setToast(t);
     setToastVisible(true);
     setToastKey((k) => k + 1);
@@ -2310,6 +2315,7 @@ function AppShell() {
     configureClient({
       onPreviewReadOnly: () => {
         const now = Date.now();
+        previewRefusedAt.current = now;
         if (now - last < 2000) return;
         last = now;
         const toast = previewToast();

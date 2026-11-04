@@ -2733,7 +2733,18 @@
         "calendar": "Delegowanie udostępniania kalendarza osobom, które nim zarządzają: wersja Enterprise.",
         "channel": "Delegowanie udostępniania kanału osobom, które nim zarządzają: wersja Enterprise."
       }
-    }
+    },
+    "you": "Ty",
+    "delegation": {
+      "folder": "Zarządzasz tym folderem: ustawiasz jego dostęp w granicach własnych uprawnień.",
+      "file": "Zarządzasz tym plikiem: ustawiasz jego dostęp w granicach własnych uprawnień.",
+      "calendar": "Zarządzasz tym kalendarzem: ustawiasz jego dostęp w granicach własnych uprawnień.",
+      "channel": "Zarządzasz tym kanałem: ustawiasz jego dostęp w granicach własnych uprawnień."
+    },
+    "delegationHead": "Masz poziom Zarządzaj dla {{name}}.",
+    "delegationBody": "Pozwala ustawiać tu dostęp innych, bez rezerwowania całej przestrzeni i bez zmiany własnej pozycji.",
+    "delegationFoot": "Nadajesz tylko uprawnienia, które tu posiadasz. Wszystko trafia do dziennika pod Twoim nazwiskiem.",
+    "selectedRemove": "Usuń {{name}} z zaznaczenia"
   },
   "customise": {
     "title": "Dostosuj: {{name}}",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Avatar, Button, Checkbox, Dialog, Icon, Input, Radio } from "@/components/ds";
+import { Avatar, Button, Checkbox, Dialog, Icon, IconButton, Input, Radio } from "@/components/ds";
 import { getAvatar } from "@/lib/data";
 import type { Member } from "@/lib/data/api";
 import { explainAccess, refusalOf, setAccessLevel } from "@/lib/data/api";
@@ -167,6 +167,20 @@ export function AddTargetDialog({
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {chosen.length > 0 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {[...picked.entries()].map(([id, p]) => (
+              <span
+                key={id}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 4px 2px 8px", border: "1px solid var(--border-default)", borderRadius: "var(--radius-full)", background: "var(--surface-raised)", fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-strong)" }}
+              >
+                {p.ref.kind === "group" ? <Icon name="users" size={13} aria-hidden /> : p.ref.kind === "role" ? <Icon name="shield-check" size={13} aria-hidden /> : <Avatar name={p.name} src={getAvatar(p.name)} size={18} />}
+                {p.name}
+                <IconButton icon="x" size="sm" label={t("access.selectedRemove", { name: p.name })} disabled={busy} onClick={() => toggle(id, p)} />
+              </span>
+            ))}
+          </div>
+        ) : null}
         <Input size="sm" icon="search" value={query} autoFocus onChange={(e) => setQuery(e.target.value)} placeholder={t("access.search")} aria-label={t("access.search")} />
         <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 280, overflow: "auto" }}>
           {section(

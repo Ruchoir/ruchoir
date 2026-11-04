@@ -101,7 +101,8 @@ export function entryNote(entry: EntryLike, entries: EntryLike[]): EntryNote | u
   if (entry.level === "none" && entry.target.kind !== "everyone") return { type: "deny" };
   if (entry.clamped) return { type: "clamped" };
   if (entry.target.kind !== "everyone" && entry.level !== "custom" && entry.level !== "none") {
-    const base = entries.find((e) => everyoneLine(e) === "members" && !e.inheritedFrom);
+    // A guest's floor is the guests line; a member's, the members line.
+    const base = entries.find((e) => everyoneLine(e) === (entry.guest ? "guests" : "members") && !e.inheritedFrom);
     if (base && base.level !== "custom" && RANK[base.level] > RANK[entry.level]) return { type: "atLeast", level: base.level };
   }
   return undefined;
@@ -138,6 +139,27 @@ export function askWho(members: { name: string; role: string; bot?: boolean }[])
   return [...people.filter((m) => m.role === "owner"), ...people.filter((m) => m.role === "admin")].slice(0, 3).map((m) => m.name);
 }
 
+/** The viewer's own line, which the dialog tags "Vous". */
+export function isYou(entry: EntryLike, viewerId: string | undefined): boolean {
+  return viewerId !== undefined && entry.target.kind === "user" && entry.target.id === viewerId;
+}
+
+/**
+ * The intro of a local manager's dialog (frame 10): with the paid edition, somebody who holds Gérer
+ * here through their own line sets the access of others within their own rights. The dictionary key,
+ * or nothing. The wire does not say who gave the level, so the sentence does not name a giver.
+ */
+export function delegationIntro(
+  access: { archived: boolean; may: { edit: boolean; fine: boolean }; entries: EntryLike[] },
+  viewerId: string | undefined,
+  kind: Kind,
+  isFolder: boolean,
+): string | undefined {
+  if (access.archived || !access.may.edit || !access.may.fine) return undefined;
+  if (!access.entries.some((e) => isYou(e, viewerId) && e.level === "manage")) return undefined;
+  return `access.delegation.${kind === "file" && isFolder ? "folder" : kind}`;
+}
+
 export function canEdit(access: AccessLike): boolean {
   return access.may.edit && !access.archived;
 }
@@ -163,9 +185,9 @@ export function privateNote(isPrivate: boolean, addedNames: string[]): { names: 
 
 const ORDER: Record<TargetKind, number> = { everyone: 0, role: 1, group: 2, audience: 3, user: 4 };
 
-/** The lines in the order the dialog shows them: Everyone, roles, groups, people; inherited ones last. */
+/** The lines in the order the dialog shows them: inherited ones first (frames 6 and 7), then Everyone, roles, groups, people. */
 export function groupEntries<E extends EntryLike>(entries: E[]): E[] {
-  const key = (e: E) => (e.inheritedFrom ? 10 : 0) + ORDER[e.target.kind];
+  const key = (e: E) => (e.inheritedFrom ? -10 : 0) + ORDER[e.target.kind];
   return entries.map((e, i) => ({ e, i })).sort((a, b) => key(a.e) - key(b.e) || a.i - b.i).map((x) => x.e);
 }
 

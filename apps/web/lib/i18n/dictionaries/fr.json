@@ -2569,7 +2569,18 @@
         "calendar": "Déléguer le partage d'un agenda à ceux qui le gèrent : édition Entreprise.",
         "channel": "Déléguer le partage d'un canal à ceux qui le gèrent : édition Entreprise."
       }
-    }
+    },
+    "you": "Vous",
+    "delegation": {
+      "folder": "Vous gérez ce dossier : vous en réglez l'accès, dans la limite de vos propres droits.",
+      "file": "Vous gérez ce fichier : vous en réglez l'accès, dans la limite de vos propres droits.",
+      "calendar": "Vous gérez cet agenda : vous en réglez l'accès, dans la limite de vos propres droits.",
+      "channel": "Vous gérez ce canal : vous en réglez l'accès, dans la limite de vos propres droits."
+    },
+    "delegationHead": "Vous avez le niveau Gérer sur {{name}}.",
+    "delegationBody": "Il vous permet de régler l'accès des autres ici, sans réserver tout l'espace ni changer votre propre ligne.",
+    "delegationFoot": "Vous ne donnez que des droits que vous avez vous-même ici. Tout est écrit au journal, sous votre nom.",
+    "selectedRemove": "Retirer {{name}} de la sélection"
   },
   "customise": {
     "title": "Personnaliser : {{name}}",

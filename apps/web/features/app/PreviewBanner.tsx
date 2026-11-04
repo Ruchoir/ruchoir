@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { Button, Icon } from "@/components/ds";
+import { Icon } from "@/components/ds";
 import { quitPreview } from "@/lib/data/api";
 import type { Preview } from "@/lib/data/types";
 import { useTranslation } from "@/lib/i18n";
@@ -46,9 +46,15 @@ export function PreviewBanner({ spaceId, spaceName, preview, onNotify }: { space
         ))}
       </span>
       <span style={{ fontSize: "var(--text-xs)", opacity: 0.8 }}>{t("preview.note", { minutes: words.minutes })}</span>
-      <Button size="sm" variant="secondary" disabled={busy} onClick={() => void quit()}>
+      {/* Its own colours: the design system's button takes the page's, dark on this dark band. */}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void quit()}
+        style={{ flex: "none", border: 0, borderRadius: "var(--radius-md)", padding: "5px 14px", background: "#fff", color: "#14161b", font: "inherit", fontSize: "var(--text-sm)", fontWeight: 700, cursor: "pointer" }}
+      >
         {t("preview.quit")}
-      </Button>
+      </button>
     </div>
   );
 }

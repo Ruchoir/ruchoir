@@ -2535,7 +2535,18 @@
         "calendar": "Delegating the sharing of a calendar to those who manage it: Enterprise edition.",
         "channel": "Delegating the sharing of a channel to those who manage it: Enterprise edition."
       }
-    }
+    },
+    "you": "You",
+    "delegation": {
+      "folder": "You manage this folder: you set its access, within your own rights.",
+      "file": "You manage this file: you set its access, within your own rights.",
+      "calendar": "You manage this calendar: you set its access, within your own rights.",
+      "channel": "You manage this channel: you set its access, within your own rights."
+    },
+    "delegationHead": "You have the Manage level on {{name}}.",
+    "delegationBody": "It lets you set other people's access here, without reserving the whole space or changing your own line.",
+    "delegationFoot": "You only give rights you hold yourself here. Everything is written to the journal under your name.",
+    "selectedRemove": "Remove {{name}} from the selection"
   },
   "customise": {
     "title": "Customise: {{name}}",
