@@ -969,3 +969,88 @@ async fn the_member_list_carries_group_ids() {
     );
     assert_eq!(row(fx.admin)["group_ids"], json!([]));
 }
+
+// --- Permissions hardening ---
+
+async fn name_in_a_rule(db: &DatabaseConnection, space: Uuid, group: Uuid) {
+    let channel: Uuid = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT default_channel_id AS id FROM spaces WHERE id = $1",
+            [space.into()],
+        ))
+        .await
+        .expect("query")
+        .expect("row")
+        .try_get("", "id")
+        .expect("id");
+    db.execute_raw(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "INSERT INTO permission_overrides (space_id, channel_id, group_id, allow, deny) \
+         VALUES ($1, $2, $3, ARRAY['channel.view'], ARRAY[]::text[])",
+        [space.into(), channel.into(), group.into()],
+    ))
+    .await
+    .expect("rule");
+}
+
+#[tokio::test]
+async fn nobody_gives_themselves_a_group_that_access_rules_name() {
+    let Some(app) = licensed().await else { return };
+    let fx = fixture(&app).await;
+    // No role, so `no_self_role` never fires: the group matters only because a rule names it.
+    let named = make_group(&app.db, fx.space, "Direction").await;
+    name_in_a_rule(&app.db, fx.space, named).await;
+    let plain = make_group(&app.db, fx.space, "Cafe").await;
+
+    let (status, body) = add(&app, fx.hr, fx.space, named, &[fx.hr]).await;
+    assert_eq!(status, 403, "{body}");
+    assert_eq!(body["reason"], "no_self_role");
+    let (status, body) = add(&app, fx.hr, fx.space, named, &[fx.member, fx.hr]).await;
+    assert_eq!(status, 403, "{body}");
+    // Someone else may put them in, the owner may do it for themselves, and a group no rule
+    // names stays free.
+    let (status, _) = add(&app, fx.admin, fx.space, named, &[fx.hr]).await;
+    assert_eq!(status, 200);
+    let (status, _) = add(&app, fx.owner, fx.space, named, &[fx.owner]).await;
+    assert_eq!(status, 200);
+    let (status, _) = add(&app, fx.hr, fx.space, plain, &[fx.hr]).await;
+    assert_eq!(status, 200);
+}
+
+#[tokio::test]
+async fn a_group_manager_cannot_act_on_people_ranked_above_them_in_a_role_group() {
+    let Some(app) = licensed().await else { return };
+    let fx = fixture(&app).await;
+    let low = make_role(&app.db, fx.space, "Comptable", 40, &["files.manage"]).await;
+    let high = make_role(&app.db, fx.space, "Direction", 80, &[]).await;
+    let boss = make_user(&app.db, "boss").await;
+    crate::testkit::add_member(&app.db, fx.space, boss, "member").await;
+    assign(&app.db, fx.space, boss, high).await;
+    let group = make_group(&app.db, fx.space, "Compta").await;
+    give_role_to_group(&app.db, group, fx.space, low)
+        .await
+        .expect("role");
+    put_in_group(&app.db, group, fx.space, fx.member, false).await;
+    make_manager(&app.db, group, fx.member).await;
+    put_in_group(&app.db, group, fx.space, boss, false).await;
+
+    // Taking the boss out, or bringing the boss in, is above the manager.
+    let (status, body) = remove(&app, fx.member, fx.space, group, boss).await;
+    assert_eq!(status, 403, "{body}");
+    assert_eq!(body["reason"], "person_above_you");
+    let other = make_group(&app.db, fx.space, "Compta2").await;
+    give_role_to_group(&app.db, other, fx.space, low)
+        .await
+        .expect("role");
+    put_in_group(&app.db, other, fx.space, fx.member, false).await;
+    make_manager(&app.db, other, fx.member).await;
+    let (status, body) = add(&app, fx.member, fx.space, other, &[boss]).await;
+    assert_eq!(status, 403, "{body}");
+    assert_eq!(body["reason"], "person_above_you");
+    // Someone below them is theirs to add and to remove.
+    let (status, _) = add(&app, fx.member, fx.space, group, &[fx.guest]).await;
+    assert_eq!(status, 200);
+    let (status, _) = remove(&app, fx.member, fx.space, group, fx.guest).await;
+    assert_eq!(status, 204);
+}
