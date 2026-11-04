@@ -79,7 +79,7 @@ pub async fn execute<S: BlobSink>(
         )));
     }
 
-    let existing = existing_for(db, admin).await?;
+    let existing = existing_for(db, admin, &crate::edition::CommunityEdition).await?;
     let plan: Plan = plan::build(&index, &existing);
 
     let job_id = run::start_job(db, &source, admin, None, "{}").await?;
@@ -135,7 +135,7 @@ async fn run_into<S: BlobSink>(
         finish(db, job_id, "failed", &reason).await?;
         return Err(RunError::Ambiguous(reason));
     }
-    let existing = existing_for(db, admin).await?;
+    let existing = existing_for(db, admin, &crate::edition::CommunityEdition).await?;
     let plan = plan::build(&index, &existing);
     run_passes(
         db, storage, archive, passphrase, admin, job_id, index, plan, settings,
@@ -168,7 +168,7 @@ async fn run_passes<S: BlobSink>(
         .and_then(|job| serde_json::from_str::<serde_json::Value>(&job.options).ok())
         .and_then(|options| serde_json::from_value(options.get("people")?.clone()).ok())
         .unwrap_or_default();
-    let existing = existing_for(db, admin).await?;
+    let existing = existing_for(db, admin, &crate::edition::CommunityEdition).await?;
     if !choices.is_empty() {
         plan::apply_choices(&mut plan, &choices, &existing);
     }
@@ -331,7 +331,11 @@ async fn run_passes<S: BlobSink>(
 /// An administrator of the instance sees all of it. Anybody else sees only their own address and no
 /// space at all: see [`Existing::scoped`] for why. Shared by the plan screen and the run, so the two
 /// can never disagree about what an import will touch.
-pub async fn existing_for(db: &DatabaseConnection, importer: Uuid) -> Result<Existing, RunError> {
+pub async fn existing_for(
+    db: &DatabaseConnection,
+    importer: Uuid,
+    edition: &dyn crate::edition::Edition,
+) -> Result<Existing, RunError> {
     use crate::entities::{spaces, users};
 
     let Some(me) = users::Entity::find_by_id(importer).one(db).await? else {
@@ -341,6 +345,7 @@ pub async fn existing_for(db: &DatabaseConnection, importer: Uuid) -> Result<Exi
     };
     if !me.is_instance_admin {
         return Ok(Existing {
+            importer_email: me.email.clone(),
             emails: vec![me.email],
             scoped: true,
             ..Default::default()
@@ -360,11 +365,60 @@ pub async fn existing_for(db: &DatabaseConnection, importer: Uuid) -> Result<Exi
         .map(|space| space.name)
         .collect();
     Ok(Existing {
+        importer_email: me.email,
         emails,
         space_names,
         channels: run::existing_channels(db).await?,
         scoped: false,
+        space_people: space_people(db, edition).await?,
     })
+}
+
+/// The people and seats of every space here, grouped by folded name. Only the plan reads it.
+async fn space_people(
+    db: &DatabaseConnection,
+    edition: &dyn crate::edition::Edition,
+) -> Result<Vec<plan::SpacePeople>, RunError> {
+    use crate::edition::{seats_used, Entitlement};
+    use crate::entities::spaces;
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+
+    let mut out: Vec<plan::SpacePeople> = Vec::new();
+    for space in spaces::Entity::find().all(db).await? {
+        let folded = space.name.trim().to_lowercase();
+        // management: ended guests count as people already there (their rows are not erased).
+        let emails: Vec<String> = db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT u.email FROM space_members m JOIN users u ON u.id = m.user_id \
+                 WHERE m.space_id = $1",
+                [space.id.into()],
+            ))
+            .await?
+            .iter()
+            .filter_map(|row| row.try_get::<String>("", "email").ok())
+            .collect();
+        let (seats, roles_allowed) = match edition.entitlement(db, space.id).await? {
+            Entitlement::Community => (None, false),
+            Entitlement::Enterprise { seats, .. } => (Some(seats), true),
+            Entitlement::Frozen { seats, .. } => (Some(seats), false),
+        };
+        let used = seats_used(db, space.id).await?;
+        if let Some(found) = out.iter_mut().find(|p| p.name_folded == folded) {
+            found.ambiguous = true;
+            found.emails.extend(emails);
+            continue;
+        }
+        out.push(plan::SpacePeople {
+            name_folded: folded,
+            emails,
+            seats_used: used,
+            seats,
+            custom_roles_allowed: roles_allowed,
+            ambiguous: false,
+        });
+    }
+    Ok(out)
 }
 
 async fn note_progress(

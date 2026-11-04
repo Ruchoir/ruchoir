@@ -12199,6 +12199,9 @@ mod guest_expiry_routes_tests;
 #[cfg(test)]
 mod guest_standing_tests;
 
+/// The people block of the import plan and the seats refusal, in their own file.
+mod import_people_tests;
+
 // --- The six-digit code sent next to the verification link ---
 
 /// A fresh pending account, as registration leaves it: its id and address.

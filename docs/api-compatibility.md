@@ -133,6 +133,14 @@ a rule written before they were recorded, for a line no rule stands behind, and 
 has left the space, both are `null` (`set_by` alone is `null` once the account is gone). The fields
 only grow the entries: nothing else changed.
 
+`POST /api/v1/imports/plan` answers a `people` block beside the rest (`administrators`, `guests`,
+`moderators`, `groups` and `already_here` as the first five names with `groups_total` and
+`already_here_total`, `fallbacks` of roles the server cannot create, `seats` with one line per filled
+licensed space, `custom_roles`): an addition no older app reads. `POST /api/v1/imports` answers the
+usual `402 seats_full` (`seats`, `pricing_url`) when a filled space has too few seats for the people
+the archive brings, before any job exists. Archive format 2 (`docs/import-archive.md`) needs no feature
+name: an older instance refuses a format 2 archive with its version message.
+
 The last two are the enterprise edition's own names, listed after the instance's by that build
 only (`Edition::features`). What every instance of this version answers, whatever its edition,
 needs no name: a space's `edition` and, for its owners, `licence`; `GET .../roles` and

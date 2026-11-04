@@ -88,6 +88,85 @@ pub struct PlanResponse {
     /// Problems the contract checks allow but an administrator should see, such as a reading
     /// position naming a message that did not cross.
     pub warnings: Vec<String>,
+    /// Who arrives with which role, and what it costs in seats (format 2 archives; an old archive
+    /// reports its conversation members as plain members).
+    pub people: PeoplePlanResponse,
+}
+
+/// How many names of a list the plan spells out; the total is always given.
+const NAMES_SHOWN: usize = 5;
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PeoplePlanResponse {
+    pub administrators: usize,
+    pub guests: usize,
+    pub moderators: usize,
+    /// The first names of the groups that would be created.
+    pub groups: Vec<String>,
+    pub groups_total: usize,
+    /// The first names of the people already in their space, whose role is left alone.
+    pub already_here: Vec<String>,
+    pub already_here_total: usize,
+    /// Roles of the source this server cannot create, and the fixed role they fall back to.
+    pub fallbacks: Vec<PlannedFallbackResponse>,
+    /// One line per filled, licensed space.
+    pub seats: Vec<SeatsLineResponse>,
+    /// Custom roles that would be created.
+    pub custom_roles: usize,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PlannedFallbackResponse {
+    pub role: String,
+    /// `member` or `admin`.
+    pub fixed: String,
+    pub people: usize,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SeatsLineResponse {
+    pub space: String,
+    pub used: u32,
+    pub incoming: u32,
+    pub total: u32,
+    pub over: bool,
+}
+
+impl From<plan::PeoplePlan> for PeoplePlanResponse {
+    fn from(people: plan::PeoplePlan) -> Self {
+        let groups_total = people.groups.len();
+        let already_here_total = people.already_here.len();
+        Self {
+            administrators: people.administrators,
+            guests: people.guests,
+            moderators: people.moderators,
+            groups: people.groups.into_iter().take(NAMES_SHOWN).collect(),
+            groups_total,
+            already_here: people.already_here.into_iter().take(NAMES_SHOWN).collect(),
+            already_here_total,
+            fallbacks: people
+                .fallbacks
+                .into_iter()
+                .map(|f| PlannedFallbackResponse {
+                    role: f.role,
+                    fixed: f.fixed,
+                    people: f.people,
+                })
+                .collect(),
+            seats: people
+                .seats
+                .into_iter()
+                .map(|l| SeatsLineResponse {
+                    space: l.space,
+                    used: l.used,
+                    incoming: l.incoming,
+                    total: l.total,
+                    over: l.over,
+                })
+                .collect(),
+            custom_roles: people.custom_roles,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -207,10 +286,11 @@ pub async fn preview(
         )));
     }
 
-    let existing = super::job::existing_for(&state.db, session.user_id)
+    let existing = super::job::existing_for(&state.db, session.user_id, state.edition.as_ref())
         .await
         .map_err(|_| ApiError::Internal)?;
     let plan = plan::build(&index, &existing);
+    let people = plan::people_plan(&index, &plan, &existing);
 
     // What emptying the instance would destroy is the instance's business: counted for its
     // administrators, and nothing at all for anybody else, who could not ask for it anyway.
@@ -287,6 +367,7 @@ pub async fn preview(
         events: index.event_count,
         limits: plan.limits,
         warnings: report.warnings(),
+        people: people.into(),
     }))
 }
 
@@ -305,6 +386,7 @@ pub async fn preview(
         (status = 400, description = "The archive does not hold together"),
         (status = 404, description = "No archive of that name for this caller, or a replacement \
                                         asked for by somebody who does not administer the instance"),
+        (status = 402, description = "A space the import fills has too few seats for the people it brings"),
         (status = 409, description = "An import is already running")
     )
 )]
@@ -318,16 +400,6 @@ pub async fn start(
     // at, and as a door that is not there.
     if body.replace_everything.is_some() && !is_admin {
         return Err(ApiError::NotFound);
-    }
-    // One at a time. Two would write over each other's progress and race on the same accounts,
-    // and the answer to "why did my import stop counting" would be another import.
-    if super::run::one_is_running(&state.db)
-        .await
-        .map_err(|_| ApiError::Internal)?
-    {
-        return Err(ApiError::Conflict(
-            "an import is already running on this instance",
-        ));
     }
     let path = resolve(&state, &body.file, (!is_admin).then_some(session.user_id))?;
 
@@ -348,6 +420,36 @@ pub async fn start(
         .as_ref()
         .map(|manifest| manifest.source.clone())
         .unwrap_or_default();
+    // Seats are counted again here, with the administrator's choices applied, before anything is
+    // written and before a job row exists: a refusal leaves nothing behind. A replacement empties
+    // the instance first, so every space is then created and none has a seat to run out of.
+    if body.replace_everything.is_none() {
+        let existing = super::job::existing_for(&state.db, session.user_id, state.edition.as_ref())
+            .await
+            .map_err(|_| ApiError::Internal)?;
+        let mut plan = plan::build(&index, &existing);
+        plan::apply_choices(&mut plan, &body.people, &existing);
+        if let Some(line) = plan::people_plan(&index, &plan, &existing)
+            .seats
+            .into_iter()
+            .find(|line| line.over)
+        {
+            return Err(ApiError::SeatsFull {
+                seats: line.total,
+                pricing_url: state.config.pricing_url.clone(),
+            });
+        }
+    }
+    // One at a time. Two would write over each other's progress and race on the same accounts,
+    // and the answer to "why did my import stop counting" would be another import.
+    if super::run::one_is_running(&state.db)
+        .await
+        .map_err(|_| ApiError::Internal)?
+    {
+        return Err(ApiError::Conflict(
+            "an import is already running on this instance",
+        ));
+    }
     // The replacement happens before the job exists, and before anything is imported: an
     // administrator who asked for it and got a refusal has lost nothing, where one who got it
     // halfway through an import would have lost everything twice.

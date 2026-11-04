@@ -4196,6 +4196,76 @@
         ],
         "type": "object"
       },
+      "PeoplePlanResponse": {
+        "properties": {
+          "administrators": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "already_here": {
+            "description": "The first names of the people already in their space, whose role is left alone.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "already_here_total": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "custom_roles": {
+            "description": "Custom roles that would be created.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fallbacks": {
+            "description": "Roles of the source this server cannot create, and the fixed role they fall back to.",
+            "items": {
+              "$ref": "#/components/schemas/PlannedFallbackResponse"
+            },
+            "type": "array"
+          },
+          "groups": {
+            "description": "The first names of the groups that would be created.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "groups_total": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "guests": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "moderators": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "seats": {
+            "description": "One line per filled, licensed space.",
+            "items": {
+              "$ref": "#/components/schemas/SeatsLineResponse"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "administrators",
+          "guests",
+          "moderators",
+          "groups",
+          "groups_total",
+          "already_here",
+          "already_here_total",
+          "fallbacks",
+          "seats",
+          "custom_roles"
+        ],
+        "type": "object"
+      },
       "PersonChoice": {
         "description": "What an administrator changed about the people in an archive, after reading the plan and before\nthe run.\n\nHeld apart from the plan because it is not the archive's word: the archive says what its source\nheld, and this says what somebody decided about it. Carried on the job so a run resumed tomorrow\nmakes the same decisions as the one that started today.",
         "properties": {
@@ -4262,6 +4332,10 @@
             "minimum": 0,
             "type": "integer"
           },
+          "people": {
+            "$ref": "#/components/schemas/PeoplePlanResponse",
+            "description": "Who arrives with which role, and what it costs in seats (format 2 archives; an old archive\nreports its conversation members as plain members)."
+          },
           "replacing_would_destroy": {
             "$ref": "#/components/schemas/WhatDiesResponse",
             "description": "What replacing the instance would destroy, so the screen can show it next to what would\narrive. Counted on every plan, whether or not a replacement is asked for: an administrator\ndeciding between the two should see both halves at once."
@@ -4293,7 +4367,8 @@
           "calendars",
           "events",
           "limits",
-          "warnings"
+          "warnings",
+          "people"
         ],
         "type": "object"
       },
@@ -4351,6 +4426,27 @@
           "matched",
           "invitable",
           "without_address",
+          "people"
+        ],
+        "type": "object"
+      },
+      "PlannedFallbackResponse": {
+        "properties": {
+          "fixed": {
+            "description": "`member` or `admin`.",
+            "type": "string"
+          },
+          "people": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "fixed",
           "people"
         ],
         "type": "object"
@@ -5000,6 +5096,39 @@
         "required": [
           "messages",
           "files"
+        ],
+        "type": "object"
+      },
+      "SeatsLineResponse": {
+        "properties": {
+          "incoming": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "over": {
+            "type": "boolean"
+          },
+          "space": {
+            "type": "string"
+          },
+          "total": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "used": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "space",
+          "used",
+          "incoming",
+          "total",
+          "over"
         ],
         "type": "object"
       },
@@ -10411,6 +10540,9 @@
           },
           "400": {
             "description": "The archive does not hold together"
+          },
+          "402": {
+            "description": "A space the import fills has too few seats for the people it brings"
           },
           "404": {
             "description": "No archive of that name for this caller, or a replacement asked for by somebody who does not administer the instance"

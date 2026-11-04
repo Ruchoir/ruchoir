@@ -15,7 +15,7 @@
 //! the ordinary case rather than the exception: a Nextcloud with no mail server has no addresses at
 //! all, six out of six in the fixture we develop against.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::archive::Index;
 
@@ -193,6 +193,28 @@ pub struct Existing {
     /// account, and creating a waiting account under it would lock that stranger out of registering
     /// (an address held by a waiting account can only be claimed through an invitation).
     pub scoped: bool,
+    /// The importer's own address, so the plan can say they are already in a space they create
+    /// (they own it, whatever the archive lists them as).
+    pub importer_email: String,
+    /// What the spaces here hold in people and seats, for the people block of the plan. Filled for an
+    /// instance administrator only: a scoped import creates spaces and fills none.
+    pub space_people: Vec<SpacePeople>,
+}
+
+/// The people and seats of the spaces here that share one name (names are what the run matches on).
+#[derive(Debug, Clone, Default)]
+pub struct SpacePeople {
+    pub name_folded: String,
+    /// Addresses of the people already in the space.
+    pub emails: Vec<String>,
+    /// Owners and members: what the seats count.
+    pub seats_used: u32,
+    /// The seats sold, for a space whose entitlement is licensed (live or frozen); `None` otherwise.
+    pub seats: Option<u32>,
+    /// Whether an import may still create custom roles there (a licence that is live).
+    pub custom_roles_allowed: bool,
+    /// Several spaces carry this name: the run refuses it, and the plan shows no seats for it.
+    pub ambiguous: bool,
 }
 
 pub fn build(index: &Index, existing: &Existing) -> Plan {
@@ -300,6 +322,192 @@ pub fn build(index: &Index, existing: &Existing) -> Plan {
         bytes: index.files.iter().map(|f| f.size).sum(),
         limits,
     }
+}
+
+// --- the people block -------------------------------------------------------------------------
+
+/// Roles an archive gives that this server cannot create, and the fixed role they fall back to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlannedFallback {
+    pub role: String,
+    /// `member` or `admin`.
+    pub fixed: String,
+    pub people: usize,
+}
+
+/// One filled, licensed space: its seats now, what arrives, and whether that is too many.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeatsLine {
+    pub space: String,
+    pub used: u32,
+    pub incoming: u32,
+    pub total: u32,
+    pub over: bool,
+}
+
+/// Who arrives with which role, and what it costs in seats. Pure, like the plan itself.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PeoplePlan {
+    pub administrators: usize,
+    pub guests: usize,
+    pub moderators: usize,
+    pub groups: Vec<String>,
+    /// Names of the people who are in their space already; their role is never changed.
+    pub already_here: Vec<String>,
+    pub fallbacks: Vec<PlannedFallback>,
+    pub seats: Vec<SeatsLine>,
+    pub custom_roles: usize,
+}
+
+/// What the archive says about people, set against what the instance holds.
+///
+/// Skipped people are left out altogether. A person already in the space (matched on their
+/// address, or the importer in a space they create) keeps their role and is neither an
+/// administrator, a guest nor a seat. A space the import creates never has a licence, so it has no
+/// seats line and its custom roles fall back (a created space has none to be licensed by).
+pub fn people_plan(index: &Index, plan: &Plan, existing: &Existing) -> PeoplePlan {
+    let account: HashMap<&str, &AccountPlan> = plan
+        .accounts
+        .iter()
+        .map(|a| (a.source_id.as_str(), a))
+        .collect();
+    let roles: HashMap<(&str, &str), &super::archive::RoleRecord> = index
+        .roles
+        .iter()
+        .map(|r| ((r.space.as_str(), r.id.as_str()), r))
+        .collect();
+    let importer = existing.importer_email.trim().to_lowercase();
+
+    let mut out = PeoplePlan::default();
+    let mut fallbacks: Vec<PlannedFallback> = Vec::new();
+    for group in &index.groups {
+        out.groups.push(group.name.clone());
+    }
+
+    for space in &plan.spaces {
+        let is_filled = space.outcome == SpaceOutcome::Filled;
+        let here = if is_filled {
+            let folded = space.name.trim().to_lowercase();
+            existing
+                .space_people
+                .iter()
+                .find(|p| p.name_folded == folded)
+        } else {
+            None
+        };
+        let space_id = space.source_id.as_str();
+
+        // Everyone the archive puts in this space, with the role it gives them.
+        let mut role_of: Vec<(&str, &str, &[String])> = Vec::new();
+        let mut listed: HashSet<&str> = HashSet::new();
+        for line in index.members.iter().filter(|m| m.space == space_id) {
+            if listed.insert(line.user.as_str()) {
+                role_of.push((line.user.as_str(), line.role.as_str(), &line.roles));
+            }
+        }
+        // Anyone in a conversation or a group of the space but on no line is admitted as a member.
+        let mut also: Vec<&str> = Vec::new();
+        for channel in index.channels.iter().filter(|c| c.space == space_id) {
+            also.extend(channel.members.iter().map(String::as_str));
+        }
+        for group in index.groups.iter().filter(|g| g.space == space_id) {
+            also.extend(group.members.iter().map(String::as_str));
+        }
+        for user in also {
+            if listed.insert(user) {
+                role_of.push((user, "member", &[]));
+            }
+        }
+
+        let mut incoming: u32 = 0;
+        let mut used_roles: HashSet<&str> = HashSet::new();
+        for (user, role, held) in &role_of {
+            let Some(person) = account.get(user) else {
+                continue;
+            };
+            if person.skipped {
+                continue;
+            }
+            let email = person.email.trim().to_lowercase();
+            let in_already = !email.is_empty()
+                && if is_filled {
+                    here.is_some_and(|h| h.emails.iter().any(|e| e.to_lowercase() == email))
+                } else {
+                    email == importer
+                };
+            if in_already {
+                if !out.already_here.contains(&person.display_name) {
+                    out.already_here.push(person.display_name.clone());
+                }
+                continue;
+            }
+            match *role {
+                "admin" => out.administrators += 1,
+                "guest" => out.guests += 1,
+                _ => {}
+            }
+            if *role != "guest" {
+                incoming += 1;
+                for id in *held {
+                    let Some(record) = roles.get(&(space_id, id.as_str())) else {
+                        continue;
+                    };
+                    if here.is_some_and(|h| h.custom_roles_allowed) {
+                        used_roles.insert(id.as_str());
+                    } else {
+                        let fixed = if record.based_on == "admin" {
+                            "admin"
+                        } else {
+                            "member"
+                        };
+                        match fallbacks
+                            .iter_mut()
+                            .find(|f| f.role == record.name && f.fixed == fixed)
+                        {
+                            Some(found) => found.people += 1,
+                            None => fallbacks.push(PlannedFallback {
+                                role: record.name.clone(),
+                                fixed: fixed.to_owned(),
+                                people: 1,
+                            }),
+                        }
+                    }
+                }
+            }
+        }
+        out.custom_roles += used_roles.len();
+
+        // Moderators: people of the space who are not guests there (a guest is written a member).
+        let guests_here: HashSet<&str> = role_of
+            .iter()
+            .filter(|(_, role, _)| *role == "guest")
+            .map(|(user, _, _)| *user)
+            .collect();
+        let mut moderating: HashSet<&str> = HashSet::new();
+        for channel in index.channels.iter().filter(|c| c.space == space_id) {
+            for moderator in &channel.moderators {
+                let skipped = account.get(moderator.as_str()).is_none_or(|a| a.skipped);
+                if !skipped && !guests_here.contains(moderator.as_str()) {
+                    moderating.insert(moderator.as_str());
+                }
+            }
+        }
+        out.moderators += moderating.len();
+
+        if let Some(h) = here {
+            if let (Some(total), false) = (h.seats, h.ambiguous) {
+                out.seats.push(SeatsLine {
+                    space: space.name.clone(),
+                    used: h.seats_used,
+                    incoming,
+                    total,
+                    over: h.seats_used + incoming > total,
+                });
+            }
+        }
+    }
+    out.fallbacks = fallbacks;
+    out
 }
 
 #[cfg(test)]
@@ -722,5 +930,278 @@ mod choice_tests {
             &existing,
         );
         assert_eq!(plan.accounts[0].outcome, AccountOutcome::Matched);
+    }
+}
+
+/// What the plan says about the people (format 2): who arrives with which role, and the seats.
+#[cfg(test)]
+mod people_plan_tests {
+    use super::tests::{channel, index_with, space, user};
+    use super::*;
+    use crate::importer::archive::{GroupRecord, MemberRecord, RoleRecord};
+
+    fn line(space: &str, user: &str, role: &str, roles: &[&str]) -> MemberRecord {
+        MemberRecord {
+            space: space.into(),
+            user: user.into(),
+            role: role.into(),
+            roles: roles.iter().map(|r| (*r).to_owned()).collect(),
+        }
+    }
+
+    fn licensed(name: &str, used: u32, total: u32, emails: &[&str]) -> SpacePeople {
+        SpacePeople {
+            name_folded: name.to_lowercase(),
+            emails: emails.iter().map(|e| (*e).to_owned()).collect(),
+            seats_used: used,
+            seats: Some(total),
+            custom_roles_allowed: true,
+            ambiguous: false,
+        }
+    }
+
+    /// One space "Atelier" and `n` accounts u0..un with addresses, none of them placed yet.
+    fn archive(n: usize) -> Index {
+        let users = (0..n)
+            .map(|i| user(&format!("u{i}"), &format!("u{i}@example.org")))
+            .collect();
+        index_with(users, vec![space("atelier", "Atelier")], vec![])
+    }
+
+    fn filled(people: Vec<SpacePeople>) -> Existing {
+        Existing {
+            space_names: vec!["Atelier".into()],
+            space_people: people,
+            ..Default::default()
+        }
+    }
+
+    fn plan_people(index: &Index, existing: &Existing) -> PeoplePlan {
+        let plan = build(index, existing);
+        people_plan(index, &plan, existing)
+    }
+
+    #[test]
+    fn administrators_guests_and_moderators_are_counted_per_space() {
+        let mut index = archive(5);
+        index.spaces.push(space("bureau", "Bureau"));
+        index.members = vec![
+            line("atelier", "u0", "admin", &[]),
+            line("atelier", "u1", "guest", &[]),
+            line("atelier", "u2", "member", &[]),
+            line("bureau", "u3", "admin", &[]),
+            line("bureau", "u4", "guest", &[]),
+        ];
+        let mut general = channel("c1", "atelier", "channel");
+        general.members = vec!["u0".into(), "u1".into(), "u2".into()];
+        // A guest cannot moderate: only u2 counts.
+        general.moderators = vec!["u2".into(), "u1".into()];
+        index.channels = vec![general];
+
+        let people = plan_people(&index, &Existing::default());
+        assert_eq!(people.administrators, 2);
+        assert_eq!(people.guests, 2);
+        assert_eq!(people.moderators, 1);
+        assert!(people.already_here.is_empty());
+    }
+
+    #[test]
+    fn a_person_already_in_the_space_keeps_their_role_and_takes_no_seat() {
+        let mut index = archive(3);
+        index.members = vec![
+            line("atelier", "u0", "admin", &[]),
+            line("atelier", "u1", "guest", &[]),
+            line("atelier", "u2", "member", &[]),
+        ];
+        // u0 is in the space already: their role stays, they are neither an arrival nor a seat.
+        let existing = filled(vec![licensed("atelier", 5, 25, &["U0@example.org"])]);
+        let people = plan_people(&index, &existing);
+        assert_eq!(people.administrators, 0);
+        assert_eq!(people.already_here, vec!["u0".to_owned()]);
+        assert_eq!(people.guests, 1);
+        assert_eq!(people.seats[0].incoming, 1);
+    }
+
+    #[test]
+    fn guests_take_no_seat() {
+        let mut index = archive(3);
+        index.members = vec![
+            line("atelier", "u0", "guest", &[]),
+            line("atelier", "u1", "guest", &[]),
+            line("atelier", "u2", "member", &[]),
+        ];
+        let people = plan_people(&index, &filled(vec![licensed("atelier", 0, 10, &[])]));
+        assert_eq!(people.seats[0].incoming, 1);
+    }
+
+    #[test]
+    fn the_importer_is_already_there_in_a_created_space() {
+        let mut index = archive(2);
+        index.members = vec![
+            line("atelier", "u0", "guest", &[]),
+            line("atelier", "u1", "admin", &[]),
+        ];
+        let existing = Existing {
+            importer_email: "u0@example.org".into(),
+            ..Default::default()
+        };
+        let people = plan_people(&index, &existing);
+        assert_eq!(people.already_here, vec!["u0".to_owned()]);
+        assert_eq!(
+            people.guests, 0,
+            "the importer owns the space, whatever the archive says"
+        );
+        assert_eq!(people.administrators, 1);
+    }
+
+    #[test]
+    fn a_created_space_has_no_seats_line() {
+        let mut index = archive(2);
+        index.members = vec![line("atelier", "u0", "member", &[])];
+        // A licence exists for a space of that name elsewhere; this one is created, so it has none.
+        let existing = Existing {
+            space_names: vec!["Ailleurs".into()],
+            space_people: vec![licensed("atelier", 1, 2, &[])],
+            ..Default::default()
+        };
+        assert!(plan_people(&index, &existing).seats.is_empty());
+    }
+
+    #[test]
+    fn a_filled_licensed_space_gets_its_seats_line() {
+        let mut index = archive(11);
+        index.members = (0..11)
+            .map(|i| line("atelier", &format!("u{i}"), "member", &[]))
+            .collect();
+        let people = plan_people(&index, &filled(vec![licensed("atelier", 1, 25, &[])]));
+        assert_eq!(
+            people.seats,
+            vec![SeatsLine {
+                space: "Atelier".into(),
+                used: 1,
+                incoming: 11,
+                total: 25,
+                over: false
+            }]
+        );
+    }
+
+    #[test]
+    fn over_the_seats_is_flagged_with_the_missing_count() {
+        let mut index = archive(11);
+        index.members = (0..11)
+            .map(|i| line("atelier", &format!("u{i}"), "member", &[]))
+            .collect();
+        let people = plan_people(&index, &filled(vec![licensed("atelier", 10, 20, &[])]));
+        let seats = &people.seats[0];
+        assert!(seats.over);
+        assert_eq!(seats.used + seats.incoming - seats.total, 1);
+    }
+
+    #[test]
+    fn a_skipped_person_takes_no_seat() {
+        let mut index = archive(3);
+        index.members = (0..3)
+            .map(|i| line("atelier", &format!("u{i}"), "admin", &[]))
+            .collect();
+        let existing = filled(vec![licensed("atelier", 0, 10, &[])]);
+        let mut plan = build(&index, &existing);
+        apply_choices(
+            &mut plan,
+            &[PersonChoice {
+                source_id: "u1".into(),
+                email: None,
+                skip: true,
+            }],
+            &existing,
+        );
+        let people = people_plan(&index, &plan, &existing);
+        assert_eq!(people.seats[0].incoming, 2);
+        assert_eq!(people.administrators, 2);
+    }
+
+    #[test]
+    fn an_address_given_by_hand_can_turn_a_new_person_into_one_already_here() {
+        let mut index = archive(1);
+        index.users.push(user("nomail", ""));
+        index.members = vec![
+            line("atelier", "u0", "member", &[]),
+            line("atelier", "nomail", "member", &[]),
+        ];
+        let existing = filled(vec![licensed("atelier", 3, 10, &["known@example.org"])]);
+        let mut plan = build(&index, &existing);
+        let before = people_plan(&index, &plan, &existing);
+        assert_eq!(before.seats[0].incoming, 2);
+        assert!(before.already_here.is_empty());
+
+        apply_choices(
+            &mut plan,
+            &[PersonChoice {
+                source_id: "nomail".into(),
+                email: Some("known@example.org".into()),
+                skip: false,
+            }],
+            &existing,
+        );
+        let after = people_plan(&index, &plan, &existing);
+        assert_eq!(after.already_here, vec!["nomail".to_owned()]);
+        assert_eq!(after.seats[0].incoming, 1);
+    }
+
+    #[test]
+    fn a_custom_role_in_an_unlicensed_space_is_a_fallback() {
+        let mut index = archive(3);
+        index.roles = vec![RoleRecord {
+            id: "r1".into(),
+            space: "atelier".into(),
+            name: "Moderators".into(),
+            based_on: "admin".into(),
+        }];
+        index.members = vec![
+            line("atelier", "u0", "member", &["r1"]),
+            line("atelier", "u1", "member", &["r1"]),
+            line("atelier", "u2", "guest", &["r1"]),
+        ];
+        let people = plan_people(&index, &Existing::default());
+        assert_eq!(people.custom_roles, 0);
+        assert_eq!(
+            people.fallbacks,
+            vec![PlannedFallback {
+                role: "Moderators".into(),
+                fixed: "admin".into(),
+                people: 2
+            }],
+            "a guest ignores roles, so does not count"
+        );
+
+        // The same archive in a licensed filled space creates the role.
+        let licensed_here = plan_people(&index, &filled(vec![licensed("atelier", 0, 10, &[])]));
+        assert_eq!(licensed_here.custom_roles, 1);
+        assert!(licensed_here.fallbacks.is_empty());
+    }
+
+    #[test]
+    fn a_group_member_listed_nowhere_counts_one_seat() {
+        let mut index = archive(3);
+        index.members = vec![line("atelier", "u0", "member", &[])];
+        index.groups = vec![GroupRecord {
+            id: "g1".into(),
+            space: "atelier".into(),
+            name: "Design".into(),
+            description: String::new(),
+            members: vec!["u0".into(), "u1".into()],
+        }];
+        let people = plan_people(&index, &filled(vec![licensed("atelier", 0, 10, &[])]));
+        assert_eq!(people.seats[0].incoming, 2);
+        assert_eq!(people.groups, vec!["Design".to_owned()]);
+    }
+
+    #[test]
+    fn an_ambiguous_space_name_shows_no_seats_line() {
+        let mut index = archive(1);
+        index.members = vec![line("atelier", "u0", "member", &[])];
+        let mut here = licensed("atelier", 1, 5, &[]);
+        here.ambiguous = true;
+        assert!(plan_people(&index, &filled(vec![here])).seats.is_empty());
     }
 }
