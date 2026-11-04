@@ -12806,3 +12806,6 @@ mod hardening_race_tests;
 
 #[cfg(test)]
 mod hardening_limit_tests;
+
+#[cfg(test)]
+mod hardening_messaging_tests;
