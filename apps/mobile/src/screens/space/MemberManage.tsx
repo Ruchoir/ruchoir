@@ -7,7 +7,6 @@
 import { refusalOf, type Group, type Member, type Role, type Workspace } from "@ruchoir/client";
 import {
   choiceRefusal,
-  dateBounds,
   daysLeft,
   expiryTone,
   gestionControls,
@@ -17,17 +16,17 @@ import {
   rightsOf,
   roleIdsToSave,
   rolesViaGroups,
+  seatsAfterInvite,
   standingGain,
   standingLoss,
   type EndChoice,
   type Line,
   type RoleChoice,
 } from "@ruchoir/client/permissionsLogic";
-import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { Lock, UserMinus, Users } from "lucide-react-native";
 import { useState } from "react";
 import { useNavigation } from "@react-navigation/native";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useApi } from "../../api/useApi";
@@ -38,7 +37,8 @@ import {
   deviceZone,
   draftOf,
   heldRoles,
-  pickedDay,
+  liveDraft,
+  offersHandOver,
   roleColourKey,
   shortDay,
   systemRoleKey,
@@ -50,7 +50,7 @@ import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Button } from "../../ui/Button";
-import { feel } from "../../ui/haptics";
+import { EndDateChoice } from "../../ui/EndDateChoice";
 import { RoleChip } from "../../ui/RoleChip";
 import { Text } from "../../ui/Text";
 import { Toggle } from "../../ui/Toggle";
@@ -111,7 +111,7 @@ export function MemberManage({ space, member, me, roles, groups, onChanged }: Pr
   const choices: Choices | null = access.mode === "roles" ? (access.choices as Choices) : null;
   // Another person's edit while this screen is open: what is saved is the truth, the draft starts over.
   const saved = member.roleIds?.join(",") ?? "";
-  const draft = edit && edit.base === saved ? edit.set : null;
+  const draft = liveDraft(edit, saved);
   const setDraft = (set: Set<string> | null) => setEdit(set ? { base: saved, set } : null);
   const mine = groups.filter((g) => g.memberIds.includes(member.userId));
   const first = member.name.split(" ")[0] ?? member.name;
@@ -123,7 +123,8 @@ export function MemberManage({ space, member, me, roles, groups, onChanged }: Pr
     try {
       await setMemberRoles(space.id, member.userId, roleIdsToSave(roles, choices, draft));
       toast(t("details.roleChanged", { name: member.name }), "success");
-      setDraft(null);
+      // The draft stays until the reloaded roles arrive (`liveDraft` drops it then): clearing it now
+      // would show the old roles for a moment, and a toggle touched in between would be lost.
       onChanged();
     } catch (err) {
       const sentence = refusalSaid(refusalOf(err));
@@ -138,7 +139,7 @@ export function MemberManage({ space, member, me, roles, groups, onChanged }: Pr
     <View style={styles.fill}>
       <ScrollView contentContainerStyle={styles.box} keyboardShouldPersistTaps="handled">
         {choices ? (
-          <RoleToggles member={member} me={me} choices={choices} draft={draft} setDraft={setDraft} />
+          <RoleToggles member={member} me={me} choices={choices} draft={draft} setDraft={setDraft} saving={saving} />
         ) : access.mode === "held" || access.mode === "frozen" ? (
           <Section label={t("spaceSections.roles")} note={access.mode === "frozen" ? t("roles.frozenNote") : undefined}>
             <HeldChips member={member} roles={roles} groups={groups} />
@@ -169,9 +170,11 @@ export function MemberManage({ space, member, me, roles, groups, onChanged }: Pr
           </View>
         </Section>
 
-        <View style={styles.danger}>
-          <ActionRow icon={UserMinus} title={t("spaceAdmin.remove")} danger onPress={remove} />
-        </View>
+        {rights.includes("members.manage") ? (
+          <View style={styles.danger}>
+            <ActionRow icon={UserMinus} title={t("spaceAdmin.remove")} danger onPress={remove} />
+          </View>
+        ) : null}
       </ScrollView>
       {count > 0 ? (
         <View style={[styles.bar, { borderColor: c.line, backgroundColor: c.surface, paddingBottom: Math.max(insets.bottom, 12) }]}>
@@ -210,12 +213,14 @@ function RoleToggles({
   choices,
   draft,
   setDraft,
+  saving,
 }: {
   member: Member;
   me?: Member;
   choices: Choices;
   draft: Set<string> | null;
   setDraft: (draft: Set<string> | null) => void;
+  saving: boolean;
 }) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
@@ -249,7 +254,7 @@ function RoleToggles({
             </View>
             <Toggle
               value={row.on}
-              disabled={row.disabled}
+              disabled={row.disabled || saving}
               accessibilityLabel={named ? t(SYSTEM_ROLE_LABEL[named]) : role.name}
               onValueChange={(on) => {
                 const next = new Set(current);
@@ -275,19 +280,11 @@ function said(t: ReturnType<typeof useTranslation>["t"], lines: Line[], list: (n
   return lines.map((l) => String(t(LINE_TEXT[l.key] as never, { roles: list(l.names ?? []) } as never))).join("\n\n");
 }
 
-const CHOICES: { choice: EndChoice | "custom"; label: ReturnType<typeof key> }[] = [
-  { choice: "week", label: key("guests.presetWeek") },
-  { choice: "month", label: key("guests.presetMonth") },
-  { choice: "quarter", label: key("guests.presetQuarter") },
-  { choice: "custom", label: key("guests.presetCustom") },
-  { choice: "none", label: key("guests.removeDate") },
-];
-
 /** The standing block: member or guest, the way to the other, and for a guest the end date and Prolonger. */
 function Standing({ space, member, roles, rights, first, onChanged }: { space: Workspace; member: Member; roles: Role[]; rights: string[]; first: string; onChanged: () => void }) {
   const { setMemberRole, setGuestExpiry } = useApi();
   const { t } = useTranslation();
-  const { c, s, dark } = useTheme();
+  const { c } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { locale } = useLocale();
   const toast = useToast();
@@ -295,9 +292,12 @@ function Standing({ space, member, roles, rights, first, onChanged }: { space: W
   const { spaces } = useSpace();
   const navigation = useNavigation();
   const zone = deviceZone();
-  const [now] = useState(() => new Date());
+  // Read at each render, and again at each tap: a screen left open past midnight must not count from yesterday.
+  const now = new Date();
   const [choice, setChoice] = useState<EndChoice | null>(null);
-  const [picking, setPicking] = useState(false);
+  // "Passer invité" asks inline (a date choice does not fit in an Alert): its end date, and whether the card is open.
+  const [confirming, setConfirming] = useState(false);
+  const [guestEnd, setGuestEnd] = useState<EndChoice>("none");
   const [busy, setBusy] = useState(false);
   const controls = gestionControls(member, rights);
   const guest = member.role === "guest";
@@ -306,7 +306,8 @@ function Standing({ space, member, roles, rights, first, onChanged }: { space: W
   const list = (names: string[]) => new Intl.ListFormat(locale, { style: "long", type: "conjunction" }).format(names);
   const since = member.joinedAt ? shortDay(member.joinedAt, locale, zone, now) : "";
   const standingLabel = member.role === "owner" ? LEGACY_LABEL.owner : guest ? LEGACY_LABEL.guest : LEGACY_LABEL.member;
-  const bounds = dateBounds(now, zone);
+  const seats = seatsAfterInvite(space.licence);
+  const lost = standingLoss(member, roles);
 
   const say = (err: unknown, fallback: ReturnType<typeof key>) => {
     const sentence = refusalSaid(refusalOf(err));
@@ -314,27 +315,22 @@ function Standing({ space, member, roles, rights, first, onChanged }: { space: W
     else failed(err, fallback);
   };
 
-  const toGuest = () =>
-    Alert.alert(t("guests.passerInviteTitle", { name: member.name }), said(t, standingLoss(member, roles).loses, list), [
-      { text: t("compose.cancel"), style: "cancel" },
-      {
-        text: t("guests.passerInviteAction"),
-        onPress: () =>
-          void (async () => {
-            setBusy(true);
-            try {
-              await setMemberRole(space.id, member.userId, "guest");
-              toast(t("spaceAdmin.roleChanged"), "success");
-              onChanged();
-              spaces.reload();
-            } catch (err) {
-              say(err, key("guests.passerFailed"));
-            } finally {
-              setBusy(false);
-            }
-          })(),
-      },
-    ]);
+  const toGuest = async () => {
+    if (choiceRefusal(guestEnd, new Date(), zone) !== null) return;
+    setBusy(true);
+    try {
+      await setMemberRole(space.id, member.userId, "guest", { expiresAt: presetToInstant(guestEnd, new Date(), zone) });
+      toast(t("spaceAdmin.roleChanged"), "success");
+      setConfirming(false);
+      setGuestEnd("none");
+      onChanged();
+      spaces.reload();
+    } catch (err) {
+      say(err, key("guests.passerFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const toMember = () => {
     Alert.alert(t("guests.passerMembreTitle", { name: member.name }), said(t, standingGain(member), list), [
@@ -404,26 +400,6 @@ function Standing({ space, member, roles, rights, first, onChanged }: { space: W
     }
   };
 
-  const pickDate = () => {
-    const start = typeof choice === "object" && choice ? new Date(`${choice.date}T12:00:00`) : new Date();
-    if (Platform.OS === "android") {
-      DateTimePickerAndroid.open({
-        value: start,
-        mode: "date",
-        minimumDate: new Date(`${bounds.min}T00:00:00`),
-        maximumDate: new Date(`${bounds.max}T23:59:59`),
-        onChange: (_, date) => {
-          if (date) setChoice({ date: pickedDay(date) });
-        },
-      });
-    } else {
-      setPicking((on) => !on);
-      if (!choice || typeof choice !== "object") setChoice({ date: pickedDay(start) });
-    }
-  };
-
-  const customLabel = typeof choice === "object" && choice ? shortDay(presetToInstant(choice, now, zone) ?? now.toISOString(), locale, zone, now) : t("guests.presetCustom");
-
   return (
     <Section label={guest ? t("guests.accessSection") : t("roles.standing")}>
       <View style={[styles.card, { borderColor: c.lineStrong }]}>
@@ -449,13 +425,39 @@ function Standing({ space, member, roles, rights, first, onChanged }: { space: W
               </>
             )}
           </View>
-          {controls.toGuest ? <Button size="sm" variant="secondary" label={t("guests.passerInviteAction")} disabled={busy} onPress={toGuest} /> : null}
+          {controls.toGuest && !confirming ? <Button size="sm" variant="secondary" label={t("guests.passerInviteAction")} disabled={busy} onPress={() => setConfirming(true)} /> : null}
           {controls.toMember ? <Button size="sm" variant="secondary" label={t("guests.passerMembreAction")} disabled={busy} onPress={toMember} /> : null}
         </View>
         {controls.toGuest ? (
           <Text variant="small" tone="muted">
             {t("guests.guestStatusNote")}
           </Text>
+        ) : null}
+        {controls.toGuest && confirming ? (
+          <View style={styles.confirm}>
+            <Text variant="bodyStrong">{t("guests.passerInviteTitle", { name: member.name })}</Text>
+            <Text variant="small" tone="muted">
+              {[member.title, t("guests.memberToday")].filter(Boolean).join(" · ")}
+            </Text>
+            <Text variant="smallStrong">{t("guests.loses")}</Text>
+            <Text variant="small" tone="muted">
+              {said(t, lost.loses, list)}
+            </Text>
+            <Text variant="smallStrong">{t("guests.keeps")}</Text>
+            <Text variant="small" tone="muted">
+              {said(t, lost.keeps, list)}
+            </Text>
+            <EndDateChoice choice={guestEnd} onChange={setGuestEnd} disabled={busy} />
+            {seats ? (
+              <Text variant="small" tone="muted">
+                {t("guests.seatsAfter", seats)}
+              </Text>
+            ) : null}
+            <View style={styles.confirmButtons}>
+              <Button size="md" variant="secondary" label={t("compose.cancel")} disabled={busy} onPress={() => setConfirming(false)} />
+              <Button size="md" label={t("guests.passerInviteAction")} busy={busy} disabled={choiceRefusal(guestEnd, now, zone) !== null} onPress={() => void toGuest()} />
+            </View>
+          </View>
         ) : null}
         {controls.toMember ? (
           <Text variant="small" tone="muted">
@@ -469,46 +471,7 @@ function Standing({ space, member, roles, rights, first, onChanged }: { space: W
         ) : null}
         {controls.endControl ? (
           <>
-            <Text variant="smallStrong">{t("guests.prolongBy")}</Text>
-            <View style={styles.wrap}>
-              {CHOICES.map(({ choice: option, label }) => {
-                const on = option === "custom" ? typeof choice === "object" && choice !== null : choice === option;
-                return (
-                  <Pressable
-                    key={String(option)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                    onPress={() => {
-                      feel("choice");
-                      if (option === "custom") pickDate();
-                      else {
-                        setPicking(false);
-                        setChoice(option);
-                      }
-                    }}
-                    style={[styles.pill, { borderColor: on ? s.edge : c.lineStrong, backgroundColor: on ? s.selected : c.surface }]}
-                  >
-                    <Text variant={on ? "smallStrong" : "small"}>{option === "custom" ? customLabel : t(label)}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            {picking && Platform.OS === "ios" && typeof choice === "object" && choice ? (
-              <View style={styles.picker}>
-                <DateTimePicker
-                  value={new Date(`${choice.date}T12:00:00`)}
-                  mode="date"
-                  display="inline"
-                  locale={locale}
-                  themeVariant={dark ? "dark" : "light"}
-                  minimumDate={new Date(`${bounds.min}T00:00:00`)}
-                  maximumDate={new Date(`${bounds.max}T23:59:59`)}
-                  onChange={(_, date) => {
-                    if (date) setChoice({ date: pickedDay(date) });
-                  }}
-                />
-              </View>
-            ) : null}
+            <EndDateChoice choice={choice} onChange={setChoice} title={String(t("guests.prolongBy"))} noneLabel={key("guests.removeDate")} summary={false} disabled={busy} />
             <Button
               size="md"
               label={choice === "none" ? t("guests.removeDate") : t("guests.prolong")}
@@ -520,7 +483,7 @@ function Standing({ space, member, roles, rights, first, onChanged }: { space: W
           </>
         ) : null}
       </View>
-      {space.role === "owner" && member.role === "member" ? (
+      {offersHandOver(space.role, member) ? (
         <Button size="sm" variant="link" label={t("roles.handOver")} disabled={busy} onPress={handOver} style={styles.handOver} />
       ) : null}
     </Section>
@@ -543,8 +506,8 @@ const makeStyles = styleCache((shape) =>
     card: { gap: 10, padding: 14, borderRadius: shape.radius.l, borderWidth: shape.hairline },
     cardHead: { flexDirection: "row", alignItems: "center", gap: 12 },
     cardTitle: { flex: 1, minWidth: 0 },
-    pill: { height: 34, paddingHorizontal: 14, borderRadius: 17, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center" },
-    picker: { alignItems: "center" },
+    confirm: { gap: 8, paddingTop: 6 },
+    confirmButtons: { flexDirection: "row", gap: 10, justifyContent: "flex-end" },
     prolong: { alignSelf: "flex-start" },
     handOver: { alignSelf: "flex-start" },
     danger: { paddingTop: 16 },

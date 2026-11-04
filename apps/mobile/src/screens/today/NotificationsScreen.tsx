@@ -182,7 +182,7 @@ export function NotificationsScreen() {
   /** A guest notice's place: the guest on Prolonger for whoever manages, the space for the guest; the space switched first. */
   const go = (target: TapTarget) => {
     if (target.spaceId && target.spaceId !== current?.id) select(target.spaceId);
-    if (target.screen === "member") navigation.navigate("spaceMember", { userId: target.userId, prolong: true });
+    if (target.screen === "member") navigation.navigate("spaceMember", { userId: target.userId, prolong: true, spaceId: target.spaceId });
     else if (target.screen === "members") navigation.navigate("spaceMembers");
     else navigation.navigate("tabs", { screen: "discussions" });
   };

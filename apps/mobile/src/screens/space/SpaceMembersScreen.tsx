@@ -181,7 +181,7 @@ function Members({ space }: { space: Workspace }) {
             ) : null
           }
           renderItem={({ item: m }) => (
-            <PersonRow member={m} me={me} space={space} roles={roles.data ?? []} groups={groups.data ?? []} supported={supported} />
+            <PersonRow member={m} me={me} space={space} roles={roles.data ?? []} groups={groups.data ?? []} supported={supported} manages={rights.includes("members.manage")} />
           )}
         />
       )}
@@ -191,7 +191,7 @@ function Members({ space }: { space: Workspace }) {
 
 type Pastille = { id: string; label: string; colour: ReturnType<typeof roleColourKey>; viaGroup?: boolean };
 
-function PersonRow({ member: m, me, space, roles, groups, supported }: { member: Member; me?: string; space: Workspace; roles: Role[]; groups: Group[]; supported: boolean }) {
+function PersonRow({ member: m, me, space, roles, groups, supported, manages }: { member: Member; me?: string; space: Workspace; roles: Role[]; groups: Group[]; supported: boolean; manages: boolean }) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -199,7 +199,7 @@ function PersonRow({ member: m, me, space, roles, groups, supported }: { member:
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const mine = m.userId === me;
   // An older server says nothing of `manageable`: the legacy ranks decide who opens.
-  const access = supported ? rowAccess(m, me) : m.bot ? "none" : mine || m.role === "owner" || m.role === space.role ? "locked" : "open";
+  const access = supported ? rowAccess(m, me, manages) : m.bot ? "none" : mine || m.role === "owner" || m.role === space.role ? "locked" : "open";
   const held = supported ? heldRoles(m, roles, groups) : [];
   const chips: Pastille[] = [];
   if (m.bot) {

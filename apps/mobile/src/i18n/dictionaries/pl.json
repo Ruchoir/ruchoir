@@ -1569,7 +1569,11 @@
     "noticeSoonDetailBare": "Do {{date}}. Możesz przedłużyć dostęp.",
     "noticeEndingDetail": "Po {{date}} nie będzie można już otworzyć tej przestrzeni. Aby kontynuować, poproś {{contact}} o przedłużenie dostępu.",
     "noticeEndingDetailBare": "Po {{date}} nie będzie można już otworzyć tej przestrzeni. Aby kontynuować, poproś osobę zarządzającą gośćmi o przedłużenie dostępu.",
-    "dateLabel": "Data końca dostępu"
+    "dateLabel": "Data końca dostępu",
+    "loses": "Co osoba traci",
+    "keeps": "Co osoba zachowuje",
+    "memberToday": "Dziś członek",
+    "seatsAfter": "Nie zajmuje już miejsca: wykorzystanych jest wtedy {{used}} z {{total}} miejsc. W każdej chwili możesz znów zrobić z niej członka."
   },
   "perm": {
     "spaceSettings": "Ustawiać przestrzeń",
@@ -1769,6 +1773,7 @@
   },
   "members": {
     "filterAll": "Wszystkie",
-    "noGroup": "Brak grup"
+    "noGroup": "Brak grup",
+    "gone": "Ta osoba nie należy już do przestrzeni"
   }
 }

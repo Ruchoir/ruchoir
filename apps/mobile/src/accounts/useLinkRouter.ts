@@ -11,7 +11,7 @@ import type { NotificationResponse } from "expo-notifications";
 import { useEffect, useRef } from "react";
 import { Linking } from "react-native";
 
-import { linkServer } from "../logic/deepLink";
+import { linkAllowed, linkServer } from "../logic/deepLink";
 import { notifications } from "../push/native";
 import { useAccounts } from "./AccountsProvider";
 import { queueLink, type PendingLink } from "./pendingLink";
@@ -29,6 +29,8 @@ export function useLinkRouter(): void {
         early.current.push({ server, link });
         return;
       }
+      // A mail's address is followed only for an instance this phone holds an account on.
+      if (link.kind === "url" && !linkAllowed(link.url, accounts.map((a) => a.origin))) return;
       const target = (server && accounts.find((a) => a.origin === server && a.status.kind === "signedIn")) || active;
       if (!target) return;
       const spaceId = link.kind === "push" && typeof link.data.space_id === "string" ? link.data.space_id : undefined;

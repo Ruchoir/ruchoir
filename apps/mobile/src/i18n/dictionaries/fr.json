@@ -1447,7 +1447,11 @@
     "noticeSoonDetailBare": "Jusqu'au {{date}}. Vous pouvez prolonger son accès.",
     "noticeEndingDetail": "Après le {{date}}, vous ne pourrez plus ouvrir cet espace. Pour continuer, demandez à {{contact}} de prolonger votre accès.",
     "noticeEndingDetailBare": "Après le {{date}}, vous ne pourrez plus ouvrir cet espace. Pour continuer, demandez à la personne qui gère les invités de prolonger votre accès.",
-    "dateLabel": "Date de fin d'accès"
+    "dateLabel": "Date de fin d'accès",
+    "loses": "Ce que la personne perd",
+    "keeps": "Ce que la personne garde",
+    "memberToday": "Membre aujourd'hui",
+    "seatsAfter": "Cette personne ne prend plus de place : {{used}} places sur {{total}} sont alors utilisées. Vous pourrez lui rendre le statut de membre à tout moment."
   },
   "perm": {
     "spaceSettings": "Régler l'espace",
@@ -1641,6 +1645,7 @@
   },
   "members": {
     "filterAll": "Tous",
-    "noGroup": "Aucun groupe"
+    "noGroup": "Aucun groupe",
+    "gone": "Cette personne ne fait plus partie de l'espace"
   }
 }

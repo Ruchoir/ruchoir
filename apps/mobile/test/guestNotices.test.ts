@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { guestBannerFor, noticeData } from "../src/logic/guestNotices.ts";
+import { guestBannerFor, noticeData, prolongStep } from "../src/logic/guestNotices.ts";
 import { tapTarget } from "../src/push/tap.ts";
 
 const ZONE = "Europe/Paris";
@@ -36,4 +36,11 @@ test("the_banner_turns_soon_and_adds_its_card_within_seven_days", () => {
   assert.deepEqual([edge?.days, edge?.tone, edge?.card], [7, "soon", true]);
   const near = guestBannerFor({ role: "guest", expiresAt: "2026-11-07T22:59:59Z" }, NOW, ZONE);
   assert.deepEqual([near?.days, near?.tone, near?.card, near?.until], [3, "soon", true, "2026-11-07T22:59:59Z"]);
+});
+
+test("a_waiting_prolong_link_waits_for_the_list_opens_a_known_space_and_is_dropped_for_an_unknown_one", () => {
+  const spaces = [{ id: "s1", slug: "atelier" }];
+  assert.deepEqual(prolongStep(undefined, "atelier"), { kind: "wait" });
+  assert.deepEqual(prolongStep(spaces, "atelier"), { kind: "open", space: spaces[0] });
+  assert.deepEqual(prolongStep(spaces, "other"), { kind: "drop" });
 });

@@ -10,6 +10,7 @@ import { CircleCheck, Link, Mail } from "lucide-react-native";
 import { useState } from "react";
 import { Share, StyleSheet, View } from "react-native";
 
+import { useSupports } from "../../api/features";
 import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
@@ -47,9 +48,11 @@ export function InviteScreen() {
   // One link per role, made the first time it is asked for and shared again after.
   const [links, setLinks] = useState<Partial<Record<Role, string>>>({});
   const guest = role === "guest";
+  // An older instance has no guest end dates (they arrive with the permissions): nothing to choose, nothing sent.
+  const dated = useSupports("permissions");
   // The end of the access, in the phone's zone; a guest only. A hand-picked day not yet valid blocks sending.
-  const blocked = guest && choiceRefusal(end, new Date(), deviceZone()) !== null;
-  const guestEnd = () => (guest ? { guestExpiresAt: presetToInstant(end, new Date(), deviceZone()) } : {});
+  const blocked = guest && dated && choiceRefusal(end, new Date(), deviceZone()) !== null;
+  const guestEnd = () => (guest && dated ? { guestExpiresAt: presetToInstant(end, new Date(), deviceZone()) } : {});
   const { locale } = useLocale();
   const toast = useToast();
   const invitations = useLoad(current ? `invitations:${current.id}` : null, (signal) => getInvitations(current!.id, signal));
@@ -129,7 +132,7 @@ export function InviteScreen() {
               {role === "member" ? t("invite.memberHint") : t("invite.guestHint")}
             </Text>
           </View>
-          {guest ? (
+          {guest && dated ? (
             <EndDateChoice
               choice={end}
               onChange={(next) => {

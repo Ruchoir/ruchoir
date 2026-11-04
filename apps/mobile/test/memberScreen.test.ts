@@ -10,7 +10,11 @@ import {
   filterCounts,
   filterPeople,
   heldRoles,
+  liveDraft,
+  memberStatus,
+  offersHandOver,
   pickedDay,
+  pickedFromEvent,
   systemRoleKey,
   rowAccess,
   shortDay,
@@ -117,10 +121,50 @@ test("filter_counts_split_the_people_into_members_and_guests", () => {
 
 test("a_row_shows_a_lock_for_oneself_and_for_those_above_and_a_chevron_otherwise", () => {
   const me = "me";
-  assert.equal(rowAccess({ userId: "me", bot: false, manageable: true }, me), "locked");
-  assert.equal(rowAccess({ userId: "x", bot: false, manageable: false }, me), "locked");
-  assert.equal(rowAccess({ userId: "x", bot: false, manageable: true }, me), "open");
-  assert.equal(rowAccess({ userId: "x", bot: true, manageable: true }, me), "none");
+  assert.equal(rowAccess({ userId: "me", bot: false, manageable: true }, me, true), "locked");
+  assert.equal(rowAccess({ userId: "x", bot: false, manageable: false }, me, true), "locked");
+  assert.equal(rowAccess({ userId: "x", bot: false, manageable: true }, me, true), "open");
+  assert.equal(rowAccess({ userId: "x", bot: true, manageable: true }, me, true), "none");
+});
+
+test("a_view_only_viewer_sees_no_lock_no_label_and_no_chevron_on_any_row", () => {
+  const me = "me";
+  assert.equal(rowAccess({ userId: "x", bot: false, manageable: false }, me, false), "none");
+  assert.equal(rowAccess({ userId: "x", bot: false, manageable: true }, me, false), "none");
+  assert.equal(rowAccess({ userId: "me", bot: false, manageable: false }, me, false), "none");
+});
+
+test("a_date_picker_that_was_dismissed_picks_nothing", () => {
+  const date = new Date(2026, 10, 7, 12);
+  assert.equal(pickedFromEvent({ type: "set" }, date), "2026-11-07");
+  assert.equal(pickedFromEvent({ type: "dismissed" }, date), null);
+  assert.equal(pickedFromEvent({ type: "neutralButtonPressed" }, date), null);
+  assert.equal(pickedFromEvent({ type: "set" }, undefined), null);
+});
+
+test("the_owner_can_hand_the_space_to_anyone_but_a_bot_or_the_owner", () => {
+  assert.equal(offersHandOver("owner", { role: "member" }), true);
+  assert.equal(offersHandOver("owner", { role: "admin" }), true);
+  assert.equal(offersHandOver("owner", { role: "guest" }), true);
+  assert.equal(offersHandOver("owner", { role: "owner" }), false);
+  assert.equal(offersHandOver("owner", { role: "member", bot: true }), false);
+  assert.equal(offersHandOver("admin", { role: "member" }), false);
+});
+
+test("a_draft_lives_until_the_saved_roles_change_under_it", () => {
+  const set = new Set(["a", "b"]);
+  const edit = { base: "a", set };
+  assert.equal(liveDraft(edit, "a"), set);
+  assert.equal(liveDraft(edit, "a,b"), null);
+  assert.equal(liveDraft(null, "a"), null);
+});
+
+test("a_member_screen_waits_for_the_space_it_was_opened_in_before_judging_the_person", () => {
+  assert.equal(memberStatus({ spaceId: "s2", currentId: "s1", listed: true, found: false }), "loading");
+  assert.equal(memberStatus({ spaceId: "s2", currentId: "s2", listed: false, found: false }), "loading");
+  assert.equal(memberStatus({ spaceId: "s2", currentId: "s2", listed: true, found: false }), "gone");
+  assert.equal(memberStatus({ spaceId: "s2", currentId: "s2", listed: true, found: true }), "ready");
+  assert.equal(memberStatus({ currentId: "s1", listed: true, found: false }), "gone");
 });
 
 test("a_guest_end_is_a_short_day_in_the_phones_zone_and_carries_the_year_only_when_it_is_not_this_one", () => {

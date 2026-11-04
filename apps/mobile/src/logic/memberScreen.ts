@@ -23,9 +23,13 @@ export function filterPeople<T extends { role: string; bot?: boolean }>(people: 
   return people.filter((p) => !p.bot && (p.role === "guest") === (filter === "guests"));
 }
 
-/** What the end of a row offers: a chevron (`open`), a lock (`locked`: oneself, or above the caller), nothing (a bot). */
-export function rowAccess(member: { userId: string; bot: boolean; manageable?: boolean }, me: string | undefined): "open" | "locked" | "none" {
-  if (member.bot) return "none";
+/**
+ * What the end of a row offers: a chevron (`open`), a lock (`locked`: oneself, or above the caller),
+ * nothing (a bot, or a viewer who may see people without managing them: the web gives them no way in
+ * and no reason to be told what is above them).
+ */
+export function rowAccess(member: { userId: string; bot: boolean; manageable?: boolean }, me: string | undefined, viewerManages: boolean): "open" | "locked" | "none" {
+  if (member.bot || !viewerManages) return "none";
   if (member.userId === me || !member.manageable) return "locked";
   return "open";
 }
@@ -41,6 +45,33 @@ export function deviceZone(): string {
 export function pickedDay(date: Date): string {
   const two = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
+}
+
+/**
+ * A day picked on a native date picker, or null when the person did not pick one: Android's dialog
+ * also reports "dismissed" (cancel, back) with a date in hand, which must not set anything.
+ */
+export function pickedFromEvent(event: { type?: string }, date: Date | undefined): string | null {
+  return event.type === "set" && date ? pickedDay(date) : null;
+}
+
+/** "Lui transmettre l'espace": the owner offers it for anyone but themselves and a bot, a guest included (the web's rule). */
+export function offersHandOver(viewerRole: string, member: { role: string; bot?: boolean }): boolean {
+  return viewerRole === "owner" && member.role !== "owner" && !member.bot;
+}
+
+/** The role draft being edited, while it still starts from what is saved; null once the saved roles moved on (or after a save, when they do). */
+export function liveDraft(edit: { base: string; set: Set<string> } | null, saved: string): Set<string> | null {
+  return edit && edit.base === saved ? edit.set : null;
+}
+
+/**
+ * What a member's screen shows: the space it was opened in may not be the current one yet (a notice
+ * or a link selects it and navigates at once), so the list of another space proves nothing.
+ */
+export function memberStatus(o: { spaceId?: string; currentId: string; listed: boolean; found: boolean }): "loading" | "gone" | "ready" {
+  if ((o.spaceId && o.spaceId !== o.currentId) || !o.listed) return "loading";
+  return o.found ? "ready" : "gone";
 }
 
 /** The dictionary key naming a system role (Administrator, @members, @guests), or null for a role named by hand. */

@@ -1447,7 +1447,11 @@
     "noticeSoonDetailBare": "Bis {{date}}. Sie können den Zugang verlängern.",
     "noticeEndingDetail": "Nach dem {{date}} können Sie diesen Bereich nicht mehr öffnen. Um weiterzumachen, bitten Sie {{contact}}, Ihren Zugang zu verlängern.",
     "noticeEndingDetailBare": "Nach dem {{date}} können Sie diesen Bereich nicht mehr öffnen. Um weiterzumachen, bitten Sie die Person, die die Gäste verwaltet, Ihren Zugang zu verlängern.",
-    "dateLabel": "Enddatum des Zugangs"
+    "dateLabel": "Enddatum des Zugangs",
+    "loses": "Was die Person verliert",
+    "keeps": "Was die Person behält",
+    "memberToday": "Heute Mitglied",
+    "seatsAfter": "Die Person belegt keinen Platz mehr: Dann sind {{used}} von {{total}} Plätzen belegt. Sie können sie jederzeit wieder zum Mitglied machen."
   },
   "perm": {
     "spaceSettings": "Bereich einrichten",
@@ -1641,6 +1645,7 @@
   },
   "members": {
     "filterAll": "Alle",
-    "noGroup": "Keine Gruppe"
+    "noGroup": "Keine Gruppe",
+    "gone": "Diese Person gehört nicht mehr zum Bereich"
   }
 }

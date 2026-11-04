@@ -31,7 +31,24 @@ function prolongLink(url: string): LinkTarget | null {
   if (!match) return null;
   const guest = new URLSearchParams(match[2]).get("prolong") ?? "";
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(guest)) return null;
-  return { screen: "prolong", spaceSlug: decodeURIComponent(match[1]), userId: guest.toLowerCase() };
+  let spaceSlug: string;
+  try {
+    spaceSlug = decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+  return { screen: "prolong", spaceSlug, userId: guest.toLowerCase() };
+}
+
+/**
+ * Whether a link may be followed on this phone: a mail's web address only for an instance the phone
+ * holds an account on (`origins`), the app's own scheme always.
+ */
+export function linkAllowed(url: string, origins: string[]): boolean {
+  if (!/^https:\/\//.test(url)) return true;
+  if (!prolongLink(url)) return true;
+  const host = /^https:\/\/[^/?#]+/.exec(url)?.[0].toLowerCase();
+  return !!host && origins.some((o) => o.toLowerCase().replace(/\/$/, "") === host);
 }
 
 export function linkTarget(url: string): LinkTarget | null {

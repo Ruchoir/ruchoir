@@ -42,3 +42,10 @@ export function guestBannerFor(space: { role: string; expiresAt?: string } | nul
 export function spaceBySlug<T extends { slug: string }>(spaces: T[] | undefined, slug: string): T | undefined {
   return spaces?.find((s) => s.slug === slug);
 }
+
+/** What a waiting prolong link does with the space list: wait for it, open the space it names, or give up when that space is not there. */
+export function prolongStep<T extends { slug: string }>(spaces: T[] | undefined, slug: string): { kind: "wait" } | { kind: "open"; space: T } | { kind: "drop" } {
+  if (!spaces) return { kind: "wait" };
+  const space = spaceBySlug(spaces, slug);
+  return space ? { kind: "open", space } : { kind: "drop" };
+}

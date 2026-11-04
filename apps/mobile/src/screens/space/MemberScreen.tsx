@@ -6,7 +6,7 @@
 import type { Group, Member, Role, Workspace } from "@ruchoir/client";
 import { importedGroupSource } from "@ruchoir/client/permissionsLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -15,7 +15,7 @@ import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
-import { deviceZone, heldRoles, roleColourKey, shortDay, systemRoleKey } from "../../logic/memberScreen";
+import { deviceZone, heldRoles, memberStatus, roleColourKey, shortDay, systemRoleKey } from "../../logic/memberScreen";
 import { grantableRoles } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
 import { affects } from "../../realtime/events";
@@ -30,6 +30,7 @@ import { RoleChip } from "../../ui/RoleChip";
 import { Segmented } from "../../ui/Segmented";
 import { LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
+import { useToast } from "../../ui/Toast";
 import { Section } from "../account/Section";
 import { LegacyRoles } from "./MemberLegacy";
 import { MemberManage } from "./MemberManage";
@@ -56,6 +57,7 @@ function Person({ space }: { space: Workspace }) {
   const { t } = useTranslation();
   const styles = useThemedStyles(makeStyles);
   const session = useSession();
+  const toast = useToast();
   const { supported } = useRights();
   const [tab, setTab] = useState<Tab>(params.prolong ? "manage" : "profile");
   const members = useLoad(`members:${space.id}`, (signal) => getSpaceMembers(space.id, signal));
@@ -72,12 +74,17 @@ function Person({ space }: { space: Workspace }) {
   const me = session.state.kind === "signedIn" ? session.state.user.id : undefined;
   const list = members.data;
   const member = list?.find((m) => m.userId === params.userId);
-  const gone = !!list && !member;
+  // A notice or a link selects its space and navigates at once: until the current space is that one, the list says nothing about the person.
+  const status = memberStatus({ spaceId: params.spaceId, currentId: space.id, listed: !!list, found: !!member });
+  const told = useRef(false);
   useEffect(() => {
-    if (gone && navigation.canGoBack()) navigation.goBack();
-  }, [gone, navigation]);
+    if (status !== "gone" || told.current) return;
+    told.current = true;
+    toast(t("members.gone"));
+    if (navigation.canGoBack()) navigation.goBack();
+  }, [status, navigation, toast, t]);
 
-  if (!member) {
+  if (!member || status !== "ready") {
     return (
       <>
         <BackHeader title="" />

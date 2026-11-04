@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { onLink, takeLink } from "../accounts/pendingLink";
 import { linkTarget } from "../logic/deepLink";
-import { spaceBySlug } from "../logic/guestNotices";
+import { prolongStep } from "../logic/guestNotices";
 import { useSpace } from "../space/SpaceProvider";
 import type { RootParams } from "./types";
 
@@ -20,11 +20,13 @@ export function useAppLinks(navigation: NavigationContainerRefWithCurrent<RootPa
   const openProlong = useCallback(() => {
     const wanted = prolonging.current;
     if (!wanted) return;
-    const space = spaceBySlug(spaces.data, wanted.spaceSlug);
-    if (!space) return;
+    const step = prolongStep(spaces.data, wanted.spaceSlug);
+    if (step.kind === "wait") return;
+    // Whatever happens next, this link is spent: a space that is not in the list never opens later, unprompted.
     prolonging.current = null;
-    select(space.id);
-    navigation.navigate("spaceMember", { userId: wanted.userId, prolong: true });
+    if (step.kind === "drop") return;
+    select(step.space.id);
+    navigation.navigate("spaceMember", { userId: wanted.userId, prolong: true, spaceId: step.space.id });
   }, [navigation, select, spaces.data]);
 
   useEffect(() => {

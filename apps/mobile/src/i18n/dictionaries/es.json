@@ -1508,7 +1508,11 @@
     "noticeSoonDetailBare": "Hasta el {{date}}. Puedes prolongar su acceso.",
     "noticeEndingDetail": "Después del {{date}}, ya no podrás abrir este espacio. Para continuar, pide a {{contact}} que prolongue tu acceso.",
     "noticeEndingDetailBare": "Después del {{date}}, ya no podrás abrir este espacio. Para continuar, pide a quien gestiona a los invitados que prolongue tu acceso.",
-    "dateLabel": "Fecha de fin del acceso"
+    "dateLabel": "Fecha de fin del acceso",
+    "loses": "Lo que la persona pierde",
+    "keeps": "Lo que la persona conserva",
+    "memberToday": "Miembro hoy",
+    "seatsAfter": "Ya no ocupa plaza: entonces se usan {{used}} plazas de {{total}}. Podrás volver a hacerla miembro en cualquier momento."
   },
   "perm": {
     "spaceSettings": "Configurar el espacio",
@@ -1705,6 +1709,7 @@
   },
   "members": {
     "filterAll": "Todos",
-    "noGroup": "Ningún grupo"
+    "noGroup": "Ningún grupo",
+    "gone": "Esa persona ya no forma parte del espacio"
   }
 }
