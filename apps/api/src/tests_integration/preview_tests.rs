@@ -706,3 +706,210 @@ fn resolve_has_one_caller() {
     );
     assert!(body[..end].lines().any(is_call), "resolved calls resolve");
 }
+
+/// Who can see a channel in the sidebar list of `cookie`.
+async fn lists_channel(fx: &Fixture, cookie: &str, channel: Uuid) -> bool {
+    let listed: Value = fx
+        .app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", fx.space),
+            cookie,
+        )
+        .send()
+        .await
+        .expect("channels")
+        .json()
+        .await
+        .expect("json");
+    listed
+        .as_array()
+        .expect("list")
+        .iter()
+        .any(|c| c["id"] == channel.to_string())
+}
+
+#[tokio::test]
+async fn a_preview_ignores_the_channels_the_viewer_joined() {
+    let Some(fx) = fixture().await else { return };
+    let private = make_channel(&fx.app.db, fx.space, "mine", "private").await;
+    super::permissions_tests::join_as(&fx.app.db, private, fx.member, "member").await;
+    let opener = make_role(&fx.app.db, fx.space, "Opener", 2, &["message.send"]).await;
+    exec(
+        &fx.app.db,
+        "INSERT INTO permission_overrides (space_id, channel_id, role_id, allow, deny) \
+         VALUES ($1, $2, $3, ARRAY['channel.view'], ARRAY[]::text[])",
+        vec![fx.space.into(), private.into(), opener.into()],
+    )
+    .await;
+
+    let real = fx.app.cookie_for(fx.member).await;
+    assert!(lists_channel(&fx, &real, private).await, "they joined it");
+    // A role with no rule on it does not open it, whatever the viewer joined.
+    let plain = previewing(&fx, fx.member, fx.space, fx.notes, "Notes").await;
+    assert!(!lists_channel(&fx, &plain, private).await);
+    // A role whose rule opens it does.
+    let opens = previewing(&fx, fx.member, fx.space, opener, "Opener").await;
+    assert!(lists_channel(&fx, &opens, private).await);
+}
+
+#[tokio::test]
+async fn a_preview_ignores_the_files_the_viewer_wrote() {
+    let Some(fx) = fixture().await else { return };
+    // Files are visible here, so the only thing that could add managing them is having written them.
+    exec(
+        &fx.app.db,
+        "UPDATE space_roles SET permissions = array_append(permissions, 'files.view') \
+         WHERE space_id = $1 AND system_key = 'members'",
+        vec![fx.space.into()],
+    )
+    .await;
+    let file = Uuid::new_v4();
+    exec(
+        &fx.app.db,
+        "INSERT INTO files (id, space_id, owner_id, name, kind) VALUES ($1, $2, $3, 'mine.txt', 'file')",
+        vec![file.into(), fx.space.into(), fx.member.into()],
+    )
+    .await;
+    let rights = |db: DatabaseConnection, space: Uuid, who: Uuid| async move {
+        check::effective(&db, space, who, Resource::File(file))
+            .await
+            .expect("effective")
+    };
+    assert!(rights(fx.app.db.clone(), fx.space, fx.member)
+        .await
+        .contains(Permission::FilesManage));
+    let state = PreviewState {
+        space_id: fx.space,
+        role_id: fx.notes,
+        role_name: "Notes".to_owned(),
+        user_id: fx.member,
+    };
+    let seen = preview::within(state, rights(fx.app.db.clone(), fx.space, fx.member)).await;
+    assert!(
+        !seen.contains(Permission::FilesManage),
+        "the role manages nothing"
+    );
+}
+
+#[tokio::test]
+async fn starting_a_preview_or_signing_out_closes_the_sessions_sockets() {
+    use futures_util::StreamExt as _;
+    let Some(fx) = fixture().await else { return };
+    let closed = |mut ws: WebSocketStream<MaybeTlsStream<TcpStream>>| async move {
+        matches!(
+            tokio::time::timeout(Duration::from_secs(3), async {
+                loop {
+                    match ws.next().await {
+                        None | Some(Err(_)) | Some(Ok(WsMessage::Close(_))) => break,
+                        Some(Ok(_)) => {}
+                    }
+                }
+            })
+            .await,
+            Ok(())
+        )
+    };
+
+    // The hook the paid start route calls: this session's socket closes, another one's stays.
+    let session = fx.app.cookie_for(fx.admin).await;
+    let other = fx.app.cookie_for(fx.admin).await;
+    let ws = fx.app.connect_ws(&session).await;
+    let mut kept = fx.app.connect_ws(&other).await;
+    crate::ext::close_realtime_session(&fx.app.state, session_of(&session));
+    assert!(
+        closed(ws).await,
+        "the previewing session's socket is closed"
+    );
+    let alive = tokio::time::timeout(Duration::from_millis(500), async {
+        loop {
+            match kept.next().await {
+                None | Some(Err(_)) | Some(Ok(WsMessage::Close(_))) => break,
+                Some(Ok(_)) => {}
+            }
+        }
+    })
+    .await;
+    assert!(alive.is_err(), "the other session's socket is still open");
+
+    // An event stream goes the same way.
+    let mut sse = fx
+        .app
+        .req(reqwest::Method::GET, "/api/v1/realtime/sse", &other)
+        .send()
+        .await
+        .expect("sse");
+    crate::ext::close_realtime_session(&fx.app.state, session_of(&other));
+    let ended = tokio::time::timeout(Duration::from_secs(3), async {
+        while let Ok(Some(_)) = sse.chunk().await {}
+    })
+    .await;
+    assert!(ended.is_ok(), "the stream ended");
+
+    // Signing out closes it as well.
+    let cookie = fx.app.cookie_for(fx.member).await;
+    let ws = fx.app.connect_ws(&cookie).await;
+    let out = fx
+        .app
+        .req(reqwest::Method::POST, "/api/v1/auth/logout", &cookie)
+        .send()
+        .await
+        .expect("logout");
+    assert_eq!(out.status().as_u16(), 204);
+    assert!(closed(ws).await, "logout closes the socket");
+    // And so does signing out everywhere.
+    let one = fx.app.cookie_for(fx.member).await;
+    let two = fx.app.cookie_for(fx.member).await;
+    let ws = fx.app.connect_ws(&one).await;
+    let out = fx
+        .app
+        .req(reqwest::Method::POST, "/api/v1/auth/logout/all", &two)
+        .send()
+        .await
+        .expect("logout all");
+    assert_eq!(out.status().as_u16(), 204);
+    assert!(closed(ws).await, "logout everywhere closes the socket");
+}
+
+#[tokio::test]
+async fn a_preview_state_that_cannot_be_read_lets_no_write_through() {
+    let Some(fx) = fixture().await else { return };
+    let cookie = fx.app.cookie_for(fx.admin).await;
+    let _: () = fx
+        .app
+        .valkey
+        .set(
+            format!("preview:{}", session_of(&cookie)),
+            "not json",
+            None,
+            None,
+            false,
+        )
+        .await
+        .expect("set");
+    let write = fx
+        .app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{}/messages", fx.general),
+            &cookie,
+        )
+        .json(&json!({ "body": "x" }))
+        .send()
+        .await
+        .expect("post");
+    assert_eq!(write.status().as_u16(), 503);
+    // A read is an ordinary request, and leaving still gets through.
+    assert_eq!(spaces_of(&fx.app, &cookie).await.len(), 1);
+    let leave = fx
+        .app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/spaces/{}/preview", fx.space),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("leave");
+    assert_ne!(leave.status().as_u16(), 503);
+}

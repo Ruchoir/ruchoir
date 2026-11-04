@@ -101,7 +101,8 @@ impl Person {
         stored: impl Iterator<Item = &'a StoredRule>,
         first: Option<Rule>,
     ) -> Vec<Rule> {
-        // The channel role is the viewer's own, not the previewed role's.
+        // The channel role is the viewer's own, not the previewed role's (as is joining the
+        // channel, which `check::resolved` leaves to the ceiling's side).
         let mut rules: Vec<Rule> = first
             .into_iter()
             .map(|rule| Rule {

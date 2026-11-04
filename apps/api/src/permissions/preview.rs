@@ -114,11 +114,11 @@ pub(crate) async fn within<F: std::future::Future>(preview: PreviewState, work: 
     PREVIEW.scope(preview, work).await
 }
 
-/// The paths a page sends without anyone acting: they never push the idle timer back.
+/// The paths a page sends without anyone acting: they never push the idle timer back. Presence is
+/// the only polled read (`GET /spaces/{id}/presence`); the heartbeats and typing signals are
+/// writes, which a preview refuses before they could count.
 fn is_background(path: &str) -> bool {
-    path.starts_with("/api/v1/realtime/")
-        || path.ends_with("/presence")
-        || path.ends_with("/heartbeat")
+    path.starts_with("/api/v1/realtime/") || path.ends_with("/presence")
 }
 
 /// The realtime transports: each would keep delivering the real events (fan-out is computed per
@@ -184,12 +184,29 @@ pub(crate) async fn guard(State(state): State<AppState>, req: Request, next: Nex
     let reads = matches!(*req.method(), Method::GET | Method::HEAD | Method::OPTIONS);
     let allowed = reads || is_exit(req.method(), req.uri().path());
     let found: Result<Option<String>, _> = state.valkey.get(key(&session_id)).await;
-    let Some(preview) = found
-        .ok()
-        .flatten()
-        .and_then(|json| serde_json::from_str::<PreviewState>(&json).ok())
-    else {
-        return next.run(req).await;
+    let preview = match found {
+        Ok(None) => return next.run(req).await,
+        Ok(Some(json)) => serde_json::from_str::<PreviewState>(&json).ok(),
+        Err(error) => {
+            tracing::warn!(%error, "could not read the preview of a session");
+            None
+        }
+    };
+    let Some(preview) = preview else {
+        // The state could not be read or understood, so whether this session previews is unknown:
+        // a read goes on as an ordinary request, a write is not let through on a guess.
+        return if allowed {
+            next.run(req).await
+        } else {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "error": "preview_unavailable",
+                    "message": "The preview state could not be read: try again.",
+                })),
+            )
+                .into_response()
+        };
     };
     if is_realtime(req.uri().path()) || !allowed {
         return refusal();
@@ -230,7 +247,6 @@ mod tests {
     fn a_page_polling_does_not_count_as_somebody_acting() {
         assert!(is_background("/api/v1/realtime/ws"));
         assert!(is_background("/api/v1/spaces/x/presence"));
-        assert!(is_background("/api/v1/files/x/office/heartbeat"));
         assert!(!is_background("/api/v1/me/spaces"));
     }
 }

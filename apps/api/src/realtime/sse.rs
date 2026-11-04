@@ -68,7 +68,7 @@ pub async fn sse_handler(
     session: AuthSession,
 ) -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
     let user_id = session.user_id;
-    let (conn_id, rx) = state.hub.register(user_id);
+    let (conn_id, rx) = state.hub.register(user_id, &session.session_id);
 
     presence::heartbeat(state.hub.valkey(), user_id, state.config.presence_ttl_secs).await;
     presence::refresh_and_broadcast(&state, user_id).await;

@@ -55,7 +55,8 @@ pub async fn ws_handler(
         }
     }
     let user_id = session.user_id;
-    ws.on_upgrade(move |socket| handle_socket(state, user_id, socket))
+    let session_id = session.session_id;
+    ws.on_upgrade(move |socket| handle_socket(state, user_id, session_id, socket))
 }
 
 /// A message a client may send over the socket. Everything else is a mutation and must use REST.
@@ -69,8 +70,8 @@ enum ClientMessage {
 }
 
 /// Drive one connection until the socket closes.
-async fn handle_socket(state: AppState, user_id: Uuid, socket: WebSocket) {
-    let (conn_id, mut rx) = state.hub.register(user_id);
+async fn handle_socket(state: AppState, user_id: Uuid, session_id: String, socket: WebSocket) {
+    let (conn_id, mut rx) = state.hub.register(user_id, &session_id);
 
     // Mark the user reachable immediately and announce presence to their space.
     presence::heartbeat(state.hub.valkey(), user_id, state.config.presence_ttl_secs).await;

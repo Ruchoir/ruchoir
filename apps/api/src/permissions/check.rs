@@ -126,10 +126,18 @@ pub(super) fn resolved(person: &Person, levels: &[Level], facts: Facts, explain:
             })
             .collect()
     };
+    // What is the viewer's own and not the role's stays on the ceiling's side alone: the channels
+    // they joined (which open a private channel and add its view) and the files they wrote (which
+    // add managing them). The preview shows what the role opens.
+    let previewed = Facts {
+        joined: false,
+        author: false,
+        ..facts
+    };
     let mut decision = resolve(
         &person.subject,
         &of(|whom| whom != Whom::Viewer),
-        facts,
+        previewed,
         explain,
     );
     let viewer = resolve(

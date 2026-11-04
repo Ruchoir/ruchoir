@@ -56,6 +56,11 @@ pub use crate::permissions::rules::{
     RuleRefusal, RuleRow, RuleSubject, Shown, TargetRef, UsedIn,
 };
 pub use crate::permissions::system_roles::GUEST_CEILING;
+/// Close a session's realtime connections (sockets and streams) on this instance, the person's
+/// other sessions untouched: what starting a preview does to the session that starts it.
+pub fn close_realtime_session(state: &crate::state::AppState, session_id: &str) {
+    state.hub.close_session(session_id);
+}
 /// "View as a role": the paid routes start and end it (after their own checks) with these. The
 /// core refuses writes and the realtime transports while it is on, and resolves every right
 /// through it; the audit entry (`role.previewed`) is the caller's.
