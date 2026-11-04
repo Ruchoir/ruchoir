@@ -141,6 +141,7 @@ import { MemberGroupsSummary } from "@/features/groups/MemberGroups";
 import { MemberManagement, MemberRolesSummary } from "@/features/settings/MemberAccess";
 import { refusalMessage } from "@/features/settings/roleChips";
 import { canGiveAdministrator, rightsOf, spaceGates } from "./spaceGates";
+import { channelGates, createGates } from "@ruchoir/client/permissionsLogic";
 import { ActivityView } from "./ActivityView";
 import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
 import {
@@ -544,6 +545,8 @@ function AppShell() {
   const [canLicences, setCanLicences] = useState(false);
   /** The instance lists `resource_rules`: access is set by levels (the Access dialog). */
   const [canResourceRules, setCanResourceRules] = useState(false);
+  // Whether the instance lists what each person may do (`permissions`): the controls then follow those lists, not the role.
+  const [canPermissions, setCanPermissions] = useState(false);
   /**
    * An invitation the visitor arrived with, held across the whole authentication flow: they may have
    * to sign in or register first, and the token has to survive that. Kept in memory only, like the
@@ -756,6 +759,7 @@ function AppShell() {
    * small request. Debounced, because a burst in a busy background space would otherwise fire one
    * request per message.
    */
+  const rightsTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const countersTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Both are stable by construction (a ref and a state setter), so they can be dependencies of the
   // realtime effect without tearing its socket down on every render.
@@ -1164,6 +1168,7 @@ function AppShell() {
         setPricingUrl(capabilities.pricingUrl);
         setCanLicences(supports(capabilities, "licences"));
         setCanResourceRules(supports(capabilities, "resource_rules"));
+        setCanPermissions(supports(capabilities, "permissions"));
       })
       .catch(() => {});
     return () => {
@@ -1555,6 +1560,18 @@ function AppShell() {
         // again, and the caller's own rights there with the space list.
         if (spaceId !== liveRef.current.ws) return;
         void refreshAccessRef.current();
+        // The channels' own lists of rights (`myPermissions`) and the files' markers moved with them.
+        // One re-read after a burst, as a role edit touches many people at once.
+        if (rightsTimer.current) clearTimeout(rightsTimer.current);
+        rightsTimer.current = setTimeout(() => {
+          if (liveRef.current.ws !== spaceId) return;
+          void getChannels(spaceId)
+            .then((fresh) => {
+              if (liveRef.current.ws === spaceId) setChannels(fresh);
+            })
+            .catch(() => {});
+          emitFileEvent({ type: "rights", spaceId });
+        }, 400);
         void getWorkspaces()
           .then((spaces) => {
             const fresh = spaces.find((w) => w.id === spaceId);
@@ -2644,7 +2661,7 @@ function AppShell() {
       setProfileEdit(true);
       setProfile(currentUser);
     } else if (id === "channel") {
-      setModal("newChannel");
+      if (creates.channel) setModal("newChannel");
     } else if (id === "message") {
       openChannel(channels[0]?.id ?? channelId);
     } else if (id === "invite") {
@@ -3459,6 +3476,8 @@ function AppShell() {
   const gates = spaceGates(currentWorkspace?.role, myRights);
   /** Whether the caller administers people here: the member list, the roles, someone's "Gestion". */
   const managesPeople = gates.managePeople;
+  /** The creating buttons (new channel, new message, new calendar), each on its own right. */
+  const creates = createGates(currentWorkspace, canPermissions);
 
   /** Open a group in the profile's slot (and close the profile and the thread, which share it). */
   const openGroup = (groupId: string) => {
@@ -3559,6 +3578,14 @@ function AppShell() {
    * the API had just stopped accepting. The space role is the outer boundary.
    */
   const canModerateChannels = currentWorkspace?.role !== "guest";
+  /** What the caller may do in one of the open space's channels, from the list the server gave. */
+  const channelRoleOf = (channelId: string): string => {
+    const g = channelGatesOf(channelId);
+    if (!g.manage && !g.manageMembers && !g.moderate) return "member";
+    return myChannelRole(channelId) === "owner" ? "owner" : "admin";
+  };
+  const channelGatesOf = (channelId: string) =>
+    channelGates(channels.find((c) => c.id === channelId), currentWorkspace, canPermissions, myChannelRole(channelId));
   /**
    * Whether the caller runs the space: the settings screen, its people, its identity. The screen
    * itself already refuses every control below this rung, and the API refuses the calls behind them,
@@ -4028,7 +4055,9 @@ function AppShell() {
     {
       search: () => setModal("search"),
       switcher: () => setModal("switcher"),
-      newMessage: () => setModal("newMessage"),
+      newMessage: () => {
+        if (creates.dm) setModal("newMessage");
+      },
       nextUnread: () => gotoUnread(1),
       prevUnread: () => gotoUnread(-1),
       markRead: () => {
@@ -4409,7 +4438,7 @@ function AppShell() {
         onChannel={shell === "phone" ? openChannelPushed : openChannel}
         onNotify={showToast}
         onInvite={() => setModal("invite")}
-        onNewChannel={() => setModal("newChannel")}
+        onNewChannel={creates.channel ? () => setModal("newChannel") : undefined}
         // A guest reaches the space only through what they were added to: no space files, no new
         // channel, no invitation. The API refuses all three; this keeps them off the column.
         canBrowseSpace={currentWorkspace?.role !== "guest"}
@@ -4419,7 +4448,7 @@ function AppShell() {
         canImport={session !== null}
         importRun={importRun}
         onImport={openImport}
-        onNewMessage={() => setModal("newMessage")}
+        onNewMessage={creates.dm ? () => setModal("newMessage") : undefined}
         onGlobalSearch={() => setModal("search")}
         // Asked first, as from the channel's own menu: the two menus are one and act the same.
         onLeaveChannel={setLeavingChannelId}
@@ -4431,6 +4460,8 @@ function AppShell() {
         // administrators. The channel screen also reads the channel's own roster, which this list
         // does not have.
         onAddPeople={gates.addPeopleToChannels ? setAddPeopleId : undefined}
+        canAddPeopleTo={(id) => (canPermissions ? channelGatesOf(id).addPeople : true)}
+        canOpenSettingsOf={(id) => !canPermissions || channelGatesOf(id).manage || channelGatesOf(id).manageMembers}
         onMarkRead={markConversationRead}
         onToggleFavorite={toggleFavorite}
         onSetDefaultChannel={(id) => void setDefaultChannel(id)}
@@ -4537,6 +4568,8 @@ function AppShell() {
           onUpdateChannel={(patch) => updateChannel(channelId, patch)}
           accessRules={accessRules}
           myRole={currentWorkspace?.role ?? "member"}
+          space={{ role: currentWorkspace?.role ?? "member", myPermissions: currentWorkspace?.myPermissions }}
+          permissionsSupported={canPermissions}
           myChannelRole={myChannelRole(channelId)}
           canModerateChannels={canModerateChannels}
           myUserId={session?.id ?? ""}
@@ -4598,7 +4631,7 @@ function AppShell() {
           compact={compact}
           timeZone={viewerTimeZone}
           viewerId={session?.id}
-          spaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
+          spaces={workspaces.map((w) => ({ id: w.id, name: w.name, canCreate: canPermissions ? createGates(w, true).calendar : undefined }))}
           spaceId={ws}
           spaceName={wsName}
           onBack={compact ? backToTabs : undefined}
@@ -4883,10 +4916,10 @@ function AppShell() {
           accessRules={accessRules}
           onNotify={showToast}
           myRole={currentWorkspace?.role ?? "member"}
-          myChannelRole={canModerateChannels ? myChannelRole(channelSettingsId) : "member"}
+          myChannelRole={channelRoleOf(channelSettingsId)}
           isDefault={currentWorkspace?.defaultChannelId === channelSettingsId}
           onDelete={
-            canAdministerSpace
+            gates.deleteChannels
               ? () => {
                   const target = channels.find((c) => c.id === channelSettingsId);
                   if (!target) return;
@@ -5097,7 +5130,7 @@ function AppShell() {
                 dms={visibleDms}
                 loading={switchingSpace}
                 onOpen={openChannelPushed}
-                onNew={() => setModal("newMessage")}
+                onNew={creates.dm ? () => setModal("newMessage") : undefined}
               />
             </div>
           </>
@@ -5113,7 +5146,7 @@ function AppShell() {
             compact
             timeZone={viewerTimeZone}
             viewerId={session?.id}
-            spaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
+            spaces={workspaces.map((w) => ({ id: w.id, name: w.name, canCreate: canPermissions ? createGates(w, true).calendar : undefined }))}
             rememberFilter
             onNotify={showToast}
             accessRules={accessRules}
@@ -5134,7 +5167,7 @@ function AppShell() {
             </div>
           </>
         ) : null}
-        {mobileTab === "home" || mobileTab === "messages" ? <ComposeFab onClick={() => setModal("newMessage")} /> : null}
+        {creates.dm && (mobileTab === "home" || mobileTab === "messages") ? <ComposeFab onClick={() => setModal("newMessage")} /> : null}
       </main>
     );
     return (

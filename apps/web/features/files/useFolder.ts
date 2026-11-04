@@ -83,6 +83,9 @@ export function useFolder(spaceId: string, onError: () => void, initialFolderId?
             const here = !event.conversationId && event.file.parentFolderId === folderRef.current;
             return here ? [...prev, event.file] : prev;
           });
+        } else if (event.type === "rights") {
+          // The server marks each entry with what the caller may do: read the folder again.
+          load(folderRef.current);
         } else if (event.type === "deleted") {
           const gone = new Set(event.fileIds);
           setEntries((prev) => prev.filter((f) => !f.id || !gone.has(f.id)));
@@ -90,7 +93,7 @@ export function useFolder(spaceId: string, onError: () => void, initialFolderId?
           setEntries((prev) => prev.map((f) => (f.id === event.fileId ? { ...f, editors: event.editors } : f)));
         }
       }),
-    [spaceId],
+    [spaceId, load],
   );
 
   /** One more entry in a folder this list shows, so its size does not read "empty" while it fills. */

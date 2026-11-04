@@ -17,7 +17,9 @@ export type FileEvent =
     }
   | { type: "editing"; spaceId: string; fileId: string; editors: FileEditor[] }
   /** Removed (to the trash), a folder with everything under it. */
-  | { type: "deleted"; spaceId: string; fileIds: string[] };
+  | { type: "deleted"; spaceId: string; fileIds: string[] }
+  /** Someone's rights in the space moved: what a listing shows (and which entries are theirs to manage) may differ. */
+  | { type: "rights"; spaceId: string };
 
 const listeners = new Set<(event: FileEvent) => void>();
 

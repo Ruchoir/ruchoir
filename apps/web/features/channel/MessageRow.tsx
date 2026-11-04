@@ -291,6 +291,8 @@ export type MessageRowProps = {
    * outside the channel, so none of it is offered.
    */
   readOnly?: boolean;
+  /** Whether the person may react here (`message.react`); reactions already on the message stay visible. */
+  canReact?: boolean;
 };
 
 const avatarBtn: CSSProperties = {
@@ -328,6 +330,7 @@ export function MessageRow({
   inThread = false,
   replyFaces,
   readOnly = false,
+  canReact = true,
 }: MessageRowProps) {
   const { t } = useTranslation();
   // API rows carry the complete arrays. The singular fields remain compatibility aliases for old
@@ -608,10 +611,10 @@ export function MessageRow({
                     mine={r.mine}
                     users={r.users}
                     style={reactionPill(r.mine)}
-                    onClick={readOnly ? undefined : () => actions.onReact(r.emoji)}
+                    onClick={readOnly || !canReact ? undefined : () => actions.onReact(r.emoji)}
                   />
                 ))}
-                {readOnly ? null : <ReactionMenu variant="pill" onPick={actions.onReact} />}
+                {readOnly || !canReact ? null : <ReactionMenu variant="pill" onPick={actions.onReact} />}
               </div>
             ) : null}
 
@@ -682,7 +685,7 @@ export function MessageRow({
         // A line continuing a block has no such room: raised, the bar covered the end of the line
         // above, which belongs to another message, so it stays on the row's own first line instead.
         <div style={{ ...styles.actions, top: grouped ? 2 : -14 }}>
-          <ReactionMenu variant="action" onPick={actions.onReact} onOpenChange={setReactOpen} />
+          {canReact ? <ReactionMenu variant="action" onPick={actions.onReact} onOpenChange={setReactOpen} /> : null}
           {inThread ? null : (
             <Tooltip label={t("message.replyInThread")} side="top">
               <IconButton icon="message-square" label={t("message.replyInThread")} size="sm" onClick={actions.onOpenThread} />
@@ -731,7 +734,7 @@ export function MessageRow({
           canPin={canPin}
           inThread={inThread}
           hasReactions={!!m.reactions?.length}
-          onReact={actions.onReact}
+          onReact={canReact ? actions.onReact : undefined}
           onOpenThread={actions.onOpenThread}
           onToggleSave={actions.onToggleSave}
           onEdit={actions.onEdit}

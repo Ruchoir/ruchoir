@@ -884,6 +884,7 @@
     "searchInConversation": "Search this conversation",
     "members": "Members",
     "archivedNotice": "This channel is archived: it can still be read, but nothing more is written in it.",
+    "readOnlyNotice": "You can read this channel, but not write in it.",
     "privateNotice": "Private channel.",
     "importedNotice": "The history was brought over from {{source}}.",
     "today": "Today",

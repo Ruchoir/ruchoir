@@ -76,7 +76,7 @@ export type CalendarScreenProps = {
   timeZone: string;
   /** The viewer's own id: theirs is the first line of an event's availability. */
   viewerId?: string;
-  spaces: { id: string; name: string }[];
+  spaces: { id: string; name: string; canCreate?: boolean }[];
   /** The space the screen was opened from: its filter at first. */
   spaceId?: string;
   /** The phone's tab remembers the last filter rather than following a space. */

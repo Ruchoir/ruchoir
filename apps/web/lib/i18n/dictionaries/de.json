@@ -884,6 +884,7 @@
     "searchInConversation": "In der Unterhaltung suchen",
     "members": "Mitglieder",
     "archivedNotice": "Dieser Kanal ist archiviert: Er bleibt lesbar, aber es wird nicht mehr darin geschrieben.",
+    "readOnlyNotice": "Sie können diesen Kanal lesen, aber nicht darin schreiben.",
     "privateNotice": "Privater Kanal.",
     "importedNotice": "Der Verlauf wurde aus {{source}} übernommen.",
     "today": "Heute",

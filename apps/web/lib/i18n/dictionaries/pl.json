@@ -936,6 +936,7 @@
     "searchInConversation": "Szukaj w rozmowie",
     "members": "Członkowie",
     "archivedNotice": "Ten kanał jest zarchiwizowany: można go czytać, ale nie można już w nim pisać.",
+    "readOnlyNotice": "Możesz czytać ten kanał, ale nie możesz w nim pisać.",
     "privateNotice": "Kanał prywatny.",
     "importedNotice": "Historia została przeniesiona z: {{source}}.",
     "today": "Dzisiaj",

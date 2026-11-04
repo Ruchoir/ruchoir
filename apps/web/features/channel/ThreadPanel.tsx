@@ -118,6 +118,10 @@ export type ThreadPanelProps = {
    * of the composer (the same notice and join button the feed shows), and every row is read-only.
    */
   readOnlyNotice?: ReactNode;
+  /** Drawn in place of the reply box when the person may read and react but not write (`message.send`). */
+  noWriteNotice?: ReactNode;
+  canReact?: boolean;
+  canAttach?: boolean;
   /** The replies are being fetched: placeholders stand where they will be, when some are expected. */
   loadingReplies?: boolean;
 };
@@ -147,6 +151,9 @@ export function ThreadPanel({
   onNotify,
   onClose,
   readOnlyNotice,
+  noWriteNotice,
+  canReact = true,
+  canAttach = true,
   loadingReplies = false,
 }: ThreadPanelProps) {
   const { t } = useTranslation();
@@ -283,6 +290,7 @@ export function ThreadPanel({
       authorGuest={guestNames?.has(m.author)}
       actions={rowActions(m)}
       readOnly={!!readOnlyNotice}
+      canReact={canReact}
     />
   );
 
@@ -316,8 +324,8 @@ export function ThreadPanel({
           replies.map(row)
         )}
       </div>
-      {readOnlyNotice ? (
-        <div style={styles.composer}>{readOnlyNotice}</div>
+      {readOnlyNotice || noWriteNotice ? (
+        <div style={styles.composer}>{readOnlyNotice ?? noWriteNotice}</div>
       ) : (
         <div style={styles.composer}>
           <div className="wc-message-composer" style={styles.composerBox} data-has-files={editPending.length > 0 || undefined}>
@@ -344,7 +352,7 @@ export function ThreadPanel({
                 ref={editorRef}
                 placeholder={editing ? t("message.editMessage") : t("thread.replyPlaceholder")}
                 onSend={submit}
-                onPasteFiles={(files) => void addFiles(files)}
+                onPasteFiles={(files) => { if (canAttach) void addFiles(files); }}
               />
             </div>
             {editing && editPending.length > 0 ? (
@@ -363,7 +371,7 @@ export function ThreadPanel({
               </div>
             ) : null}
             <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 2, marginTop: 4 }}>
-              {editing ? (
+              {editing && canAttach ? (
                 <>
                   <IconButton icon="paperclip" label={t("composer.attach")} size="sm" onClick={() => fileRef.current?.click()} />
                   <input ref={fileRef} type="file" multiple style={{ display: "none" }} onChange={(event) => void addFiles(Array.from(event.target.files ?? []))} />

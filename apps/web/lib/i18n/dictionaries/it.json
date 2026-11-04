@@ -910,6 +910,7 @@
     "searchInConversation": "Cerca nella conversazione",
     "members": "Membri",
     "archivedNotice": "Questo canale è archiviato: resta consultabile, ma non ci si scrive più.",
+    "readOnlyNotice": "Puoi leggere questo canale, ma non scrivere.",
     "privateNotice": "Canale privato.",
     "importedNotice": "La cronologia è stata ripresa da {{source}}.",
     "today": "Oggi",

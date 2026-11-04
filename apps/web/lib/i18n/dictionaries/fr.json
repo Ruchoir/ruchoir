@@ -884,6 +884,7 @@
     "searchInConversation": "Rechercher dans la conversation",
     "members": "Membres",
     "archivedNotice": "Ce canal est archivé : il reste consultable, mais on n'y écrit plus.",
+    "readOnlyNotice": "Vous pouvez lire ce canal, sans y écrire.",
     "privateNotice": "Canal privé.",
     "importedNotice": "L'historique a été repris depuis {{source}}.",
     "today": "Aujourd'hui",

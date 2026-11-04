@@ -910,6 +910,7 @@
     "searchInConversation": "Buscar en la conversación",
     "members": "Miembros",
     "archivedNotice": "Este canal está archivado: se puede leer, pero ya no se escribe en él.",
+    "readOnlyNotice": "Puedes leer este canal, pero no escribir en él.",
     "privateNotice": "Canal privado.",
     "importedNotice": "El historial se ha traído desde {{source}}.",
     "today": "Hoy",

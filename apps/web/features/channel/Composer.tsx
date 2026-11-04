@@ -215,6 +215,8 @@ export type ComposerProps = {
    * Answers whether there was one. Without it, the shortcut does nothing in this composer.
    */
   onEditLast?: () => boolean;
+  /** Whether the person may attach files here (`message.attach`). */
+  canAttach?: boolean;
 };
 
 /** Message composer with a working formatting toolbar and file attachment. */
@@ -228,6 +230,7 @@ export function Composer({
   onSaveEdit,
   onCancelEdit,
   onEditLast,
+  canAttach = true,
 }: ComposerProps) {
   const { t } = useTranslation();
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -378,7 +381,7 @@ export function Composer({
         onDrop={(event) => {
           event.preventDefault();
           setDraggingFiles(false);
-          void addFiles(Array.from(event.dataTransfer.files));
+          if (canAttach) void addFiles(Array.from(event.dataTransfer.files));
         }}
         onInput={signalTyping}
         // Escape leaves an edit, which is the shortcut people reach for first. Caught here rather
@@ -420,7 +423,7 @@ export function Composer({
           ref={editorRef}
           placeholder={editing ? t("message.editMessage") : t("composer.writeIn", { name: channelName })}
           onSend={sendWith}
-          onPasteFiles={(files) => void addFiles(files)}
+          onPasteFiles={(files) => { if (canAttach) void addFiles(files); }}
         />
         <div
           style={styles.tools}
@@ -471,7 +474,7 @@ export function Composer({
             </>
           )}
           <span style={styles.divider} />
-          <IconButton icon="paperclip" label={t("composer.attach")} size="sm" onClick={() => fileRef.current?.click()} className="wc-keep" />
+          {canAttach ? <IconButton icon="paperclip" label={t("composer.attach")} size="sm" onClick={() => fileRef.current?.click()} className="wc-keep" /> : null}
           <input
             ref={fileRef}
             type="file"
