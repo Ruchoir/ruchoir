@@ -64,6 +64,8 @@ export type Sentence =
   | "licenceRemoved"
   | "guestExpiryFixed"
   | "guestExpiryMoved"
+  | "guestExpiryExtended"
+  | "guestExpiryAdvanced"
   | "guestExpiryRemoved"
   | "guestExpired"
   | "guestReactivated"
@@ -223,10 +225,14 @@ export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined): A
     case "member.expiry_set": {
       const before = str(d.before);
       const after = str(d.after);
-      return line(!before ? "guestExpiryFixed" : !after ? "guestExpiryRemoved" : "guestExpiryMoved", { slots: { target }, values: { before, after } });
+      // A later end is a prolongation, an earlier one brings the end forward; the same day is just a change.
+      const later = before && after ? new Date(after).getTime() - new Date(before).getTime() : 0;
+      const sentence: Sentence = !before ? "guestExpiryFixed" : !after ? "guestExpiryRemoved" : later > 0 ? "guestExpiryExtended" : later < 0 ? "guestExpiryAdvanced" : "guestExpiryMoved";
+      return line(sentence, { slots: { target }, values: { before, after } });
     }
     case "member.expired":
-      return line("guestExpired", { slots: { target }, chips: [{ sign: "-", what: "space" }] });
+      // The date that was reached; entries from before it was kept fall back on the day the sweep wrote them.
+      return line("guestExpired", { slots: { target }, values: { date: str(d.expires_at) || entry.at }, chips: [{ sign: "-", what: "space" }] });
     case "member.reactivated":
       return line("guestReactivated", { slots: { target }, values: { before: str(d.before), after: str(d.after) } });
     case "member.standing_changed": {

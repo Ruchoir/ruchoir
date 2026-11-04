@@ -7,7 +7,7 @@ import { getAudit } from "@/lib/data/api";
 import type { AuditEntry, Role } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
-import { formatDate, formatDayHeading, formatTime, formatUtcDate } from "@/lib/i18n/format";
+import { formatDayHeading, formatDayMonth, formatLongDate, formatTime, formatUtcDate } from "@/lib/i18n/format";
 import { auditLine, dayKey, lineCategory, type Sentence, type Slot } from "./auditLogic";
 import { RoleDot, ROLE_LABEL, roleLabel } from "./roleChips";
 import { PERMISSION_TEXT } from "./permissionText";
@@ -45,6 +45,8 @@ const SENTENCE: Record<Sentence, TranslationKey> = {
   licenceRemoved: key("audit.licenceRemoved"),
   guestExpiryFixed: key("audit.guestExpiryFixed"),
   guestExpiryMoved: key("audit.guestExpiryMoved"),
+  guestExpiryExtended: key("audit.guestExpiryExtended"),
+  guestExpiryAdvanced: key("audit.guestExpiryAdvanced"),
   guestExpiryRemoved: key("audit.guestExpiryRemoved"),
   guestExpired: key("audit.guestExpired"),
   guestReactivated: key("audit.guestReactivated"),
@@ -177,7 +179,7 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
     const line = auditLine(entry, (id) => nameById.get(id));
     const fill: Record<string, string | number> = {};
     for (const name of Object.keys(line.slots)) fill[name] = `${MARK}${name}${MARK}`;
-    for (const [name, value] of Object.entries(line.values)) fill[name] = name === "until" && typeof value === "string" ? formatUtcDate(value) : value;
+    for (const [name, value] of Object.entries(line.values)) fill[name] = name === "until" && typeof value === "string" ? formatUtcDate(value) : name === "date" && typeof value === "string" ? formatDayMonth(value) : value;
     if (line.sentence === "licenceInstalled") fill.count = line.values.seats;
     const text = t(SENTENCE[line.sentence], fill);
     // Every odd piece is a slot's name: the sentence keeps its own word order in every language.
@@ -189,8 +191,8 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
       return diff?.viaGroup ? t("audit.viaGroup", { role: text }) : text;
     };
     // The end of an access, before and after: the two chips of a date line.
-    const dated = ["guestExpiryFixed", "guestExpiryMoved", "guestExpiryRemoved", "guestReactivated"].includes(line.sentence);
-    const endChip = (iso: unknown) => (typeof iso === "string" && iso ? t("audit.accessUntil", { date: formatDate(iso) }) : t("guests.noEnd"));
+    const dated = ["guestExpiryFixed", "guestExpiryMoved", "guestExpiryExtended", "guestExpiryAdvanced", "guestExpiryRemoved", "guestReactivated"].includes(line.sentence);
+    const endChip = (iso: unknown) => (typeof iso === "string" && iso ? t("audit.accessUntil", { date: formatLongDate(iso) }) : t("guests.noEnd"));
     const standingChip = (what: "member" | "guest") => (what === "member" ? t("role.member") : t("guests.guestTag"));
     return (
       <>
@@ -200,7 +202,7 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
             {line.chips.map((chip) => (
               <span key={`${chip.sign}${chip.what}`} style={chip.sign === "+" ? st.plus : st.minus}>
                 {chip.sign === "+" ? "+" : "\u2212"}{" "}
-                {chip.what === "until" ? t("audit.accessUntil", { date: formatDate(chip.date ?? "") }) : chip.what === "space" ? t("audit.accessTo", { space: spaceName }) : standingChip(chip.what)}
+                {chip.what === "until" ? t("audit.accessUntil", { date: formatLongDate(chip.date ?? "") }) : chip.what === "space" ? t("audit.accessTo", { space: spaceName }) : standingChip(chip.what)}
               </span>
             ))}
           </span>
@@ -295,8 +297,10 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
                 {entry.actor ? (
                   <Avatar name={entry.actor.name} src={entry.actor.avatarUrl ?? getAvatar(entry.actor.name)} size={24} />
                 ) : entry.action === "member.expired" || entry.action === "member.purged" ? (
-                  // The sweep, not a person: the product signs it.
-                  <Avatar name="Ruchoir" size={24} />
+                  // The sweep, not a person: the product signs it, with its own mark.
+                  <span aria-label="Ruchoir" role="img" style={{ display: "grid", placeItems: "center", width: 24, height: 24, flex: "none", borderRadius: "var(--radius-md)", background: "var(--text-strong)", color: "var(--surface-canvas)", fontSize: 12, fontWeight: 700 }}>
+                    R
+                  </span>
                 ) : (
                   <Avatar name="?" size={24} />
                 )}

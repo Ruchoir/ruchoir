@@ -62,7 +62,9 @@ const entry = (action: string, details: Record<string, unknown> = {}, actor: { i
 test("every_expiry_action_has_a_journal_sentence", () => {
   const cases: [string, Record<string, unknown>, string][] = [
     ["member.expiry_set", { before: null, after: "2026-11-20T22:59:59Z" }, "guestExpiryFixed"],
-    ["member.expiry_set", { before: "2026-11-20T22:59:59Z", after: "2026-12-12T22:59:59Z" }, "guestExpiryMoved"],
+    ["member.expiry_set", { before: "2026-11-20T22:59:59Z", after: "2026-12-12T22:59:59Z" }, "guestExpiryExtended"],
+    ["member.expiry_set", { before: "2026-12-12T22:59:59Z", after: "2026-11-20T22:59:59Z" }, "guestExpiryAdvanced"],
+    ["member.expiry_set", { before: "2026-11-20T22:59:59Z", after: "2026-11-20T22:59:59Z" }, "guestExpiryMoved"],
     ["member.expiry_set", { before: "2026-11-20T22:59:59Z", after: null }, "guestExpiryRemoved"],
     ["member.expired", { role: "guest" }, "guestExpired"],
     ["member.reactivated", { before: null, after: "2026-11-20T22:59:59Z" }, "guestReactivated"],
@@ -154,4 +156,11 @@ test("saving_the_guest_dialog_changes_only_the_tunable_rights", () => {
   assert.deepEqual([...after].sort(), ["channel.view", "dm.start", "files.view", "message.send"].sort());
   // Nothing outside the list can be switched on through it.
   assert.deepEqual(guestRightsAfter(["channel.view"], new Set(["members.manage"])), ["channel.view"]);
+});
+
+test("the_expired_line_carries_the_date_that_was_reached", () => {
+  const line = auditLine(entry("member.expired", { role: "guest", expires_at: "2026-11-12T22:59:59Z" }));
+  assert.equal(line.values.date, "2026-11-12T22:59:59Z");
+  // An entry written before the date was kept falls back on the day the sweep wrote it.
+  assert.equal(auditLine(entry("member.expired", { role: "guest" })).values.date, "2026-11-03T14:32:00Z");
 });
