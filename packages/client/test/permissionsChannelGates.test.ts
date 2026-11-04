@@ -76,3 +76,9 @@ test("creating_on_an_older_instance_is_for_everyone_but_guests", () => {
   assert.deepEqual([guest.channel, guest.calendar], [false, false]);
   assert.equal(guest.dm, true);
 });
+
+test("it_says_whether_the_answer_comes_from_the_servers_list_or_from_the_role", () => {
+  assert.equal(channelGates({ myPermissions: READ }, member, true).strict, true);
+  assert.equal(channelGates({ myPermissions: READ }, member, false).strict, false);
+  assert.equal(channelGates({}, member, true).strict, false);
+});

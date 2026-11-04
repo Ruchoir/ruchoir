@@ -21,6 +21,7 @@ export function channelGates(
   if (mine) {
     const has = (p: string) => mine.includes(p);
     return {
+      strict: true,
       send: has("message.send"),
       react: has("message.react"),
       attach: has("message.attach"),
@@ -37,6 +38,7 @@ export function channelGates(
   const runs = !guest && (["owner", "admin"].includes(space?.role ?? "") || ["owner", "admin"].includes(legacyChannelRole ?? ""));
   const spaceRuns = ["owner", "admin"].includes(space?.role ?? "");
   return {
+    strict: false,
     send: true,
     react: true,
     attach: true,
