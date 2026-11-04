@@ -330,9 +330,11 @@ pub async fn reactivate(
         return Err(not_ended());
     }
     // Past the keeping window the list no longer offers the access, and the sweep removes it.
-    if target.model.expires_at.is_some_and(|ended| {
-        ended + Duration::days(guest_expiry::KEEP_DAYS) <= OffsetDateTime::now_utc()
-    }) {
+    if target
+        .model
+        .expires_at
+        .is_some_and(|ended| ended + guest_expiry::keep() <= OffsetDateTime::now_utc())
+    {
         return Err(ApiError::ConflictCode {
             code: "access_ended_for_good",
             message: "this access ended too long ago to be reactivated",
@@ -418,7 +420,7 @@ pub async fn list_ended(
         .map(|u| (u.id, u))
         .collect();
     let now = OffsetDateTime::now_utc();
-    let keep = Duration::days(guest_expiry::KEEP_DAYS);
+    let keep = guest_expiry::keep();
     let mut out = Vec::with_capacity(rows.len());
     for row in rows {
         let (Some(ended_at), Some(user)) = (row.expires_at, people.get(&row.user_id)) else {

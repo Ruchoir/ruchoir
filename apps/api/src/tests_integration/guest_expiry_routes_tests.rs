@@ -893,3 +893,59 @@ async fn reactivation_stops_where_the_list_stops() {
     let (status, _) = reactivate(&app, fx.space, kept, &cookie, json!(rfc(in_days(9)))).await;
     assert_eq!(status, 200);
 }
+
+/// Keep window edges: one span, 2160 hours, for the route and for the purge.
+#[tokio::test]
+async fn the_keeping_window_is_2160_hours_for_the_route_and_the_purge() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let owner = app.cookie_for(fx.owner).await;
+    let inside = guest_ending(&app.db, fx.space, "-2159 hours -59 minutes").await;
+    let outside = guest_ending(&app.db, fx.space, "-2160 hours -1 minutes").await;
+
+    let (status, body) = reactivate(&app, fx.space, outside, &owner, json!(rfc(in_days(30)))).await;
+    assert_eq!(status, 409, "{body}");
+    assert_eq!(body["error"], "access_ended_for_good");
+
+    let report = guest_expiry::sweep_in(&app.state, OffsetDateTime::now_utc(), Some(fx.space))
+        .await
+        .expect("sweep");
+    assert_eq!(report.purged, 1);
+    assert!(space_members::Entity::find_by_id((fx.space, outside))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .is_none());
+    assert!(space_members::Entity::find_by_id((fx.space, inside))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .is_some());
+
+    let (status, body) = reactivate(&app, fx.space, inside, &owner, json!(rfc(in_days(30)))).await;
+    assert_eq!(status, 200, "{body}");
+}
+
+/// The sweep closes an access on the database's clock, whatever the process thinks the time is.
+#[tokio::test]
+async fn the_sweep_closes_an_access_on_the_database_clock() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let guest = guest_ending(&app.db, fx.space, "2 seconds").await;
+
+    // A process clock running an hour ahead must not close it early.
+    let early = guest_expiry::sweep_in(
+        &app.state,
+        OffsetDateTime::now_utc() + time::Duration::hours(1),
+        Some(fx.space),
+    )
+    .await
+    .expect("sweep");
+    assert!(early.expired.is_empty(), "{:?}", early.expired);
+
+    tokio::time::sleep(std::time::Duration::from_millis(2500)).await;
+    let late = guest_expiry::sweep_in(&app.state, OffsetDateTime::now_utc(), Some(fx.space))
+        .await
+        .expect("sweep");
+    assert_eq!(late.expired, vec![(fx.space, guest)]);
+}

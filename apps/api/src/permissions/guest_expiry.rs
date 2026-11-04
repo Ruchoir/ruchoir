@@ -42,8 +42,15 @@ use crate::messaging::dto::{rfc3339, NotificationDto};
 use crate::notify::prefs;
 use crate::state::AppState;
 
-/// Days an ended guest stays listed, reactivable, before their row is removed.
-pub const KEEP_DAYS: i64 = 90;
+/// Hours (ninety days of 24) an ended guest stays listed, reactivable, before their row is
+/// removed. A fixed span, so the route (`Duration`) and the purge (`interval`) cannot disagree
+/// over a daylight-saving change.
+pub const KEEP_HOURS: i64 = 2160;
+
+/// [`KEEP_HOURS`] as a duration.
+pub fn keep() -> time::Duration {
+    time::Duration::hours(KEEP_HOURS)
+}
 
 /// A notice to the people who manage a guest.
 pub const KIND_SOON: &str = "guest_expiry_soon";
@@ -119,7 +126,7 @@ pub async fn sweep_in(
 ) -> Result<Report, DbErr> {
     let mut report = Report::default();
     remind(state, now, space, &mut report).await?;
-    expire(state, now, space, &mut report).await?;
+    expire(state, space, &mut report).await?;
     purge(state, now, space, &mut report).await?;
     Ok(report)
 }
@@ -346,12 +353,9 @@ async fn prepare_mail<C: ConnectionTrait>(
     Some((locale, reader.email, email))
 }
 
-async fn expire(
-    state: &AppState,
-    now: OffsetDateTime,
-    space: Option<Uuid>,
-    report: &mut Report,
-) -> Result<(), DbErr> {
+/// Close the accesses whose date has come, by the database's clock: the same one that decides
+/// whether a membership is active, so a row is never closed a moment before it reads as ended.
+async fn expire(state: &AppState, space: Option<Uuid>, report: &mut Report) -> Result<(), DbErr> {
     let txn = state.db.begin().await?;
     let rows = txn
         .query_all_raw(Statement::from_sql_and_values(
@@ -359,13 +363,13 @@ async fn expire(
             "WITH picked AS ( \
                 SELECT space_id, user_id FROM space_members \
                  WHERE standing = 'guest' AND expires_at IS NOT NULL \
-                   AND expires_at <= $1::timestamptz AND expiry_stage IS DISTINCT FROM 0 \
-                   AND ($2::uuid IS NULL OR space_id = $2) \
+                   AND expires_at <= now() AND expiry_stage IS DISTINCT FROM 0 \
+                   AND ($1::uuid IS NULL OR space_id = $1) \
                  ORDER BY space_id, user_id FOR UPDATE) \
              UPDATE space_members m SET expiry_stage = 0 \
                FROM picked p WHERE m.space_id = p.space_id AND m.user_id = p.user_id \
              RETURNING m.space_id, m.user_id, m.role",
-            [now.into(), space.into()],
+            [space.into()],
         ))
         .await?;
     let mut closed = Vec::new();
@@ -414,10 +418,10 @@ async fn purge(
             DbBackend::Postgres,
             "SELECT space_id, user_id, role FROM space_members \
              WHERE standing = 'guest' AND expires_at IS NOT NULL \
-               AND expires_at <= $1::timestamptz - make_interval(days => $3) \
+               AND expires_at <= $1::timestamptz - interval '2160 hours' \
                AND ($2::uuid IS NULL OR space_id = $2) \
              ORDER BY space_id, user_id FOR UPDATE",
-            [now.into(), space.into(), (KEEP_DAYS as i32).into()],
+            [now.into(), space.into()],
         ))
         .await?;
     for row in rows {
