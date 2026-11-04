@@ -30,7 +30,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from helpers import PACKAGE, build_archive, load, rewrite, set_format
+from helpers import PACKAGE, build_archive, load, rewrite, set_format, write_export
 
 validator = load("validate-archive.py")
 
@@ -502,6 +502,80 @@ class CheckersAgree(unittest.TestCase):
                     f"{name}: the API accepted it and the producer's checker did not. "
                     f"The producer's checker said:\n{py_said}",
                 )
+
+
+@unittest.skipIf(
+    BINARY is None and not REQUIRED,
+    "no API binary: build one with `cargo build -p ruchoir-api` to run the cross-check",
+)
+class ProducersAgree(unittest.TestCase):
+    """What the producers write in format 2 is accepted by both checkers, warnings included.
+
+    Teams has its own cross-check in its test module (it needs a Graph on localhost), and the
+    Nextcloud one is run against a real MariaDB (see AGENTS.md).
+    """
+
+    def setUp(self) -> None:
+        if BINARY is None:
+            self.fail("RUCHOIR_TEST_REQUIRE_RUST_CHECKER=1 but no API binary was found")
+        self._tmp = TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def both_accept(self, archive: Path) -> None:
+        py_ok, py_said = python_accepts(archive)
+        rs_ok, rs_said = rust_accepts(archive)
+        self.assertTrue(py_ok, py_said)
+        self.assertTrue(rs_ok, rs_said)
+        self.assertEqual(validator.validate(archive).warnings, [])
+        # The checker prints each warning on a line of its own that starts with "warning: " (a
+        # limit that merely mentions the word is indented), and ends on one exact line when sound.
+        lines = rs_said.splitlines()
+        self.assertEqual([l for l in lines if l.startswith("warning:")], [], rs_said)
+        self.assertIn("this archive holds together and would be accepted", lines)
+
+    def test_the_generators_write_archives_both_accept(self) -> None:
+        demo = self.root / "demo"
+        subprocess.run([sys.executable, str(PACKAGE / "make-demo-archive.py"), str(demo)],
+                       check=True, capture_output=True)
+        self.both_accept(demo)
+        load_archive = self.root / "load"
+        subprocess.run([sys.executable, str(PACKAGE / "make-load-archive.py"), str(load_archive),
+                        "--users", "30", "--channels", "12", "--directs", "4", "--messages", "400",
+                        "--files", "6", "--file-bytes", "600"], check=True, capture_output=True)
+        self.both_accept(load_archive)
+
+    def test_mattermost_roles_guests_and_moderators_are_accepted(self) -> None:
+        import test_convert_mattermost as mm
+
+        alice = mm.user("alice", channels=[{"name": "general", "roles": "channel_user channel_admin"}])
+        alice["user"]["teams"][0]["roles"] = "team_user team_admin"
+        rows = [
+            mm.team("atelier"), mm.channel("general"), alice,
+            mm.user("bob", channels=[{"name": "general"}], roles="system_guest"),
+            mm.user("carol", channels=[{"name": "general"}]),
+        ]
+        export = write_export(self.root / "export", rows)
+        converter = mm.converter.Converter(export, self.root / "archive")
+        converter.read()
+        converter.write()
+        self.both_accept(self.root / "archive")
+
+    def test_slack_owners_admins_and_guests_are_accepted(self) -> None:
+        import test_convert_slack as sl
+
+        export = self.root / "export"
+        export.mkdir()
+        people = [sl.user("U1", "alice", is_owner=True), sl.user("U2", "bob", is_restricted=True),
+                  sl.user("U3", "carol", is_admin=True)]
+        (export / "users.json").write_text(json.dumps(people), encoding="utf-8")
+        (export / "channels.json").write_text(
+            json.dumps([sl.channel("C1", "general", ["U1", "U2", "U3"])]), encoding="utf-8")
+        converter = sl.converter.Converter(export, self.root / "archive", "Slack")
+        converter.read()
+        converter.files.clear()
+        converter.write(fetched=False)
+        self.both_accept(self.root / "archive")
 
 
 if __name__ == "__main__":

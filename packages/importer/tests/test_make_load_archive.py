@@ -52,6 +52,19 @@ class GeneratedArchive(unittest.TestCase):
                               capture_output=True, text=True)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
+    def test_the_load_archive_validates_as_format_2(self) -> None:
+        manifest = json.loads((self.out / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["format_version"], 2)
+        members, groups = rows(self.out, "members.jsonl"), rows(self.out, "groups.jsonl")
+        self.assertEqual(manifest["counts"]["members"], len(members))
+        self.assertEqual(manifest["counts"]["groups"], len(groups))
+        self.assertEqual({m["role"] for m in members}, {"admin", "guest", "member"})
+        self.assertGreater(len(groups), 0)
+        self.assertTrue(any(c.get("moderators") for c in rows(self.out, "channels.jsonl")))
+        validator = load("validate-archive.py")
+        report = validator.validate(self.out)
+        self.assertEqual((report.errors, report.warnings), ([], []))
+
     def test_the_manifest_counts_what_is_there(self) -> None:
         manifest = json.loads((self.out / "manifest.json").read_text(encoding="utf-8"))
         for name, key in (("users", "users"), ("channels", "channels"),

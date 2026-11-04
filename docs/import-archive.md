@@ -337,6 +337,20 @@ send an administrator down completely different roads.
 | Slack | Adapter over the workspace export ZIP | On the Ruchoir host |
 | Teams | `convert-teams.py`, a reader over Microsoft Graph | On the Ruchoir host, against the tenant |
 
+All four producers write format 2 and map who stands where in the source as follows. A guest holds
+no role, so it wins over an administrator flag, and nobody is ever written as an owner: a source's
+owner arrives as an administrator.
+
+| Source | `admin` | `guest` | Moderators | Groups |
+| --- | --- | --- | --- | --- |
+| Nextcloud | nobody: the `admin` group is exported as a plain group (a server administrator is not a workspace administrator) | nobody | none | `groups.jsonl` from `oc_groups` and `oc_group_user`, plain groups with their members; no `members.jsonl` |
+| Mattermost | `team_admin` of that team only (`system_admin` alone is not enough) | `system_guest` account or `team_guest` of that team | `channel_admin` of the channel (guests excluded) | none: a bulk export carries no user groups, declared in the limits in English and in French |
+| Slack | `is_owner`, `is_primary_owner`, `is_admin` | `is_restricted`, `is_ultra_restricted` | none | none: user groups stay a limit (the export has no `usergroups`, reading them needs the API) |
+| Teams | team members with the `owner` role | `guest` member role, or directory `userType` Guest | none: channel owners are not read, declared in the limits | none |
+
+`make-demo-archive.py` and `make-load-archive.py` write format 2 as well, with administrators,
+a guest, a group, moderators and (in the demonstration archive) one custom role.
+
 Nextcloud is the odd one out because Talk has no export at all: the script is the only way its
 conversations come out, so we write and support it ourselves.
 

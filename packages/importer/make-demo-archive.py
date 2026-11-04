@@ -121,6 +121,24 @@ def build(out: str) -> dict:
     messages = _messages(files)
     calendars, events = _calendars()
 
+    # Standing (format 2): an administrator in each space, a guest, a custom role held by one
+    # person, a group, and a moderator of the general channel. Paul, who has no address, is the
+    # guest: he can be placed but not invited, and a guest is the standing the screen explains.
+    roles = [{"id": "moderators", "space": uid("atelier"), "name": "Moderators", "based_on": "member"}]
+    members = [
+        {"space": uid("atelier"), "user": uid("camille"), "role": "admin"},
+        {"space": uid("atelier"), "user": uid("yanis"), "role": "member", "roles": ["moderators"]},
+        {"space": uid("atelier"), "user": uid("awa"), "role": "member"},
+        {"space": uid("atelier"), "user": uid("mehdi"), "role": "member"},
+        {"space": uid("atelier"), "user": uid("claire"), "role": "member"},
+        {"space": uid("atelier"), "user": uid("paul"), "role": "guest"},
+        {"space": uid("direction"), "user": uid("camille"), "role": "admin"},
+        {"space": uid("direction"), "user": uid("awa"), "role": "member"},
+    ]
+    groups = [{"id": uid("g-design"), "space": uid("atelier"), "name": "Design",
+               "description": "Les gens du produit et du design", "members": [uid("yanis"), uid("awa")]}]
+    channels[0]["moderators"] = [uid("camille")]
+
     checksums = {}
     for name, rows in (
         ("spaces.jsonl", spaces),
@@ -128,19 +146,23 @@ def build(out: str) -> dict:
         ("channels.jsonl", channels),
         ("messages.jsonl", messages),
         ("files.jsonl", files),
+        ("members.jsonl", members),
+        ("groups.jsonl", groups),
+        ("roles.jsonl", roles),
         ("calendars.jsonl", calendars),
         ("events.jsonl", events),
     ):
         checksums[name] = _write(out, name, rows)
 
     manifest = {
-        "format_version": 1,
+        "format_version": 2,
         "source": "synthetic",
         "source_version": "demonstration archive, hand-written",
         "producer": "ruchoir-make-demo-archive 0.1.0",
         "created_at": at(0),
         "counts": {"spaces": len(spaces), "users": len(USERS), "channels": len(channels),
                    "messages": len(messages), "files": len(files),
+                   "members": len(members), "groups": len(groups), "roles": len(roles),
                    "calendars": len(calendars), "events": len(events)},
         "checksums": checksums,
         "limits": [

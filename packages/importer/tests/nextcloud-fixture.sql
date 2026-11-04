@@ -8,11 +8,23 @@
 
 DROP TABLE IF EXISTS oc_users, oc_accounts, oc_preferences, oc_talk_rooms, oc_talk_attendees,
                      oc_comments, oc_reactions, oc_share, oc_filecache, oc_storages, oc_appconfig,
-                     oc_calendars, oc_calendarobjects, oc_dav_shares, oc_calendarsubscriptions;
+                     oc_calendars, oc_calendarobjects, oc_dav_shares, oc_calendarsubscriptions,
+                     oc_groups, oc_group_user;
 
 CREATE TABLE oc_users (
   uid varchar(64) NOT NULL PRIMARY KEY,
   displayname varchar(64) DEFAULT NULL
+) DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE oc_groups (
+  gid varchar(64) NOT NULL PRIMARY KEY,
+  displayname varchar(255) NOT NULL DEFAULT ''
+) DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE oc_group_user (
+  gid varchar(64) NOT NULL,
+  uid varchar(64) NOT NULL,
+  PRIMARY KEY (gid, uid)
 ) DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE oc_accounts (
@@ -104,6 +116,16 @@ INSERT INTO oc_accounts (uid, data) VALUES
   ('emma', '{"email":{"value":"emma@example.org"}}');
 INSERT INTO oc_preferences (userid, appid, configkey, configvalue) VALUES
   ('emma', 'core', 'enabled', 'false');
+
+-- Groups: the administrators' group (Nextcloud's own, which must NOT make anybody an administrator
+-- here), a group with a display name that holds a disabled account (emma), a group whose display
+-- name is empty so the gid names it, and a group nobody belongs to. 'ghost' is a membership row
+-- whose account Nextcloud no longer has.
+INSERT INTO oc_groups (gid, displayname) VALUES
+  ('admin', 'admin'), ('design', 'Équipe design'), ('compta', ''), ('vide', 'Vide');
+INSERT INTO oc_group_user (gid, uid) VALUES
+  ('admin', 'alice'), ('design', 'emma'), ('design', 'bob'), ('design', 'alice'),
+  ('compta', 'carol'), ('compta', 'ghost');
 
 -- Conversations. Types: 1 one-to-one, 2 group, 3 public, 4 changelog, 6 note to self. The last
 -- two, plus anything flagged `sample`, are Nextcloud's own furniture and must not cross.

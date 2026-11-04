@@ -60,7 +60,7 @@ from pathlib import Path
 from typing import Iterator
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 PRODUCER = "ruchoir-convert-teams 0.1.0"
 
 # Where Microsoft lives. Named so that a test can point the whole conversation at a local server and
@@ -953,6 +953,8 @@ class Converter:
         self.shared_calendars = 0
         self.cancelled_meetings = 0
         self.rooms = 0
+        # One line per person and team (format 2): owners administer, guests are guests.
+        self.memberships: list[dict] = []
         self.event_attachments = 0
         self.no_mailbox = 0
         self.unknown_zones = 0
@@ -1067,8 +1069,20 @@ class Converter:
 
         members = []
         for member in self.graph.pages(f"/teams/{team_id}/members"):
-            if member.get("userId") in self.directory:
-                members.append(self.person(member["userId"]))
+            user_id = member.get("userId")
+            if user_id in self.directory:
+                members.append(self.person(user_id))
+                # A guest of the directory, or a member carrying the guest role, is a guest and
+                # holds nothing else: a guest who is also an owner stays a guest. Channel owners
+                # are not read (declared in the limits).
+                held = member.get("roles") or []
+                if "guest" in held or self.directory[user_id].get("userType") == "Guest":
+                    role = "guest"
+                elif "owner" in held:
+                    role = "admin"
+                else:
+                    role = "member"
+                self.memberships.append({"space": team_id, "user": user_id, "role": role})
 
         try:
             primary = self.graph.get(f"/teams/{team_id}/primaryChannel", {"$select": "id"}).get("id")
@@ -1671,6 +1685,7 @@ class Converter:
         self._write_jsonl("spaces.jsonl", self.spaces)
         self._write_jsonl("users.jsonl", list(self.people.values()))
         self._write_jsonl("channels.jsonl", self.channels)
+        self._write_jsonl("members.jsonl", sorted(self.memberships, key=lambda m: (m["space"], m["user"])))
         self._write_jsonl("files.jsonl", list(self.files.values()))
         self._write_jsonl("calendars.jsonl", self.calendar_rows)
         self._write_jsonl("events.jsonl", self.event_rows)
@@ -1699,6 +1714,7 @@ class Converter:
                 "channels": len(self.channels),
                 "messages": self.message_count,
                 "files": len(self.files),
+                "members": len(self.memberships),
                 "calendars": len(self.calendar_rows),
                 "events": len(self.event_rows),
             },
@@ -1718,7 +1734,9 @@ class Converter:
             "the reading positions or a channel's pinned posts, so nobody arrives with any of them.",
             "A message crosses with its current text and the date it was last edited: Teams keeps its "
             "earlier versions only under a retention policy, out of reach of this export.",
-            "Team owners arrive as ordinary members of their space: the archive carries no roles.",
+            "Team owners arrive as administrators of their space and guests (a guest of the directory, or "
+            "a member with the guest role) as guests. Channel owners are not read, so nobody arrives as "
+            "moderators of a channel.",
             "Profile pictures do not cross.",
         ]
         if self.deleted:

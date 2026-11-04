@@ -39,7 +39,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 PRODUCER = "ruchoir-convert-slack 0.1.0"
 
 # Slack narrates events as messages with a `subtype`. Only the ones with an equivalent here cross,
@@ -310,6 +310,8 @@ class Converter:
         self.out = out
         self.space_name = space_name
         self.users: list[dict] = []
+        # One line per kept person (format 2): who administers the workspace and who is a guest.
+        self.memberships: list[dict] = []
         self.bots: set[str] = set()
         self.channels: list[dict] = []
         self.channel_names: dict[str, str] = {}
@@ -357,6 +359,17 @@ class Converter:
                 # message from somebody the archive never named does.
                 self.bots.add(user["id"])
                 continue
+            # Owners and admins administer here; a restricted account (a multi-channel guest) or an
+            # ultra restricted one (a single-channel guest) is a guest, and a guest holds no role,
+            # so it wins over an admin flag. Nobody is an owner here: the primary owner is an
+            # administrator like the others.
+            if user.get("is_restricted") or user.get("is_ultra_restricted"):
+                role = "guest"
+            elif user.get("is_owner") or user.get("is_primary_owner") or user.get("is_admin"):
+                role = "admin"
+            else:
+                role = "member"
+            self.memberships.append({"space": "slack", "user": user["id"], "role": role})
             self.users.append(
                 {
                     # The Slack identifier, not the handle: messages reference people by it, and a
@@ -740,6 +753,7 @@ class Converter:
         )
         self._write_jsonl("users.jsonl", self.users)
         self._write_jsonl("channels.jsonl", self.channels)
+        self._write_jsonl("members.jsonl", sorted(self.memberships, key=lambda m: (m["space"], m["user"])))
         known = set(self.files)
         for message in self.messages:
             if "files" in message:
@@ -761,6 +775,7 @@ class Converter:
                 "channels": len(self.channels),
                 "messages": len(self.messages),
                 "files": len(self.files),
+                "members": len(self.memberships),
             },
             "checksums": {},
             "limits": self.limits,
@@ -815,7 +830,8 @@ class Converter:
         )
         self.limits.append(
             "User groups cross as plain text: a group is not an account and has nothing to resolve "
-            "to on the other side."
+            "to on the other side. The export ZIP carries no user groups (no usergroups file), and "
+            "reading them needs the Slack API."
         )
         if self.dropped_subtypes:
             self.limits.append(
