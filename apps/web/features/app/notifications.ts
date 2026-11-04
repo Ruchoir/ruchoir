@@ -11,6 +11,9 @@
 
 import type { ReminderInfo } from "@/lib/data/api";
 import { key, type Translate, type TranslationKey } from "@/lib/i18n";
+import { currentLocale } from "@/lib/i18n/current";
+import { formatDayMonth } from "@/lib/i18n/format";
+import { guestNoticeDetail, guestNoticeSummary } from "./guestNotices.ts";
 
 /**
  * Why a notification exists.
@@ -21,7 +24,7 @@ import { key, type Translate, type TranslationKey } from "@/lib/i18n";
  * other. `message` is any other message, for someone who asked to hear about every one of them in
  * that conversation (its level, its space's, or their own default).
  */
-export type NotifKind = "mention" | "broadcast" | "reply" | "dm" | "message" | "reaction" | "edited" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared";
+export type NotifKind = "mention" | "broadcast" | "reply" | "dm" | "message" | "reaction" | "edited" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared" | "guest_expiry_soon" | "guest_access_ending";
 
 /** Whether a kind is one of an invitation's: the invitation, a change, a cancellation, a refusal. */
 export function isInvitationKind(kind: NotifKind): boolean {
@@ -64,6 +67,16 @@ export type AppNotification = {
   reminder?: ReminderInfo;
   /** The emoji of a reaction to one of the reader's messages. */
   emoji?: string;
+  /** For a guest notice: the days that were left when it was written (7 or 1). */
+  daysLeft?: number;
+  /** For a guest notice: when the access ends (RFC 3339). */
+  endsAt?: string;
+  /** For `guest_expiry_soon`: the guest's profile title. */
+  guestTitle?: string;
+  /** For `guest_access_ending`: who to ask to extend the access. */
+  contactName?: string;
+  /** For `guest_expiry_soon`: the guest it is about. */
+  actorId?: string;
 };
 
 /**
@@ -186,6 +199,8 @@ const KIND_VERB: Record<NotifKind, TranslationKey> = {
   calendar_cancel: key("notif.invitationCancel"),
   calendar_declined: key("notif.invitationDeclined"),
   calendar_shared: key("notif.calendarShared"),
+  guest_expiry_soon: key("guests.noticeSoon"),
+  guest_access_ending: key("guests.noticeEnding"),
 };
 
 /**
@@ -195,10 +210,19 @@ const KIND_VERB: Record<NotifKind, TranslationKey> = {
  * components, and each of them already holds it.
  */
 export function notifSummary(n: AppNotification, t: Translate): string {
+  const guest = guestNoticeSummary(n, currentLocale(), (which, vars) => t(which === "soon" ? KIND_VERB.guest_expiry_soon : KIND_VERB.guest_access_ending, vars));
+  if (guest !== null) return guest;
   if (n.reminder && isInvitationKind(n.kind)) return t(KIND_VERB[n.kind], { actor: n.actor, title: n.reminder.title });
   if (n.reminder) return t(KIND_VERB.calendar_reminder, { title: n.reminder.title });
   const said = `${n.actor} ${t(KIND_VERB[n.kind])}`;
   return n.kind === "reaction" && n.emoji ? `${said} ${n.emoji}` : said;
+}
+
+/** The detail line of a guest notice, or `null` for any other kind. */
+export function notifGuestDetail(n: AppNotification, t: Translate): string | null {
+  return guestNoticeDetail(n, (iso) => formatDayMonth(iso), (which, vars) =>
+    t(which === "soon" ? key("guests.noticeSoonDetail") : which === "soonBare" ? key("guests.noticeSoonDetailBare") : which === "ending" ? key("guests.noticeEndingDetail") : key("guests.noticeEndingDetailBare"), vars),
+  );
 }
 
 /**
@@ -215,6 +239,8 @@ export function passesPref(
   if (!prefs.enabled) return false;
   // A reminder belongs to no conversation: its own switch decides.
   if (n.kind === "calendar_reminder") return prefs.calendarReminders ?? true;
+  // A guest notice is about access, not a conversation: no preference mutes it.
+  if (n.kind === "guest_expiry_soon" || n.kind === "guest_access_ending") return true;
   // A calendar shared with the reader follows the invitations' switch, as on the server.
   if (isInvitationKind(n.kind) || n.kind === "calendar_shared") return prefs.calendarInvitations ?? true;
   if (channelPref?.muted) return false;

@@ -346,7 +346,7 @@ export type ChannelScreenProps = {
   /** Display names currently typing in this conversation. */
   typingNames?: string[];
   /** The space's members with live presence and uploaded avatar (member list + message rows). */
-  members: { userId: string; name: string; presence: Presence; bot?: boolean; avatar?: string }[];
+  members: { userId: string; name: string; presence: Presence; bot?: boolean; avatar?: string; guest?: boolean }[];
   /** Who has read each message, by display name, keyed by message id. */
   readBy: Record<string, string[]>;
   /** How many people other than the reader are in this conversation, for "everyone". */
@@ -628,6 +628,7 @@ export function ChannelScreen({
   // Uploaded avatars, by display name: a row only knows its author's name, and the roster is the one
   // place that holds the picture. Absent means the locally generated avatar, which is the default.
   const avatarByName = new Map(members.map((m) => [m.name, m.avatar] as const));
+  const guestNames = new Set(members.filter((m) => m.guest).map((m) => m.name));
   const userIdByName = new Map(members.map((m) => [m.name, m.userId] as const));
   const threadParent = threadId != null ? messages.find((m) => m.id === threadId) : undefined;
   /**
@@ -849,6 +850,7 @@ export function ChannelScreen({
       rowActions={rowActions}
       presenceByName={presenceByName}
       avatarByName={avatarByName}
+      guestNames={guestNames}
       onSendReply={(text, alsoInChannel) => onSendReply(threadParent.id, text, alsoInChannel)}
       alsoInChannelLabel={
         canReplyToChannel ? (isDm ? t("thread.alsoInConversation") : t("thread.alsoInChannel", { channel: channel.name })) : undefined
@@ -1126,6 +1128,7 @@ export function ChannelScreen({
                         }
                         authorPresence={presenceByName.get(m.author)}
                         authorAvatar={avatarByName.get(m.author)}
+                        authorGuest={guestNames.has(m.author)}
                         canPin={
                           canModerateChannels &&
                           channel.member !== false &&

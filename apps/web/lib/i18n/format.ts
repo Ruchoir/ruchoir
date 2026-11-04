@@ -27,6 +27,20 @@ export function formatShortDate(at: Date | string | number, locale: Locale = cur
   return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(date);
 }
 
+/** Date alone, long: "20 novembre 2026". */
+export function formatLongDate(at: Date | string | number, locale: Locale = currentLocale()): string {
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(date);
+}
+
+/** Day and month in full, no year: "20 novembre", "November 20". */
+export function formatDayMonth(at: Date | string | number, locale: Locale = currentLocale()): string {
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).format(date);
+}
+
 /** Full date and time, for a tooltip or a detail line. */
 export function formatDateTime(at: Date | string | number, locale: Locale = currentLocale()): string {
   const date = new Date(at);

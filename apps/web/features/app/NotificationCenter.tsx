@@ -4,7 +4,7 @@ import { type CSSProperties, type RefObject, useState } from "react";
 import { Avatar, EmptyState, Icon, IconButton, Popover, Tabs } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import { respondToEvent } from "@/lib/data/calendar";
-import { type AppNotification, isMention, type NotifKind, notifSummary } from "./notifications";
+import { type AppNotification, isMention, type NotifKind, notifGuestDetail, notifSummary } from "./notifications";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatDate, formatDateTime, formatStamp } from "@/lib/i18n/format";
 
@@ -25,6 +25,8 @@ const KIND_ICON: Record<NotifKind, string> = {
   calendar_cancel: "x",
   calendar_declined: "user-minus",
   calendar_shared: "users",
+  guest_expiry_soon: "hourglass",
+  guest_access_ending: "hourglass",
 };
 
 /** The answers an invitation offers from the inbox, for every date. */
@@ -304,7 +306,7 @@ function NotifRow({
         }}
       />
       <span style={{ position: "relative", flex: "none" }}>
-        {notif.reminder ? (
+        {notif.reminder || notif.kind.startsWith("guest_") ? (
           <span
             aria-hidden
             style={{ display: "grid", placeItems: "center", width: 32, height: 32, borderRadius: "var(--radius-md)", background: "var(--surface-sunken)", color: "var(--text-strong)" }}
@@ -314,7 +316,7 @@ function NotifRow({
         ) : (
           <Avatar name={notif.actor} src={getAvatar(notif.actor)} size={32} presence={getPresence(notif.actor)} />
         )}
-        {notif.reminder ? null : (
+        {notif.reminder || notif.kind.startsWith("guest_") ? null : (
         <span
             aria-hidden
             style={{
@@ -345,7 +347,8 @@ function NotifRow({
         <span
           style={{
             display: "-webkit-box",
-            WebkitLineClamp: 2,
+            // A guest notice's detail line is a full sentence: it is read whole, not cut.
+            WebkitLineClamp: notif.kind.startsWith("guest_") ? 4 : 2,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
             fontSize: "var(--text-xs)",
@@ -354,11 +357,14 @@ function NotifRow({
         >
           {notif.reminder
             ? `${notif.reminder.allDay ? formatDate(`${notif.reminder.start}T12:00:00Z`) : formatDateTime(notif.reminder.start)}${notif.reminder.location ? ` · ${notif.reminder.location}` : ""}`
-            : notif.preview}
+            : (notifGuestDetail(notif, t) ?? notif.preview)}
         </span>
         <span style={{ display: "block", marginTop: 3, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
-          {notif.reminder ? [...new Set([notif.spaceName, notif.reminder.calendarName].filter(Boolean))].join(" · ") : notif.label} · {formatStamp(notif.createdAt)}
+          {[notif.reminder ? [...new Set([notif.spaceName, notif.reminder.calendarName].filter(Boolean))].join(" · ") : notif.label, formatStamp(notif.createdAt)].filter(Boolean).join(" · ")}
         </span>
+        {notif.kind === "guest_expiry_soon" ? (
+          <span style={{ display: "block", marginTop: 4, fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-link, var(--text-strong))" }}>{t("guests.prolong")}</span>
+        ) : null}
         {notif.kind === "calendar_invitation" && notif.reminder?.eventId && notif.reminder.myStatus ? (
           <InboxAnswer eventId={notif.reminder.eventId} current={notif.reminder.myStatus} />
         ) : null}

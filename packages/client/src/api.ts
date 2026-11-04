@@ -85,6 +85,7 @@ type SpaceDto = {
   my_permissions?: string[];
   edition?: string;
   licence?: { seats: number; used: number; valid_until: string; expires_in_days: number };
+  expires_at?: string | null;
 };
 
 type RoleDto = {
@@ -181,7 +182,8 @@ const REFUSAL_CODES = new Set([
   "role_name_reserved", "role_name_taken", "role_has_rules", "beyond_guest_ceiling",
   "make_them_a_member_first", "no_self_role", "manager_protected", "group_from_directory",
   "group_name_taken", "group_name_reserved", "group_name_invalid", "manager_must_be_member",
-  "base_role_not_allowed", "not_in_space", "too_many_people",
+  "base_role_not_allowed", "not_in_space", "too_many_people", "bad_expiry", "guest_only", "access_ended", "not_ended",
+  "access_ended_for_good",
 ]);
 
 /**
@@ -482,6 +484,7 @@ function toWorkspace(dto: SpaceDto): Workspace {
     defaultChannelId: dto.default_channel_id,
     notifyLevel: toNotifyLevel(dto.notify_level),
     myPermissions: dto.my_permissions,
+    expiresAt: dto.expires_at ?? undefined,
     edition: dto.edition === "enterprise" || dto.edition === "frozen" ? dto.edition : "community",
     licence: dto.licence
       ? { seats: dto.licence.seats, used: dto.licence.used, validUntil: dto.licence.valid_until, expiresInDays: dto.licence.expires_in_days }
@@ -540,6 +543,7 @@ type InvitationDto = {
   uses: number;
   max_uses?: number;
   expires_at?: string;
+  guest_expires_at?: string | null;
   created_at: string;
   usable: boolean;
   status?: string;
@@ -558,6 +562,7 @@ function toInvitation(dto: InvitationDto): Invitation {
     uses: dto.uses,
     maxUses: dto.max_uses,
     expiresAt: dto.expires_at,
+    guestExpiresAt: dto.guest_expires_at ?? undefined,
     createdAt: dto.created_at,
     usable: dto.usable,
     status: toInvitationStatus(dto),
@@ -620,7 +625,29 @@ type MemberDto = {
   group_ids?: string[] | null;
   manageable?: boolean;
   joined_at?: string;
+  expires_at?: string | null;
+  standing?: string | null;
 };
+
+/** A guest whose access ended and whose row is still kept, as the API lists it. */
+type EndedDto = { user_id: string; display_name: string; title?: string | null; ended_at: string; days_left_to_keep: number };
+
+function toMember(m: MemberDto): Member {
+  return {
+    userId: m.user_id,
+    name: m.display_name,
+    role: m.role,
+    title: m.title ?? undefined,
+    bot: m.is_bot,
+    avatarUrl: m.avatar_url,
+    roleIds: m.role_ids,
+    groupIds: m.group_ids ?? undefined,
+    manageable: m.manageable,
+    joinedAt: m.joined_at,
+    expiresAt: m.expires_at ?? undefined,
+    standing: m.standing ?? undefined,
+  };
+}
 
 /** A space member as the app holds it. Presence is overlaid separately (by user id). */
 export type Member = {
@@ -633,10 +660,27 @@ export type Member = {
   avatarUrl?: string;
   /** The roles assigned to them (Administrator included, base roles never), strongest first. */
   roleIds?: string[];
+  /** The groups they are in, from the space's member list. */
+  groupIds?: string[];
   /** Whether the caller may manage them (their roles, their removal). */
   manageable?: boolean;
   /** When they joined the space (ISO 8601), from the space's member list. */
   joinedAt?: string;
+  /** When a guest's access ends (RFC 3339); absent for no end, and for whoever may not see it. */
+  expiresAt?: string;
+  /** `owner`, `member` or `guest`, for whoever may manage people and for the person themself. */
+  standing?: string;
+};
+
+/** A guest whose access ended and who is still kept (90 days), until they are removed for good. */
+export type EndedAccess = {
+  userId: string;
+  name: string;
+  title?: string;
+  /** When the access ended (RFC 3339). */
+  endedAt: string;
+  /** Whole days left before they are removed for good. */
+  daysLeftToKeep: number;
 };
 
 // --- Messages ---
@@ -805,6 +849,13 @@ type NotificationDto = {
   emoji?: string;
   actor_id?: string;
   actor_name?: string;
+  /** For the guest notices: when the access ends, and how many days were left when it was written. */
+  ends_at?: string | null;
+  days_left?: number | null;
+  /** For `guest_expiry_soon`: the guest's profile title. */
+  guest_title?: string | null;
+  /** For `guest_access_ending`: who to ask to extend the access. */
+  contact_name?: string | null;
   preview: string;
   created_at: string;
   read: boolean;
@@ -842,7 +893,7 @@ export type ReminderInfo = {
 
 export type ApiNotification = {
   id: string;
-  kind: "mention" | "broadcast" | "reply" | "dm" | "message" | "reaction" | "edited" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared";
+  kind: "mention" | "broadcast" | "reply" | "dm" | "message" | "reaction" | "edited" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared" | "guest_expiry_soon" | "guest_access_ending";
   conversationId: string;
   /** The space it happened in, so the inbox can be shown for the space on screen. */
   spaceId: string;
@@ -863,6 +914,14 @@ export type ApiNotification = {
   calendarName?: string;
   /** For a `reaction` to one of the reader's messages: the emoji. */
   emoji?: string;
+  /** For a guest notice: when the access ends (RFC 3339), and the days that were left (7 or 1). */
+  endsAt?: string;
+  daysLeft?: number;
+  /** For `guest_expiry_soon`: the guest's profile title. For `guest_access_ending`: who to ask. */
+  guestTitle?: string;
+  contactName?: string;
+  /** For `guest_expiry_soon`: the guest it is about (their user id). */
+  actorId?: string;
 };
 
 /**
@@ -885,6 +944,8 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
     dto.kind === "message" ||
     dto.kind === "reaction" ||
     dto.kind === "edited" ||
+    dto.kind === "guest_expiry_soon" ||
+    dto.kind === "guest_access_ending" ||
     dto.kind.startsWith("calendar_")
       ? (dto.kind as ApiNotification["kind"])
       : "mention";
@@ -914,6 +975,7 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
       : {}),
     ...(dto.kind === "calendar_shared" && dto.calendar_name ? { calendarName: dto.calendar_name } : {}),
     ...(dto.kind === "reaction" && dto.emoji ? { emoji: dto.emoji } : {}),
+    ...(dto.kind.startsWith("guest_") ? { endsAt: dto.ends_at ?? undefined, daysLeft: dto.days_left ?? undefined, actorId: dto.actor_id, guestTitle: dto.guest_title ?? undefined, contactName: dto.contact_name ?? undefined } : {}),
     actor: dto.actor_name ?? "",
     preview: dto.preview,
     createdAt: dto.created_at,
@@ -2023,10 +2085,12 @@ export function createApi(transport: Transport) {
     spaceId: string,
     userId: string,
     role: string,
+    options: { expiresAt?: string | null } = {},
   ): Promise<{ userId: string; role: string }[]> {
+    // `expiresAt` only goes with `role: "guest"`: the end of the access they are given as they become one.
     const changes = await apiPatch<{ space_id: string; user_id: string; role: string }[]>(
       `/spaces/${spaceId}/members/${userId}`,
-      { role },
+      options.expiresAt ? { role, expires_at: options.expiresAt } : { role },
     );
     return changes.map((c) => ({ userId: c.user_id, role: c.role }));
   }
@@ -2203,13 +2267,14 @@ export function createApi(transport: Transport) {
    */
   async function createInvitation(
     spaceId: string,
-    options: { email?: string; role?: string; expiresInHours?: number; maxUses?: number } = {},
+    options: { email?: string; role?: string; expiresInHours?: number; maxUses?: number; guestExpiresAt?: string | null } = {},
   ): Promise<CreatedInvitation> {
     const dto = await apiPost<CreatedInvitationDto>(`/spaces/${spaceId}/invitations`, {
       email: options.email,
       role: options.role,
       expires_in_hours: options.expiresInHours,
       max_uses: options.maxUses,
+      guest_expires_at: options.guestExpiresAt ?? undefined,
     });
     return { invitation: toInvitation(dto), url: dto.url, emailed: dto.emailed };
   }
@@ -2559,17 +2624,36 @@ export function createApi(transport: Transport) {
   /** `GET /spaces/{id}/members`: the members of a space (member list, mentions, people search). */
   async function getSpaceMembers(spaceId: string, signal?: AbortSignal): Promise<Member[]> {
     const rows = await apiGet<MemberDto[]>(`/spaces/${spaceId}/members`, signal);
-    return rows.map((m) => ({
-      userId: m.user_id,
-      name: m.display_name,
-      role: m.role,
-      title: m.title,
-      bot: m.is_bot,
-      avatarUrl: m.avatar_url,
-      roleIds: m.role_ids,
-      groupIds: m.group_ids ?? undefined,
-      manageable: m.manageable,
-      joinedAt: m.joined_at,
+    return rows.map(toMember);
+  }
+
+  /**
+   * `PUT /spaces/{id}/members/{userId}/expiry`: set, move or remove (`null`) a guest's end date.
+   * `expiresAt` is an RFC 3339 instant or a `YYYY-MM-DD` day (read as the end of it in the caller's
+   * time zone). Answers the member as they now stand. `400 bad_expiry` for a date behind us or
+   * beyond five years, `400 guest_only` for a member, `409 access_ended` once the access ended.
+   */
+  async function setGuestExpiry(spaceId: string, userId: string, expiresAt: string | null): Promise<Member> {
+    return toMember(await apiPut<MemberDto>(`/spaces/${spaceId}/members/${userId}/expiry`, { expires_at: expiresAt }));
+  }
+
+  /**
+   * `POST /spaces/{id}/members/{userId}/reactivate`: bring an ended guest back with a new end date or
+   * none. `409 access_ended_for_good` once the ninety days kept have passed.
+   */
+  async function reactivateGuest(spaceId: string, userId: string, expiresAt: string | null): Promise<Member> {
+    return toMember(await apiPost<MemberDto>(`/spaces/${spaceId}/members/${userId}/reactivate`, { expires_at: expiresAt }));
+  }
+
+  /** `GET /spaces/{id}/members/ended`: guests whose access ended and who are still kept, soonest to go first. */
+  async function listEndedAccess(spaceId: string, signal?: AbortSignal): Promise<EndedAccess[]> {
+    const rows = await apiGet<EndedDto[]>(`/spaces/${spaceId}/members/ended`, signal);
+    return rows.map((r) => ({
+      userId: r.user_id,
+      name: r.display_name,
+      title: r.title ?? undefined,
+      endedAt: r.ended_at,
+      daysLeftToKeep: r.days_left_to_keep,
     }));
   }
 
@@ -2918,13 +3002,15 @@ export function createApi(transport: Transport) {
 
   /** `GET /notifications`: the caller's in-app notification inbox. */
   async function getNotifications(
-    opts: { unread?: boolean; before?: string; limit?: number } = {},
+    opts: { unread?: boolean; before?: string; limit?: number; guestNotices?: boolean } = {},
     signal?: AbortSignal,
   ): Promise<NotificationFeed> {
     const params = new URLSearchParams();
     if (opts.unread) params.set("unread", "true");
     if (opts.before) params.set("before", opts.before);
     if (opts.limit) params.set("limit", String(opts.limit));
+    // The guest access notices are opt-in: an app that does not know them must not be sent them.
+    if (opts.guestNotices) params.set("guest_notices", "true");
     const query = params.toString();
     const page = await apiGet<NotificationPageDto>(`/notifications${query ? `?${query}` : ""}`, signal);
     return {
@@ -2935,13 +3021,14 @@ export function createApi(transport: Transport) {
   }
 
   /** `PUT /notifications/{id}/read`: mark one notification read. */
-  async function markNotificationRead(id: string): Promise<void> {
-    await apiPut<void>(`/notifications/${id}/read`);
+  async function markNotificationRead(id: string, opts: { guestNotices?: boolean } = {}): Promise<void> {
+    // Told which kinds the app shows, so a guest notice is found (and marked) like any other.
+    await apiPut<void>(`/notifications/${id}/read${opts.guestNotices ? "?guest_notices=true" : ""}`);
   }
 
   /** `PUT /notifications/read`: mark every notification read. */
-  async function markAllNotificationsRead(): Promise<void> {
-    await apiPut<void>("/notifications/read");
+  async function markAllNotificationsRead(opts: { guestNotices?: boolean } = {}): Promise<void> {
+    await apiPut<void>(`/notifications/read${opts.guestNotices ? "?guest_notices=true" : ""}`);
   }
 
   // --- Notification delivery (preferences, Web Push) ---
@@ -4049,7 +4136,7 @@ export function createApi(transport: Transport) {
     getWorkspaces, createSpace, renameSpace, setChannelOrder, setDefaultChannel, setMemberRole,
     leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
     setMemberRoles, listGroups, createGroup, updateGroup, deleteGroup, addGroupMembers,
-    removeGroupMember, setGroupRoles, setGroupManagers, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
+    removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
     getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
     uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
     createChannel, setChannelFavorite, deleteChannel, updateChannel, joinChannel, leaveChannel,
@@ -4085,7 +4172,7 @@ export const {
   getWorkspaces, createSpace, renameSpace, setChannelOrder, setDefaultChannel, setMemberRole,
   leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
     setMemberRoles, listGroups, createGroup, updateGroup, deleteGroup, addGroupMembers,
-    removeGroupMember, setGroupRoles, setGroupManagers, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
+    removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
   getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
   uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
   createChannel, setChannelFavorite, deleteChannel, updateChannel, joinChannel, leaveChannel,

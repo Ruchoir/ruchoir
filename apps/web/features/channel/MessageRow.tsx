@@ -241,6 +241,8 @@ export type MessageRowProps = {
   authorPresence?: Presence;
   /** The author's uploaded avatar; absent falls back to the one generated from their name. */
   authorAvatar?: string;
+  /** The author is a guest of the space: an "Invité" chip stands beside their name. */
+  authorGuest?: boolean;
   /**
    * This message continues the one above it: same person, minutes apart.
    *
@@ -315,6 +317,7 @@ export function MessageRow({
   m,
   authorPresence,
   authorAvatar,
+  authorGuest,
   grouped = false,
   endsRun = true,
   readBy,
@@ -525,6 +528,7 @@ export function MessageRow({
           <button style={nameBtn} onClick={() => setProfileOpen(true)}>
             {m.author}
           </button>
+          {authorGuest && m.kind !== "system" ? <Tag tone="warning">{t("role.guest")}</Tag> : null}
           <span style={styles.time}>{formatStamp(m.createdAt)}</span>
           {!deleted && m.imported ? (
             (() => {

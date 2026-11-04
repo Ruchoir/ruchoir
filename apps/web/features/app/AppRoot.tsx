@@ -1,5 +1,6 @@
 "use client";
 
+import { endedNoticeKeys, endedSpaces, noticeTarget } from "./guestNotices.ts";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAvatar, getPresence, setChannelMembers, setCurrentUser, setSpaceRooms, setUserPresence } from "@/lib/data";
 import { isDesktop } from "@/lib/desktop/runtime";
@@ -91,7 +92,7 @@ import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { authMessage } from "@/features/auth/authMessage";
 import { forgetRecentReactions, noteReaction } from "@/lib/data/recentReactions";
 import { clearAuthLink, forgetInvite, readAuthLink, readRememberedInvite, rememberInvite } from "@/lib/authLink";
-import { fileUrl, readSpaceLocation, writeSpaceLocation } from "@/lib/spaceUrl";
+import { fileUrl, readSpaceLocation, withoutProlong, writeSpaceLocation } from "@/lib/spaceUrl";
 import { OfficeEditor } from "@/features/office/OfficeEditor";
 import { CalendarScreen } from "@/features/calendar/CalendarScreen";
 import { emitCalendarChanged } from "@/lib/calendarEvents";
@@ -349,6 +350,13 @@ function applyChanges(map: MessageMap, changes: { conversationId: string; messag
 }
 
 /** A notification from the API, as the inbox holds it, labelled from the lists this client has. */
+/** The texts of the notice shown when a space leaves the list, by the keys `endedNoticeKeys` answers. */
+const ENDED_TEXT: Record<string, TranslationKey> = {
+  "guests.endedNotice": key("guests.endedNotice"),
+  "guests.endedNoticeBody": key("guests.endedNoticeBody"),
+  "guests.leftNotice": key("guests.leftNotice"),
+};
+
 function toAppNotification(
   n: ApiNotification,
   chans: Channel[],
@@ -385,6 +393,11 @@ function toAppNotification(
     read,
     reminder: n.reminder,
     emoji: n.emoji,
+    daysLeft: n.daysLeft,
+    endsAt: n.endsAt,
+    guestTitle: n.guestTitle,
+    contactName: n.contactName,
+    actorId: n.actorId,
   };
 }
 
@@ -587,6 +600,8 @@ function AppShell() {
 
   const [ws, setWs] = useState("");
   const [view, setView] = useState<AppView>("channel");
+  // A "soon" notice clicked, or the reminder mail's button followed: the settings open on Members with this guest's prolong dialog.
+  const [prolongRequest, setProlongRequest] = useState<{ userId: string } | null>(null);
   /**
    * A document an address named (`/e/<space>/f/<file>`): this tab is that document's, the editor
    * alone across it (documents open in a tab of their own, see `FilesScreen`).
@@ -923,7 +938,7 @@ function AppShell() {
         Promise.all(
           rest.map((id) => getChannelMessages(id).catch(() => ({ messages: [], nextBefore: undefined }))),
         ),
-        getNotifications().catch(() => ({ notifications: [], unreadCount: 0, nextBefore: undefined })),
+        getNotifications({ guestNotices: true }).catch(() => ({ notifications: [], unreadCount: 0, nextBefore: undefined })),
         getFolder(activeWs).catch(() => ({ folderId: undefined, breadcrumb: [], entries: [] as SpaceFile[] })),
       ]);
       if (loadingSpaceRef.current !== activeWs) return;
@@ -944,7 +959,7 @@ function AppShell() {
         feed.notifications.map((n) => toAppNotification(n, chans, dmList, n.read || n.conversationId === opening)),
       );
       if (openedHere.length > 0) {
-        for (const n of openedHere) void markNotificationRead(n.id).catch(() => {});
+        for (const n of openedHere) void markNotificationRead(n.id, { guestNotices: true }).catch(() => {});
         refreshSpaceCounters();
       }
     })();
@@ -983,6 +998,13 @@ function AppShell() {
     setMaybeDocumentTab(false);
     const landing = wanted ?? spaces[0];
     await loadSpace(landing?.id ?? "", wanted ? target?.channelName : undefined, landing?.defaultChannelId);
+    // The reminder mail's button: settings on Members, with this guest's prolong dialog open. Taken
+    // off the address so a reload does not open it again.
+    if (wanted && target?.prolong) {
+      window.history.replaceState(window.history.state, "", withoutProlong(window.location.href));
+      setView("settings");
+      setProlongRequest({ userId: target.prolong });
+    }
     return spaces;
   }, [loadSpace]);
 
@@ -1177,6 +1199,10 @@ function AppShell() {
    * the effect's dependencies would tear the WebSocket down and rebuild it on each one.
    */
   const notifyRef = useRef<((toast: Toast) => void) | null>(null);
+  // The spaces whose end of access was already announced: the notice shows once.
+  const endedToldRef = useRef(new Set<string>());
+  // `switchWorkspace`, for the notice handler declared before it.
+  const switchRef = useRef<(id: string) => Promise<void>>(async () => {});
   // The desktop app's bridge (null on the web), for effects that outlive a render.
   const desktop = useDesktop();
   // The account settings, kept in line with the server's (and the other devices').
@@ -1518,7 +1544,22 @@ function AppShell() {
         void getWorkspaces()
           .then((spaces) => {
             const fresh = spaces.find((w) => w.id === spaceId);
-            if (!fresh) return;
+            if (!fresh) {
+              // The space is gone from the list: a guest's access to it ended. Said once, whatever
+              // frames follow, and the space leaves the rail.
+              const gone = endedSpaces(liveRef.current.spaces, spaces, endedToldRef.current);
+              for (const space of gone) {
+                const said = endedNoticeKeys(space.role);
+                notifyRef.current?.({
+                  tone: "warning",
+                  title: tRef.current(ENDED_TEXT[said.title], { space: space.name }),
+                  ...(said.body ? { description: tRef.current(ENDED_TEXT[said.body]) } : {}),
+                });
+              }
+              // Out of the rail, and off the screen if it was the open one: another space, or the empty shell.
+              dropSpaceRef.current(spaceId);
+              return;
+            }
             setWorkspaces((prev) =>
               prev.map((w) => (w.id === spaceId ? { ...w, role: fresh.role, myPermissions: fresh.myPermissions, edition: fresh.edition, licence: fresh.licence } : w)),
             );
@@ -1593,7 +1634,7 @@ function AppShell() {
         };
         setNotifs((prev) => [notif, ...prev.filter((x) => x.id !== n.id)]);
         if (viewing) {
-          void markNotificationRead(n.id).catch(() => {});
+          void markNotificationRead(n.id, { guestNotices: true }).catch(() => {});
           return;
         }
         // Ensure the source conversation shows as unread. `Math.max` so this never double-counts with
@@ -1833,6 +1874,8 @@ function AppShell() {
         presence: (presence[m.userId] ?? "offline") as Presence,
         bot: m.bot,
         avatar: m.avatarUrl,
+        // The member list carries the base role to everyone, so a guest is known as one by anyone.
+        guest: m.role === "guest",
       })),
     [members, presence],
   );
@@ -2018,22 +2061,24 @@ function AppShell() {
    */
   const openView = (next: AppView) => {
     setView(next);
+    // Any ordinary way into a screen drops a prolong request left by a notice.
+    setProlongRequest(null);
     if (next !== "mentions") return;
     const toMark = visibleNotifs.filter((n) => isMention(n.kind) && !n.read);
     if (toMark.length === 0) return;
     const ids = new Set(toMark.map((n) => n.id));
     setNotifs((prev) => prev.map((n) => (ids.has(n.id) ? { ...n, read: true } : n)));
-    for (const n of toMark) void markNotificationRead(n.id).catch(() => {});
+    for (const n of toMark) void markNotificationRead(n.id, { guestNotices: true }).catch(() => {});
   };
 
   const setNotifRead = (id: string, read: boolean) => {
     setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read } : n)));
     // The API only marks a notification read (there is no "unread" inverse), so sync only that way.
-    if (read) void markNotificationRead(id).catch(() => {});
+    if (read) void markNotificationRead(id, { guestNotices: true }).catch(() => {});
   };
   const markAllNotifsRead = () => {
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
-    void markAllNotificationsRead().catch(() => {});
+    void markAllNotificationsRead({ guestNotices: true }).catch(() => {});
   };
   /**
    * What a conversation left on `default` currently gets: the space's level, else one's own
@@ -2076,7 +2121,7 @@ function AppShell() {
     // reading the channel directly (not via the notification center) empties its unread there.
     const toMark = notifs.filter((n) => n.channelId === id && !n.read);
     setNotifs((prev) => prev.map((n) => (n.channelId === id ? { ...n, read: true } : n)));
-    for (const n of toMark) void markNotificationRead(n.id).catch(() => {});
+    for (const n of toMark) void markNotificationRead(n.id, { guestNotices: true }).catch(() => {});
     // Advance the server-side read cursor to the latest acknowledged message. Best-effort: a failure
     // only means the badge reappears on reload, so it is not surfaced.
     const list = loaded ?? messages[id] ?? [];
@@ -2108,7 +2153,7 @@ function AppShell() {
       const waiting = notifs.filter((n) => n.channelId === conversationId && !n.read);
       if (waiting.length === 0) return;
       setNotifs((prev) => prev.map((n) => (n.channelId === conversationId ? { ...n, read: true } : n)));
-      for (const n of waiting) void markNotificationRead(n.id).catch(() => {});
+      for (const n of waiting) void markNotificationRead(n.id, { guestNotices: true }).catch(() => {});
       refreshSpaceCounters();
     };
   });
@@ -2167,7 +2212,7 @@ function AppShell() {
           });
       }
       // The inbox, for the notifications pushed while away.
-      void getNotifications()
+      void getNotifications({ guestNotices: true })
         .then((feed) => {
           if (liveRef.current.ws !== space) return;
           const { channels: chs, dms: dmList } = liveRef.current;
@@ -2766,7 +2811,23 @@ function AppShell() {
     setNotifRead(id, true);
     // A calendar reminder has no conversation: it opens its event in the calendar.
     if (!targetChannel) {
-      const reminder = notifs.find((n) => n.id === id)?.reminder;
+      const notice = notifs.find((n) => n.id === id);
+      // A guest notice is about access: its manager goes to the people, the guest has nothing to open.
+      const target = notice ? noticeTarget(notice) : null;
+      if (target) {
+        void (async () => {
+          await switchRef.current(target.spaceId);
+          if (target.action === "space") {
+            if (target.spaceId === ws) openView("channel");
+            return;
+          }
+          openView("settings");
+          if (target.action === "prolong") setProlongRequest({ userId: target.userId });
+          else setProlongRequest(null);
+        })();
+        return;
+      }
+      const reminder = notice?.reminder;
       if (reminder) {
         setCalendarCompose(null);
         setCalendarFocus({ ...reminder, at: Date.now() });
@@ -3395,6 +3456,8 @@ function AppShell() {
             spaceId={ws}
             onGroupsChanged={() => refreshAccess()}
             onNotify={showToast}
+            people={members}
+            seats={currentWorkspace.licence ? { seats: currentWorkspace.licence.seats, used: currentWorkspace.licence.used } : undefined}
             onSaveRoles={(roleIds) => saveMemberRoles(userId, roleIds)}
             onChangeRole={(role) => void changeMemberRole({ userId, name: member.name }, role)}
             onRemove={() => setRemoving({ userId, name: member.name })}
@@ -3679,6 +3742,9 @@ function AppShell() {
       setSwitchingSpace(false);
     }
   };
+  useEffect(() => {
+    switchRef.current = switchWorkspace;
+  });
 
   /**
    * Open a notification clicked in the system tray, once the app holds what it points at.
@@ -4467,7 +4533,8 @@ function AppShell() {
           // Keyed by the space: the screen holds the name being edited in its own state, seeded once
           // from the space it was opened on. Without this, switching space left the previous name in
           // the field, and pressing save would have renamed the new space to the old one's name.
-          key={ws}
+          key={`${ws}:${prolongRequest?.userId ?? ""}`}
+          prolongGuestId={prolongRequest?.userId}
           workspaceName={workspaces.find((w) => w.id === ws)?.name ?? "espace"}
           spaceId={ws}
           iconUrl={workspaces.find((w) => w.id === ws)?.iconUrl}
@@ -4597,8 +4664,8 @@ function AppShell() {
           })}
           invitations={invitations}
           emailDelivery={emailDelivery}
-          onCreate={async ({ email, role }) => {
-            const created = await createInvitation(ws, { email, role });
+          onCreate={async ({ email, role, guestExpiresAt }) => {
+            const created = await createInvitation(ws, { email, role, guestExpiresAt });
             setInvitations(await getInvitations(ws));
             showToast({
               tone: "success",

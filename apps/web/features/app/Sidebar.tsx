@@ -9,6 +9,7 @@ import { NotificationCenter } from "./NotificationCenter";
 import { type AppNotification, type ChannelNotifPref, isMention } from "./notifications";
 import type { ImportTicker } from "./importRun";
 import type { AppView, Toast } from "./types";
+import { GuestBanner } from "./GuestBanner";
 import { Wordmark } from "./Wordmark";
 import { useSettings } from "./settings";
 import { useDragReorder } from "./useDragReorder";
@@ -736,6 +737,7 @@ export function Sidebar({
               }}
             />
           </div>
+          {workspace ? <GuestBanner role={workspace.role} spaceName={workspace.name} expiresAt={workspace.expiresAt} /> : null}
           {/* The desktop app has the search in its top line, as Slack does: one field, not two. */}
           {isDesktop ? null : (
           <div style={{ padding: "8px 8px 0" }}>

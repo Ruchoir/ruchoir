@@ -11,6 +11,8 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatUtcDate } from "@/lib/i18n/format";
 import { BackHeading } from "../app/BackHeading";
 import { MembersSettings, type SettingsMember } from "./MembersSettings";
+import { GuestRightsDialog, GuestRightsEditorDialog } from "./CeilingSummary";
+import { rightsEntry } from "./guestCeiling.ts";
 import { RolesSettings } from "./RolesSettings";
 import { GroupsSettings } from "./GroupsSettings";
 import { AuditSettings } from "./AuditSettings";
@@ -151,6 +153,8 @@ export type WorkspaceSettingsProps = {
    * member list and the roles, which the API refuses to anyone else.
    */
   canManageMembers: boolean;
+  /** A guest whose prolong dialog opens on arrival, in the Members tab (from a notice). */
+  prolongGuestId?: string;
   /** Whether the caller may invite (`members.invite`). */
   canInvite: boolean;
   /** Whether the caller sets the arrival channel (`space.settings`). */
@@ -234,6 +238,7 @@ export function WorkspaceSettings({
   iconUrl,
   canEditIdentity,
   canManageMembers,
+  prolongGuestId,
   canInvite,
   canSetDefaultChannel,
   edition,
@@ -269,9 +274,13 @@ export function WorkspaceSettings({
   compact = false,
 }: WorkspaceSettingsProps) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<NavKey>("general");
+  const [tab, setTab] = useState<NavKey>(prolongGuestId ? "members" : "general");
   // A group opened from elsewhere (a role's people): the Groupes tab shows it straight away.
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  // "Droits des invités": the guests' role opened in the Rôles tab (licensed), or the read-only summary (community).
+  const [openRole, setOpenRole] = useState<string | null>(null);
+  const [ceilingOpen, setCeilingOpen] = useState(false);
+  const [editingGuests, setEditingGuests] = useState(false);
   const sections = NAV.filter(([id]) =>
     id === "audit" ? canReadAudit : id === "groups" ? canManageGroups : id === "licence" ? canManageLicence : id === "general" || canManageMembers,
   );
@@ -281,7 +290,8 @@ export function WorkspaceSettings({
   const memberSummary = (() => {
     const guests = members.filter((m) => m.role === "guest").length;
     const bots = members.filter((m) => m.bot).length;
-    const people = members.length - bots;
+    // Guests are counted on their own: they are not "members" and take no seat.
+    const people = members.length - bots - guests;
     const parts = [t("space.members", { count: people })];
     if (guests > 0) parts.push(t("space.guests", { count: guests }));
     if (bots > 0) parts.push(t("space.bots", { count: bots }));
@@ -405,6 +415,7 @@ export function WorkspaceSettings({
           {sections.map(([v, l, i]) => (
             <button key={v} style={navItem(v === tab, compact)} onClick={() => {
                 setOpenGroup(null);
+                setOpenRole(null);
                 setTab(v);
               }}>
               <Icon name={i} size={14} style={{ color: v === tab ? "var(--on-pastel)" : "var(--text-muted)" }} />
@@ -533,6 +544,14 @@ export function WorkspaceSettings({
               roles={roles}
               groups={groups}
               spaceId={spaceId}
+              licence={licence}
+              prolongFor={prolongGuestId}
+              onGuestRights={() => {
+                const guests = roles.find((r) => r.systemKey === "guests");
+                // Licensed: the small dialog of the tunable rights; otherwise the read-only summary.
+                if (rightsEntry(edition) === "editor" && guests) setEditingGuests(true);
+                else setCeilingOpen(true);
+              }}
               onGroupsChanged={onAccessChanged}
               onNotify={onNotify}
               canInvite={canInvite}
@@ -547,6 +566,8 @@ export function WorkspaceSettings({
 
           {tab === "roles" && canManageMembers ? (
             <RolesSettings
+              key={openRole ?? "roles"}
+              initialRoleId={openRole ?? undefined}
               spaceId={spaceId}
               spaceName={workspaceName}
               edition={edition}
@@ -586,7 +607,19 @@ export function WorkspaceSettings({
             />
           ) : null}
 
-          {tab === "audit" && canReadAudit ? <AuditSettings spaceId={spaceId} members={members} roles={roles} /> : null}
+          {editingGuests && roles.find((r) => r.systemKey === "guests") ? (
+            <GuestRightsEditorDialog
+              spaceId={spaceId}
+              role={roles.find((r) => r.systemKey === "guests")!}
+              myRights={myRights}
+              onChanged={onAccessChanged}
+              onNotify={onNotify}
+              onClose={() => setEditingGuests(false)}
+            />
+          ) : null}
+          {ceilingOpen ? <GuestRightsDialog spaceName={workspaceName} pricingUrl={pricingUrl} onClose={() => setCeilingOpen(false)} /> : null}
+
+          {tab === "audit" && canReadAudit ? <AuditSettings spaceId={spaceId} spaceName={workspaceName} members={members} roles={roles} /> : null}
 
           {tab === "licence" && canManageLicence ? (
             <LicenceSettings

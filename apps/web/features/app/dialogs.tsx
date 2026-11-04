@@ -11,6 +11,8 @@ import { useSettings } from "./settings";
 import { getAvatar } from "@/lib/data";
 import { key, type Translate, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { refusalOf } from "@/lib/data/api";
+import { EndDateField } from "@/features/settings/EndDateField";
+import { browserZone, choiceRefusal, presetToInstant, showsEndDate, type EndChoice } from "@/features/settings/guestLogic.ts";
 
 /** The other road offered inside a dialog: a rule, a word, and a card you can press. */
 const sep: Record<string, CSSProperties> = {
@@ -189,7 +191,8 @@ export function NewMessageDialog({
 
 /**
  * Roles, in the order an administrator is likely to want them. Values are the API's, labels are
- * dictionary keys: the list is built at module load, where no language is in force yet.
+ * dictionary keys: the list is built at module load, where no language is in force yet. The guest
+ * reads "Invité" here (the mockup's word), not the legacy role name "Invité externe".
  */
 const INVITE_ROLES = [
   { value: "member", labelKey: key("role.member") },
@@ -282,7 +285,7 @@ export type InviteDialogProps = {
    */
   canInvite: boolean;
   /** Issue an invitation. Resolves to the one-time link, and whether the email actually went out. */
-  onCreate: (options: { email?: string; role: string }) => Promise<{ url: string; emailed: boolean }>;
+  onCreate: (options: { email?: string; role: string; guestExpiresAt?: string | null }) => Promise<{ url: string; emailed: boolean }>;
   /** The outstanding invitations, already loaded by the caller. */
   invitations: Invitation[];
   /** Stop accepting one. The caller refreshes the list. */
@@ -319,6 +322,8 @@ export function InviteDialog({
   const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
+  /** When a guest's access ends: only read for a guest, and "no date" until someone picks one. */
+  const [endChoice, setEndChoice] = useState<EndChoice>("none");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<TranslationKey | null>(null);
   /** The space's seats are all taken: members wait for a bigger licence, guests take none. */
@@ -329,6 +334,8 @@ export function InviteDialog({
   const address = email.trim();
   const addressed = address.length > 0;
   const noRelay = emailDelivery === false;
+  const guestEnd = showsEndDate(role);
+  const endBlocked = guestEnd && choiceRefusal(endChoice, new Date(), browserZone()) !== null;
 
   // An invitation that was taken up is finished, not broken. Listing it among the outstanding ones,
   // greyed out next to a Revoke button, read as a failure that still needed cleaning up.
@@ -345,7 +352,8 @@ export function InviteDialog({
     setError(null);
     setCopied(false);
     try {
-      setCreated(await onCreate({ email: addressed ? address : undefined, role }));
+      const guestExpiresAt = guestEnd ? presetToInstant(endChoice, new Date(), browserZone()) : undefined;
+      setCreated(await onCreate({ email: addressed ? address : undefined, role, ...(guestEnd ? { guestExpiresAt } : {}) }));
       setEmail("");
     } catch (err) {
       const refusal = refusalOf(err);
@@ -377,7 +385,7 @@ export function InviteDialog({
             <Button
               variant="primary"
               iconLeft={addressed ? "send" : "external-link"}
-              disabled={pending || (seatsFull !== null && role !== "guest")}
+              disabled={pending || endBlocked || (seatsFull !== null && role !== "guest")}
               onClick={() => void submit()}
             >
               {addressed ? t("dialogs.sendInvite") : t("dialogs.createLink")}
@@ -418,6 +426,16 @@ export function InviteDialog({
             onChange={(e) => setRole(e.target.value)}
           />
         </Field>
+
+        {guestEnd ? (
+          <>
+            <EndDateField choice={endChoice} onChange={setEndChoice} now={new Date()} zone={browserZone()} variant="invite" />
+            <p style={{ ...inviteStyles.empty, display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon name="users" size={13} />
+              {t("guests.noSeat")}
+            </p>
+          </>
+        ) : null}
 
         {noRelay && !addressed ? (
           <p style={inviteStyles.notice}>

@@ -23,6 +23,15 @@ export type Slot =
   | { kind: "role"; name: string; colour?: string }
   | { kind: "legacy"; roles: string[] };
 
+/** The families of the journal, in the order the filter lists them (the API's `category` values). */
+export const AUDIT_CATEGORIES = ["members", "roles", "groups", "channels", "calendars", "licence", "guests"] as const;
+export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
+
+/** The family a line is filed under: the API's, or members for one this app does not know. */
+export function lineCategory(entry: { category: string; action: string }): AuditCategory {
+  return (AUDIT_CATEGORIES as readonly string[]).includes(entry.category) ? (entry.category as AuditCategory) : "members";
+}
+
 export type Sentence =
   | "memberJoined"
   | "memberJoinedGuest"
@@ -53,6 +62,16 @@ export type Sentence =
   | "groupManagersChanged"
   | "licenceInstalled"
   | "licenceRemoved"
+  | "guestExpiryFixed"
+  | "guestExpiryMoved"
+  | "guestExpiryExtended"
+  | "guestExpiryAdvanced"
+  | "guestExpiryRemoved"
+  | "guestExpired"
+  | "guestReactivated"
+  | "guestToMember"
+  | "memberToGuest"
+  | "guestPurged"
   | "unknown";
 
 export type AuditLine = {
@@ -63,6 +82,8 @@ export type AuditLine = {
   values: Record<string, string | number>;
   /** `viaGroup`: the roles come with a group, so each chip says "by the group". */
   diff?: { kind: "permission" | "role"; added: string[]; removed: string[]; viaGroup?: boolean };
+  /** The pastilles of a guest line: the standing taken or left, the access ended, a date. */
+  chips?: { sign: "+" | "-"; what: "member" | "guest" | "until" | "space"; date?: string }[];
 };
 
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
@@ -94,6 +115,7 @@ export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined): A
     slots: { actor, ...extra.slots },
     values: { action: entry.action, ...extra.values },
     diff: extra.diff,
+    ...(extra.chips ? { chips: extra.chips } : {}),
   });
   const group = (name: string): Slot => ({ kind: "group", name, id: entry.target.id });
   const people = (ids: string[]): Slot => ({ kind: "people", names: ids.map((id) => nameOf(id) ?? null) });
@@ -200,6 +222,32 @@ export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined): A
       return line("licenceInstalled", { values: { seats: typeof d.seats === "number" ? d.seats : 0, until: str(d.valid_until) } });
     case "licence.removed":
       return line("licenceRemoved");
+    case "member.expiry_set": {
+      const before = str(d.before);
+      const after = str(d.after);
+      // A later end is a prolongation, an earlier one brings the end forward; the same day is just a change.
+      const later = before && after ? new Date(after).getTime() - new Date(before).getTime() : 0;
+      const sentence: Sentence = !before ? "guestExpiryFixed" : !after ? "guestExpiryRemoved" : later > 0 ? "guestExpiryExtended" : later < 0 ? "guestExpiryAdvanced" : "guestExpiryMoved";
+      return line(sentence, { slots: { target }, values: { before, after } });
+    }
+    case "member.expired":
+      // The date that was reached; entries from before it was kept fall back on the day the sweep wrote them.
+      return line("guestExpired", { slots: { target }, values: { date: str(d.expires_at) || entry.at }, chips: [{ sign: "-", what: "space" }] });
+    case "member.reactivated":
+      return line("guestReactivated", { slots: { target }, values: { before: str(d.before), after: str(d.after) } });
+    case "member.standing_changed": {
+      // The date, when the payload carries one (`expires_at: { before, after }`): the end the guest had
+      // when they became a member, or the end given as a member became a guest.
+      const ends = (d.expires_at ?? {}) as Record<string, unknown>;
+      const toGuest = d.after === "guest";
+      const date = str(toGuest ? ends.after : ends.before);
+      const chips: NonNullable<AuditLine["chips"]> = toGuest
+        ? [{ sign: "+", what: "guest" }, { sign: "-", what: "member" }, ...(date ? [{ sign: "+" as const, what: "until" as const, date }] : [])]
+        : [{ sign: "+", what: "member" }, { sign: "-", what: "guest" }, ...(date ? [{ sign: "-" as const, what: "until" as const, date }] : [])];
+      return line(toGuest ? "memberToGuest" : "guestToMember", { slots: { target }, chips });
+    }
+    case "member.purged":
+      return line("guestPurged", { slots: { target }, chips: [{ sign: "-", what: "space" }] });
     default:
       return line("unknown");
   }

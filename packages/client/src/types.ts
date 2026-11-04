@@ -49,6 +49,8 @@ export type Workspace = {
   mentions: number;
   /** How much this space notifies the caller, for its conversations left on `default`. */
   notifyLevel: NotifyLevel;
+  /** When the caller's own access ends (RFC 3339), for a guest given an end date. */
+  expiresAt?: string;
   /**
    * What the caller may do here, by permission name (`files.manage`, `channel.manage`...), when the
    * instance announces the `permissions` feature. Absent from an older instance: fall back to the
@@ -173,6 +175,11 @@ export type Refusal =
         | "group_name_reserved"
         | "group_name_invalid"
         | "manager_must_be_member"
+        | "bad_expiry"
+        | "guest_only"
+        | "access_ended"
+        | "not_ended"
+        | "access_ended_for_good"
         | "base_role_not_allowed"
         | "not_in_space"
         | "too_many_people";
@@ -197,6 +204,8 @@ export type Invitation = {
   maxUses?: number;
   /** RFC 3339 expiry, when it expires. */
   expiresAt?: string;
+  /** RFC 3339 end of access the guest it admits will have; absent for no end date. */
+  guestExpiresAt?: string;
   createdAt: string;
   /** Whether it would be accepted right now. */
   usable: boolean;

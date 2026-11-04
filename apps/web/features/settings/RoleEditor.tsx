@@ -1,5 +1,6 @@
 "use client";
 
+import { CeilingSummary } from "./CeilingSummary";
 import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Card, Dialog, Field, Icon, IconButton, Input, Select, Switch, Tabs, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
@@ -231,6 +232,11 @@ export function RoleEditor({ spaceId, role, roles, members, groups, onOpenGroup,
             <Icon name="info" size={14} style={{ color: "var(--text-muted)", marginTop: 1 }} />
             <span>{role.systemKey === "guests" ? t("roles.guestsIntro") : t("roles.rightsIntro")}</span>
           </div>
+          {role.systemKey === "guests" ? (
+            <div style={{ margin: "0 0 14px" }}>
+              <CeilingSummary />
+            </div>
+          ) : null}
           {FAMILIES.map((family) => {
             const open = !closed.has(family.key);
             return (
