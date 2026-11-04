@@ -1674,6 +1674,24 @@
             "description": "`none`, `read`, `contribute`, `manage`, or `custom` (a rule that matches no preset).",
             "type": "string"
           },
+          "set_at": {
+            "description": "When that was (RFC 3339), on the same terms as `set_by`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "set_by": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SetByDto",
+                "description": "Who last set this rule, for the people who edit this access; null for everybody else, for\na rule nobody is known to have set, and for someone who has left the space."
+              }
+            ]
+          },
           "summary": {
             "oneOf": [
               {
@@ -5109,6 +5127,23 @@
           "mode",
           "config",
           "member_name"
+        ],
+        "type": "object"
+      },
+      "SetByDto": {
+        "description": "The person who last set a rule.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
         ],
         "type": "object"
       },

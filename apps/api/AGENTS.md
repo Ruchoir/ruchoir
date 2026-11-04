@@ -88,7 +88,9 @@ context and takes precedence here.
   cannot view it (an Administrator who never joined; only the Owner reads without joining) is no
   editor and is answered as a stranger; a reader editor may share with an audience they are among
   but may not add or remove a deny for it; a group is "above" an editor of lower rank also when one
-  of its people is; person-level deny lines of the access dialog show to editors only. The
+  of its people is; person-level deny lines of the access dialog show to editors only, and so do `set_by`/`set_at`
+  (`permission_overrides.set_by`, `set_at`, written by `rules::write_rule` on every create or update;
+  read as null for an author who left the space). The
   preview guard lets a read through when Valkey cannot be read (the viewer's own full rights,
   never more; writes fail closed): accepted. The WOPI listener sits outside the guard.
 - **Paid writes** go through `messaging::edition_view::ensure_paid` (re-exported by `ext`):

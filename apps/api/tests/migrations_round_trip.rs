@@ -284,3 +284,61 @@ async fn the_migration_round_trips() {
     db.execute_unprepared(make_member).await.expect("promote");
     assert_eq!(count(stage_left).await, 0, "the trigger clears the stage");
 }
+
+/// The author columns of an access rule come and go with the migration (existing rows get NULLs,
+/// the columns being nullable with no default).
+#[tokio::test]
+async fn the_rule_author_migration_round_trips() {
+    use sea_orm::ConnectionTrait;
+    let _turn = ONE_AT_A_TIME.lock().await;
+    let Ok(url) = std::env::var("RUCHOIR_TEST_DATABASE_URL") else {
+        eprintln!("skipping the_rule_author_migration_round_trips: no test database");
+        return;
+    };
+    let db = Database::connect(url)
+        .await
+        .expect("connect to the test database");
+    Migrator::fresh(&db).await.expect("fresh apply");
+
+    let count = |sql: &'static str| {
+        let db = &db;
+        async move {
+            db.query_one_raw(sea_orm::Statement::from_string(
+                sea_orm::DbBackend::Postgres,
+                sql,
+            ))
+            .await
+            .expect("query")
+            .expect("row")
+            .try_get::<i64>("", "n")
+            .expect("n")
+        }
+    };
+    let columns = "SELECT count(*) AS n FROM information_schema.columns \
+                   WHERE table_name = 'permission_overrides' \
+                     AND column_name IN ('set_by', 'set_at')";
+    assert_eq!(count(columns).await, 2);
+
+    // Back to just before this migration, whatever is added after it.
+    let steps = Migrator::get_applied_migrations(&db)
+        .await
+        .expect("applied")
+        .iter()
+        .rev()
+        .take_while(|m| m.name() != "m20261109_000001_rule_set_by")
+        .count()
+        + 1;
+    Migrator::down(&db, Some(steps as u32)).await.expect("down");
+    assert_eq!(count(columns).await, 0);
+
+    Migrator::up(&db, None).await.expect("up again");
+    assert_eq!(count(columns).await, 2);
+    assert_eq!(
+        count(
+            "SELECT count(*) AS n FROM permission_overrides \
+             WHERE set_by IS NOT NULL OR set_at IS NOT NULL"
+        )
+        .await,
+        0
+    );
+}

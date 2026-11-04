@@ -820,8 +820,8 @@ pub async fn current_rule(
 }
 
 /// Write the rule `allow`/`deny` for `subject` on `resource`: the resource's row is locked, the
-/// rule is created or replaced on its unique index (whoever made it first stays its `created_by`),
-/// and the entry goes into the log in the same transaction. The caller has decided
+/// rule is created or replaced on its unique index (whoever made it first stays its `created_by`;
+/// the last to change it becomes its `set_by`), and the entry goes into the log in the same transaction. The caller has decided
 /// ([`ensure_writable`]) and tells the space after the commit
 /// ([`super::changed::announce`]).
 #[allow(clippy::too_many_arguments)]
@@ -842,11 +842,12 @@ pub async fn write_rule(
             DbBackend::Postgres,
             format!(
                 "INSERT INTO permission_overrides (space_id, {resource_column}, {subject_column}, \
-                                                   allow, deny, created_by) \
-                 VALUES ($1, $2, $3, $4, $5, $6) \
+                                                   allow, deny, created_by, set_by, set_at) \
+                 VALUES ($1, $2, $3, $4, $5, $6, $6, now()) \
                  ON CONFLICT ({resource_column}, {subject_column}) \
                      WHERE {resource_column} IS NOT NULL AND {subject_column} IS NOT NULL \
-                 DO UPDATE SET allow = EXCLUDED.allow, deny = EXCLUDED.deny, updated_at = now() \
+                 DO UPDATE SET allow = EXCLUDED.allow, deny = EXCLUDED.deny, updated_at = now(), \
+                              set_by = EXCLUDED.set_by, set_at = now() \
                  RETURNING id, allow, deny"
             ),
             [

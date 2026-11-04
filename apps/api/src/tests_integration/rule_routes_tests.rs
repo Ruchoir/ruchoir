@@ -2743,3 +2743,174 @@ async fn rule_log_lines_carry_the_names_at_write_time() {
         assert_eq!(details["target_name"], "Compta");
     }
 }
+
+// -- who set a rule, for the people who edit the access ---------------------------------------------
+
+#[tokio::test]
+async fn a_rule_says_who_set_it_to_editors() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let (status, body) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        group_target(group),
+        "contribute",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let entry = entry_of(&body, "group", group).expect("the group line");
+    assert_eq!(entry["set_by"], json!({ "id": fx.admin, "name": "admin" }));
+    assert!(entry["set_at"].is_string(), "{entry}");
+    time::OffsetDateTime::parse(
+        entry["set_at"].as_str().expect("set_at"),
+        &time::format_description::well_known::Rfc3339,
+    )
+    .expect("an RFC 3339 instant");
+
+    // Another editor reads the same author; a line nobody set (a base role) says nothing.
+    let (status, body) = read(&app, fx.owner, fx.space_id, "channel", channel).await;
+    assert_eq!(status, 200);
+    assert_eq!(
+        entry_of(&body, "group", group).expect("line")["set_by"]["id"],
+        json!(fx.admin)
+    );
+    let base = body["entries"]
+        .as_array()
+        .expect("entries")
+        .iter()
+        .find(|e| e["id"].is_null())
+        .expect("a base line");
+    assert!(base["set_by"].is_null() && base["set_at"].is_null());
+
+    // A rule from before the migration has no author and no date.
+    let old = make_group(&app.db, fx.space_id, "Ancienne").await;
+    stored(
+        &app.db,
+        fx.space_id,
+        ("channel_id", channel),
+        ("group_id", old),
+        &["channel.view"],
+        &[],
+    )
+    .await;
+    let (_, body) = read(&app, fx.admin, fx.space_id, "channel", channel).await;
+    let entry = entry_of(&body, "group", old).expect("the old line");
+    assert!(entry["set_by"].is_null() && entry["set_at"].is_null());
+}
+
+#[tokio::test]
+async fn a_reader_who_cannot_edit_sees_no_author() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let (status, _) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        group_target(group),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200);
+    let (status, body) = read(&app, fx.member, fx.space_id, "channel", channel).await;
+    assert_eq!(status, 200);
+    assert_eq!(body["may"]["edit"], false);
+    let entry = entry_of(&body, "group", group).expect("the group line");
+    assert!(entry["set_by"].is_null(), "{entry}");
+    assert!(entry["set_at"].is_null(), "{entry}");
+}
+
+#[tokio::test]
+async fn an_update_moves_the_author() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let (_, first) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        group_target(group),
+        "read",
+    )
+    .await;
+    let first_at = entry_of(&first, "group", group).expect("line")["set_at"].clone();
+    let (status, second) = put(
+        &app,
+        fx.owner,
+        fx.space_id,
+        "channel",
+        channel,
+        group_target(group),
+        "contribute",
+    )
+    .await;
+    assert_eq!(status, 200, "{second}");
+    let entry = entry_of(&second, "group", group).expect("line");
+    assert_eq!(entry["set_by"]["id"], json!(fx.owner));
+    assert_ne!(entry["set_at"], first_at, "the date moves with the author");
+    // The creator stays what it was; only the author of the last change moves.
+    let created_by: Option<Uuid> = app
+        .db
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT created_by FROM permission_overrides WHERE channel_id = $1",
+            [channel.into()],
+        ))
+        .await
+        .expect("row")
+        .expect("one")
+        .try_get("", "created_by")
+        .expect("created_by");
+    assert_eq!(created_by, Some(fx.admin));
+}
+
+#[tokio::test]
+async fn a_removed_author_reads_as_null() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let (status, _) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        group_target(group),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200);
+    // They leave the space: no stale name.
+    exec(
+        &app.db,
+        "DELETE FROM space_members WHERE space_id = $1 AND user_id = $2",
+        vec![fx.space_id.into(), fx.admin.into()],
+    )
+    .await;
+    let (status, body) = read(&app, fx.owner, fx.space_id, "channel", channel).await;
+    assert_eq!(status, 200);
+    let entry = entry_of(&body, "group", group).expect("line");
+    assert!(entry["set_by"].is_null(), "{entry}");
+
+    // Their account going away clears the column and keeps the rule.
+    exec(
+        &app.db,
+        "DELETE FROM users WHERE id = $1",
+        vec![fx.admin.into()],
+    )
+    .await;
+    let (_, body) = read(&app, fx.owner, fx.space_id, "channel", channel).await;
+    assert!(entry_of(&body, "group", group).expect("line")["set_by"].is_null());
+}
