@@ -99,6 +99,23 @@ export function dateBounds(now: Date, zone: string): { min: string; max: string 
 }
 
 /**
+ * The one zone guest and licence dates are read in, in both apps: the zone the person set on their
+ * profile (what the rest of the app writes dates in), else the device's. A zone Intl does not know
+ * is ignored.
+ */
+export function pickZone(profile: string | undefined | null, device: string): string {
+  if (profile) {
+    try {
+      new Intl.DateTimeFormat(undefined, { timeZone: profile });
+      return profile;
+    } catch {
+      // Unknown to this runtime: the device's.
+    }
+  }
+  return device || "UTC";
+}
+
+/**
  * Calendar days from today to the day `iso` falls on, both read in `zone`: the 20th seen from the
  * 15th is 5, the last day is 0 ("today"), the day before it 1 ("tomorrow"). Never below zero.
  */

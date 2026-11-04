@@ -31,6 +31,7 @@ import type {
   WhyView,
   AuditQuery,
   LicenceView,
+  AdminLicence,
   Refusal,
   Role,
   Group,
@@ -162,6 +163,16 @@ type LicenceViewDto = {
   edition: "enterprise" | "frozen";
   installed_at?: string;
   installed_by?: { id: string; display_name: string } | null;
+};
+
+type AdminLicenceDto = {
+  space_id: string;
+  space_name: string;
+  organisation: string;
+  seats: number;
+  used: number;
+  valid_until: string;
+  edition: "enterprise" | "frozen" | "invalid";
 };
 
 function toRole(dto: RoleDto): Role {
@@ -2528,6 +2539,20 @@ export function createApi(transport: Transport) {
     }
   }
 
+  /** `GET /admin/licences`: every space's licence, for the instance's administrator (enterprise edition). */
+  async function getAdminLicences(signal?: AbortSignal): Promise<AdminLicence[]> {
+    const dtos = await apiGet<AdminLicenceDto[]>("/admin/licences", signal);
+    return dtos.map((d) => ({
+      spaceId: d.space_id,
+      spaceName: d.space_name,
+      organisation: d.organisation,
+      seats: d.seats,
+      used: d.used,
+      validUntil: d.valid_until,
+      edition: d.edition,
+    }));
+  }
+
   /** `PUT /spaces/{id}/licence`: install a licence; refusals read with {@link refusalOf}. */
   async function putLicence(spaceId: string, licence: string): Promise<LicenceView> {
     return toLicenceView(await apiPut<LicenceViewDto>(`/spaces/${spaceId}/licence`, { licence }));
@@ -4476,7 +4501,7 @@ export function createApi(transport: Transport) {
     leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
     setMemberRoles, listGroups, createGroup, updateGroup, deleteGroup, addGroupMembers,
     removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAccess, setAccessLevel, setAccessRule, removeAccessEntry,
-    explainAccess, startPreview, quitPreview, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
+    explainAccess, startPreview, quitPreview, getAudit, getLicence, getAdminLicences, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
     getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
     uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
     createChannel, setChannelFavorite, deleteChannel, updateChannel, joinChannel, leaveChannel,
@@ -4513,7 +4538,7 @@ export const {
   leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
     setMemberRoles, listGroups, createGroup, updateGroup, deleteGroup, addGroupMembers,
     removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAccess, setAccessLevel, setAccessRule, removeAccessEntry,
-    explainAccess, startPreview, quitPreview, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
+    explainAccess, startPreview, quitPreview, getAudit, getLicence, getAdminLicences, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
   getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
   uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
   createChannel, setChannelFavorite, deleteChannel, updateChannel, joinChannel, leaveChannel,

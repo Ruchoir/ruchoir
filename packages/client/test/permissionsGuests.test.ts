@@ -122,3 +122,12 @@ test("a_hand_picked_day_must_be_valid_before_it_can_be_sent", async () => {
   assert.equal(choiceRefusal("none", now, PARIS), null);
   assert.equal(choiceRefusal("month", now, PARIS), null);
 });
+
+test("guest_and_licence_dates_read_in_the_profile_zone_else_the_device_zone", async () => {
+  const { pickZone } = await import("../src/permissionsLogic/index.ts");
+  assert.equal(pickZone("Asia/Tokyo", "Europe/Paris"), "Asia/Tokyo");
+  assert.equal(pickZone(undefined, "Europe/Paris"), "Europe/Paris");
+  assert.equal(pickZone("", "Europe/Paris"), "Europe/Paris");
+  assert.equal(pickZone("Not/AZone", "Europe/Paris"), "Europe/Paris", "an unknown zone never reaches Intl");
+  assert.equal(pickZone(undefined, ""), "UTC");
+});

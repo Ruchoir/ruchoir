@@ -26,6 +26,10 @@ export {
   type RoleRowState,
   roleRowState,
   holdsEverything,
+  ROLE_NAME_MAX,
+  ROLE_COLOURS,
+  type RoleColourKey,
+  groupColour,
 } from "./roles.ts";
 export {
   PERMISSION_TEXT,
@@ -137,6 +141,7 @@ export {
   dateRefusal,
   dateBounds,
   daysLeft,
+  pickZone,
   expiryTone,
   showsEndDate,
   endLabel,
@@ -222,3 +227,4 @@ export {
   matchGroupMention,
   matchMentionTarget,
 } from "./mentions.ts";
+export { type AdminLicence, type LicenceRow, licenceRows, applyRights, spaceLicenceBanner } from "./licences.ts";

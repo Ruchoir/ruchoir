@@ -27,24 +27,30 @@ export const STEP_KINDS = [
   "unseen", "conversation", "message", "event",
 ] as const;
 
-export type Sentence = { key: string; values: Record<string, string> };
+export type Sentence = {
+  key: string;
+  values: Record<string, string>;
+  /** How many permissions the sentence names: the translator's `count`, so the verb agrees (`_one`, `_other`...). */
+  count: number;
+};
 
 /** How the person holds a role: given to them, through one or several groups, or both. */
-export function roleSentence(role: RoleLike): Sentence {
+export function roleSentence(role: RoleLike): Omit<Sentence, "count"> {
   const groups = role.viaGroups.map((g) => g.name).join(", ");
   if (role.viaGroups.length === 0) return { key: "why.role.direct", values: { role: role.name } };
   return { key: role.direct ? "why.role.directAndGroup" : "why.role.viaGroup", values: { role: role.name, groups } };
 }
 
 /** The sentence of one step: `why.step.<kind>.<granted|removed>`, or the unknown one. */
-export function stepSentence(step: StepLike): Sentence {
-  if (!(STEP_KINDS as readonly string[]).includes(step.kind)) return { key: "why.step.unknown", values: {} };
+export function stepSentence(step: StepLike & { permissions?: string[] }): Sentence {
+  const count = Math.max(1, step.permissions?.length ?? 1);
+  if (!(STEP_KINDS as readonly string[]).includes(step.kind)) return { key: "why.step.unknown", values: {}, count };
   const values: Record<string, string> = {
     target: step.target && !step.target.hidden ? (step.target.name ?? "") : "",
     where: step.level && !step.level.hidden ? (step.level.name ?? "") : "",
   };
   if (step.role) Object.assign(values, roleSentence(step.role).values);
-  return { key: `why.step.${step.kind}.${step.effect}`, values };
+  return { key: `why.step.${step.kind}.${step.effect}`, values, count };
 }
 
 /** A result card: the decision, and the step that decided it when the explanation holds it. */

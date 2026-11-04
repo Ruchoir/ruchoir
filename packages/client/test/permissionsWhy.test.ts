@@ -24,10 +24,12 @@ test("every_step_kind_has_a_sentence", () => {
   for (const locale of ["fr", "en", "de", "es", "it", "pl"]) {
     const dict = JSON.parse(readFileSync(new URL(`../../../apps/web/lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
     const has = (key: string) => key.split(".").reduce<unknown>((at, part) => (at as Record<string, unknown> | undefined)?.[part], dict) !== undefined;
+    // A sentence whose verb agrees with the permissions is held as its plural forms (`_one`, `_other`...).
+    const hasSentence = (key: string) => has(key) || has(`${key}_other`);
     for (const kind of STEP_KINDS) {
       for (const effect of ["granted", "removed"] as const) {
         const { key } = stepSentence(step({ kind, effect, level: { kind: "file", id: "4c440343-9480-50e5-b217-ff831ed67e79", name: "Compta", hidden: false }, target: { kind: "group", id: "5942db65-eba7-5ead-870b-a5161dae5802", name: "Comptabilité", hidden: false } }));
-        assert.ok(has(key), `${locale}: ${key}`);
+        assert.ok(hasSentence(key), `${locale}: ${key}`);
       }
     }
     for (const kind of [...STEP_KINDS, "from_the_future"]) assert.ok(has(reasonKey(kind)), `${locale}: ${reasonKey(kind)}`);
@@ -281,4 +283,30 @@ test("a_level_a_rule_gave_and_the_guest_ceiling_took_names_the_ceiling", () => {
   // A removal the result does not point at is still found among the steps of that level.
   const unpointed = cardsOf("channel", [R("channel.view", true, 1), R("message.manage", false), R("channel.members.manage", false), R("channel.manage", false)], steps);
   assert.equal(unpointed.find((c) => c.id === "manage")?.reason?.kind, "guest_ceiling");
+});
+
+test("a_step_sentence_counts_its_permissions_so_the_verb_agrees", () => {
+  const group = { ...step({ kind: "guest_ceiling", effect: "removed" }), permissions: ["files.create", "files.edit"], ns: [1, 2] };
+  assert.equal(stepSentence(group).count, 2);
+  assert.equal(stepSentence(step({ kind: "guest_ceiling", effect: "removed" })).count, 1);
+  assert.equal(stepSentence(step({ kind: "from_the_future" })).count, 1);
+});
+
+test("the_sentences_with_a_verb_on_the_permissions_have_a_plural_form_in_every_language", () => {
+  const agreeing = ["role.granted", "private_lock.removed", "guest_ceiling.granted", "guest_ceiling.removed", "owner.granted", "owner.removed", "author.granted", "author.removed", "archived.granted", "archived.removed", "joined.granted", "joined.removed", "unseen.granted", "unseen.removed", "conversation.granted", "conversation.removed", "message.granted", "message.removed", "event.granted", "event.removed"];
+  for (const app of ["apps/web/lib/i18n/dictionaries", "apps/mobile/src/i18n/dictionaries"]) {
+    for (const locale of ["fr", "en", "de", "es", "it", "pl"]) {
+      const dict = JSON.parse(readFileSync(new URL(`../../../${app}/${locale}.json`, import.meta.url), "utf8")) as { why: { step: Record<string, Record<string, string>> } };
+      // French is the source dictionary and keeps `one` and `other` (as every plural key of it does).
+      const categories = locale === "fr" ? ["one", "other"] : new Intl.PluralRules(locale).resolvedOptions().pluralCategories;
+      for (const path of agreeing) {
+        const [kind, effect] = path.split(".");
+        const entry = dict.why.step[kind];
+        const forms = categories.map((c) => entry[`${effect}_${c}`]);
+        for (const [i, c] of categories.entries()) assert.ok(forms[i], `${app} ${locale} ${path}_${c}`);
+        // French is the source: its verb always changes ("dépasse" / "dépassent").
+        if (locale === "fr") assert.notEqual(entry[`${effect}_one`], entry[`${effect}_other`], `${app} fr ${path}`);
+      }
+    }
+  }
 });
