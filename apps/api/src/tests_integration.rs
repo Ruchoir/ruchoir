@@ -12194,6 +12194,10 @@ mod guest_invitation_tests;
 #[cfg(test)]
 mod guest_expiry_routes_tests;
 
+/// A guest becomes a member and a member a guest.
+#[cfg(test)]
+mod guest_standing_tests;
+
 // --- The six-digit code sent next to the verification link ---
 
 /// A fresh pending account, as registration leaves it: its id and address.

@@ -34,6 +34,8 @@ pub enum Action {
     MemberExpirySet,
     /// An ended guest got their access back (`before`, `after`: the end that had passed, the new one).
     MemberReactivated,
+    /// Someone became a guest, or stopped being one (`before`, `after`: `guest`, `member`, `owner`).
+    MemberStandingChanged,
     /// The space was handed over to another owner.
     OwnershipTransferred,
     /// A person's roles changed (custom roles, Administrator).
@@ -70,7 +72,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, for the read filter and its tests.
-    pub const ALL: [Action; 29] = [
+    pub const ALL: [Action; 30] = [
         Action::MemberJoined,
         Action::MemberLeft,
         Action::MemberRemoved,
@@ -79,6 +81,7 @@ impl Action {
         Action::MemberPurged,
         Action::MemberExpirySet,
         Action::MemberReactivated,
+        Action::MemberStandingChanged,
         Action::OwnershipTransferred,
         Action::MemberRolesChanged,
         Action::RoleCreated,
@@ -112,6 +115,7 @@ impl Action {
             Action::MemberPurged => "member.purged",
             Action::MemberExpirySet => "member.expiry_set",
             Action::MemberReactivated => "member.reactivated",
+            Action::MemberStandingChanged => "member.standing_changed",
             Action::OwnershipTransferred => "space.ownership_transferred",
             Action::MemberRolesChanged => "member.roles_changed",
             Action::RoleCreated => "role.created",
@@ -147,6 +151,7 @@ impl Action {
             | Action::MemberPurged
             | Action::MemberExpirySet
             | Action::MemberReactivated
+            | Action::MemberStandingChanged
             | Action::OwnershipTransferred
             | Action::MemberRolesChanged => "members",
             Action::RoleCreated

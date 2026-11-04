@@ -540,6 +540,7 @@ pub async fn resolve_space_slug(
         (status = 200, description = "Every membership this changed", body = Vec<MemberRoleChangedDto>),
         (status = 400, description = "Not a role this instance knows"),
         (status = 402, description = "A guest made a member, and every seat of the space's licence is taken"),
+        (status = 409, description = "The guest's access has ended: reactivate it first"),
         (status = 403, description = "Not allowed to give this role to this member"),
         (status = 404, description = "Not a member of this space")
     )
@@ -625,16 +626,22 @@ pub async fn update_member_role(
     if !role_allowed {
         return Err(ApiError::ForbiddenBecause("role_above_you"));
     }
-    // A guest made a member (or an administrator, or an owner) takes a seat they did not hold.
-    if !super::edition_view::takes_a_seat(&target.role)
-        && super::edition_view::takes_a_seat(&wanted)
+    // An ended guest is not in the space: they come back by reactivation, not by a promotion.
+    let role_changes = target.role != wanted;
+    if role_changes
+        && target.role == "guest"
+        && crate::permissions::membership::any(&state.db, space_id, user_id)
+            .await?
+            .is_some_and(|m| m.ended)
     {
-        super::edition_view::ensure_a_seat(&state, space_id).await?;
+        return Err(ApiError::ConflictCode {
+            code: "access_ended",
+            message: "this access has ended: reactivate it before changing its role",
+        });
     }
 
     // The end that goes with a guest standing, read in the actor's zone and checked before anything
     // is written: a bad date changes nothing, not even the role.
-    let role_changes = target.role != wanted;
     let end_before = target.expires_at;
     let new_end = match body.expires_at.as_deref() {
         Some(raw) => {
@@ -663,6 +670,12 @@ pub async fn update_member_role(
     let before = target.role.clone();
     let mut changes = Vec::new();
     if role_changes {
+        // A guest made a member (or an administrator, or an owner) takes a seat they did not hold:
+        // asked here, under the space's seat lock, so two promotions cannot share the last one.
+        if !super::edition_view::takes_a_seat(&before) && super::edition_view::takes_a_seat(&wanted)
+        {
+            super::edition_view::ensure_a_seat_locked(&txn, &state, space_id).await?;
+        }
         let mut promoted = target.into_active_model();
         promoted.role = Set(wanted.clone());
         promoted.update(&txn).await?;
@@ -680,6 +693,20 @@ pub async fn update_member_role(
             user_id,
             role: wanted.clone(),
         });
+        let (standing_before, standing_after) = (standing_of(&before), standing_of(&wanted));
+        // Only the line between guest and member is a standing change worth its own line; a
+        // transfer already has its own.
+        if (standing_before == "guest") != (standing_after == "guest") {
+            crate::audit::record(
+                &txn,
+                space_id,
+                Some(session.user_id),
+                crate::audit::Action::MemberStandingChanged,
+                crate::audit::Target::Member(user_id),
+                serde_json::json!({ "before": standing_before, "after": standing_after }),
+            )
+            .await?;
+        }
     }
     if let Some(end) = new_end {
         // A member made a guest had no end; a guest keeps the one they had until it is replaced.
@@ -746,6 +773,16 @@ pub async fn update_member_role(
     }
     crate::permissions::changed::announce(&state, space_id).await;
     Ok(Json(changes))
+}
+
+/// Where a role stands: `owner`, `guest`, or `member` for an administrator and a member alike (what
+/// the database derives from the role).
+fn standing_of(role: &str) -> &'static str {
+    match role {
+        "owner" => "owner",
+        "guest" => "guest",
+        _ => "member",
+    }
 }
 
 /// `DELETE /api/v1/spaces/{space_id}/membership`: leave a space.

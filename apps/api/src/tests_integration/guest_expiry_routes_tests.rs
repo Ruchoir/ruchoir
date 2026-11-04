@@ -41,11 +41,11 @@ fn in_days(days: i64) -> OffsetDateTime {
     OffsetDateTime::now_utc() + time::Duration::days(days)
 }
 
-fn rfc(at: OffsetDateTime) -> String {
+pub(super) fn rfc(at: OffsetDateTime) -> String {
     crate::messaging::dto::rfc3339(at)
 }
 
-async fn call(
+pub(super) async fn call(
     app: &TestApp,
     method: reqwest::Method,
     path: String,
@@ -108,7 +108,7 @@ async fn ended_list(app: &TestApp, space: Uuid, cookie: &str) -> (u16, Value) {
     .await
 }
 
-async fn row(app: &TestApp, space: Uuid, user: Uuid) -> space_members::Model {
+pub(super) async fn row(app: &TestApp, space: Uuid, user: Uuid) -> space_members::Model {
     space_members::Entity::find_by_id((space, user))
         .one(&app.db)
         .await
@@ -116,7 +116,7 @@ async fn row(app: &TestApp, space: Uuid, user: Uuid) -> space_members::Model {
         .expect("row")
 }
 
-async fn audit(app: &TestApp, space: Uuid, action: &str) -> Vec<Value> {
+pub(super) async fn audit(app: &TestApp, space: Uuid, action: &str) -> Vec<Value> {
     app.db
         .query_all_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -149,7 +149,7 @@ async fn set_zone(app: &TestApp, user: Uuid, zone: &str) {
     .expect("zone");
 }
 
-async fn frames(ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>) -> Vec<String> {
+pub(super) async fn frames(ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>) -> Vec<String> {
     let deadline = tokio::time::Instant::now() + Duration::from_millis(1000);
     let mut seen = Vec::new();
     while let Ok(Some(frame)) = tokio::time::timeout_at(deadline, ws.next()).await {

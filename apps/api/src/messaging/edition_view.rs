@@ -1,7 +1,7 @@
 //! How a space's edition reads in its DTO (`edition` for every member, `licence` for its owners),
 //! and the seat check every way of adding an owner or a member goes through.
 
-use sea_orm::DatabaseConnection;
+use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -46,7 +46,8 @@ pub async fn describe(
 /// anyone takes a seat: a member invitation issued or accepted, a guest made a member. Guests take
 /// none, so they never ask; removing someone never asks either. Two arrivals at the same instant
 /// may both find the last seat: the space then reads one over its seats, which refuses the next
-/// one, and nobody is ever taken out for it.
+/// one, and nobody is ever taken out for it. A write that takes the seat asks
+/// [`ensure_a_seat_locked`] instead, which closes that window.
 pub async fn ensure_a_seat(state: &AppState, space_id: Uuid) -> Result<(), ApiError> {
     match state.edition.seat_check(&state.db, space_id).await? {
         SeatCheck::Allowed => Ok(()),
@@ -55,6 +56,24 @@ pub async fn ensure_a_seat(state: &AppState, space_id: Uuid) -> Result<(), ApiEr
             pricing_url: state.config.pricing_url.clone(),
         }),
     }
+}
+
+/// [`ensure_a_seat`] as the last step before a write that takes the seat, inside its transaction:
+/// the space's seat lock is held until the commit, so two arrivals for the last seat are taken one
+/// after the other and the second finds it gone. Every way of taking a seat after the space exists
+/// (a guest made a member, a member link accepted) goes through here.
+pub async fn ensure_a_seat_locked(
+    txn: &impl ConnectionTrait,
+    state: &AppState,
+    space_id: Uuid,
+) -> Result<(), ApiError> {
+    txn.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "SELECT pg_advisory_xact_lock(hashtext($1))",
+        [space_id.to_string().into()],
+    ))
+    .await?;
+    ensure_a_seat(state, space_id).await
 }
 
 /// The gate of every paid write (custom roles, their order, the base roles' rights, fine rules):

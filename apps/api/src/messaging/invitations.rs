@@ -507,10 +507,6 @@ pub async fn accept_invitation(
             member.role
         }
         None => {
-            // Issued while there was room is not enough: the seat is taken now.
-            if super::edition_view::takes_a_seat(&record.role) {
-                super::edition_view::ensure_a_seat(&state, record.space_id).await?;
-            }
             let now = OffsetDateTime::now_utc();
             // The end handed to the guest may have passed since the link was checked: then it is
             // as unusable as any other, and nothing is written.
@@ -518,6 +514,10 @@ pub async fn accept_invitation(
                 return Err(ApiError::NotFound);
             }
             let txn = state.db.begin().await?;
+            // Issued while there was room is not enough: the seat is taken now, under the lock.
+            if super::edition_view::takes_a_seat(&record.role) {
+                super::edition_view::ensure_a_seat_locked(&txn, &state, record.space_id).await?;
+            }
             space_members::ActiveModel {
                 space_id: Set(record.space_id),
                 user_id: Set(session.user_id),

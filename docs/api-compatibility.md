@@ -116,6 +116,16 @@ and audited (`member.expiry_set`, `member.reactivated`, each with `before` and `
 instance answers `404` and the app hides the controls; the `guest_expiry` feature covers these
 routes as well as the notices.
 
+`PATCH .../members/{user}` is also how a guest becomes a member and the reverse. A guest made a
+member (or an administrator) takes a seat: the check runs inside the write under a per-space lock,
+so two promotions cannot share the last seat, and the answer when none is left is the usual `402
+seats_full` (`seats`, `pricing_url`). The end date and the reminder stage are cleared. An ended
+guest is refused with `409 access_ended` (reactivate first). A member made a guest frees their
+seat, may carry `expires_at`, keeps their channels and assigned roles, and loses the space-wide
+visibility and every right above the guest ceiling. The change between guest and member is audited
+as `member.standing_changed` (`before`, `after`: `guest` or `member`) besides `member.role_changed`,
+and announced with `permissions.changed`.
+
 The last two are the enterprise edition's own names, listed after the instance's by that build
 only (`Edition::features`). What every instance of this version answers, whatever its edition,
 needs no name: a space's `edition` and, for its owners, `licence`; `GET .../roles` and
