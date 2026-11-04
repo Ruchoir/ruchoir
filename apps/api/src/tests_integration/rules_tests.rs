@@ -289,6 +289,64 @@ async fn a_group_named_by_a_rule_cannot_be_dropped_by_sql() {
 }
 
 #[tokio::test]
+async fn a_role_named_by_a_rule_cannot_be_dropped_by_sql() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "cible", "public").await;
+    let role = make_role(&app.db, fx.space_id, "Relecteur", 10, &["files.view"]).await;
+    rule(
+        &app.db,
+        fx.space_id,
+        ("channel_id", channel),
+        &[("role_id", role)],
+    )
+    .await
+    .expect("rule");
+    assert!(
+        exec(
+            &app.db,
+            "DELETE FROM space_roles WHERE id = $1",
+            vec![role.into()]
+        )
+        .await
+        .is_err(),
+        "a deny aimed at a role never goes with it"
+    );
+    exec(
+        &app.db,
+        "DELETE FROM permission_overrides WHERE role_id = $1",
+        vec![role.into()],
+    )
+    .await
+    .expect("rule removed");
+    exec(
+        &app.db,
+        "DELETE FROM space_roles WHERE id = $1",
+        vec![role.into()],
+    )
+    .await
+    .expect("role dropped");
+
+    // A whole space still goes, roles and rules together.
+    let again = make_role(&app.db, fx.space_id, "Encore", 11, &["files.view"]).await;
+    rule(
+        &app.db,
+        fx.space_id,
+        ("channel_id", channel),
+        &[("role_id", again)],
+    )
+    .await
+    .expect("rule again");
+    exec(
+        &app.db,
+        "DELETE FROM spaces WHERE id = $1",
+        vec![fx.space_id.into()],
+    )
+    .await
+    .expect("the space goes with its roles and rules");
+}
+
+#[tokio::test]
 async fn a_rule_goes_with_its_resource() {
     let Some(app) = boot().await else { return };
     let fx = ladder(&app.db).await;

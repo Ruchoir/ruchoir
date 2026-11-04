@@ -169,6 +169,8 @@ async fn the_migration_converts_todays_roles() {
     let calendar = space_calendar(db, fx.space_id, "admins").await;
 
     for statement in [
+        // The rules naming a role keep it from being dropped.
+        "DELETE FROM permission_overrides WHERE space_id = $1 AND role_id IS NOT NULL",
         "DELETE FROM space_roles WHERE space_id = $1",
         "UPDATE space_members SET standing = 'member', expires_at = NULL WHERE space_id = $1",
     ] {

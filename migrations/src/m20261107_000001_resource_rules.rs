@@ -5,6 +5,9 @@
 //!   is: deleting a whole space never depends on cascade order, while a plain group delete is still
 //!   refused. A rule that denies something never goes silently with the group it names (the routes
 //!   remove the rules first, in the same transaction).
+//! - `permission_overrides.role_id` gets the same `ON DELETE NO ACTION` (it was `CASCADE`): a deny
+//!   aimed at a custom role must not vanish because a route deleted the role without looking. The
+//!   routes that delete a role answer `409 role_has_rules` while a rule names it.
 //! - `permission_overrides.audience_channel_id` makes "whoever reads this channel" a target, on
 //!   files and folders only (the CHECK keeps it off channels and calendars). The rule goes with the
 //!   channel it names.
@@ -25,6 +28,10 @@ ALTER TABLE permission_overrides
 ALTER TABLE permission_overrides
     ADD FOREIGN KEY (group_id, space_id) REFERENCES space_groups (id, space_id) ON DELETE NO ACTION,
     ADD FOREIGN KEY (audience_channel_id, space_id) REFERENCES channels (id, space_id) ON DELETE CASCADE;
+
+ALTER TABLE permission_overrides DROP CONSTRAINT permission_overrides_role_id_space_id_fkey;
+ALTER TABLE permission_overrides ADD CONSTRAINT permission_overrides_role_id_space_id_fkey
+    FOREIGN KEY (role_id, space_id) REFERENCES space_roles (id, space_id) ON DELETE NO ACTION;
 
 ALTER TABLE permission_overrides DROP CONSTRAINT permission_overrides_one_target;
 ALTER TABLE permission_overrides ADD CONSTRAINT permission_overrides_one_target
@@ -62,6 +69,9 @@ DROP INDEX IF EXISTS permission_overrides_audience;
 ALTER TABLE permission_overrides DROP CONSTRAINT IF EXISTS permission_overrides_audience_files_only;
 ALTER TABLE permission_overrides DROP CONSTRAINT IF EXISTS permission_overrides_one_target;
 ALTER TABLE permission_overrides DROP COLUMN group_id, DROP COLUMN audience_channel_id;
+ALTER TABLE permission_overrides DROP CONSTRAINT permission_overrides_role_id_space_id_fkey;
+ALTER TABLE permission_overrides ADD CONSTRAINT permission_overrides_role_id_space_id_fkey
+    FOREIGN KEY (role_id, space_id) REFERENCES space_roles (id, space_id) ON DELETE CASCADE;
 ALTER TABLE permission_overrides ADD CONSTRAINT permission_overrides_one_target
     CHECK (num_nonnulls(role_id, user_id) = 1);
 "#;
