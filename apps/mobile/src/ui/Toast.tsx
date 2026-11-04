@@ -13,6 +13,7 @@ import { AccessibilityInfo, Animated, Platform, StyleSheet, View } from "react-n
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FullWindowOverlay } from "react-native-screens";
 
+import { refusalGate } from "../logic/preview";
 import { styleCache } from "../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { feel, type Feel } from "./haptics";
@@ -26,7 +27,8 @@ const Above = Platform.OS === "ios" ? FullWindowOverlay : Fragment;
 /** The feels a toast may carry: outcomes only. */
 export type ToastFeel = Extract<Feel, "success" | "failure" | "warning">;
 
-type ShowToast = (text: string, feel?: ToastFeel) => void;
+/** `preview` marks the sentence of a write the preview refused: it speaks once, and the failure that follows stays quiet. */
+type ShowToast = (text: string, feel?: ToastFeel, options?: { preview?: boolean }) => void;
 
 const ToastContext = createContext<ShowToast>(() => {});
 
@@ -36,12 +38,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const [toast, setToast] = useState<{ text: string; id: number } | null>(null);
   const [opacity] = useState(() => new Animated.Value(0));
+  const [gate] = useState(refusalGate);
 
-  const show = useCallback<ShowToast>((text, outcome) => {
+  const show = useCallback<ShowToast>((text, outcome, options) => {
+    const now = Date.now();
+    if (options?.preview) gate.refused(now);
+    else if (!gate.allows(now, { failure: outcome === "failure", preview: false })) return;
     if (outcome) feel(outcome);
     setToast((prev) => ({ text, id: (prev?.id ?? 0) + 1 }));
     AccessibilityInfo.announceForAccessibility(text);
-  }, []);
+  }, [gate]);
 
   useEffect(() => {
     if (!toast) return;

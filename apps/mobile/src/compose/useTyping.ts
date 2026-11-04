@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useBackgroundWrites } from "../space/useBackgroundWrites";
 import { useRealtimeActions, useRealtimeEvent } from "../realtime/RealtimeProvider";
 
 const SHOWN_MS = 5000;
@@ -54,14 +55,16 @@ export function useTypingUsers(conversationId: string, myUserId: string | undefi
 /** A function to call on every keystroke; it sends the signal when it is due. */
 export function useTypingSignal(conversationId: string): () => void {
   const { sendTyping } = useRealtimeActions();
+  const mayWrite = useBackgroundWrites();
   const last = useRef(0);
   useEffect(() => {
     last.current = 0;
   }, [conversationId]);
   return useCallback(() => {
+    if (!mayWrite) return;
     const now = Date.now();
     if (now - last.current < SIGNAL_EVERY_MS) return;
     last.current = now;
     sendTyping(conversationId);
-  }, [conversationId, sendTyping]);
+  }, [conversationId, sendTyping, mayWrite]);
 }

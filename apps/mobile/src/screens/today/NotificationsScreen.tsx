@@ -31,6 +31,7 @@ import { tapTarget, type TapTarget } from "../../push/tap";
 import type { RootParams } from "../../navigation/types";
 import { useRealtimeActions } from "../../realtime/RealtimeProvider";
 import { useSpace } from "../../space/SpaceProvider";
+import { useBackgroundWrites } from "../../space/useBackgroundWrites";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
@@ -100,6 +101,7 @@ export function NotificationsScreen() {
   const { emit } = useRealtimeActions();
   const { current, select } = useSpace();
   const accounts = useAccounts();
+  const mayWrite = useBackgroundWrites();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const [filter, setFilter] = useState<Filter>("unread");
   const signedIn = accounts.accounts.filter((a) => a.status.kind === "signedIn");
@@ -166,6 +168,7 @@ export function NotificationsScreen() {
   };
 
   const readAll = () => {
+    if (!mayWrite) return;
     setReadHere(new Set(items.map((n) => n.key)));
     Promise.all(signedIn.map((account) => account.client.markAllNotificationsRead({ guestNotices: true }))).then(
       () => {
@@ -188,7 +191,7 @@ export function NotificationsScreen() {
   };
 
   const open = (n: InboxItem) => {
-    if (!n.read) {
+    if (!n.read && mayWrite) {
       setReadHere((prev) => new Set(prev).add(n.key));
       clientOf(n.instanceId)
         ?.markNotificationRead(n.id, { guestNotices: true })

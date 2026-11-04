@@ -326,7 +326,13 @@
     "organizedBy": "Organised by {{name}}",
     "calendars": "Calendars",
     "channel": "Channel",
-    "title": "Calendar"
+    "title": "Calendar",
+    "colorLabel": "Colour",
+    "color": {
+      "lime": "Lime",
+      "peach": "Peach",
+      "sun": "Sunshine yellow"
+    }
   },
   "discussions": {
     "filterAll": "All",
@@ -1307,7 +1313,11 @@
       "notAllowed": "You can view this access, but not change it."
     },
     "usedIn": {
-      "file": "File or folder"
+      "file": "File or folder",
+      "hidden": "An item you cannot open",
+      "warnBody": "Remove it from each rule below first, then come back to delete it.",
+      "warnTitle": "{{name}} is still in use.",
+      "where": "Where it is used"
     },
     "allGuests": "All guests",
     "level": {
@@ -1381,7 +1391,8 @@
     "alsoDirect_one": "Given directly, and also received through {{groups}}.",
     "alsoDirect_other": "Given directly, and also received through {{groups}}.",
     "importedFrom": "Imported from {{source}}.",
-    "guestCeiling": "Guests stay under the guest ceiling: they only receive what that ceiling allows."
+    "guestCeiling": "Guests stay under the guest ceiling: they only receive what that ceiling allows.",
+    "nobody": "Nobody in it yet"
   },
   "guests": {
     "endedNotice": "Your access to {{space}} has ended",
@@ -1451,7 +1462,13 @@
     "loses": "What the person loses",
     "keeps": "What the person keeps",
     "memberToday": "Member today",
-    "seatsAfter": "They no longer take a seat: {{used}} of {{total}} seats are then used. You can make them a member again at any time."
+    "seatsAfter": "They no longer take a seat: {{used}} of {{total}} seats are then used. You can make them a member again at any time.",
+    "ceilingTitle": "A guest can never",
+    "ceilingCreate": "Create or delete a channel, a group or a role",
+    "ceilingDirectory": "See the full member directory",
+    "ceilingModerate": "Moderate messages, manage a channel, a folder or a calendar",
+    "ceilingPeople": "Invite, remove or change anyone's rights",
+    "ceilingSettings": "Create a public link, read the log, change the settings"
   },
   "perm": {
     "spaceSettings": "Set up the space",
@@ -1519,7 +1536,18 @@
   "preview": {
     "readOnlyTitle": "Action refused: the preview is read only.",
     "readOnlyBody": "Your change was not saved. Click Quit at the top to take control again.",
-    "readOnlyBodySend": "Your message was not sent. Click Quit at the top to take control again."
+    "readOnlyBodySend": "Your message was not sent. Click Quit at the top to take control again.",
+    "bannerTitle": "Preview: {{role}}",
+    "ended": "The preview has ended: the space shows with your own rights again.",
+    "note": "Read only · ends after {{minutes}} minutes of inactivity",
+    "quit": "Quit",
+    "quitFailed": "The preview could not end. Try again.",
+    "refusal": {
+      "baseRole": "The base roles cannot be previewed.",
+      "unavailable": "The preview is unavailable right now."
+    },
+    "startFailed": "The preview could not start.",
+    "viewAs": "View as"
   },
   "why": {
     "role": {
@@ -1662,7 +1690,26 @@
     "moveUp": "Move {{role}} up",
     "moveDown": "Move {{role}} down",
     "yourRoleTag": "your role",
-    "copyFrom": "Copy from"
+    "copyFrom": "Copy from",
+    "addPerson": "Add a person",
+    "delete": "Delete the role",
+    "deleteBody": "The people who hold it lose it; what was done with it stays done. If channel, folder or calendar rules name it, remove them first.",
+    "deleted": "Role deleted",
+    "deleteTitle": "Delete the role {{role}}?",
+    "directly": "Directly",
+    "everyGuestHolds": "Every guest has this role from the start.",
+    "givenByMembers": "Already given to everyone by @members.",
+    "guestsIntro": "These rights hold for every guest, wherever they were added. Some are never given to a guest.",
+    "more": "More actions",
+    "neverForGuests": "Never for a guest.",
+    "nobodyDirectly": "Nobody has it directly.",
+    "nobodyHolds": "Nobody holds this role yet.",
+    "notHeld": "You do not hold it yourself: you can neither give it nor take it away.",
+    "rightsIntro": "These rights hold across the whole space. A channel, folder or calendar can remove or add some for itself alone.",
+    "saved": "Role saved",
+    "tabRights": "Rights",
+    "takeAway": "Take the role {{role}} away from {{name}}",
+    "viaGroup": "Through a group"
   },
   "dialogs": {
     "seatsFull_one": "The only seat is taken.",

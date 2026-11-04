@@ -79,6 +79,10 @@ type AccountsApi = {
   holdToken: (id: string, token: string | null) => Promise<void>;
   /** Check again the instances that could not be reached. */
   retryOffline: () => void;
+  /** Whether an instance's space on screen is a preview: its client then writes nothing on its own. */
+  setPreviewing: (id: string, on: boolean) => void;
+  /** Hear of each write refused by a preview on an instance. Returns the way to stop. */
+  onPreviewReadOnly: (id: string, handler: (request: { method: string; path: string }) => void) => () => void;
 };
 
 const AccountsContext = createContext<AccountsApi | null>(null);
@@ -330,6 +334,9 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
     else await tokens.clear(id);
   }, [live]);
 
+  const setPreviewing = useCallback((id: string, on: boolean) => live.setPreviewing(id, on), [live]);
+  const onPreviewReadOnly = useCallback((id: string, handler: (request: { method: string; path: string }) => void) => live.onPreviewReadOnly(id, handler), [live]);
+
   const startAdd = useCallback(() => setFlow({ kind: "add" }), []);
   const renew = useCallback((id: string) => setFlow({ kind: "renew", id }), []);
   const cancelFlow = useCallback(() => setFlow(null), []);
@@ -358,6 +365,8 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
       updateUser,
       holdToken,
       retryOffline,
+      setPreviewing,
+      onPreviewReadOnly,
     }),
     [
       registry,
@@ -382,6 +391,8 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
       updateUser,
       holdToken,
       retryOffline,
+      setPreviewing,
+      onPreviewReadOnly,
     ],
   );
   return <AccountsContext.Provider value={api}>{children}</AccountsContext.Provider>;

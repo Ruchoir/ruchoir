@@ -326,7 +326,13 @@
     "organizedBy": "Organisé par {{name}}",
     "calendars": "Agendas",
     "channel": "Canal",
-    "title": "Agenda"
+    "title": "Agenda",
+    "colorLabel": "Couleur",
+    "color": {
+      "lime": "Vert tilleul",
+      "peach": "Pêche",
+      "sun": "Jaune soleil"
+    }
   },
   "discussions": {
     "filterAll": "Tout",
@@ -1307,7 +1313,11 @@
       "notAllowed": "Vous pouvez consulter cet accès, mais pas le modifier."
     },
     "usedIn": {
-      "file": "Fichier ou dossier"
+      "file": "Fichier ou dossier",
+      "hidden": "Un élément que vous ne pouvez pas ouvrir",
+      "warnBody": "Retirez-le d'abord de chaque règle ci-dessous, puis revenez le supprimer.",
+      "warnTitle": "{{name}} est encore utilisé.",
+      "where": "Où il est utilisé"
     },
     "allGuests": "Tous les invités",
     "level": {
@@ -1381,7 +1391,8 @@
     "alsoDirect_one": "Donné directement, et reçu aussi par {{groups}}.",
     "alsoDirect_other": "Donné directement, et reçu aussi par {{groups}}.",
     "importedFrom": "Importé de {{source}}.",
-    "guestCeiling": "Les rôles reçus par un invité restent sous le plafond des invités : seul ce que ce plafond permet est accordé."
+    "guestCeiling": "Les rôles reçus par un invité restent sous le plafond des invités : seul ce que ce plafond permet est accordé.",
+    "nobody": "Personne n'y est encore"
   },
   "guests": {
     "endedNotice": "Votre accès à {{space}} a pris fin",
@@ -1451,7 +1462,13 @@
     "loses": "Ce que la personne perd",
     "keeps": "Ce que la personne garde",
     "memberToday": "Membre aujourd'hui",
-    "seatsAfter": "Cette personne ne prend plus de place : {{used}} places sur {{total}} sont alors utilisées. Vous pourrez lui rendre le statut de membre à tout moment."
+    "seatsAfter": "Cette personne ne prend plus de place : {{used}} places sur {{total}} sont alors utilisées. Vous pourrez lui rendre le statut de membre à tout moment.",
+    "ceilingTitle": "Un invité ne peut jamais",
+    "ceilingCreate": "Créer ou supprimer un canal, un groupe ou un rôle",
+    "ceilingDirectory": "Voir l'annuaire complet des membres",
+    "ceilingModerate": "Modérer les messages, gérer un canal, un dossier ou un agenda",
+    "ceilingPeople": "Inviter, retirer ou changer les droits de quelqu'un",
+    "ceilingSettings": "Créer un lien public, lire le journal, changer les réglages"
   },
   "perm": {
     "spaceSettings": "Régler l'espace",
@@ -1519,7 +1536,18 @@
   "preview": {
     "readOnlyTitle": "Action refusée : l'aperçu est en lecture seule.",
     "readOnlyBody": "Votre modification n'a pas été enregistrée. Cliquez sur Quitter, en haut, pour reprendre la main.",
-    "readOnlyBodySend": "Votre message n'a pas été envoyé. Cliquez sur Quitter, en haut, pour reprendre la main."
+    "readOnlyBodySend": "Votre message n'a pas été envoyé. Cliquez sur Quitter, en haut, pour reprendre la main.",
+    "bannerTitle": "Aperçu : {{role}}",
+    "ended": "L'aperçu est terminé : l'espace s'affiche de nouveau avec vos propres droits.",
+    "note": "Lecture seule · se termine après {{minutes}} minutes sans activité",
+    "quit": "Quitter",
+    "quitFailed": "L'aperçu n'a pas pu se terminer. Réessayez.",
+    "refusal": {
+      "baseRole": "Les rôles de base ne s'affichent pas en aperçu.",
+      "unavailable": "L'aperçu est indisponible pour le moment."
+    },
+    "startFailed": "L'aperçu n'a pas pu démarrer.",
+    "viewAs": "Voir en tant que"
   },
   "why": {
     "role": {
@@ -1662,7 +1690,26 @@
     "moveUp": "Monter {{role}}",
     "moveDown": "Descendre {{role}}",
     "yourRoleTag": "votre rôle",
-    "copyFrom": "Copier depuis"
+    "copyFrom": "Copier depuis",
+    "addPerson": "Ajouter une personne",
+    "delete": "Supprimer le rôle",
+    "deleteBody": "Les personnes qui l'ont le perdent ; ce qui a été fait avec reste fait. Si des règles de canal, de dossier ou d'agenda le nomment, retirez-les d'abord.",
+    "deleted": "Rôle supprimé",
+    "deleteTitle": "Supprimer le rôle {{role}} ?",
+    "directly": "Directement",
+    "everyGuestHolds": "Chaque invité a ce rôle, d'office.",
+    "givenByMembers": "Déjà donné à tout le monde par @membres.",
+    "guestsIntro": "Ces droits valent pour chaque invité, là où on l'a ajouté. Certains ne se donnent jamais à un invité.",
+    "more": "Plus d'actions",
+    "neverForGuests": "Jamais pour un invité.",
+    "nobodyDirectly": "Personne ne l'a directement.",
+    "nobodyHolds": "Personne n'a encore ce rôle.",
+    "notHeld": "Vous ne l'avez pas vous-même : vous ne pouvez ni le donner ni le retirer.",
+    "rightsIntro": "Ces droits valent dans tout l'espace. Un canal, un dossier ou un agenda peut les retirer ou en ajouter pour lui seul.",
+    "saved": "Rôle enregistré",
+    "tabRights": "Droits",
+    "takeAway": "Retirer le rôle {{role}} à {{name}}",
+    "viaGroup": "Par un groupe"
   },
   "dialogs": {
     "seatsFull_one": "La place est prise.",

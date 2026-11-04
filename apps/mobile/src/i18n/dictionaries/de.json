@@ -326,7 +326,13 @@
     "organizedBy": "Organisiert von {{name}}",
     "calendars": "Kalender",
     "channel": "Kanal",
-    "title": "Kalender"
+    "title": "Kalender",
+    "colorLabel": "Farbe",
+    "color": {
+      "lime": "Limette",
+      "peach": "Pfirsich",
+      "sun": "Sonnengelb"
+    }
   },
   "discussions": {
     "filterAll": "Alle",
@@ -1307,7 +1313,11 @@
       "notAllowed": "Sie können diesen Zugriff ansehen, aber nicht ändern."
     },
     "usedIn": {
-      "file": "Datei oder Ordner"
+      "file": "Datei oder Ordner",
+      "hidden": "Ein Element, das Sie nicht öffnen können",
+      "warnBody": "Entfernen Sie es zuerst aus jeder Regel unten und kommen Sie dann zum Löschen zurück.",
+      "warnTitle": "{{name}} wird noch verwendet.",
+      "where": "Wo es verwendet wird"
     },
     "allGuests": "Alle Gäste",
     "level": {
@@ -1381,7 +1391,8 @@
     "alsoDirect_one": "Direkt vergeben und außerdem über {{groups}} erhalten.",
     "alsoDirect_other": "Direkt vergeben und außerdem über {{groups}} erhalten.",
     "importedFrom": "Aus {{source}} importiert.",
-    "guestCeiling": "Gäste bleiben unter der Gästegrenze: Sie erhalten nur, was diese Grenze zulässt."
+    "guestCeiling": "Gäste bleiben unter der Gästegrenze: Sie erhalten nur, was diese Grenze zulässt.",
+    "nobody": "Noch niemand darin"
   },
   "guests": {
     "endedNotice": "Ihr Zugang zu {{space}} ist beendet",
@@ -1451,7 +1462,13 @@
     "loses": "Was die Person verliert",
     "keeps": "Was die Person behält",
     "memberToday": "Heute Mitglied",
-    "seatsAfter": "Die Person belegt keinen Platz mehr: Dann sind {{used}} von {{total}} Plätzen belegt. Sie können sie jederzeit wieder zum Mitglied machen."
+    "seatsAfter": "Die Person belegt keinen Platz mehr: Dann sind {{used}} von {{total}} Plätzen belegt. Sie können sie jederzeit wieder zum Mitglied machen.",
+    "ceilingTitle": "Ein Gast kann nie",
+    "ceilingCreate": "Einen Kanal, eine Gruppe oder eine Rolle erstellen oder löschen",
+    "ceilingDirectory": "Das vollständige Mitgliederverzeichnis sehen",
+    "ceilingModerate": "Nachrichten moderieren, einen Kanal, Ordner oder Kalender verwalten",
+    "ceilingPeople": "Jemanden einladen, entfernen oder dessen Rechte ändern",
+    "ceilingSettings": "Einen öffentlichen Link erstellen, das Protokoll lesen, die Einstellungen ändern"
   },
   "perm": {
     "spaceSettings": "Bereich einrichten",
@@ -1519,7 +1536,18 @@
   "preview": {
     "readOnlyTitle": "Aktion abgelehnt: Die Vorschau ist schreibgeschützt.",
     "readOnlyBody": "Ihre Änderung wurde nicht gespeichert. Klicken Sie oben auf Beenden, um wieder die Kontrolle zu übernehmen.",
-    "readOnlyBodySend": "Ihre Nachricht wurde nicht gesendet. Klicken Sie oben auf Beenden, um wieder die Kontrolle zu übernehmen."
+    "readOnlyBodySend": "Ihre Nachricht wurde nicht gesendet. Klicken Sie oben auf Beenden, um wieder die Kontrolle zu übernehmen.",
+    "bannerTitle": "Vorschau: {{role}}",
+    "ended": "Die Vorschau ist beendet: Der Space wird wieder mit Ihren eigenen Rechten angezeigt.",
+    "note": "Nur Lesen · endet nach {{minutes}} Minuten ohne Aktivität",
+    "quit": "Beenden",
+    "quitFailed": "Die Vorschau konnte nicht beendet werden. Versuchen Sie es erneut.",
+    "refusal": {
+      "baseRole": "Die Basisrollen lassen sich nicht in der Vorschau ansehen.",
+      "unavailable": "Die Vorschau ist im Moment nicht verfügbar."
+    },
+    "startFailed": "Die Vorschau konnte nicht gestartet werden.",
+    "viewAs": "Ansehen als"
   },
   "why": {
     "role": {
@@ -1662,7 +1690,26 @@
     "moveUp": "{{role}} nach oben",
     "moveDown": "{{role}} nach unten",
     "yourRoleTag": "Ihre Rolle",
-    "copyFrom": "Kopieren von"
+    "copyFrom": "Kopieren von",
+    "addPerson": "Person hinzufügen",
+    "delete": "Rolle löschen",
+    "deleteBody": "Die Personen, die sie haben, verlieren sie; was damit getan wurde, bleibt. Falls Kanal-, Ordner- oder Kalenderregeln sie nennen, entfernen Sie diese zuerst.",
+    "deleted": "Rolle gelöscht",
+    "deleteTitle": "Die Rolle {{role}} löschen?",
+    "directly": "Direkt",
+    "everyGuestHolds": "Jeder Gast hat diese Rolle von vornherein.",
+    "givenByMembers": "Wird schon allen durch @Mitglieder gegeben.",
+    "guestsIntro": "Diese Rechte gelten für jeden Gast, jeweils dort, wo der Zugang eingerichtet wurde. Manche werden einem Gastzugang nie gegeben.",
+    "more": "Weitere Aktionen",
+    "neverForGuests": "Nie für Gäste.",
+    "nobodyDirectly": "Niemand hat sie direkt.",
+    "nobodyHolds": "Noch niemand hat diese Rolle.",
+    "notHeld": "Sie haben es selbst nicht: Sie können es weder geben noch entziehen.",
+    "rightsIntro": "Diese Rechte gelten im ganzen Bereich. Ein Kanal, ein Ordner oder ein Kalender kann sie nur für sich entziehen oder ergänzen.",
+    "saved": "Rolle gespeichert",
+    "tabRights": "Rechte",
+    "takeAway": "{{name}} die Rolle {{role}} entziehen",
+    "viaGroup": "Über eine Gruppe"
   },
   "dialogs": {
     "seatsFull_one": "Der Platz ist belegt.",
