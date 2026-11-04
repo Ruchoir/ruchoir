@@ -178,6 +178,9 @@ pub fn level_of(
         return LevelRead::Level(level);
     }
     let admin = target == (Target::Role { system: true });
+    if (everyone || admin) && allow.is_empty() && deny.is_empty() {
+        return LevelRead::NoRule;
+    }
     let Some(bit) = legacy_bit(kind).filter(|_| everyone || admin) else {
         return LevelRead::Custom;
     };
@@ -507,6 +510,60 @@ mod tests {
             level_of(Kind::Channel, Target::Group, set(&[P::ChannelView]), none),
             LevelRead::Custom
         );
+    }
+
+    #[test]
+    fn nothing_stored_reads_no_rule_for_every_kind() {
+        for kind in KINDS {
+            for target in [Target::Everyone, Target::Role { system: true }] {
+                assert_eq!(
+                    level_of(kind, target, PermissionSet::EMPTY, PermissionSet::EMPTY),
+                    LevelRead::NoRule,
+                    "{kind:?} {target:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_administrator_reads_the_legacy_bits_as_they_are() {
+        let admin = Target::Role { system: true };
+        let none = PermissionSet::EMPTY;
+        let write = PermissionSet::of(&[P::CalendarWrite]);
+        assert_eq!(
+            level_of(Kind::Calendar, admin, write, none),
+            LevelRead::NoRule
+        );
+        assert_eq!(
+            level_of(Kind::Calendar, admin, none, write),
+            LevelRead::Custom
+        );
+    }
+
+    #[test]
+    fn levels_differ_beyond_the_legacy_bit_except_calendar_read_and_contribute() {
+        let all = [Level::None, Level::Read, Level::Contribute, Level::Manage];
+        for kind in KINDS {
+            let mask = |s: PermissionSet| match legacy_bit(kind) {
+                Some(bit) => s.minus(PermissionSet::of(&[bit])),
+                None => s,
+            };
+            for target in [Target::Everyone, Target::Role { system: true }] {
+                for (i, &a) in all.iter().enumerate() {
+                    for &b in &all[i + 1..] {
+                        let (Ok((aa, ad)), Ok((ba, bd))) =
+                            (rule_sets(kind, target, a), rule_sets(kind, target, b))
+                        else {
+                            continue;
+                        };
+                        let same = (mask(aa), mask(ad)) == (mask(ba), mask(bd));
+                        let calendar_pair =
+                            kind == Kind::Calendar && (a, b) == (Level::Read, Level::Contribute);
+                        assert_eq!(same, calendar_pair, "{kind:?} {target:?} {a:?} {b:?}");
+                    }
+                }
+            }
+        }
     }
 
     #[test]
