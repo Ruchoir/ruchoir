@@ -26,7 +26,7 @@ export type Counts = { people?: number; guests?: number; roles?: number; customR
 
 /** Sections whose screen exists. Each later task flips its own to true. */
 export type Ready = Record<"roles" | "groups" | "audit" | "licence", boolean>;
-export const READY: Ready = { roles: true, groups: false, audit: false, licence: false };
+export const READY: Ready = { roles: true, groups: false, audit: true, licence: false };
 
 export function sectionsFor(
   gates: Gates,
