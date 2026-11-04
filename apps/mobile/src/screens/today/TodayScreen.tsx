@@ -58,7 +58,7 @@ export function TodayScreen() {
   const now = useNow();
   const today = dayKey(new Date(now), timeZone);
 
-  const notifications = useLoad("notifications", (signal) => getNotifications({ unread: true, limit: 30 }, signal));
+  const notifications = useLoad("notifications", (signal) => getNotifications({ unread: true, limit: 30, guestNotices: true }, signal));
   const events = useLoad(space ? `today:${space}:${today}` : null, async (signal) => {
     const calendars = (await listCalendars(signal)).filter((cal) => !cal.hidden && (!cal.spaceId || cal.spaceId === space));
     // Each calendar's colour, which tints its events on a tablet.

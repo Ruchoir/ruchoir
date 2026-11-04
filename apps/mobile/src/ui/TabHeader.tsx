@@ -11,6 +11,7 @@ import { useSpace } from "../space/SpaceProvider";
 import { styleCache } from "../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { Avatar } from "./Avatar";
+import { GuestEndCard } from "./GuestBanner";
 import { Text } from "./Text";
 
 /**
@@ -27,31 +28,34 @@ export function TabHeader({ title, overline, children, action }: { title: string
   const user = state.kind === "signedIn" && !wide ? state.user : null;
 
   return (
-    <View style={styles.head}>
-      <View style={styles.titles}>
-        {overline ? (
-          <Text variant="small" tone="muted" style={styles.overline}>
-            {overline}
+    <>
+      <View style={styles.head}>
+        <View style={styles.titles}>
+          {overline ? (
+            <Text variant="small" tone="muted" style={styles.overline}>
+              {overline}
+            </Text>
+          ) : null}
+          <Text variant="title" numberOfLines={1}>
+            {title}
           </Text>
+          <SpaceSwitch />
+          {children}
+        </View>
+        {action}
+        {user ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("account.open")}
+            onPress={() => navigation.navigate("accountSheet")}
+            style={styles.me}
+          >
+            <Avatar name={user.name} src={user.avatarUrl} size={36} presence={selfPresence(user.presenceChoice)} />
+          </Pressable>
         ) : null}
-        <Text variant="title" numberOfLines={1}>
-          {title}
-        </Text>
-        <SpaceSwitch />
-        {children}
       </View>
-      {action}
-      {user ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("account.open")}
-          onPress={() => navigation.navigate("accountSheet")}
-          style={styles.me}
-        >
-          <Avatar name={user.name} src={user.avatarUrl} size={36} presence={selfPresence(user.presenceChoice)} />
-        </Pressable>
-      ) : null}
-    </View>
+      <GuestEndCard />
+    </>
   );
 }
 

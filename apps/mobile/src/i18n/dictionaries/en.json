@@ -978,7 +978,8 @@
     "removePhoto": "Remove the photo",
     "photoFailed": "Photo not saved",
     "saved": "Profile saved",
-    "saveFailed": "The profile could not be saved. Try again."
+    "saveFailed": "The profile could not be saved. Try again.",
+    "tabManage": "Manage"
   },
   "security": {
     "changePassword": "Change the password",
@@ -1374,7 +1375,13 @@
   },
   "groups": {
     "noSelfRole": "Nobody gives themselves a role, through a group either: you cannot change the roles of a group you belong to.",
-    "noSelfJoin": "You cannot add yourself to a group that carries roles."
+    "noSelfJoin": "You cannot add yourself to a group that carries roles.",
+    "viaReason_one": "Received through the group {{groups}}: take {{name}} out of the group to remove it.",
+    "viaReason_other": "Received through the groups {{groups}}: take {{name}} out of those groups to remove it.",
+    "alsoDirect_one": "Given directly, and also received through {{groups}}.",
+    "alsoDirect_other": "Given directly, and also received through {{groups}}.",
+    "importedFrom": "Imported from {{source}}.",
+    "guestCeiling": "Guests stay under the guest ceiling: they only receive what that ceiling allows."
   },
   "guests": {
     "endedNotice": "Your access to {{space}} has ended",
@@ -1394,7 +1401,57 @@
     "refusalGuestOnly": "Only a guest can have an end date: this person is a member.",
     "refusalAccessEnded": "This access has already ended: reactivate it to give it a new date.",
     "refusalNotEnded": "This access has not ended: there is nothing to reactivate.",
-    "endedForGood": "This access ended too long ago to be reactivated."
+    "endedForGood": "This access ended too long ago to be reactivated.",
+    "sectionTitle": "Guests",
+    "noEnd": "No end date",
+    "endedTitle": "Ended access",
+    "endedKeep": "Kept 90 days",
+    "endedNote": "These people no longer have access to the space: they see nothing and count nowhere. Their messages and files stay, signed with their name. A person stays here for 90 days.",
+    "endedOn": "Ended on {{date}}",
+    "reactivate": "Reactivate",
+    "reactivated": "Access reactivated",
+    "reactivateFailed": "The access could not be reactivated.",
+    "endedLoadFailed": "The ended access could not be loaded.",
+    "reactivateTitle": "Reactivate {{name}}'s access",
+    "presetWeek": "One week",
+    "presetMonth": "One month",
+    "presetQuarter": "Three months",
+    "presetCustom": "Pick a date",
+    "presetNoEnd": "No end date",
+    "removeDate": "Remove the date",
+    "prolong": "Extend",
+    "prolongBy": "Extend by",
+    "accessSection": "Access to the space",
+    "remaining": "{{when}}. You and those who manage guests are warned 7 days then 1 day before; {{name}} is warned the day before.",
+    "noEndInfo": "This access has no end date.",
+    "updated": "Access date updated",
+    "updateFailed": "The date could not be saved.",
+    "guestUntil": "Guest until {{date}}",
+    "memberStatusNote": "A member sees the whole space and takes a seat of the licence. Their end date is then cleared.",
+    "guestStatusNote": "A guest only reaches what is opened to them and takes no seat in the licence.",
+    "passerInviteAction": "Make guest",
+    "passerMembreAction": "Make member",
+    "passerInviteTitle": "Make {{name}} a guest?",
+    "passerMembreTitle": "Make {{name}} a member?",
+    "passerFailed": "The change could not be made.",
+    "seatsFullRest": "To make a guest a member, move to a bigger licence. {{name}} stays a guest and keeps their access, and nobody loses theirs.",
+    "reactivateNote": "Their access comes back as it was: same channels, same folders, same groups. Reminders start over for the new date.",
+    "endTitle": "Access until",
+    "optional": "Not required",
+    "endOfDay": "End of day",
+    "reminders": "You are warned 7 days, then 1 day before the end. The guest is warned the day before.",
+    "bannerUntil": "Guest in {{space}} · until {{date}}",
+    "noticeSoon": "{{name}}'s access ends {{when}}",
+    "noticeEnding": "Your access to {{space}} ends {{when}}",
+    "noticeSoonDetail": "{{title}}, until {{date}}. You can extend their access.",
+    "noticeSoonDetailBare": "Until {{date}}. You can extend their access.",
+    "noticeEndingDetail": "After {{date}}, you will no longer be able to open this space. To continue, ask {{contact}} to extend your access.",
+    "noticeEndingDetailBare": "After {{date}}, you will no longer be able to open this space. To continue, ask whoever manages guests to extend your access.",
+    "dateLabel": "Access end date",
+    "loses": "What the person loses",
+    "keeps": "What the person keeps",
+    "memberToday": "Member today",
+    "seatsAfter": "They no longer take a seat: {{used}} of {{total}} seats are then used. You can make them a member again at any time."
   },
   "perm": {
     "spaceSettings": "Set up the space",
@@ -1557,6 +1614,38 @@
   },
   "roles": {
     "everyone": "@members",
-    "guests": "@guests"
+    "guests": "@guests",
+    "aboveYou": "Above your highest role.",
+    "yourTopRole": "It is your highest role: only someone placed above can give it.",
+    "selfLocked": "Your own access is set by someone above you.",
+    "personAboveNote": "Above your highest role: only someone placed higher can manage {{name}}.",
+    "membersOnly": "@members only",
+    "standing": "Standing",
+    "memberSince": "Member since {{date}}",
+    "guestSince": "Guest since {{date}}",
+    "frozenNote": "Licence expired: the roles still apply, but can no longer be changed.",
+    "changes_one": "{{count}} change",
+    "changes_other": "{{count}} changes",
+    "refusal": {
+      "seatsFull_one": "The licence's only seat is taken.",
+      "seatsFull_other": "The licence's {{count}} seats are taken.",
+      "licenceRequired": "This needs the Enterprise edition.",
+      "licenceFrozen": "The licence has expired: the roles still apply, but can no longer be changed.",
+      "roleAboveYou": "This role is above your highest role.",
+      "personAboveYou": "This person is above your highest role.",
+      "permissionNotHeld": "You can neither give nor take away a right you do not hold yourself.",
+      "beyondGuestCeiling": "A guest can never hold this right.",
+      "memberFirst": "Make this person a member first."
+    },
+    "handOver": "Hand the space over to them"
+  },
+  "dialogs": {
+    "seatsFull_one": "The only seat is taken.",
+    "seatsFull_other": "All {{count}} seats are taken."
+  },
+  "members": {
+    "filterAll": "All",
+    "noGroup": "No group",
+    "gone": "This person is no longer in the space"
   }
 }

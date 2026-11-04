@@ -1026,7 +1026,8 @@
     "removePhoto": "Rimuovi la foto",
     "photoFailed": "Foto non salvata",
     "saved": "Profilo salvato",
-    "saveFailed": "Impossibile salvare il profilo. Riprovate."
+    "saveFailed": "Impossibile salvare il profilo. Riprovate.",
+    "tabManage": "Gestione"
   },
   "security": {
     "changePassword": "Cambia la password",
@@ -1433,7 +1434,15 @@
   },
   "groups": {
     "noSelfRole": "Nessuno si dà un ruolo da solo, nemmeno tramite un gruppo: non puoi cambiare i ruoli di un gruppo di cui fai parte.",
-    "noSelfJoin": "Non puoi aggiungerti da solo a un gruppo che porta ruoli."
+    "noSelfJoin": "Non puoi aggiungerti da solo a un gruppo che porta ruoli.",
+    "viaReason_one": "Ricevuto dal gruppo {{groups}}: togli {{name}} dal gruppo per rimuoverlo.",
+    "viaReason_many": "Ricevuto dai gruppi {{groups}}: togli {{name}} da questi gruppi per rimuoverlo.",
+    "viaReason_other": "Ricevuto dai gruppi {{groups}}: togli {{name}} da questi gruppi per rimuoverlo.",
+    "alsoDirect_one": "Assegnato direttamente e ricevuto anche da {{groups}}.",
+    "alsoDirect_many": "Assegnato direttamente e ricevuto anche da {{groups}}.",
+    "alsoDirect_other": "Assegnato direttamente e ricevuto anche da {{groups}}.",
+    "importedFrom": "Importato da {{source}}.",
+    "guestCeiling": "Gli ospiti restano sotto il limite degli ospiti: ricevono solo ciò che quel limite consente."
   },
   "guests": {
     "endedNotice": "Il tuo accesso a {{space}} è terminato",
@@ -1453,7 +1462,57 @@
     "refusalGuestOnly": "Solo un ospite può avere una data di fine: questa persona è membro.",
     "refusalAccessEnded": "Questo accesso è già terminato: riattivalo per dargli una nuova data.",
     "refusalNotEnded": "Questo accesso non è terminato: non c'è nulla da riattivare.",
-    "endedForGood": "Questo accesso è terminato da troppo tempo per essere riattivato."
+    "endedForGood": "Questo accesso è terminato da troppo tempo per essere riattivato.",
+    "sectionTitle": "Ospiti",
+    "noEnd": "Nessuna data di fine",
+    "endedTitle": "Accessi terminati",
+    "endedKeep": "Conservati 90 giorni",
+    "endedNote": "Queste persone non hanno più accesso allo spazio: non vedono più nulla e non contano da nessuna parte. I loro messaggi e file restano, firmati con il loro nome. Una persona resta qui 90 giorni.",
+    "endedOn": "Terminato il {{date}}",
+    "reactivate": "Riattiva",
+    "reactivated": "Accesso riattivato",
+    "reactivateFailed": "Non è stato possibile riattivare l'accesso.",
+    "endedLoadFailed": "Non è stato possibile caricare gli accessi terminati.",
+    "reactivateTitle": "Riattiva l'accesso di {{name}}",
+    "presetWeek": "Una settimana",
+    "presetMonth": "Un mese",
+    "presetQuarter": "Tre mesi",
+    "presetCustom": "Scegli una data",
+    "presetNoEnd": "Senza data di fine",
+    "removeDate": "Rimuovi la data",
+    "prolong": "Prolunga",
+    "prolongBy": "Prolunga di",
+    "accessSection": "Accesso allo spazio",
+    "remaining": "{{when}}. Tu e chi gestisce gli ospiti ricevete un avviso 7 giorni e poi 1 giorno prima; {{name}} il giorno prima.",
+    "noEndInfo": "Questo accesso non ha data di fine.",
+    "updated": "Data di accesso aggiornata",
+    "updateFailed": "Non è stato possibile salvare la data.",
+    "guestUntil": "Ospite fino al {{date}}",
+    "memberStatusNote": "Un membro vede tutto lo spazio e occupa un posto della licenza. La sua data di fine viene allora cancellata.",
+    "guestStatusNote": "Un ospite accede solo a ciò che gli viene aperto e non occupa un posto nella licenza.",
+    "passerInviteAction": "Rendi ospite",
+    "passerMembreAction": "Rendi membro",
+    "passerInviteTitle": "Rendere ospite {{name}}?",
+    "passerMembreTitle": "Rendere membro {{name}}?",
+    "passerFailed": "Non è stato possibile fare la modifica.",
+    "seatsFullRest": "Per rendere membro un ospite, passa a una licenza più grande. {{name}} resta ospite e mantiene il suo accesso, e nessuno perde il proprio.",
+    "reactivateNote": "Il suo accesso torna com'era: stessi canali, stesse cartelle, stessi gruppi. I promemoria ripartono per la nuova data.",
+    "endTitle": "Accesso fino al",
+    "optional": "Non obbligatorio",
+    "endOfDay": "Fine giornata",
+    "reminders": "Ricevi un avviso 7 giorni e poi 1 giorno prima della fine. L'ospite lo riceve il giorno prima.",
+    "bannerUntil": "Ospite in {{space}} · fino al {{date}}",
+    "noticeSoon": "L'accesso di {{name}} termina {{when}}",
+    "noticeEnding": "Il tuo accesso a {{space}} termina {{when}}",
+    "noticeSoonDetail": "{{title}}, fino al {{date}}. Puoi prolungare il suo accesso.",
+    "noticeSoonDetailBare": "Fino al {{date}}. Puoi prolungare il suo accesso.",
+    "noticeEndingDetail": "Dopo il {{date}} non potrai più aprire questo spazio. Per continuare, chiedi a {{contact}} di prolungare il tuo accesso.",
+    "noticeEndingDetailBare": "Dopo il {{date}} non potrai più aprire questo spazio. Per continuare, chiedi a chi gestisce gli ospiti di prolungare il tuo accesso.",
+    "dateLabel": "Data di fine dell'accesso",
+    "loses": "Ciò che la persona perde",
+    "keeps": "Ciò che la persona mantiene",
+    "memberToday": "Membro oggi",
+    "seatsAfter": "Non occupa più un posto: allora sono usati {{used}} posti su {{total}}. Potrai renderla di nuovo membro in qualsiasi momento."
   },
   "perm": {
     "spaceSettings": "Configurare lo spazio",
@@ -1616,6 +1675,41 @@
   },
   "roles": {
     "everyone": "@membri",
-    "guests": "@ospiti"
+    "guests": "@ospiti",
+    "aboveYou": "Sopra il tuo ruolo più alto.",
+    "yourTopRole": "È il tuo ruolo più alto: solo qualcuno posto più in alto può darlo.",
+    "selfLocked": "Il tuo accesso lo regola qualcuno sopra di te.",
+    "personAboveNote": "Sopra il tuo ruolo più alto: solo qualcuno posto più in alto può gestire {{name}}.",
+    "membersOnly": "Solo @membri",
+    "standing": "Stato",
+    "memberSince": "Membro dal {{date}}",
+    "guestSince": "Ospite dal {{date}}",
+    "frozenNote": "Licenza scaduta: i ruoli continuano ad applicarsi, ma non si possono più modificare.",
+    "changes_one": "{{count}} modifica",
+    "changes_many": "{{count}} modifiche",
+    "changes_other": "{{count}} modifiche",
+    "refusal": {
+      "seatsFull_one": "Il posto della licenza è occupato.",
+      "seatsFull_many": "I {{count}} posti della licenza sono occupati.",
+      "seatsFull_other": "I {{count}} posti della licenza sono occupati.",
+      "licenceRequired": "Serve l'edizione Enterprise.",
+      "licenceFrozen": "La licenza è scaduta: i ruoli si applicano ancora, ma non si modificano più.",
+      "roleAboveYou": "Questo ruolo è sopra il tuo ruolo più alto.",
+      "personAboveYou": "Questa persona è sopra il tuo ruolo più alto.",
+      "permissionNotHeld": "Non puoi né dare né togliere un diritto che non hai tu stesso.",
+      "beyondGuestCeiling": "Un ospite non può mai avere questo diritto.",
+      "memberFirst": "Prima fai diventare membro questa persona."
+    },
+    "handOver": "Cedergli lo spazio"
+  },
+  "dialogs": {
+    "seatsFull_one": "Il posto è occupato.",
+    "seatsFull_many": "Tutti i {{count}} posti sono occupati.",
+    "seatsFull_other": "Tutti i {{count}} posti sono occupati."
+  },
+  "members": {
+    "filterAll": "Tutti",
+    "noGroup": "Nessun gruppo",
+    "gone": "Questa persona non fa più parte dello spazio"
   }
 }

@@ -108,7 +108,7 @@ function SummaryPublisher({ id }: { id: string }) {
   const { getNotifications } = useApi();
   const { publishSummary } = useAccounts();
   const { spaces } = useSpace();
-  const inbox = useLoad("summary:inbox", (signal) => getNotifications({ unread: true, limit: 1 }, signal));
+  const inbox = useLoad("summary:inbox", (signal) => getNotifications({ unread: true, limit: 1, guestNotices: true }, signal));
   useReloadOn((e) => e.type === "notification", inbox.reload, 600);
   const unreadNotifications = inbox.data?.unreadCount;
   const list = spaces.data;

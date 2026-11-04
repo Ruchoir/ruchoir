@@ -978,7 +978,8 @@
     "removePhoto": "Foto entfernen",
     "photoFailed": "Foto nicht gespeichert",
     "saved": "Profil gespeichert",
-    "saveFailed": "Das Profil konnte nicht gespeichert werden. Versuchen Sie es erneut."
+    "saveFailed": "Das Profil konnte nicht gespeichert werden. Versuchen Sie es erneut.",
+    "tabManage": "Verwaltung"
   },
   "security": {
     "changePassword": "Passwort ändern",
@@ -1374,7 +1375,13 @@
   },
   "groups": {
     "noSelfRole": "Niemand gibt sich selbst eine Rolle, auch nicht über eine Gruppe: Sie können die Rollen einer Gruppe, der Sie angehören, nicht ändern.",
-    "noSelfJoin": "Sie können sich nicht selbst zu einer Gruppe hinzufügen, die Rollen trägt."
+    "noSelfJoin": "Sie können sich nicht selbst zu einer Gruppe hinzufügen, die Rollen trägt.",
+    "viaReason_one": "Über die Gruppe {{groups}} erhalten: Nehmen Sie {{name}} aus der Gruppe, um die Rolle zu entziehen.",
+    "viaReason_other": "Über die Gruppen {{groups}} erhalten: Nehmen Sie {{name}} aus diesen Gruppen, um die Rolle zu entziehen.",
+    "alsoDirect_one": "Direkt vergeben und außerdem über {{groups}} erhalten.",
+    "alsoDirect_other": "Direkt vergeben und außerdem über {{groups}} erhalten.",
+    "importedFrom": "Aus {{source}} importiert.",
+    "guestCeiling": "Gäste bleiben unter der Gästegrenze: Sie erhalten nur, was diese Grenze zulässt."
   },
   "guests": {
     "endedNotice": "Ihr Zugang zu {{space}} ist beendet",
@@ -1394,7 +1401,57 @@
     "refusalGuestOnly": "Nur ein Gast kann ein Enddatum haben: Diese Person ist Mitglied.",
     "refusalAccessEnded": "Dieser Zugang ist bereits beendet: Reaktivieren Sie ihn, um ein neues Datum zu setzen.",
     "refusalNotEnded": "Dieser Zugang ist nicht beendet: Es gibt nichts zu reaktivieren.",
-    "endedForGood": "Dieser Zugang ist zu lange beendet, um reaktiviert zu werden."
+    "endedForGood": "Dieser Zugang ist zu lange beendet, um reaktiviert zu werden.",
+    "sectionTitle": "Gäste",
+    "noEnd": "Kein Enddatum",
+    "endedTitle": "Beendete Zugänge",
+    "endedKeep": "90 Tage aufbewahrt",
+    "endedNote": "Diese Personen haben keinen Zugang mehr zum Bereich: Sie sehen nichts mehr und zählen nirgends mit. Ihre Nachrichten und Dateien bleiben erhalten, mit ihrem Namen. Eine Person bleibt hier 90 Tage.",
+    "endedOn": "Beendet am {{date}}",
+    "reactivate": "Reaktivieren",
+    "reactivated": "Zugang reaktiviert",
+    "reactivateFailed": "Der Zugang konnte nicht reaktiviert werden.",
+    "endedLoadFailed": "Die beendeten Zugänge konnten nicht geladen werden.",
+    "reactivateTitle": "Zugang von {{name}} reaktivieren",
+    "presetWeek": "Eine Woche",
+    "presetMonth": "Ein Monat",
+    "presetQuarter": "Drei Monate",
+    "presetCustom": "Datum wählen",
+    "presetNoEnd": "Ohne Enddatum",
+    "removeDate": "Datum entfernen",
+    "prolong": "Verlängern",
+    "prolongBy": "Verlängern um",
+    "accessSection": "Zugang zum Bereich",
+    "remaining": "{{when}}. Sie und alle, die Gäste verwalten, werden 7 Tage und dann 1 Tag vorher benachrichtigt; {{name}} am Vortag.",
+    "noEndInfo": "Dieser Zugang hat kein Enddatum.",
+    "updated": "Zugangsdatum aktualisiert",
+    "updateFailed": "Das Datum konnte nicht gespeichert werden.",
+    "guestUntil": "Gast bis {{date}}",
+    "memberStatusNote": "Ein Mitglied sieht den ganzen Bereich und belegt einen Platz der Lizenz. Das Enddatum wird dann gelöscht.",
+    "guestStatusNote": "Ein Gastzugang erreicht nur, was freigegeben wird, und belegt keinen Platz in der Lizenz.",
+    "passerInviteAction": "Zum Gast machen",
+    "passerMembreAction": "Zum Mitglied machen",
+    "passerInviteTitle": "{{name}} zum Gast machen?",
+    "passerMembreTitle": "{{name}} zum Mitglied machen?",
+    "passerFailed": "Die Änderung konnte nicht vorgenommen werden.",
+    "seatsFullRest": "Um einen Gast zum Mitglied zu machen, wechseln Sie zu einer größeren Lizenz. {{name}} bleibt Gast und behält den Zugang, und niemand verliert den eigenen.",
+    "reactivateNote": "Der Zugang kommt zurück, wie er war: gleiche Kanäle, gleiche Ordner, gleiche Gruppen. Die Erinnerungen beginnen für das neue Datum neu.",
+    "endTitle": "Zugang bis",
+    "optional": "Nicht erforderlich",
+    "endOfDay": "Tagesende",
+    "reminders": "Sie werden 7 Tage und dann 1 Tag vor dem Ende benachrichtigt. Der Gast am Vortag.",
+    "bannerUntil": "Gast in {{space}} · bis {{date}}",
+    "noticeSoon": "Der Zugang von {{name}} endet {{when}}",
+    "noticeEnding": "Ihr Zugang zu {{space}} endet {{when}}",
+    "noticeSoonDetail": "{{title}}, bis {{date}}. Sie können den Zugang verlängern.",
+    "noticeSoonDetailBare": "Bis {{date}}. Sie können den Zugang verlängern.",
+    "noticeEndingDetail": "Nach dem {{date}} können Sie diesen Bereich nicht mehr öffnen. Um weiterzumachen, bitten Sie {{contact}}, Ihren Zugang zu verlängern.",
+    "noticeEndingDetailBare": "Nach dem {{date}} können Sie diesen Bereich nicht mehr öffnen. Um weiterzumachen, bitten Sie die Person, die die Gäste verwaltet, Ihren Zugang zu verlängern.",
+    "dateLabel": "Enddatum des Zugangs",
+    "loses": "Was die Person verliert",
+    "keeps": "Was die Person behält",
+    "memberToday": "Heute Mitglied",
+    "seatsAfter": "Die Person belegt keinen Platz mehr: Dann sind {{used}} von {{total}} Plätzen belegt. Sie können sie jederzeit wieder zum Mitglied machen."
   },
   "perm": {
     "spaceSettings": "Bereich einrichten",
@@ -1557,6 +1614,38 @@
   },
   "roles": {
     "everyone": "@Mitglieder",
-    "guests": "@Gäste"
+    "guests": "@Gäste",
+    "aboveYou": "Über Ihrer höchsten Rolle.",
+    "yourTopRole": "Das ist Ihre höchste Rolle: Nur jemand darüber kann sie vergeben.",
+    "selfLocked": "Ihren eigenen Zugang regelt jemand über Ihnen.",
+    "personAboveNote": "Über Ihrer höchsten Rolle: Nur jemand weiter oben kann {{name}} verwalten.",
+    "membersOnly": "Nur @Mitglieder",
+    "standing": "Status",
+    "memberSince": "Mitglied seit {{date}}",
+    "guestSince": "Gast seit {{date}}",
+    "frozenNote": "Lizenz abgelaufen: Die Rollen gelten weiter, lassen sich aber nicht mehr ändern.",
+    "changes_one": "{{count}} Änderung",
+    "changes_other": "{{count}} Änderungen",
+    "refusal": {
+      "seatsFull_one": "Der Platz der Lizenz ist belegt.",
+      "seatsFull_other": "Die {{count}} Plätze der Lizenz sind belegt.",
+      "licenceRequired": "Dafür braucht es die Enterprise-Edition.",
+      "licenceFrozen": "Die Lizenz ist abgelaufen: Die Rollen gelten weiter, lassen sich aber nicht mehr ändern.",
+      "roleAboveYou": "Diese Rolle liegt über Ihrer höchsten Rolle.",
+      "personAboveYou": "Diese Person steht über Ihrer höchsten Rolle.",
+      "permissionNotHeld": "Sie können ein Recht, das Sie selbst nicht haben, weder geben noch entziehen.",
+      "beyondGuestCeiling": "Ein Gast kann dieses Recht nie haben.",
+      "memberFirst": "Machen Sie diese Person zuerst zum Mitglied."
+    },
+    "handOver": "Den Bereich übergeben"
+  },
+  "dialogs": {
+    "seatsFull_one": "Der Platz ist belegt.",
+    "seatsFull_other": "Alle {{count}} Plätze sind belegt."
+  },
+  "members": {
+    "filterAll": "Alle",
+    "noGroup": "Keine Gruppe",
+    "gone": "Diese Person gehört nicht mehr zum Bereich"
   }
 }

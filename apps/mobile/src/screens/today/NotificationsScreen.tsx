@@ -8,21 +8,26 @@
 import type { ApiNotification } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { AtSign, Bell, CalendarDays, CheckCheck, MessageCircle, PenLine, Reply, Share2, SmilePlus } from "lucide-react-native";
+import { AtSign, Bell, CalendarDays, CheckCheck, Hourglass, MessageCircle, PenLine, Reply, Share2, SmilePlus } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, View } from "react-native";
 
 import { useAccounts } from "../../accounts/AccountsProvider";
 import { mergeInboxes, type InboxItem } from "@ruchoir/client/inbox";
+import { guestNoticeDetail, guestNoticeSummary } from "@ruchoir/client/permissionsLogic";
 import { queueLink } from "../../accounts/pendingLink";
 import { hostOf, unreadEverywhere } from "../../accounts/summary";
 import { useLoad } from "../../data/useLoad";
 import { useNow } from "../../data/useNow";
 import { useReloadOn } from "../../data/useReloadOn";
 import { key, useTranslation } from "../../i18n";
+import { useSharedT } from "../../i18n/sharedT";
 import { useLocale } from "../../i18n/useLocale";
 import { listStamp } from "../../logic/format";
+import { deviceZone, shortDay } from "../../logic/memberScreen";
+import { isGuestNotice, noticeData, offersProlong } from "../../logic/guestNotices";
 import { plainExcerpt } from "../../logic/inline";
+import { tapTarget, type TapTarget } from "../../push/tap";
 import type { RootParams } from "../../navigation/types";
 import { useRealtimeActions } from "../../realtime/RealtimeProvider";
 import { useSpace } from "../../space/SpaceProvider";
@@ -37,12 +42,8 @@ import { useToast } from "../../ui/Toast";
 
 type Filter = "unread" | "all";
 
-/** The phone does not ask for guest notices yet (`guest_notices` stays off until its screens), so
- * they never reach this list. */
-type ShownKind = Exclude<ApiNotification["kind"], "guest_expiry_soon" | "guest_access_ending">;
-
-/** What a notification says after the actor's name, by kind. */
-const SAID: Record<ShownKind, ReturnType<typeof key>> = {
+/** What a notification says after the actor's name, by kind; the guest notices carry their own sentence. */
+const SAID: Record<ApiNotification["kind"], ReturnType<typeof key>> = {
   mention: key("inbox.mentioned"),
   broadcast: key("inbox.broadcast"),
   reply: key("inbox.replied"),
@@ -56,7 +57,17 @@ const SAID: Record<ShownKind, ReturnType<typeof key>> = {
   calendar_cancel: key("inbox.invitationCancel"),
   calendar_declined: key("inbox.invitationDeclined"),
   calendar_shared: key("inbox.calendarShared"),
+  guest_expiry_soon: key("guests.noticeSoon"),
+  guest_access_ending: key("guests.noticeEnding"),
 };
+
+/** The second line of a guest notice, by the shared logic's names for its four wordings. */
+const DETAIL = {
+  soon: key("guests.noticeSoonDetail"),
+  soonBare: key("guests.noticeSoonDetailBare"),
+  ending: key("guests.noticeEndingDetail"),
+  endingBare: key("guests.noticeEndingDetailBare"),
+} as const;
 
 const ICON = {
   mention: AtSign,
@@ -67,6 +78,8 @@ const ICON = {
   reaction: SmilePlus,
   edited: PenLine,
   calendar_shared: Share2,
+  guest_expiry_soon: Hourglass,
+  guest_access_ending: Hourglass,
 } as const;
 
 /** One page cursor per instance, for the older pages fetched as the list runs out. */
@@ -83,6 +96,7 @@ export function NotificationsScreen() {
   const { locale, timeZone } = useLocale();
   const now = useNow();
   const toast = useToast();
+  const say = useSharedT();
   const { emit } = useRealtimeActions();
   const { current, select } = useSpace();
   const accounts = useAccounts();
@@ -96,7 +110,7 @@ export function NotificationsScreen() {
     Promise.all(
       signedIn.map(async (account) => {
         // An instance that does not answer leaves the others' notifications on screen.
-        const page = await account.client.getNotifications({ unread: filter === "unread", limit: 30 }, signal).catch((err: unknown) => {
+        const page = await account.client.getNotifications({ unread: filter === "unread", limit: 30, guestNotices: true }, signal).catch((err: unknown) => {
           if (signedIn.length === 1) throw err;
           return null;
         });
@@ -133,7 +147,7 @@ export function NotificationsScreen() {
         .filter((feed) => feed.next)
         .map(async (feed) => {
           const page = await clientOf(feed.instanceId)
-            ?.getNotifications({ unread: filter === "unread", before: feed.next, limit: 30 })
+            ?.getNotifications({ unread: filter === "unread", before: feed.next, limit: 30, guestNotices: true })
             .catch(() => null);
           return { feed, page };
         }),
@@ -153,7 +167,7 @@ export function NotificationsScreen() {
 
   const readAll = () => {
     setReadHere(new Set(items.map((n) => n.key)));
-    Promise.all(signedIn.map((account) => account.client.markAllNotificationsRead())).then(
+    Promise.all(signedIn.map((account) => account.client.markAllNotificationsRead({ guestNotices: true }))).then(
       () => {
         toast(t("inbox.allMarked"));
         emit({ type: "notification" });
@@ -165,24 +179,38 @@ export function NotificationsScreen() {
     );
   };
 
+  /** A guest notice's place: the guest on Prolonger for whoever manages, the space for the guest; the space switched first. */
+  const go = (target: TapTarget) => {
+    if (target.spaceId && target.spaceId !== current?.id) select(target.spaceId);
+    if (target.screen === "member") navigation.navigate("spaceMember", { userId: target.userId, prolong: true, spaceId: target.spaceId });
+    else if (target.screen === "members") navigation.navigate("spaceMembers");
+    else navigation.navigate("tabs", { screen: "discussions" });
+  };
+
   const open = (n: InboxItem) => {
     if (!n.read) {
       setReadHere((prev) => new Set(prev).add(n.key));
       clientOf(n.instanceId)
-        ?.markNotificationRead(n.id)
+        ?.markNotificationRead(n.id, { guestNotices: true })
         .then(() => emit({ type: "notification" }), () => {});
     }
     navigation.goBack();
+    const guest = isGuestNotice(n.kind) ? noticeData({ kind: n.kind, spaceId: n.spaceId, actorId: n.actorId }) : null;
     // Another instance's: shown first, then what the notification is about, as a tap would.
     if (n.instanceId !== accounts.active?.id) {
       accounts.switchTo(n.instanceId, n.spaceId || undefined);
-      const data: Record<string, string> = {};
+      const data: Record<string, string> = { ...guest };
       if (n.spaceId) data.space_id = n.spaceId;
       if (n.conversationId) data.conversation_id = n.conversationId;
       if (n.channelName) data.channel_name = n.channelName;
       if (n.actor) data.actor_name = n.actor;
       if (n.reminder) data.event_id = n.reminder.eventId;
       queueLink(n.instanceId, { kind: "push", data });
+      return;
+    }
+    const target = guest ? tapTarget(guest) : null;
+    if (target) {
+      go(target);
       return;
     }
     if (n.reminder) {
@@ -203,8 +231,13 @@ export function NotificationsScreen() {
     });
   };
 
+  const detail = (n: ApiNotification) =>
+    guestNoticeDetail(n, (iso) => shortDay(iso, locale, deviceZone(), new Date(now)), (which, vars) => say(DETAIL[which], vars));
+
   const headline = (n: ApiNotification) => {
     const title = n.reminder?.title ?? n.calendarName ?? "";
+    const notice = guestNoticeSummary(n, locale, (which, vars) => say(SAID[which === "soon" ? "guest_expiry_soon" : "guest_access_ending"], vars));
+    if (notice !== null) return notice;
     switch (n.kind) {
       case "calendar_reminder":
         return t("inbox.reminder", { title });
@@ -217,7 +250,7 @@ export function NotificationsScreen() {
       case "calendar_declined":
         return t("inbox.invitationDeclined", { actor: n.actor, title });
       default:
-        return `${n.actor} ${t(SAID[n.kind as ShownKind])}${n.emoji ? ` ${n.emoji}` : ""}`;
+        return `${n.actor} ${t(SAID[n.kind])}${n.emoji ? ` ${n.emoji}` : ""}`;
     }
   };
 
@@ -278,7 +311,16 @@ export function NotificationsScreen() {
                       </Text>
                     ) : null}
                   </View>
-                  {n.preview ? (
+                  {isGuestNotice(n.kind) ? (
+                    <>
+                      {detail(n) ? (
+                        <Text variant="small" tone="muted">
+                          {detail(n)}
+                        </Text>
+                      ) : null}
+                      {offersProlong(n.kind) ? <Button variant="secondary" size="sm" label={t("guests.prolong")} onPress={() => open(n)} style={styles.prolong} /> : null}
+                    </>
+                  ) : n.preview ? (
                     <Text variant="small" tone="muted" numberOfLines={2}>
                       {plainExcerpt(n.preview)}
                     </Text>
@@ -312,5 +354,6 @@ const makeStyles = styleCache((shape) =>
     shrink: { flexShrink: 1 },
     dot: { width: 8, height: 8, borderRadius: 4, marginTop: 16 },
     rule: { height: 1, marginLeft: 68 },
+    prolong: { alignSelf: "flex-start", marginTop: 6 },
   }),
 );

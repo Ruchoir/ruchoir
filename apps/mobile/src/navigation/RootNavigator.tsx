@@ -59,7 +59,7 @@ import { VersionsSheet } from "../screens/files/VersionsSheet";
 import { JoinSpaceScreen } from "../screens/space/JoinSpaceScreen";
 import { DefaultChannelSheet } from "../screens/space/DefaultChannelSheet";
 import { DeleteSpaceScreen } from "../screens/space/DeleteSpaceScreen";
-import { MemberSheet } from "../screens/space/MemberSheet";
+import { MemberScreen } from "../screens/space/MemberScreen";
 import { SpaceNotifySheet } from "../screens/space/SpaceNotifySheet";
 import { SpaceGeneralScreen } from "../screens/space/SpaceGeneralScreen";
 import { SpaceMembersScreen } from "../screens/space/SpaceMembersScreen";
@@ -148,7 +148,7 @@ export function RootNavigator({ instanceId }: { instanceId: string }) {
         <Stack.Screen name="spaceAudit" component={SpaceAuditScreen} />
         <Stack.Screen name="spaceLicence" component={SpaceLicenceScreen} />
         <Stack.Screen name="notificationsIntro" component={NotificationsIntroScreen} options={{ presentation: "fullScreenModal" }} />
-        <Stack.Screen name="spaceMember" component={MemberSheet} options={sheet} />
+        <Stack.Screen name="spaceMember" component={MemberScreen} />
         <Stack.Screen name="spaceDelete" component={DeleteSpaceScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="spaceNotify" component={SpaceNotifySheet} options={sheet} />
         <Stack.Screen name="spaceDefaultChannel" component={DefaultChannelSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />

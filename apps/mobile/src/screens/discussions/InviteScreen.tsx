@@ -4,21 +4,25 @@
  * channels they are added to. Under them, the invitations still waiting, each revocable, as in the
  * web's invitation dialog.
  */
+import { choiceRefusal, presetToInstant, type EndChoice } from "@ruchoir/client/permissionsLogic";
 import { useNavigation } from "@react-navigation/native";
 import { CircleCheck, Link, Mail } from "lucide-react-native";
 import { useState } from "react";
 import { Share, StyleSheet, View } from "react-native";
 
+import { useSupports } from "../../api/features";
 import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { isEmail } from "../../logic/email";
+import { deviceZone } from "../../logic/memberScreen";
 import { useSpace } from "../../space/SpaceProvider";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Button } from "../../ui/Button";
+import { EndDateChoice } from "../../ui/EndDateChoice";
 import { Segmented } from "../../ui/Segmented";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
@@ -37,11 +41,18 @@ export function InviteScreen() {
   const { current } = useSpace();
   const [role, setRole] = useState<Role>("member");
   const [email, setEmail] = useState("");
+  const [end, setEnd] = useState<EndChoice>("none");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"email" | "link" | null>(null);
   const [sent, setSent] = useState<{ email: string; url?: string } | null>(null);
   // One link per role, made the first time it is asked for and shared again after.
   const [links, setLinks] = useState<Partial<Record<Role, string>>>({});
+  const guest = role === "guest";
+  // An older instance has no guest end dates (they arrive with the permissions): nothing to choose, nothing sent.
+  const dated = useSupports("permissions");
+  // The end of the access, in the phone's zone; a guest only. A hand-picked day not yet valid blocks sending.
+  const blocked = guest && dated && choiceRefusal(end, new Date(), deviceZone()) !== null;
+  const guestEnd = () => (guest && dated ? { guestExpiresAt: presetToInstant(end, new Date(), deviceZone()) } : {});
   const { locale } = useLocale();
   const toast = useToast();
   const invitations = useLoad(current ? `invitations:${current.id}` : null, (signal) => getInvitations(current!.id, signal));
@@ -67,6 +78,7 @@ export function InviteScreen() {
   const sendEmail = async () => {
     const address = email.trim();
     if (!current) return;
+    if (blocked) return;
     if (!isEmail(address)) {
       setError(t("invite.invalidEmail"));
       return;
@@ -74,7 +86,7 @@ export function InviteScreen() {
     setBusy("email");
     setError(null);
     try {
-      const created = await createInvitation(current.id, { email: address, role });
+      const created = await createInvitation(current.id, { email: address, role, ...guestEnd() });
       setSent({ email: address, url: created.emailed ? undefined : created.url });
       setEmail("");
       invitations.reload();
@@ -85,13 +97,13 @@ export function InviteScreen() {
   };
 
   const shareLink = async () => {
-    if (!current) return;
+    if (!current || blocked) return;
     setBusy("link");
     setError(null);
     try {
       let url = links[role];
       if (!url) {
-        url = (await createInvitation(current.id, { role })).url;
+        url = (await createInvitation(current.id, { role, ...guestEnd() })).url;
         setLinks((prev) => ({ ...prev, [role]: url }));
         invitations.reload();
       }
@@ -120,6 +132,16 @@ export function InviteScreen() {
               {role === "member" ? t("invite.memberHint") : t("invite.guestHint")}
             </Text>
           </View>
+          {guest && dated ? (
+            <EndDateChoice
+              choice={end}
+              onChange={(next) => {
+                setEnd(next);
+                // A link already made carries the previous end.
+                setLinks((prev) => ({ ...prev, guest: undefined }));
+              }}
+            />
+          ) : null}
           <TextField
             label={t("signIn.email")}
             value={email}
@@ -135,7 +157,7 @@ export function InviteScreen() {
             onSubmitEditing={() => void sendEmail()}
             error={error ?? undefined}
           />
-          <Button label={t("invite.send")} disabled={!email.trim() || busy === "link"} busy={busy === "email"} onPress={() => void sendEmail()} />
+          <Button label={t("invite.send")} disabled={!email.trim() || busy === "link" || blocked} busy={busy === "email"} onPress={() => void sendEmail()} />
           {sent ? (
             <View style={[styles.sent, { backgroundColor: s.successBg }]} accessibilityLiveRegion="polite">
               <CircleCheck size={18} color={s.success} />
@@ -165,7 +187,7 @@ export function InviteScreen() {
               label={t("invite.link")}
               icon={<Link size={18} color={c.ink} />}
               busy={busy === "link"}
-              disabled={busy === "email"}
+              disabled={busy === "email" || blocked}
               onPress={() => void shareLink()}
             />
             <Text variant="tiny" tone="muted">
