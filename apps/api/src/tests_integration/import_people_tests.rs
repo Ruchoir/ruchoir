@@ -1522,18 +1522,7 @@ async fn a_group_already_imported_is_filled_not_duplicated() {
     let space = space_named(&app, &name).await;
     let group = group_rows(&app, space).await[0].0;
 
-    // The same archive again, with a second member in the group (the identifiers are the first's).
-    let users = std::fs::read_to_string(first.join("users.jsonl")).expect("users");
-    let b_ref = users
-        .lines()
-        .map(|l| serde_json::from_str::<Value>(l).expect("json"))
-        .find(|u| u["display_name"] == "b")
-        .map(|u| u["id"].as_str().expect("id").to_owned())
-        .expect("b");
-    let rows = std::fs::read_to_string(first.join("groups.jsonl")).expect("groups");
-    let mut row: Value = serde_json::from_str(rows.lines().next().expect("line")).expect("json");
-    row["members"] = json!([row["members"][0].clone(), b_ref]);
-    std::fs::write(first.join("groups.jsonl"), format!("{row}\n")).expect("rewrite");
+    // The same archive again, as a later job: the group is found, not made again.
     let (_, second) = run_people(&app, fx.alice, &first, Arc::new(CommunityEdition)).await;
     let second = second.expect("second");
     let groups = group_rows(&app, space).await;
@@ -1547,7 +1536,7 @@ async fn a_group_already_imported_is_filled_not_duplicated() {
         vec![group.into()],
     )
     .await;
-    assert_eq!(members, 2);
+    assert_eq!(members, 1, "a later job adds nobody to an existing group");
 }
 
 #[tokio::test]
@@ -1743,7 +1732,8 @@ async fn a_community_space_brings_a_custom_role_down_to_member() {
     assert_eq!(
         people.fallbacks,
         vec![crate::importer::people::Fallback {
-            role: "Comptable".into(),
+            space: name.clone(),
+            role_name: "Comptable".into(),
             fixed: "member".into(),
             people: 1
         }]
@@ -1869,4 +1859,229 @@ async fn an_existing_member_is_never_given_a_custom_role() {
     assert_eq!(standing_of(&app, space, holder).await, "member");
     let assigned = count(&app, "SELECT count(*)::bigint AS n FROM space_role_assignments WHERE space_id = $1 AND user_id = $2 AND role_id IN (SELECT id FROM space_roles WHERE system_key IS NULL)", vec![space.into(), holder.into()]).await;
     assert_eq!(assigned, 0);
+}
+
+// --- what an administrator decided stands --------------------------------------------------------
+
+#[tokio::test]
+async fn an_ended_guest_is_not_added_to_an_imported_group() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let name = unique_space();
+    let (space, _) = crate::messaging::spaces::create_owned_space(&app.db, &name, fx.alice)
+        .await
+        .expect("space");
+    let (gone_email, here) = (address("gone"), address("here"));
+    let gone = make_user_with(&app, &gone_email).await;
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO space_members (space_id, user_id, role, expires_at) \
+             VALUES ($1, $2, 'guest', now() - interval '1 day')",
+            [space.into(), gone.into()],
+        ))
+        .await
+        .expect("ended guest");
+    let dir = people_archive_full(
+        2,
+        &name,
+        &[("gone", &gone_email), ("here", &here)],
+        &[("here", "member", &[])],
+        &[],
+        &[("g1", "Design", "", &["gone", "here"])],
+        &[],
+    );
+    run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition))
+        .await
+        .1
+        .expect("run");
+    let group = group_rows(&app, space).await[0].0;
+    let in_group = count(&app, "SELECT count(*)::bigint AS n FROM space_group_members WHERE group_id = $1 AND user_id = $2", vec![group.into(), gone.into()]).await;
+    assert_eq!(
+        in_group, 0,
+        "an ended guest is out of the space, so out of its groups"
+    );
+    let total = count(
+        &app,
+        "SELECT count(*)::bigint AS n FROM space_group_members WHERE group_id = $1",
+        vec![group.into()],
+    )
+    .await;
+    assert_eq!(total, 1);
+}
+
+#[tokio::test]
+async fn a_resume_of_the_same_job_counts_its_group_as_created_and_fills_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (name, a) = (unique_space(), address("a"));
+    let dir = people_archive_full(
+        2,
+        &name,
+        &[("a", &a)],
+        &[("a", "member", &[])],
+        &[],
+        &[("g1", "Design", "", &["a"])],
+        &[],
+    );
+    let (job, first) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    first.expect("first");
+    let space = space_named(&app, &name).await;
+    let group = group_rows(&app, space).await[0].0;
+    // Somebody leaves the group, then the SAME job resumes: its own group is refilled.
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "DELETE FROM space_group_members WHERE group_id = $1",
+            [group.into()],
+        ))
+        .await
+        .expect("empty it");
+    let resumed = execute_into(
+        &app.db,
+        Some(&MemorySink::default()),
+        &dir,
+        None,
+        fx.alice,
+        job,
+        settings(Arc::new(CommunityEdition)),
+    )
+    .await
+    .expect("resume");
+    assert_eq!(resumed.written.people.groups, 1);
+    assert_eq!(resumed.written.people.groups_filled, 0);
+    let members = count(
+        &app,
+        "SELECT count(*)::bigint AS n FROM space_group_members WHERE group_id = $1",
+        vec![group.into()],
+    )
+    .await;
+    assert_eq!(members, 1);
+}
+
+#[tokio::test]
+async fn a_later_job_leaves_an_imported_groups_members_as_they_are() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (name, a, b) = (unique_space(), address("a"), address("b"));
+    let dir = people_archive_full(
+        2,
+        &name,
+        &[("a", &a), ("b", &b)],
+        &[("a", "member", &[]), ("b", "member", &[])],
+        &[],
+        &[("g1", "Design", "", &["a", "b"])],
+        &[],
+    );
+    run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition))
+        .await
+        .1
+        .expect("first");
+    let space = space_named(&app, &name).await;
+    let group = group_rows(&app, space).await[0].0;
+    let b_id = account_of(&app, &b).await;
+    // An administrator takes b out of the group.
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "DELETE FROM space_group_members WHERE group_id = $1 AND user_id = $2",
+            [group.into(), b_id.into()],
+        ))
+        .await
+        .expect("remove");
+    let (_, second) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    let second = second.expect("second");
+    assert_eq!(second.written.people.groups_filled, 1);
+    let still_in = count(&app, "SELECT count(*)::bigint AS n FROM space_group_members WHERE group_id = $1 AND user_id = $2", vec![group.into(), b_id.into()]).await;
+    assert_eq!(still_in, 0, "a re-run does not put them back");
+}
+
+#[tokio::test]
+async fn a_resume_does_not_raise_again_someone_an_administrator_demoted() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let name = unique_space();
+    let (space, _) = crate::messaging::spaces::create_owned_space(&app.db, &name, fx.alice)
+        .await
+        .expect("space");
+    let squatter = make_user_with(&app, &address("sq")).await;
+    space_members::ActiveModel {
+        space_id: Set(space),
+        user_id: Set(squatter),
+        role: Set("member".to_owned()),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("member");
+    let (h1, h2) = (address("h1"), address("h2"));
+    let dir = people_archive_full(
+        2,
+        &name,
+        &[("h1", &h1), ("h2", &h2)],
+        &[("h1", "member", &["r1"]), ("h2", "member", &["r1"])],
+        &[],
+        &[],
+        &[("r1", "Comptable", "admin")],
+    );
+    // Owner and squatter use two of three seats: h1 fits (and is raised by the fallback), h2 does not.
+    let (job, first) = run_people(&app, fx.alice, &dir, Arc::new(Seats(3))).await;
+    assert!(matches!(first, Err(RunError::SeatsFull { .. })));
+    let h1_id = account_of(&app, &h1).await;
+    assert_eq!(standing_of(&app, space, h1_id).await, "admin");
+    // An administrator demotes h1 during the pause and frees a seat; the same job resumes.
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE space_members SET role = 'member' WHERE space_id = $1 AND user_id = $2",
+            [space.into(), h1_id.into()],
+        ))
+        .await
+        .expect("demote");
+    space_members::Entity::delete_by_id((space, squatter))
+        .exec(&app.db)
+        .await
+        .expect("free");
+    execute_into(
+        &app.db,
+        Some(&MemorySink::default()),
+        &dir,
+        None,
+        fx.alice,
+        job,
+        settings(Arc::new(Seats(3))),
+    )
+    .await
+    .expect("resume");
+    assert_eq!(
+        standing_of(&app, space, h1_id).await,
+        "member",
+        "the demotion stands"
+    );
+    assert_eq!(
+        standing_of(&app, space, account_of(&app, &h2).await).await,
+        "admin",
+        "h2 is raised now"
+    );
+}
+
+#[tokio::test]
+async fn the_same_role_name_in_two_spaces_gives_two_fallback_lines() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (first, second, h) = (unique_space(), unique_space(), address("h"));
+    let mut lines = Vec::new();
+    for name in [&first, &second] {
+        let dir = role_archive(name, "member", &["r1"], "member", &h);
+        let (_, outcome) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+        lines.extend(outcome.expect("run").written.people.fallbacks);
+    }
+    assert_eq!(lines.len(), 2);
+    assert_ne!(lines[0].space, lines[1].space);
+    assert_eq!(lines[0].role_name, lines[1].role_name);
 }

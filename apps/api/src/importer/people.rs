@@ -28,6 +28,7 @@ use super::archive::Index;
 use super::run::{Mapper, Result, RunError, KIND_GROUP, KIND_ROLE, KIND_USER};
 use crate::edition::{lock_space_seats, Edition, ImportedRole, ImportedRoleOutcome, SeatCheck};
 use crate::entities::{space_groups, space_members, spaces};
+use crate::permissions::membership::active_sql;
 use sea_orm::{ColumnTrait, ConnectionTrait, DbBackend, QueryFilter, Statement};
 
 /// What `admit` found or did.
@@ -45,7 +46,10 @@ pub enum Admitted {
 /// A role of the source that this edition could not create, and what the people holding it got.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Fallback {
-    pub role: String,
+    /// The space it happened in.
+    pub space: String,
+    /// The role of the source, by name.
+    pub role_name: String,
     pub fixed: String,
     pub people: usize,
 }
@@ -187,8 +191,13 @@ pub async fn import_people(
             }
         }
 
-        // Who this run put in the space, with the custom roles the archive gives them.
-        let mut holders: Vec<(Uuid, &[String])> = Vec::new();
+        let space_name = index
+            .spaces
+            .iter()
+            .find(|space| &space.id == source_space)
+            .map_or_else(String::new, |space| space.name.clone());
+        // The custom roles already counted for this space by this run.
+        let mut counted_roles: HashSet<&str> = HashSet::new();
         for (user, role) in order {
             let Some(user_id) = mapper.resolve(db, KIND_USER, user, None).await? else {
                 continue;
@@ -198,7 +207,8 @@ pub async fn import_people(
                 "admin" | "guest" => role,
                 _ => "member",
             };
-            match admit(db, edition, *space_id, user_id, role, &imported_from).await? {
+            let admitted = admit(db, edition, *space_id, user_id, role, &imported_from).await?;
+            match admitted {
                 Admitted::Added | Admitted::Earlier => {
                     written.added += 1;
                     match role {
@@ -206,148 +216,150 @@ pub async fn import_people(
                         "guest" => written.guests += 1,
                         _ => {}
                     }
-                    // A guest ignores roles (P8), and somebody who was in the space already is
-                    // never given one.
-                    if role != "guest" {
-                        if let Some(line) = index
-                            .members
-                            .iter()
-                            .find(|m| &m.space == source_space && m.user == user)
-                        {
-                            if !line.roles.is_empty() {
-                                holders.push((user_id, &line.roles));
-                            }
-                        }
-                    }
                 }
                 Admitted::Present => written.kept.push(name_of(user)),
             }
+            // Custom roles go to somebody this run has just put in the space, right then: a guest
+            // ignores them (P8), somebody who was in already is never given one, and somebody a
+            // resumed run finds already there (`Earlier`) had theirs when they were admitted, so
+            // an administrator's change since is not undone.
+            if admitted == Admitted::Added && role != "guest" {
+                if let Some(line) = index
+                    .members
+                    .iter()
+                    .find(|m| &m.space == source_space && m.user == user)
+                {
+                    for role_id in &line.roles {
+                        give_role(
+                            db,
+                            mapper,
+                            index,
+                            (source_space, *space_id, &space_name),
+                            (user_id, role_id),
+                            edition,
+                            importer,
+                            &mut counted_roles,
+                            &mut written,
+                        )
+                        .await?;
+                    }
+                }
+            }
         }
-        import_roles(
-            db,
-            mapper,
-            index,
-            (source_space, *space_id),
-            &holders,
-            edition,
-            importer,
-            &mut written,
-        )
-        .await?;
     }
     Ok(written)
 }
 
-/// The custom roles of a space, for the people this run put in it.
+/// One custom role of the archive, for one person this run has just put in a space.
 ///
-/// A role nobody this run admitted holds is not created. Each is asked of the edition inside one
-/// transaction with the assignments, so a role is never created and left unassigned. An edition
-/// without custom roles answers `FallBack`: the holders keep the fixed role the role is based on,
-/// raised to administrator for an administrator-based one (P9), and the summary says so.
+/// The role is asked of the edition once per space (its mapping is recorded, so a re-run finds it),
+/// inside one transaction with the assignment, so a role is never created and left unassigned. An
+/// edition without custom roles answers `FallBack`: the person keeps the fixed role the role is
+/// based on, raised to administrator for an administrator-based one (P9), and the summary says so.
 #[allow(clippy::too_many_arguments)]
-async fn import_roles(
+async fn give_role<'a>(
     db: &DatabaseConnection,
     mapper: &Mapper<'_>,
-    index: &Index,
-    space: (&str, Uuid),
-    holders: &[(Uuid, &[String])],
+    index: &'a Index,
+    space: (&str, Uuid, &str),
+    holder: (Uuid, &'a String),
     edition: &dyn Edition,
     importer: Uuid,
+    counted: &mut HashSet<&'a str>,
     written: &mut PeopleWritten,
 ) -> Result<()> {
-    let (source_space, space_id) = space;
-    for role in index.roles.iter().filter(|r| r.space == source_space) {
-        let holding: Vec<Uuid> = holders
-            .iter()
-            .filter(|(_, roles)| roles.contains(&role.id))
-            .map(|(user, _)| *user)
-            .collect();
-        if holding.is_empty() {
-            continue;
+    let (source_space, space_id, space_name) = space;
+    let (user, role_id) = holder;
+    let Some(role) = index
+        .roles
+        .iter()
+        .find(|r| r.space == source_space && &r.id == role_id)
+    else {
+        return Ok(());
+    };
+    let txn = db.begin().await?;
+    let known = mapper
+        .resolve(&txn, KIND_ROLE, &role.id, Some(space_id))
+        .await?;
+    let outcome = match known {
+        Some(id) => ImportedRoleOutcome::Existing(id),
+        None => {
+            let wanted = ImportedRole {
+                source_id: role.id.clone(),
+                name: role.name.clone(),
+                based_on: if role.based_on == "admin" {
+                    crate::edition::BasedOn::Admin
+                } else {
+                    crate::edition::BasedOn::Member
+                },
+            };
+            edition
+                .import_custom_role(&txn, space_id, &wanted, importer)
+                .await?
         }
-        let txn = db.begin().await?;
-        let known = mapper
-            .resolve(&txn, KIND_ROLE, &role.id, Some(space_id))
-            .await?;
-        let outcome = match known {
-            Some(id) => ImportedRoleOutcome::Existing(id),
-            None => {
-                let wanted = ImportedRole {
-                    source_id: role.id.clone(),
-                    name: role.name.clone(),
-                    based_on: if role.based_on == "admin" {
-                        crate::edition::BasedOn::Admin
-                    } else {
-                        crate::edition::BasedOn::Member
-                    },
-                };
-                edition
-                    .import_custom_role(&txn, space_id, &wanted, importer)
-                    .await?
-            }
-        };
-        match outcome {
-            ImportedRoleOutcome::Created(id) | ImportedRoleOutcome::Existing(id) => {
-                if known.is_none() {
-                    mapper
-                        .record(&txn, KIND_ROLE, &role.id, Some(space_id), id)
-                        .await?;
-                }
-                for user in &holding {
-                    txn.execute_raw(Statement::from_sql_and_values(
-                        DbBackend::Postgres,
-                        "INSERT INTO space_role_assignments (space_id, user_id, role_id) \
-                         VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-                        [space_id.into(), (*user).into(), id.into()],
-                    ))
+    };
+    match outcome {
+        ImportedRoleOutcome::Created(id) | ImportedRoleOutcome::Existing(id) => {
+            if known.is_none() {
+                mapper
+                    .record(&txn, KIND_ROLE, &role.id, Some(space_id), id)
                     .await?;
-                }
+            }
+            txn.execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "INSERT INTO space_role_assignments (space_id, user_id, role_id) \
+                 VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+                [space_id.into(), user.into(), id.into()],
+            ))
+            .await?;
+            if counted.insert(role.id.as_str()) {
                 written.custom_roles += 1;
             }
-            ImportedRoleOutcome::FallBack => {
-                let fixed = if role.based_on == "admin" {
-                    "admin"
-                } else {
-                    "member"
-                };
-                if fixed == "admin" {
-                    for user in &holding {
-                        // Only somebody this run admitted, and only up from member.
-                        let raised = txn
-                            .execute_raw(Statement::from_sql_and_values(
-                                DbBackend::Postgres,
-                                "UPDATE space_members SET role = 'admin' \
-                                 WHERE space_id = $1 AND user_id = $2 AND role = 'member'",
-                                [space_id.into(), (*user).into()],
-                            ))
-                            .await?
-                            .rows_affected();
-                        written.administrators += raised as usize;
-                    }
-                }
-                match written
-                    .fallbacks
-                    .iter_mut()
-                    .find(|f| f.role == role.name && f.fixed == fixed)
-                {
-                    Some(found) => found.people += holding.len(),
-                    None => written.fallbacks.push(Fallback {
-                        role: role.name.clone(),
-                        fixed: fixed.to_owned(),
-                        people: holding.len(),
-                    }),
-                }
+        }
+        ImportedRoleOutcome::FallBack => {
+            let fixed = if role.based_on == "admin" {
+                "admin"
+            } else {
+                "member"
+            };
+            if fixed == "admin" {
+                // Only up from member, and only somebody this run has just admitted.
+                let raised = txn
+                    .execute_raw(Statement::from_sql_and_values(
+                        DbBackend::Postgres,
+                        "UPDATE space_members SET role = 'admin' \
+                         WHERE space_id = $1 AND user_id = $2 AND role = 'member'",
+                        [space_id.into(), user.into()],
+                    ))
+                    .await?
+                    .rows_affected();
+                written.administrators += raised as usize;
+            }
+            match written
+                .fallbacks
+                .iter_mut()
+                .find(|f| f.space == space_name && f.role_name == role.name && f.fixed == fixed)
+            {
+                Some(found) => found.people += 1,
+                None => written.fallbacks.push(Fallback {
+                    space: space_name.to_owned(),
+                    role_name: role.name.clone(),
+                    fixed: fixed.to_owned(),
+                    people: 1,
+                }),
             }
         }
-        txn.commit().await?;
     }
+    txn.commit().await?;
     Ok(())
 }
 
 /// The groups of the archive, with their members and no rights.
 ///
-/// A group is found by its archive id (so a re-run fills it and a group renamed here keeps its new
-/// name), else created. A name already taken in the space by a group this import did not make
+/// A group is found by its archive id (so a group renamed here keeps its new name), else created.
+/// Only a resume of the SAME job fills a group it made: a later job (a re-run) finds the group and
+/// leaves its members as they are, adding nobody and removing nobody, so an administrator's removal
+/// stands. A name already taken in the space by a group this import did not make
 /// becomes `Name (Source)`, then `Name (Source) 2`, and so on. Members who have no account here
 /// (skipped) are left out; members of the space are everyone the people pass admitted.
 pub async fn import_groups(
@@ -371,7 +383,21 @@ pub async fn import_groups(
             .await?
         {
             Some(id) => {
-                written.groups_filled += 1;
+                // Made by this very job on an earlier pass: still this run's work, and a resume
+                // finishes filling it. Made by an earlier job, it is left as it is.
+                let ours = space_groups::Entity::find_by_id(id)
+                    .one(&txn)
+                    .await?
+                    .is_some_and(|row| {
+                        row.imported_from.as_deref() == Some(imported_from.as_str())
+                    });
+                if ours {
+                    written.groups += 1;
+                } else {
+                    written.groups_filled += 1;
+                    txn.commit().await?;
+                    continue;
+                }
                 id
             }
             None => {
@@ -404,14 +430,17 @@ pub async fn import_groups(
             let Some(user_id) = mapper.resolve(&txn, KIND_USER, person, None).await? else {
                 continue;
             };
-            // The foreign key wants the person in the space: they are, unless the pass that
-            // admits people left them out, and then there is nothing to add.
+            // The foreign key wants the person in the space, and an ended guest is not a person of
+            // it any more: only an active membership puts someone in a group.
             txn.execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                "INSERT INTO space_group_members (group_id, space_id, user_id, is_manager, added_by) \
-                 SELECT $1, $2, $3, false, $4 \
-                 WHERE EXISTS (SELECT 1 FROM space_members WHERE space_id = $2 AND user_id = $3) \
-                 ON CONFLICT DO NOTHING",
+                concat!(
+                    "INSERT INTO space_group_members (group_id, space_id, user_id, is_manager, added_by) \
+                     SELECT $1, $2, $3, false, $4 \
+                     WHERE EXISTS (SELECT 1 FROM space_members sm WHERE sm.space_id = $2 AND sm.user_id = $3 AND ",
+                    active_sql!("sm"),
+                    ") ON CONFLICT DO NOTHING"
+                ),
                 [group_id.into(), space_id.into(), user_id.into(), importer.into()],
             ))
             .await?;

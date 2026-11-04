@@ -160,6 +160,20 @@ All three files are optional, and `counts` may declare them like the others. Ide
 - `moderators` on a conversation of `channels.jsonl`: ids of accounts that must also be in its
   `members`.
 
+What an import does with them on the instance:
+
+- A group is created with the archive's name and description, its members and no rights. A name
+  already taken in the space becomes `Name (Mattermost)`, then `Name (Mattermost) 2`. A group is
+  recognised by its archive id: a group renamed here keeps its new name. Only a resume of the same
+  job fills a group it made; a later run of the archive finds the group and leaves its members as
+  they are, adding nobody and removing nobody, so an administrator's removal stands. Someone whose
+  access in the space has ended is not added to a group.
+- A custom role is created only in a licensed space and only for people the run has just added; in
+  any other space the holders get the fixed role the role is `based_on` (`admin` makes them
+  administrators), and the job's summary lists each such fallback with its space, the role's name
+  and the fixed role it fell back to. A person already in the space is never given a role, and a
+  resumed run does not give a role again to someone it had added, so a change made meanwhile stands.
+
 Warnings, never errors: a guest carrying `roles`, a guest listed as moderator, a format 2 file or
 `moderators` inside a format 1 archive, and a person listed in a space who is in none of its conversations and
 none of its groups. Each new file is covered by the manifest checksum like the others.
