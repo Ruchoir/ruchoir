@@ -459,7 +459,7 @@ export function AccessDialog({ onClose, ...panel }: PanelProps & { onClose: () =
           {title}
           {view?.may.fine ? (
             <Tag tone="info" icon="sparkles">
-              {t("access.enterprise")}
+              {t("guests.rightsEnterprise")}
             </Tag>
           ) : null}
         </span>

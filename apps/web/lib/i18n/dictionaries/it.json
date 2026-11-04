@@ -2475,7 +2475,6 @@
     "subtitle": "Chi può leggere, scrivere o gestire questo canale. I livelli si sommano: ognuno include il precedente.",
     "subtitlePrivate": "Un canale privato: compare solo per chi ha accesso.",
     "subtitleEnterprise": "I ruoli personalizzati diventano destinatari e ogni voce si può personalizzare permesso per permesso.",
-    "enterprise": "Enterprise",
     "typeLabel": "Visibilità del canale",
     "publicTitle": "Pubblico",
     "publicBody": "Tutti nello spazio lo vedono e possono unirsi.",

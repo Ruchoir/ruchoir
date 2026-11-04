@@ -2384,7 +2384,6 @@
     "subtitle": "Wer diesen Kanal lesen, darin schreiben oder ihn verwalten darf. Die Stufen bauen aufeinander auf: Jede enthält die vorherige.",
     "subtitlePrivate": "Ein privater Kanal: Er erscheint nur für Personen mit Zugriff.",
     "subtitleEnterprise": "Eigene Rollen werden zu Zielen, und jeder Eintrag lässt sich Recht für Recht anpassen.",
-    "enterprise": "Enterprise",
     "typeLabel": "Sichtbarkeit des Kanals",
     "publicTitle": "Öffentlich",
     "publicBody": "Alle im Space sehen ihn und können beitreten.",

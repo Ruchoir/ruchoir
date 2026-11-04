@@ -2384,7 +2384,6 @@
     "subtitle": "Who can read, write in or manage this channel. Levels add up: each one includes the previous.",
     "subtitlePrivate": "A private channel: it only appears for those who have access.",
     "subtitleEnterprise": "Custom roles become targets, and each entry can be customised permission by permission.",
-    "enterprise": "Enterprise",
     "typeLabel": "Channel visibility",
     "publicTitle": "Public",
     "publicBody": "Everyone in the space sees it and can join.",

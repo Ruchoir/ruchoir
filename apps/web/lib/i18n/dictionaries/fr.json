@@ -2410,7 +2410,6 @@
     "subtitle": "Qui peut lire, écrire ou gérer ce canal. Les niveaux se cumulent : chacun inclut le précédent.",
     "subtitlePrivate": "Un canal privé : il n'apparaît que pour ceux qui y ont accès.",
     "subtitleEnterprise": "Les rôles sur mesure deviennent des cibles, et chaque entrée peut être personnalisée droit par droit.",
-    "enterprise": "Entreprise",
     "typeLabel": "Visibilité du canal",
     "publicTitle": "Public",
     "publicBody": "Tout le monde dans l'espace le voit et le rejoint.",

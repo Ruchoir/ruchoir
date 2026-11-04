@@ -91,12 +91,13 @@ test("every_expiry_action_has_a_journal_sentence", () => {
 test("guest_lines_sit_under_the_guests_category", async () => {
   const { AUDIT_CATEGORIES, lineCategory } = await import("./auditLogic.ts");
   assert.ok(AUDIT_CATEGORIES.includes("guests"));
-  // The filter keeps the earlier families, in order, with the guests last.
-  assert.deepEqual([...AUDIT_CATEGORIES], ["members", "roles", "groups", "channels", "calendars", "licence", "guests"]);
+  // The filter keeps the earlier families, in order, then the guests, then the access rules.
+  assert.deepEqual([...AUDIT_CATEGORIES], ["members", "roles", "groups", "channels", "calendars", "licence", "guests", "access"]);
   for (const action of ["member.expiry_set", "member.expired", "member.reactivated", "member.standing_changed", "member.purged"]) {
     assert.equal(lineCategory({ action, category: "guests" }), "guests", action);
   }
   assert.equal(lineCategory({ action: "member.joined", category: "members" }), "members");
+  assert.equal(lineCategory({ action: "rule.created", category: "access" }), "access");
   // A category this app does not know reads as members, never as a missing tag.
   assert.equal(lineCategory({ action: "x", category: "future" }), "members");
 });

@@ -2566,7 +2566,6 @@
     "subtitle": "Kto może czytać, pisać lub zarządzać tym kanałem. Poziomy się sumują: każdy obejmuje poprzedni.",
     "subtitlePrivate": "Kanał prywatny: widzą go tylko osoby z dostępem.",
     "subtitleEnterprise": "Role niestandardowe stają się adresatami, a każdy wpis można dostosować uprawnienie po uprawnieniu.",
-    "enterprise": "Enterprise",
     "typeLabel": "Widoczność kanału",
     "publicTitle": "Publiczny",
     "publicBody": "Wszyscy w przestrzeni go widzą i mogą dołączyć.",

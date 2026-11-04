@@ -86,7 +86,7 @@ export function CustomiseDialog({
         <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
           {t("customise.title", { name: entryName })}
           <Tag tone="info" icon="sparkles">
-            {t("access.enterprise")}
+            {t("guests.rightsEnterprise")}
           </Tag>
         </span>
       }
