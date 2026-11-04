@@ -48,7 +48,7 @@ export function SpaceLicenceScreen() {
 function Licence({ space }: { space: Workspace }) {
   const { getLicence, deleteLicence } = useApi();
   const { t } = useTranslation();
-  const { c } = useTheme();
+  const { c, s } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const { spaces } = useSpace();
@@ -115,7 +115,7 @@ function Licence({ space }: { space: Workspace }) {
             <View style={styles.actions}>
               {install}
               {view ? (
-                <Button label={t("licence.remove")} variant="danger" icon={<Trash2 size={18} color={c.onInk} />} onPress={askRemove} busy={busy} />
+                <Button label={t("licence.remove")} variant="dangerSoft" icon={<Trash2 size={18} color={s.danger} />} onPress={askRemove} busy={busy} />
               ) : null}
             </View>
           ) : null}

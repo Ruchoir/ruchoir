@@ -141,6 +141,24 @@ export type RootParams = {
   /** A new role: its name and, optionally, the role it copies. */
   roleCreate: undefined;
   spaceGroups: undefined;
+  /** A group of the current space: its people, the roles it carries, its managers (the groups list opens it). */
+  groupEditor: { groupId: string };
+  /** The people of a group a message named (`@Comptabilité`), from a tap on its pill. */
+  groupPeople: { groupId: string };
+  /** A new group (name, description), which then opens its editor; with `groupId`, the name and description of that group. */
+  groupCreate: { groupId?: string } | undefined;
+  /**
+   * Who has access to a channel, a file or folder (`folder`), or a space calendar, at what level; `title`
+   * is its name as a person says it (a channel without the `#`). The level sheet, the adding screen,
+   * "Pourquoi ?" and "Personnaliser" open over it, each on the same `kind` and `resourceId`.
+   */
+  access: { kind: "channel" | "calendar" | "file"; resourceId: string; title: string; folder?: boolean; /** People just added from the add screen, for the private channel note. */ added?: { key: string; name: string }[] };
+  accessLevel: { kind: "channel" | "calendar" | "file"; resourceId: string; target: { kind: "everyone" | "role" | "group" | "user" | "audience"; id?: string }; title: string; folder?: boolean };
+  accessAdd: { kind: "channel" | "calendar" | "file"; resourceId: string; title: string; folder?: boolean };
+  why: { kind: "channel" | "calendar" | "file"; resourceId: string; userId: string; title: string; folder?: boolean };
+  customise: { kind: "channel" | "calendar" | "file"; resourceId: string; target: { kind: "everyone" | "role" | "group" | "user" | "audience"; id?: string } };
+  /** The space's calendars the caller manages, to open the access of one. */
+  calendarShare: undefined;
   spaceAudit: undefined;
   spaceLicence: undefined;
   /** Installing a licence in the current space: pasted, or read from a file. */

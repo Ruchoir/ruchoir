@@ -51,3 +51,19 @@ test("the_broadcasts_are_offered_by_their_beginning", () => {
   assert.deepEqual(broadcastsFor("ca"), ["canal"]);
   assert.deepEqual(broadcastsFor("lé"), []);
 });
+
+test("a_group_name_with_symbols_digits_or_a_double_space_keeps_the_token_open", () => {
+  const names = ["R&D Paris", "Ops (nord)", "Compta 2024/25", "Chantier Rennes"];
+  const at = (text: string) => activeToken(text, text.length, names);
+  assert.deepEqual(at("Salut @R&D P"), { kind: "@", query: "R&D P", start: 6 });
+  assert.deepEqual(at("Salut @R&"), { kind: "@", query: "R&", start: 6 });
+  assert.deepEqual(at("@Ops (no"), { kind: "@", query: "Ops (no", start: 0 });
+  assert.deepEqual(at("@Compta 2024/"), { kind: "@", query: "Compta 2024/", start: 0 });
+  // A double space is still the same name, and an accent or a capital does not matter.
+  assert.deepEqual(at("@chantier  re"), { kind: "@", query: "chantier  re", start: 0 });
+  assert.deepEqual(at("@Chantier  "), { kind: "@", query: "Chantier  ", start: 0 });
+  // What no group begins with closes it; a line break always does.
+  assert.equal(at("@R&X"), null);
+  assert.equal(at("@Chantier\nRe"), null);
+  assert.equal(at("mail@R&D"), null);
+});

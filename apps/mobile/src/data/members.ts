@@ -16,7 +16,11 @@ export function useSpaceMembers(spaceId: string | undefined) {
   return useMemo(() => {
     const byName = new Map<string, Member>();
     for (const m of list ?? []) byName.set(m.name, m);
-    return { list: list ?? [], avatarOf: (name: string) => byName.get(name)?.avatarUrl, mentionNames: mentionNames(list ?? []) };
+    return {
+      list: list ?? [],
+      avatarOf: (name: string) => byName.get(name)?.avatarUrl,
+      mentionNames: mentionNames(list ?? []),
+    };
   }, [list]);
 }
 

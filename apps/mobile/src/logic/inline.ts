@@ -5,13 +5,17 @@
  *
  * Mentions are recognised against the names the server resolves (`getMentionNames` on the web):
  * the longest one that follows an `@` wins, so "@Camille Roux" is one mention, not "@Camille" and a
- * stray " Roux".
+ * stray " Roux". Group names are read by the shared matcher (`@ruchoir/client`), which folds their
+ * words once per list: hand it the same array while the groups do not change.
  */
-export type Segment = { kind: "text" | "mention" | "bold" | "italic" | "code" | "link"; text: string };
+import { matchGroupMention, type PreparedGroupNames } from "@ruchoir/client/permissionsLogic";
+
+export type Segment = { kind: "text" | "mention" | "group" | "bold" | "italic" | "code" | "link"; text: string };
 
 const TOKEN = /(\*\*[^*\n]+\*\*)|(`[^`\n]+`)|(?<![\w*])([_*])([^_*\n]+)\3(?![\w*])|(https?:\/\/[^\s<>()]+)|(@)/g;
 
-export function parseInline(line: string, names: readonly string[]): Segment[] {
+export function parseInline(line: string, names: readonly string[], groups: readonly string[] | PreparedGroupNames = []): Segment[] {
+  const hasGroups = "words" in groups ? groups.maxWords > 0 : groups.length > 0;
   const sorted = [...names].sort((a, b) => b.length - a.length);
   const out: Segment[] = [];
   const push = (kind: Segment["kind"], text: string) => {
@@ -24,15 +28,19 @@ export function parseInline(line: string, names: readonly string[]): Segment[] {
   TOKEN.lastIndex = 0;
   for (let m = TOKEN.exec(line); m; m = TOKEN.exec(line)) {
     if (m[6]) {
-      // `@`: a mention only if a known name follows, as a whole word.
+      // `@`: a person if a known name follows as a whole word, a group if its name does (the
+      // server's rule); the longer wins, and a person at equal length, as on the web.
       const rest = line.slice(m.index + 1);
       const name = sorted.find(
         (n) => rest.toLowerCase().startsWith(n.toLowerCase()) && !/[\p{L}\p{N}]/u.test(rest.charAt(n.length)),
       );
-      if (!name) continue;
+      const group = hasGroups ? matchGroupMention(line, m.index + 1, groups) : null;
+      if (!name && !group) continue;
+      const isGroup = !!group && (!name || group.length > name.length);
+      const length = isGroup ? group!.length : name!.length;
       push("text", line.slice(at, m.index));
-      push("mention", `@${rest.slice(0, name.length)}`);
-      at = m.index + 1 + name.length;
+      push(isGroup ? "group" : "mention", `@${rest.slice(0, length)}`);
+      at = m.index + 1 + length;
       TOKEN.lastIndex = at;
       continue;
     }

@@ -7,16 +7,23 @@ import { useTheme } from "../theme/useTheme";
 import { Text } from "./Text";
 
 /** The head of a screen that slides up over the app (a form): its title and a way to close it. */
-export function SheetHeader({ title, onClose }: { title: string; onClose: () => void }) {
+export function SheetHeader({ title, subtitle, onClose }: { title: string; subtitle?: string; onClose: () => void }) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
   return (
     <>
       <PreviewBand />
       <View style={styles.row}>
-        <Text variant="heading" style={styles.title} accessibilityRole="header">
-          {title}
-        </Text>
+        <View style={styles.title}>
+          <Text variant="heading" accessibilityRole="header">
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text variant="tiny" tone="muted">
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("common.close")}

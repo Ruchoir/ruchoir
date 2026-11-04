@@ -2359,8 +2359,8 @@ export function createApi(transport: Transport) {
   // --- Groups (permissions lot 3) ---
 
   /** `GET /spaces/{id}/groups`: the groups of a space, with what the caller may do to each. */
-  async function listGroups(spaceId: string): Promise<Group[]> {
-    return (await apiGet<GroupDto[]>(`/spaces/${spaceId}/groups`)).map(toGroup);
+  async function listGroups(spaceId: string, signal?: AbortSignal): Promise<Group[]> {
+    return (await apiGet<GroupDto[]>(`/spaces/${spaceId}/groups`, signal)).map(toGroup);
   }
 
   /** `POST /spaces/{id}/groups`; refusals read with {@link refusalOf}. */

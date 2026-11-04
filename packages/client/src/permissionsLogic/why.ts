@@ -174,6 +174,18 @@ const CARDS: Record<ResourceKind, { id: string; labelKey: string; permissions: s
 };
 
 /**
+ * The lock (private, guest ceiling, owner, archive) that removed one of a level's permissions: the
+ * one the result points at, else the last one listed for those permissions.
+ */
+function takenBy(permissions: string[], own: (ResultLike | undefined)[], steps: StepLike[]): StepLike | undefined {
+  for (const r of own) {
+    const pointed = r && !r.granted && r.reasonStep !== undefined ? steps.find((s) => s.n === r.reasonStep) : undefined;
+    if (pointed?.effect === "removed" && LOCKS.includes(pointed.kind)) return pointed;
+  }
+  return steps.filter((s) => s.effect === "removed" && LOCKS.includes(s.kind) && permissions.includes(s.permission)).at(-1);
+}
+
+/**
  * The cards of the result: a level is granted when every one of its permissions is ("Modifier" needs
  * create and edit both), and its reason is the first step that granted one of them. A level none of
  * whose permissions the explanation lists is left out.
@@ -187,6 +199,11 @@ export function cardsOf(kind: ResourceKind, result: ResultLike[], steps: StepLik
     const decisive = own.find((r) => r?.granted && r.reasonStep !== undefined);
     const card: Card = { id: def.id, labelKey: def.labelKey, granted };
     if (granted && decisive) card.reason = cardOf(decisive, steps).reason;
+    if (!granted) {
+      // What took it away, so a right a rule granted and a lock removed does not read "no rule grants it".
+      const taker = takenBy(def.permissions, own, steps);
+      if (taker) card.reason = cardOf({ permission: taker.permission, granted: false, reasonStep: taker.n }, steps).reason;
+    }
     if (!granted && def.id === "publicLink") card.hint = "askManage";
     cards.push(card);
   }

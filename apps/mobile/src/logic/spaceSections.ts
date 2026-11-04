@@ -34,7 +34,7 @@ export type Counts = {
 
 /** Sections whose screen exists. Each later task flips its own to true. */
 export type Ready = Record<"roles" | "groups" | "audit" | "licence", boolean>;
-export const READY: Ready = { roles: true, groups: false, audit: true, licence: true };
+export const READY: Ready = { roles: true, groups: true, audit: true, licence: true };
 
 export function sectionsFor(
   gates: Gates,

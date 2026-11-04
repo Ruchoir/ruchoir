@@ -4,8 +4,9 @@
  * them). On an instance older than the permissions it keeps the single-role sheet it always was.
  */
 import type { Group, Member, Role, Workspace } from "@ruchoir/client";
-import { importedGroupSource } from "@ruchoir/client/permissionsLogic";
+import { groupRow, importedGroupSource } from "@ruchoir/client/permissionsLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,6 +18,7 @@ import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { deviceZone, heldRoles, memberStatus, roleColourKey, shortDay, systemRoleKey } from "../../logic/memberScreen";
 import { grantableRoles } from "../../logic/spaceRoles";
+import { groupOpens } from "../../logic/groupEditor";
 import type { RootParams } from "../../navigation/types";
 import { affects } from "../../realtime/events";
 import { useSession } from "../../session/SessionProvider";
@@ -27,6 +29,7 @@ import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
 import { BackHeader } from "../../ui/BackHeader";
 import { RoleChip } from "../../ui/RoleChip";
+import { GroupChip } from "./GroupParts";
 import { Segmented } from "../../ui/Segmented";
 import { LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
@@ -123,13 +126,13 @@ function Person({ space }: { space: Workspace }) {
           value={shown}
           onChange={setTab}
           options={[
-            { key: "profile", label: t("profile.title") },
+            { key: "profile", label: t("profile.tabProfile") },
             { key: "manage", label: t("profile.tabManage") },
           ]}
         />
       ) : null}
       {shown === "profile" ? (
-        <Profile member={member} roles={roles.data ?? []} groups={groups.data ?? []} />
+        <Profile space={space} member={member} roles={roles.data ?? []} groups={groups.data ?? []} />
       ) : ready ? (
         <MemberManage space={space} member={member} me={list?.find((m) => m.userId === me)} roles={roles.data ?? []} groups={groups.data ?? []} onChanged={reloadAll} />
       ) : (
@@ -140,7 +143,7 @@ function Person({ space }: { space: Workspace }) {
 }
 
 /** Who they are: their roles, since when, until when for a guest, their groups, where an import brought them from. */
-function Profile({ member, roles, groups }: { member: Member; roles: Role[]; groups: Group[] }) {
+function Profile({ space, member, roles, groups }: { space: Workspace; member: Member; roles: Role[]; groups: Group[] }) {
   const { t } = useTranslation();
   const styles = useThemedStyles(makeStyles);
   const { locale } = useLocale();
@@ -148,6 +151,11 @@ function Profile({ member, roles, groups }: { member: Member; roles: Role[]; gro
   const now = new Date();
   const held = heldRoles(member, roles, groups);
   const mine = groups.filter((g) => g.memberIds.includes(member.userId));
+  const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
+  const { supported, gates } = useRights();
+  const frozen = space.edition === "frozen";
+  // A group opens for whoever reaches the Groupes section and may open that group (the list's own rule).
+  const opens = (g: Group) => supported && gates.manageGroups && groupOpens(g, groupRow(g, roles, { frozen }).locked);
   const source = importedGroupSource({ importedFrom: member.importedFrom });
   const guest = member.role === "guest";
   const since = member.joinedAt ? shortDay(member.joinedAt, locale, zone, now) : "";
@@ -182,7 +190,11 @@ function Profile({ member, roles, groups }: { member: Member; roles: Role[]; gro
       ) : null}
       {mine.length > 0 ? (
         <Section label={t("spaceSections.groups")}>
-          <Text variant="body">{mine.map((g) => g.name).join(", ")}</Text>
+          <View style={styles.wrap}>
+            {mine.map((g) => (
+              <GroupChip key={g.id} name={g.name} onPress={opens(g) ? () => navigation.navigate("groupEditor", { groupId: g.id }) : undefined} />
+            ))}
+          </View>
         </Section>
       ) : null}
       {source ? (

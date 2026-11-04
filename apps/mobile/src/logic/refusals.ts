@@ -28,6 +28,23 @@ const BY_CODE: Record<string, string> = {
   no_self_role: key("groups.noSelfRole"),
   licence_invalid: key("licence.refusal.invalid"),
   licence_expired: key("licence.refusal.expired"),
+  manager_protected: key("groups.refusal.managerProtected"),
+  group_from_directory: key("groups.refusal.fromDirectory"),
+  group_name_taken: key("groups.refusal.nameTaken"),
+  group_name_reserved: key("groups.refusal.nameReserved"),
+  group_name_invalid: key("groups.refusal.nameInvalid"),
+  manager_must_be_member: key("groups.refusal.managerMustBeMember"),
+  base_role_not_allowed: key("groups.refusal.baseRole"),
+  not_in_space: key("groups.refusal.notInSpace"),
+  too_many_people: key("groups.refusal.tooManyPeople"),
+  group_has_rules: key("groups.refusal.hasRules"),
+  cannot_grant: key("access.refusal.cannotGrant"),
+  target_above_you: key("access.refusal.targetAboveYou"),
+  reservation_admins_only: key("access.refusal.reservationAdminsOnly"),
+  guest_ceiling: key("access.refusal.guestCeiling"),
+  audience_files_only: key("access.refusal.audienceFilesOnly"),
+  base_role_levels_only: key("access.refusal.baseRoleLevelsOnly"),
+  permission_in_both: key("access.refusal.permissionInBoth"),
 };
 
 export function refusalSaid(refusal: ReturnType<typeof refusalOf>): Said | null {

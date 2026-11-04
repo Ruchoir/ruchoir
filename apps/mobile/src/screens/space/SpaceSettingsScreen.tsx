@@ -60,7 +60,7 @@ export function SpaceSettingsScreen() {
   const { c } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
-  const { getSpaceMembers, listRoles, getAudit } = useApi();
+  const { getSpaceMembers, listRoles, listGroups, getAudit } = useApi();
   const { locale, timeZone } = useLocale();
   const { current } = useSpace();
   const { ready: rightsReady, supported, gates } = useRights();
@@ -77,6 +77,10 @@ export function SpaceSettingsScreen() {
   const rolesNeeded = ready && supported && gates.managePeople && current !== null;
   const roles = useLoad(rolesNeeded ? `roles:${current.id}` : null, () => listRoles(current!.id));
   useReloadOn((e) => (current ? affects.permissions(e, current.id) : false), roles.reload, 500);
+  // The groups' count for the line under Groupes, only for whoever reaches that section.
+  const groupsNeeded = ready && supported && gates.manageGroups && current !== null;
+  const groups = useLoad(groupsNeeded ? `groups:${current.id}` : null, () => listGroups(current!.id));
+  useReloadOn((e) => (current ? affects.permissions(e, current.id) : false), groups.reload, 500);
   const shownRoles = roles.data?.filter((r) => r.systemKey !== "members" && r.systemKey !== "guests");
 
   // The newest line of the journal for the line under Journal, only where that section says it (a
@@ -92,7 +96,7 @@ export function SpaceSettingsScreen() {
       })()
     : undefined;
 
-  const sections = !ready ? [] : sectionsFor(gates, supported, current, { counts: { ...(counts ? { people: counts.people, guests: counts.guests } : {}), ...(shownRoles ? { roles: shownRoles.length, customRoles: shownRoles.filter((r) => !r.systemKey).length } : {}), ...(lastChange ? { lastChange } : {}) }, licences });
+  const sections = !ready ? [] : sectionsFor(gates, supported, current, { counts: { ...(counts ? { people: counts.people, guests: counts.guests } : {}), ...(groups.data ? { groups: groups.data.length } : {}), ...(shownRoles ? { roles: shownRoles.length, customRoles: shownRoles.filter((r) => !r.systemKey).length } : {}), ...(lastChange ? { lastChange } : {}) }, licences });
   const tint: Record<SectionKey, string> = { general: c.sky, members: c.mint, roles: c.violet, groups: c.pink, audit: c.sun, licence: c.lime };
 
   // Nothing left to open (demoted, or their role edited, while here): back to where they came from.

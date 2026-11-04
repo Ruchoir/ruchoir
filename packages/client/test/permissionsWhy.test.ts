@@ -260,3 +260,25 @@ test("a_granted_rule_agrees_with_the_number_of_permissions", () => {
     assert.ok(one && two && one !== two, `${locale}: one and several differ`);
   }
 });
+
+test("a_level_a_rule_gave_and_the_guest_ceiling_took_names_the_ceiling", () => {
+  const person = { kind: "group", id: ID.custom, name: "Comptabilité", hidden: false };
+  const place = { kind: "channel", id: ID.admin, name: "compta", hidden: false };
+  const steps: StepLike[] = [
+    step({ n: 1, kind: "base", permission: "channel.view" }),
+    step({ n: 2, kind: "rule", permission: "message.manage", target: person, level: place, ruleLevel: "manage" }),
+    step({ n: 3, kind: "guest_ceiling", permission: "message.manage", effect: "removed" }),
+    step({ n: 4, kind: "guest_ceiling", permission: "channel.manage", effect: "removed" }),
+  ];
+  const cards = cardsOf("channel", [R("channel.view", true, 1), R("message.send", true, 1), R("message.manage", false, 3), R("channel.members.manage", false), R("channel.manage", false, 4)], steps);
+  const manage = cards.find((c) => c.id === "manage");
+  assert.equal(manage?.granted, false);
+  assert.equal(manage?.reason?.kind, "guest_ceiling");
+  assert.equal(reasonKey(manage!.reason!.kind), "why.reason.guest_ceiling");
+  // A level nothing touched keeps saying that no rule grants it.
+  const none = cardsOf("channel", [R("channel.view", true, 1), R("message.manage", false), R("channel.members.manage", false), R("channel.manage", false)], steps.slice(0, 1));
+  assert.equal(none.find((c) => c.id === "manage")?.reason, undefined);
+  // A removal the result does not point at is still found among the steps of that level.
+  const unpointed = cardsOf("channel", [R("channel.view", true, 1), R("message.manage", false), R("channel.members.manage", false), R("channel.manage", false)], steps);
+  assert.equal(unpointed.find((c) => c.id === "manage")?.reason?.kind, "guest_ceiling");
+});

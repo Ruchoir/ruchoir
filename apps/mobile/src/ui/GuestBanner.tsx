@@ -10,7 +10,7 @@ import { StyleSheet, View } from "react-native";
 import { key } from "../i18n";
 import { useSharedT } from "../i18n/sharedT";
 import { useLocale } from "../i18n/useLocale";
-import { whenLabel } from "@ruchoir/client/permissionsLogic";
+import { joinClosed, tidyPeriods, whenLabel } from "@ruchoir/client/permissionsLogic";
 import { useNow } from "../data/useNow";
 import { guestBannerFor } from "../logic/guestNotices";
 import { deviceZone, shortDay } from "../logic/memberScreen";
@@ -53,10 +53,11 @@ export function GuestEndCard() {
   const styles = useThemedStyles(makeStyles);
   const banner = useGuestBanner();
   if (!banner || !banner.state.card) return null;
-  const text = [
+  // The first sentence has no period of its own, and the date's abbreviation ("7 nov.") has one.
+  const text = joinClosed([
     say("guests.noticeEnding", { space: banner.space, when: whenLabel(banner.state.days, banner.locale) }),
-    say("guests.noticeEndingDetailBare", { date: banner.date }),
-  ].join(" ");
+    tidyPeriods(say("guests.noticeEndingDetailBare", { date: banner.date })),
+  ]);
   return (
     <View accessibilityRole="alert" style={[styles.card, { backgroundColor: `${c.sun}40`, borderColor: c.sun }]}>
       <TriangleAlert size={18} color={c.ink} style={styles.icon} />

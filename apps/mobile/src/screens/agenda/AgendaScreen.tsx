@@ -20,6 +20,7 @@ import { Segmented } from "../../ui/Segmented";
 import { LoadState } from "../../ui/States";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
+import { CalendarShareButton } from "./CalendarShareButton";
 import { ListView } from "./ListView";
 import { MonthView } from "./MonthView";
 import { AgendaWide } from "./AgendaWide";
@@ -39,6 +40,8 @@ export type AgendaData = {
   calendars: Map<string, Calendar>;
   /** Whether the person may write in any calendar: "New event" shows then. */
   canCreate: boolean;
+  /** Whether the person manages a calendar of the space: its sharing is reached from the head. */
+  canShare: boolean;
 };
 
 /**
@@ -66,7 +69,7 @@ export function AgendaScreen() {
     // What a person sees here: their own calendars and the space's, minus the ones they hid.
     const shown = all.filter((cal) => !cal.hidden && (!cal.spaceId || cal.spaceId === current!.id));
     const occurrences = shown.length ? await listOccurrences(range.from, range.to, shown.map((cal) => cal.id), signal) : [];
-    return { occurrences, calendars: new Map(shown.map((cal) => [cal.id, cal])), canCreate: all.some((cal) => cal.canWriteEvents) };
+    return { occurrences, calendars: new Map(shown.map((cal) => [cal.id, cal])), canCreate: all.some((cal) => cal.canWriteEvents), canShare: all.some((cal) => cal.spaceId === current!.id && cal.canManage) };
   }, { keep: current?.id });
   useReloadOn((e) => e.type === "calendar", data.reload);
 
@@ -95,7 +98,7 @@ export function AgendaScreen() {
 
   return (
     <TabScreen>
-      <TabHeader title={t("tabs.agenda")} />
+      <TabHeader title={t("tabs.agenda")} action={<CalendarShareButton canShare={data.data?.canShare} />} />
       <ScrollView contentContainerStyle={styles.page} onScroll={floating.onScroll} scrollEventThrottle={floating.scrollEventThrottle}>
         <Segmented
           options={options}

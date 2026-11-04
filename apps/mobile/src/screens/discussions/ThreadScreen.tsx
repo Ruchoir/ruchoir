@@ -14,6 +14,7 @@ import { Composer } from "../../compose/Composer";
 import { useAttachRequests } from "../../compose/requests";
 import { useAttachments } from "../../compose/useAttachments";
 import { useReact } from "../../compose/useReact";
+import { useMentionGroups } from "../../data/mentionGroups";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
@@ -49,6 +50,7 @@ export function ThreadScreen() {
   const react = useReact();
   const { current } = useSpace();
   const members = useSpaceMembers(current?.id);
+  const mentionGroups = useMentionGroups(current?.id);
   const channels = useLoad(current ? `channels:${current.id}` : null, (signal) => getChannels(current!.id, signal));
   useReloadOn((e) => !!current && affects.channels(e, current.id), channels.reload);
   const draftKey = `thread:${rootId}`;
@@ -154,6 +156,7 @@ export function ThreadScreen() {
                   mentionsMe={!local && myNames.some((n) => body.includes(n))}
                   avatar={members.avatarOf(m.author)}
                   mentionNames={members.mentionNames}
+                  groups={mentionGroups}
                   pending={local?.state}
                   onRetry={local ? () => outbox.retry(local.localId) : undefined}
                   onDiscard={local ? () => outbox.drop(local.localId) : undefined}
@@ -178,6 +181,8 @@ export function ThreadScreen() {
             alsoInChannelLabel={alsoLabel}
             placeholder={t("compose.placeholderThread")}
             people={members.list}
+            groups={mentionGroups}
+            viewerRole={current?.role}
             channels={channels.data ?? []}
             broadcasts={!!channelId}
             myUserId={me.id}

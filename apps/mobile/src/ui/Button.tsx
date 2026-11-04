@@ -6,12 +6,13 @@ import { styleCache } from "../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { Text } from "./Text";
 
-type Variant = "primary" | "secondary" | "ghost" | "link" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "link" | "danger" | "dangerSoft";
 
 /**
  * The design system's button: the primary action's colour (the ink in Ruchoir), an outline as
  * secondary, a bare ghost, a link, and danger (the deep red by day, the peach by night) for what
- * cannot be undone. A primary button lifts onto a bee-yellow offset while pressed, as on the web,
+ * cannot be undone, and dangerSoft (the pale red well, red words and a thin red edge of the mockups'
+ * delete and remove buttons). A primary button lifts onto a bee-yellow offset while pressed, as on the web,
  * unless the style is flat; disabled is the sunken grey.
  */
 export function Button({
@@ -44,7 +45,9 @@ export function Button({
       ? s.onPrimary
       : variant === "danger"
         ? c.onInk
-        : variant === "link"
+        : variant === "dangerSoft"
+          ? s.danger
+          : variant === "link"
           ? s.link
           : variant === "ghost"
             ? c.body
@@ -62,7 +65,8 @@ export function Button({
         variant === "primary" && { backgroundColor: s.primary, borderColor: s.primary },
         variant === "secondary" && { borderColor: s.edge },
         variant === "danger" && { backgroundColor: s.danger, borderColor: s.danger },
-        variant === "danger" && pressed && { opacity: 0.85 },
+        variant === "dangerSoft" && { backgroundColor: s.dangerBg, borderColor: s.danger },
+        (variant === "danger" || variant === "dangerSoft") && pressed && { opacity: 0.85 },
         variant === "ghost" && pressed && { backgroundColor: s.pressed },
         variant === "secondary" && pressed && { backgroundColor: s.sunken },
         variant === "primary" && pressed && !off && lift(theme, 4, 4, c.bee),

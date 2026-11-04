@@ -15,6 +15,9 @@ export type GroupLike = {
   roleIds: string[];
 };
 
+/** The longest description a group takes, the server's own limit (`DESCRIPTION_MAX` in `group_routes.rs`, checked by a test). */
+export const GROUP_DESCRIPTION_MAX = 280;
+
 /** Names compare without case or accents: "été" sits with the e's, "COMPTABILITE" finds "Comptabilité". */
 export function foldName(text: string): string {
   return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();

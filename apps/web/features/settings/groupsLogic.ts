@@ -2,6 +2,7 @@
 export {
   type GroupLike,
   foldName,
+  GROUP_DESCRIPTION_MAX,
   sortGroups,
   rolesViaGroups,
   groupRow,

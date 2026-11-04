@@ -11,7 +11,10 @@ import {
   expiryTone,
   gestionControls,
   inDaysLabel,
+  addBlockFor,
   memberAccessFor,
+  removalOf,
+  sortGroups,
   presetToInstant,
   rightsOf,
   roleIdsToSave,
@@ -56,6 +59,7 @@ import { Text } from "../../ui/Text";
 import { Toggle } from "../../ui/Toggle";
 import { useToast } from "../../ui/Toast";
 import { Section } from "../account/Section";
+import { AddToGroupChip, GroupChip } from "./GroupParts";
 import { LEGACY_LABEL, SYSTEM_ROLE_LABEL } from "./SpaceMembersScreen";
 import { LegacyRoles, useFailed, useRemoveMember } from "./MemberLegacy";
 import { useSpace } from "../../space/SpaceProvider";
@@ -100,7 +104,7 @@ export function MemberManage({ space, member, me, roles, groups, onChanged }: Pr
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const { setMemberRoles } = useApi();
+  const { setMemberRoles, addGroupMembers, removeGroupMember } = useApi();
   const failed = useFailed();
   const remove = useRemoveMember(space, member, failed);
   const [edit, setEdit] = useState<{ base: string; set: Set<string> } | null>(null);
@@ -115,7 +119,38 @@ export function MemberManage({ space, member, me, roles, groups, onChanged }: Pr
   const setDraft = (set: Set<string> | null) => setEdit(set ? { base: saved, set } : null);
   const mine = groups.filter((g) => g.memberIds.includes(member.userId));
   const first = member.name.split(" ")[0] ?? member.name;
+  const [picking, setPicking] = useState(false);
+  const [groupBusy, setGroupBusy] = useState(false);
+  const viewerId = me?.userId ?? "";
+  const viewerIsOwner = space.role === "owner";
+  // The web's rule (MemberGroups): the way out where the viewer may change that group's members (or to leave oneself),
+  // the way in to the groups they may add to, never a directory group; the server judges each change.
+  const canSortOut = (g: Group) => {
+    const r = removalOf(g, viewerId, member.userId);
+    return r.removable || r.reason === "self";
+  };
+  const addable = sortGroups(
+    groups.filter(
+      (g) => g.source !== "directory" && g.may.changeMembers && !g.memberIds.includes(member.userId) && addBlockFor({ carriesRoles: g.roleIds.length > 0, viewerId, viewerIsOwner }, member.userId) === null,
+    ),
+  );
   const count = choices && draft ? changeCount(draftOf(choices), draft) : 0;
+
+  const changeGroup = async (write: () => Promise<unknown>, done: string) => {
+    setGroupBusy(true);
+    try {
+      await write();
+      toast(done, "success");
+      setPicking(false);
+      onChanged();
+    } catch (err) {
+      const sentence = refusalSaid(refusalOf(err));
+      if (sentence) toast(String(t(sentence.key as never, sentence.vars as never)), "failure");
+      else failed(err, key("roles.saveFailed"));
+    } finally {
+      setGroupBusy(false);
+    }
+  };
 
   const save = async () => {
     if (!choices || !draft) return;
@@ -161,13 +196,22 @@ export function MemberManage({ space, member, me, roles, groups, onChanged }: Pr
               </Text>
             ) : (
               mine.map((g) => (
-                <View key={g.id} style={[styles.group, { borderColor: c.lineStrong }]}>
-                  <Users size={12} color={c.muted} />
-                  <Text variant="smallStrong">{g.name}</Text>
-                </View>
+                <GroupChip
+                  key={g.id}
+                  name={g.name}
+                  disabled={groupBusy}
+                  onRemove={canSortOut(g) ? () => void changeGroup(() => removeGroupMember(space.id, g.id, member.userId), t("groups.personRemoved")) : undefined}
+                  removeLabel={t("groups.leaveNamed", { name: first, group: g.name })}
+                />
               ))
             )}
+            {addable.length > 0 ? <AddToGroupChip label={t("groups.addToGroup")} disabled={groupBusy} onPress={() => setPicking((v) => !v)} /> : null}
           </View>
+          {picking
+            ? addable.map((g) => (
+                <ActionRow key={g.id} icon={Users} title={g.name} onPress={groupBusy ? undefined : () => void changeGroup(() => addGroupMembers(space.id, g.id, [member.userId]), t("groups.membersAdded"))} />
+              ))
+            : null}
         </Section>
 
         {rights.includes("members.manage") ? (

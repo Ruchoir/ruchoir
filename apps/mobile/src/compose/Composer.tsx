@@ -5,7 +5,7 @@
  * A message goes through the outbox, which draws it at once and keeps it if it fails; the text of an
  * unsent message is the conversation's draft, kept while the app runs.
  */
-import type { Channel, Member } from "@ruchoir/client";
+import type { Channel, Group, Member } from "@ruchoir/client";
 import { Check, PenLine, Plus, Send } from "lucide-react-native";
 import { useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react-native";
@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "../i18n";
 import { composerRoom } from "../logic/keyboard";
 import { useTabletLayout } from "../layout/useWide";
+import { mentionableGroups, mentionOrder } from "../logic/groupMentions";
 import { activeToken, broadcastsFor, fold, insertToken, matchPeople } from "../logic/mentions";
 import { fonts } from "../theme/fonts";
 import { styleCache } from "../theme/themedStyles";
@@ -47,6 +48,9 @@ type Props = {
   channels: Channel[];
   /** Whether `@canal` and `@ici` are offered: in a channel, not in a private conversation. */
   broadcasts: boolean;
+  /** The groups `@` can name, and the viewer's standing (a guest cannot mention one). */
+  groups?: Group[];
+  viewerRole?: string;
   myUserId: string;
   /** My messages on screen with these words, which the outbox must not take for the new one. */
   baselineFor: (body: string) => string[];
@@ -65,7 +69,7 @@ type Props = {
 };
 
 export function Composer(props: Props) {
-  const { conversationId, draftKey, parentId, people, channels, broadcasts, myUserId, editing } = props;
+  const { conversationId, draftKey, parentId, people, channels, broadcasts, myUserId, editing, groups, viewerRole } = props;
   const { t } = useTranslation();
   const { c, s, shape } = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -85,7 +89,8 @@ export function Composer(props: Props) {
   );
   const input = useRef<TextInput>(null);
 
-  const token = useMemo(() => activeToken(text, cursor), [text, cursor]);
+  const mentionable = useMemo(() => (viewerRole === "guest" ? [] : (groups ?? []).map((g) => g.name)), [groups, viewerRole]);
+  const token = useMemo(() => activeToken(text, cursor, mentionable), [text, cursor, mentionable]);
   const suggestions = useMemo<Suggestion[]>(() => {
     if (!token) return [];
     if (token.kind === "#") {
@@ -103,15 +108,25 @@ export function Composer(props: Props) {
           detail: name === "canal" ? t("compose.broadcastChannel") : t("compose.broadcastHere"),
         }))
       : [];
+    // Between the room-wide names and the people, as on the web: a group names several people at once.
+    const named: Suggestion[] = mentionableGroups(viewerRole, groups ?? [], token.query).map(
+      ({ group, members }): Suggestion => ({
+        kind: "group",
+        key: `g:${group.id}`,
+        id: group.id,
+        name: group.name,
+        detail: t("compose.groupLine", { count: members }),
+      }),
+    );
     const found = matchPeople(
       people.filter((p) => p.userId !== myUserId),
       token.query,
-      MAX_SUGGESTIONS - rooms.length,
+      MAX_SUGGESTIONS,
     ).map(
       (p): Suggestion => ({ kind: "person", key: p.userId, name: p.name, detail: p.title, avatar: p.avatarUrl, bot: p.bot }),
     );
-    return [...rooms, ...found];
-  }, [token, channels, people, broadcasts, myUserId, t]);
+    return mentionOrder({ rooms, groups: named, people: found }, MAX_SUGGESTIONS).map((hit) => hit.item);
+  }, [token, channels, people, broadcasts, groups, viewerRole, myUserId, t]);
 
   const change = (next: string) => {
     setText(next);

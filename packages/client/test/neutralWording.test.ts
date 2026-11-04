@@ -13,6 +13,8 @@ const DICTIONARIES = [
 const GENDERED = new RegExp(
   [
     "prévenu|prévenue|ceux qui|celles qui|ceux et celles|celles et ceux|l'est la veille|connecté|\\(e\\)|\\(e?s\\)",
+    // "ceux" / "celles" standing for people, anywhere: say "les personnes", "Seules les personnes listées".
+    "\\bceux\\b|\\bcelles\\b",
     "ceux (que|dont|qui)|celles|invitée|vous a invité|en invitée|le dernier propriétaire|dernier propriétaire",
     // "Vous êtes / avez été" + a participle that agrees with the person. The noun "invité" as a standing
     // name ("L'invité le reçoit la veille", "Invité jusqu'au") is not flagged: only these forms are.

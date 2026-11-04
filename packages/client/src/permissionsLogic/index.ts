@@ -33,6 +33,7 @@ export {
 export {
   type GroupLike,
   foldName,
+  GROUP_DESCRIPTION_MAX,
   sortGroups,
   rolesViaGroups,
   groupRow,
@@ -171,6 +172,7 @@ export {
   noticeTarget,
   endedNoticeKeys,
 } from "./guestNotices.ts";
+export { capitalFirst, closeSentence, joinClosed, tidyPeriods } from "./sentences.ts";
 export {
   type EntryLike as AuditEntryLike,
   type Slot,
@@ -211,3 +213,11 @@ export {
   BANNER_DAYS,
   importBanner,
 } from "./imports.ts";
+export {
+  type PreparedGroupNames,
+  matchMention,
+  foldMention,
+  prepareGroupNames,
+  matchGroupMention,
+  matchMentionTarget,
+} from "./mentions.ts";

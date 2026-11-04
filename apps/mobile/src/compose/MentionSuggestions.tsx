@@ -5,11 +5,13 @@ import { styleCache } from "../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { Avatar } from "../ui/Avatar";
 import { Text } from "../ui/Text";
+import { GroupTile } from "../screens/space/GroupParts";
 
 export type Suggestion =
   | { kind: "person"; key: string; name: string; detail?: string; avatar?: string; bot?: boolean }
   | { kind: "broadcast"; key: string; name: string; detail: string }
-  | { kind: "channel"; key: string; name: string; detail?: string };
+  | { kind: "channel"; key: string; name: string; detail?: string }
+  | { kind: "group"; key: string; id: string; name: string; detail: string };
 
 /**
  * What `@` or `#` can become, above the composer: people with their face and title, the two room-wide
@@ -30,6 +32,8 @@ export function MentionSuggestions({ items, onPick }: { items: Suggestion[]; onP
         >
           {item.kind === "person" ? (
             <Avatar name={item.name} src={item.avatar} kind={item.bot ? "bot" : "person"} size={32} />
+          ) : item.kind === "group" ? (
+            <GroupTile id={item.id} size={32} />
           ) : (
             <View style={[styles.tile, { backgroundColor: item.kind === "broadcast" ? c.sun : c.mint }]}>
               {item.kind === "broadcast" ? <Megaphone size={16} color={c.onPastel} /> : <Hash size={16} color={c.onPastel} />}
@@ -37,7 +41,7 @@ export function MentionSuggestions({ items, onPick }: { items: Suggestion[]; onP
           )}
           <View style={styles.text}>
             <Text variant="bodyStrong" numberOfLines={1}>
-              {item.kind === "channel" ? `#${item.name}` : item.kind === "broadcast" ? `@${item.name}` : item.name}
+              {item.kind === "channel" ? `#${item.name}` : item.kind === "broadcast" || item.kind === "group" ? `@${item.name}` : item.name}
             </Text>
             {item.detail ? (
               <Text variant="tiny" tone="muted" numberOfLines={1}>

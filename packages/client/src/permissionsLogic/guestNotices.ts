@@ -1,6 +1,9 @@
 /** What the guest notices say, and how the app notices a space that ended for its guest. */
 
-type NoticeLike = { kind: string; actor: string; spaceName: string; daysLeft?: number };
+import { daysLeft } from "./guests.ts";
+import { tidyPeriods } from "./sentences.ts";
+
+type NoticeLike = { kind: string; actor: string; spaceName: string; daysLeft?: number; endsAt?: string };
 
 /** "dans 7 jours", "demain": how far an end lies, to sit in the middle of a sentence. */
 export function whenLabel(days: number, locale: string): string {
@@ -11,13 +14,18 @@ export function whenLabel(days: number, locale: string): string {
  * The line of a guest notice: for whoever manages the guest ("L'accès de X se termine dans 7 jours")
  * or for the guest ("Votre accès à Y se termine demain"). `null` for any other kind. The words come
  * from the caller, which holds the translator.
+ *
+ * The notice carries the days left on the day it was sent: with `at` (the clock and the zone of the
+ * reader) and the end, the days are counted now, so a notice read three days later says so.
  */
 export function guestNoticeSummary(
   n: NoticeLike,
   locale: string,
   say: (which: "soon" | "ending", vars: Record<string, string>) => string,
+  at?: { now: Date; zone: string },
 ): string | null {
-  const when = whenLabel(n.daysLeft ?? 1, locale);
+  const days = at && n.endsAt ? daysLeft(n.endsAt, at.now, at.zone) : (n.daysLeft ?? 1);
+  const when = whenLabel(days, locale);
   if (n.kind === "guest_expiry_soon") return say("soon", { name: n.actor, when });
   if (n.kind === "guest_access_ending") return say("ending", { space: n.spaceName, when });
   return null;
@@ -36,8 +44,9 @@ export function guestNoticeDetail(
   if (!n.endsAt) return null;
   const date = formatDay(n.endsAt);
   if (!date) return null;
-  if (n.kind === "guest_expiry_soon") return n.guestTitle ? say("soon", { title: n.guestTitle, date }) : say("soonBare", { date });
-  if (n.kind === "guest_access_ending") return n.contactName ? say("ending", { date, contact: n.contactName }) : say("endingBare", { date });
+  // A short date ends in its own period ("7 nov."), and the sentence around it ends with another.
+  if (n.kind === "guest_expiry_soon") return tidyPeriods(n.guestTitle ? say("soon", { title: n.guestTitle, date }) : say("soonBare", { date }));
+  if (n.kind === "guest_access_ending") return tidyPeriods(n.contactName ? say("ending", { date, contact: n.contactName }) : say("endingBare", { date }));
   return null;
 }
 
