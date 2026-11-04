@@ -141,6 +141,10 @@ export type RootParams = {
   /** A new role: its name and, optionally, the role it copies. */
   roleCreate: undefined;
   spaceGroups: undefined;
+  /** A group of the current space: its people, the roles it carries, its managers (the groups list opens it). */
+  groupEditor: { groupId: string };
+  /** A new group (name, description), which then opens its editor; with `groupId`, the name and description of that group. */
+  groupCreate: { groupId?: string } | undefined;
   spaceAudit: undefined;
   spaceLicence: undefined;
   /** Installing a licence in the current space: pasted, or read from a file. */
