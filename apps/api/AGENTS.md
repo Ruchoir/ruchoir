@@ -71,8 +71,21 @@ context and takes precedence here.
   routes write those two bits through `channels::set_role_admitted` and
   `calendars::set_members_write` and store only the rest of the level, and `levels::level_of` masks
   the bit when it reads. Never write them as rules by hand, or the next sync erases them. A group
-  named by a rule is never deleted (`409 group_has_rules` with `used_in`, via `rules::uses_of`; the
-  roles route of the enterprise edition answers `role_has_rules` the same way).
+  named by a rule is never deleted (`409 group_has_rules` with `used_in`, via `rules::uses_of`
+  then `rules::hide_unopened`, which names only what the caller can open; the roles route of the
+  enterprise edition must answer `409 role_has_rules` with the same `used_in`, because the database
+  now refuses to drop a role a rule names: `role_id` and `group_id` are `ON DELETE NO ACTION`). A
+  person rule (`user_id`) is the exception: it goes with the membership row (a rule on someone no
+  longer in the space means nothing).
+  Security review rulings (lot 4): lifting is granting (what a write stops denying must be held by
+  the editor, for every editor kind and target); a guest is never a Local editor (the author fact
+  gives them `files.manage` on their upload, no delegation); on a private channel an editor who
+  cannot view it (an Administrator who never joined; only the Owner reads without joining) is no
+  editor and is answered as a stranger; a reader editor may share with an audience they are among
+  but may not add or remove a deny for it; a group is "above" an editor of lower rank also when one
+  of its people is; person-level deny lines of the access dialog show to editors only. The
+  preview guard lets a read through when Valkey cannot be read (the viewer's own full rights,
+  never more; writes fail closed): accepted. The WOPI listener sits outside the guard.
 - **Paid writes** go through `messaging::edition_view::ensure_paid` (re-exported by `ext`):
   `402 licence_required` without a licence, `409 licence_frozen` once it expired. Reads are never
   gated.
