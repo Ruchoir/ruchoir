@@ -47,6 +47,8 @@ pub enum LevelError {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LevelRead {
     Level(Level),
+    /// Nothing stored that the legacy writes do not own: there is no rule to show.
+    NoRule,
     Custom,
 }
 
@@ -148,8 +150,15 @@ fn legacy_bit(kind: Kind) -> Option<Permission> {
     }
 }
 
-/// Reads a stored rule as a level: the exact inverse of [`rule_sets`]. For a system role the
-/// legacy-owned bit is ignored when no level matches exactly, and an ambiguous read is custom.
+/// Reads a stored rule as a level: the exact inverse of [`rule_sets`]. A read never shows more or
+/// less than what is stored and applied:
+///
+/// - a denied view on everyone is "no access", whatever else the rule holds;
+/// - for everyone and the Administrator, the bit the legacy writes own (spec pre-flight P2) is set
+///   aside to match a level, and read for what it does when the rest is empty or ambiguous
+///   (a calendar's write bit: denied is Read, allowed is Contribute); a rule holding nothing else
+///   is [`LevelRead::NoRule`];
+/// - an ambiguous or unmatched rule is custom.
 pub fn level_of(
     kind: Kind,
     target: Target,
@@ -157,6 +166,10 @@ pub fn level_of(
     deny: PermissionSet,
 ) -> LevelRead {
     let candidates = [Level::None, Level::Read, Level::Contribute, Level::Manage];
+    let everyone = target == Target::Everyone;
+    if everyone && deny.contains(view_of(kind)) {
+        return LevelRead::Level(Level::None);
+    }
     let exact: Vec<Level> = candidates
         .into_iter()
         .filter(|&l| rule_sets(kind, target, l) == Ok((allow, deny)))
@@ -164,24 +177,40 @@ pub fn level_of(
     if let [level] = exact[..] {
         return LevelRead::Level(level);
     }
-    let system = matches!(target, Target::Everyone | Target::Role { system: true });
-    let Some(bit) = legacy_bit(kind).filter(|_| system) else {
+    let admin = target == (Target::Role { system: true });
+    let Some(bit) = legacy_bit(kind).filter(|_| everyone || admin) else {
         return LevelRead::Custom;
     };
+    if admin && deny.contains(bit) {
+        // The legacy writes never deny the Administrator.
+        return LevelRead::Custom;
+    }
     let mask = |s: PermissionSet| s.minus(PermissionSet::of(&[bit]));
-    let (allow, deny) = (mask(allow), mask(deny));
-    if allow.is_empty() && deny.is_empty() {
-        return LevelRead::Level(Level::None);
+    // What the legacy bit says on its own, for everyone's calendar write.
+    let by_bit = || match (kind, allow.contains(bit), deny.contains(bit)) {
+        (Kind::Calendar, false, true) if everyone => LevelRead::Level(Level::Read),
+        (Kind::Calendar, true, false) if everyone => LevelRead::Level(Level::Contribute),
+        _ => LevelRead::Custom,
+    };
+    if mask(allow).is_empty() && mask(deny).is_empty() {
+        let legacy = allow.contains(bit) || deny.contains(bit);
+        return if kind == Kind::Calendar && everyone && legacy {
+            by_bit()
+        } else {
+            LevelRead::NoRule
+        };
     }
     let masked: Vec<Level> = candidates
         .into_iter()
         .filter(|&l| {
-            rule_sets(kind, target, l).is_ok_and(|(a, d)| (mask(a), mask(d)) == (allow, deny))
+            rule_sets(kind, target, l)
+                .is_ok_and(|(a, d)| (mask(a), mask(d)) == (mask(allow), mask(deny)))
         })
         .collect();
     match masked[..] {
         [level] => LevelRead::Level(level),
-        _ => LevelRead::Custom,
+        [_, _, ..] => by_bit(),
+        [] => LevelRead::Custom,
     }
 }
 
@@ -413,29 +442,103 @@ mod tests {
 
     #[test]
     fn legacy_bits_are_masked_for_system_roles() {
-        let view = PermissionSet::of(&[P::ChannelView]);
+        let set = |ps: &[Permission]| PermissionSet::of(ps);
+        let none = PermissionSet::EMPTY;
         let admin = Target::Role { system: true };
-        // The reservation-derived deny of channel.view reads as None.
+        // The reservation-derived deny of channel.view on everyone is "no access".
         assert_eq!(
-            level_of(Kind::Channel, admin, PermissionSet::EMPTY, view),
+            level_of(
+                Kind::Channel,
+                Target::Everyone,
+                none,
+                set(&[P::ChannelView])
+            ),
             LevelRead::Level(Level::None)
         );
         // The derived Administrator allow of channel.view is no entry at all.
         assert_eq!(
-            level_of(Kind::Channel, admin, view, PermissionSet::EMPTY),
-            LevelRead::Level(Level::None)
+            level_of(Kind::Channel, admin, set(&[P::ChannelView]), none),
+            LevelRead::NoRule
         );
-        // The write bit of a calendar is owned by the legacy write.
-        let (allow, deny) = rule_sets(Kind::Calendar, admin, Level::Read).unwrap();
-        let plus_write = allow.union(PermissionSet::of(&[P::CalendarWrite]));
-        assert_ne!(
-            level_of(Kind::Calendar, admin, plus_write, deny),
+        // A deny of the view bit on a system role other than everyone is not a legacy write.
+        assert_eq!(
+            level_of(Kind::Channel, admin, none, set(&[P::ChannelView])),
             LevelRead::Custom
+        );
+        // The write bit of a calendar: members read only, or write.
+        assert_eq!(
+            level_of(
+                Kind::Calendar,
+                Target::Everyone,
+                none,
+                set(&[P::CalendarWrite])
+            ),
+            LevelRead::Level(Level::Read)
+        );
+        assert_eq!(
+            level_of(
+                Kind::Calendar,
+                Target::Everyone,
+                set(&[P::CalendarWrite]),
+                none
+            ),
+            LevelRead::Level(Level::Contribute)
+        );
+        assert_eq!(
+            level_of(
+                Kind::Calendar,
+                Target::Everyone,
+                set(&[P::CalendarView]),
+                set(&[P::CalendarWrite, P::CalendarManage])
+            ),
+            LevelRead::Level(Level::Read)
+        );
+        // Nothing stored is no rule, not "no access".
+        assert_eq!(
+            level_of(Kind::Channel, Target::Everyone, none, none),
+            LevelRead::NoRule
+        );
+        assert_eq!(
+            level_of(Kind::Calendar, Target::Everyone, none, none),
+            LevelRead::NoRule
         );
         // A group's rule is not masked.
         assert_eq!(
-            level_of(Kind::Channel, Target::Group, view, PermissionSet::EMPTY),
+            level_of(Kind::Channel, Target::Group, set(&[P::ChannelView]), none),
             LevelRead::Custom
+        );
+    }
+
+    #[test]
+    fn a_denied_view_reads_no_access_whatever_else_is_stored() {
+        for kind in KINDS {
+            let view = view_of(kind);
+            let all = level_sets(kind, Level::Manage);
+            assert_eq!(
+                level_of(
+                    kind,
+                    Target::Everyone,
+                    PermissionSet::EMPTY,
+                    PermissionSet::of(&[view])
+                ),
+                LevelRead::Level(Level::None)
+            );
+            assert_eq!(
+                level_of(
+                    kind,
+                    Target::Everyone,
+                    all.minus(PermissionSet::of(&[view])),
+                    all
+                ),
+                LevelRead::Level(Level::None)
+            );
+        }
+        let react = PermissionSet::of(&[P::MessageReact]);
+        let deny = level_sets(Kind::Channel, Level::Manage).minus(react);
+        assert!(deny.contains(P::ChannelView));
+        assert_eq!(
+            level_of(Kind::Channel, Target::Everyone, react, deny),
+            LevelRead::Level(Level::None)
         );
     }
 
