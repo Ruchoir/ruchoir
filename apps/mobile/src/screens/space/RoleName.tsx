@@ -2,7 +2,7 @@
  * The Nom tab of a role's editor (mockup frame 5, left): its name, its colour among the seven the
  * server accepts, and where rules still name it (shown once the server refused to delete it for that).
  */
-import type { UsedInRow } from "@ruchoir/client/permissionsLogic";
+import { ROLE_NAME_MAX, type UsedInRow } from "@ruchoir/client/permissionsLogic";
 import { Calendar, File, Hash } from "lucide-react-native";
 import { StyleSheet, View } from "react-native";
 
@@ -15,7 +15,7 @@ import { TextField } from "../../ui/TextField";
 import { RoleColours } from "./RoleColours";
 
 /** A role's name is 1 to 40 characters (the API's rule, the web's field). */
-export const NAME_MAX = 40;
+export const NAME_MAX = ROLE_NAME_MAX;
 
 const KIND_ICON = { channel: Hash, file: File, calendar: Calendar } as const;
 
@@ -44,7 +44,7 @@ export function RoleName({
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.box}>
-      <TextField label={t("files.name")} value={name} onChangeText={onName} editable={editable} maxLength={NAME_MAX} error={error} autoCapitalize="sentences" />
+      <TextField label={t("files.name")} value={name} onChangeText={onName} editable={editable} maxLength={NAME_MAX} showCount error={error} autoCapitalize="sentences" />
       <RoleColours colour={colour} editable={editable} onColour={onColour} />
       {usedIn ? (
         <View style={styles.used}>

@@ -44,3 +44,45 @@ test("a_waiting_prolong_link_waits_for_the_list_opens_a_known_space_and_is_dropp
   assert.deepEqual(prolongStep(spaces, "atelier"), { kind: "open", space: spaces[0] });
   assert.deepEqual(prolongStep(spaces, "other"), { kind: "drop" });
 });
+
+test("a_space_that_left_the_list_is_told_once_to_a_guest_and_to_a_removed_member_after_a_rights_event", async () => {
+  const { spaceEndings } = await import("../src/logic/guestNotices.ts");
+  const told = new Set<string>();
+  const before = [
+    { id: "a", name: "Atelier", role: "guest" },
+    { id: "b", name: "Studio", role: "member" },
+    { id: "c", name: "Reste", role: "member" },
+  ];
+  const after = [{ id: "c" }];
+  const ctx = { caused: new Set(["a", "b"]), muted: new Set<string>() };
+  assert.deepEqual(spaceEndings(before, after, told, ctx), [
+    { space: "Atelier", title: "guests.endedNotice", body: "guests.endedNoticeBody" },
+    { space: "Studio", title: "guests.leftNotice" },
+  ]);
+  assert.deepEqual(spaceEndings(before, after, told, ctx), []);
+});
+
+test("a_space_gone_without_a_rights_event_is_not_told", async () => {
+  const { spaceEndings } = await import("../src/logic/guestNotices.ts");
+  const before = [{ id: "a", name: "Atelier", role: "owner" }, { id: "c", name: "Reste", role: "member" }];
+  // Deleted by its owner, signed out, an instance switch, an empty list: nothing caused a notice.
+  assert.deepEqual(spaceEndings(before, [{ id: "c" }], new Set(), { caused: new Set(), muted: new Set() }), []);
+  assert.deepEqual(spaceEndings(before, [], new Set(), { caused: new Set(), muted: new Set() }), []);
+});
+
+test("a_space_this_phone_deleted_or_left_is_never_told_even_after_a_rights_event", async () => {
+  const { spaceEndings } = await import("../src/logic/guestNotices.ts");
+  const before = [{ id: "a", name: "Atelier", role: "owner" }];
+  const out = spaceEndings(before, [], new Set(), { caused: new Set(["a"]), muted: new Set(["a"]) });
+  assert.deepEqual(out, []);
+});
+
+test("an_event_is_a_cause_only_for_a_rights_change_or_a_removal", async () => {
+  const { endingCause } = await import("../src/logic/guestNotices.ts");
+  assert.equal(endingCause({ type: "permissions", spaceId: "s1" }), "s1");
+  assert.equal(endingCause({ type: "spaces", removed: { spaceId: "s2", reason: "removed" } }), "s2");
+  assert.equal(endingCause({ type: "spaces", removed: { spaceId: "s2", reason: "deleted" } }), null);
+  assert.equal(endingCause({ type: "spaces", removed: { spaceId: "s2", reason: "left" } }), null);
+  assert.equal(endingCause({ type: "spaces" }), null);
+  assert.equal(endingCause({ type: "files", spaceId: "s1" }), null);
+});

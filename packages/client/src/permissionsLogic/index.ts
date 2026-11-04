@@ -9,6 +9,7 @@ export {
   spaceGates,
   canGiveAdministrator,
 } from "./spaceGates.ts";
+export { channelGates, createGates, type LegacyChannelRules } from "./channelGates.ts";
 export {
   type RoleLike,
   FAMILIES,
@@ -25,6 +26,11 @@ export {
   type RoleRowState,
   roleRowState,
   holdsEverything,
+  ROLE_NAME_MAX,
+  charCount,
+  ROLE_COLOURS,
+  type RoleColourKey,
+  groupColour,
 } from "./roles.ts";
 export {
   PERMISSION_TEXT,
@@ -34,6 +40,7 @@ export {
   type GroupLike,
   foldName,
   GROUP_DESCRIPTION_MAX,
+  GROUP_NAME_MAX,
   sortGroups,
   rolesViaGroups,
   groupRow,
@@ -136,6 +143,7 @@ export {
   dateRefusal,
   dateBounds,
   daysLeft,
+  pickZone,
   expiryTone,
   showsEndDate,
   endLabel,
@@ -220,4 +228,6 @@ export {
   prepareGroupNames,
   matchGroupMention,
   matchMentionTarget,
+  offeredBroadcasts,
 } from "./mentions.ts";
+export { type AdminLicence, type LicenceRow, licenceRows, applyRights, applyChannelRights, spaceLicenceBanner, licenceDetail } from "./licences.ts";

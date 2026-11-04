@@ -9,6 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
+import { affects } from "../../realtime/events";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
@@ -43,7 +44,7 @@ export function FolderScreen() {
     toast(t("files.folderGone"));
     navigation.goBack();
   }, [gone, navigation, t, toast]);
-  useReloadOn((e) => e.type === "files", listing.reload);
+  useReloadOn((e) => e.type === "files" || (!!current && affects.files(e, current.id)), listing.reload);
   const entries = [...(listing.data?.entries ?? [])].sort(
     (a, b) => Number(b.kind === "folder") - Number(a.kind === "folder") || a.name.localeCompare(b.name),
   );

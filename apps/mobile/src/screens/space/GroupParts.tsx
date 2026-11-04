@@ -3,6 +3,7 @@
  * for the same group, the people icon on it) and the dashed tag the lists wear (Annuaire, Responsable).
  */
 import { Plus, Users, X } from "lucide-react-native";
+import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
@@ -53,7 +54,38 @@ export function GroupTag({ label }: { label: string }) {
  * A group as a pill (the member screen's list): it opens the group's editor when `onPress` is given,
  * and carries a small cross to take the person out of it when `onRemove` is (`removeLabel` names it).
  */
-export function GroupChip({ name, onPress, onRemove, removeLabel, disabled }: { name: string; onPress?: () => void; onRemove?: () => void; removeLabel?: string; disabled?: boolean }) {
+export function GroupChip({
+  name,
+  onPress,
+  onRemove,
+  removeLabel,
+  disabled,
+  guestsOnly,
+}: {
+  name: string;
+  onPress?: () => void;
+  onRemove?: () => void;
+  removeLabel?: string;
+  disabled?: boolean;
+  /** Every person in the group is a guest: the pill carries the "Invités" tag (the web's `MemberGroups`). */
+  guestsOnly?: boolean;
+}) {
+  const chip = <GroupChipBody name={name} onPress={onPress} onRemove={onRemove} removeLabel={removeLabel} disabled={disabled} />;
+  return guestsOnly ? <GuestsTagged>{chip}</GuestsTagged> : chip;
+}
+
+function GuestsTagged({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.tagged}>
+      {children}
+      <GroupTag label={t("guests.sectionTitle")} />
+    </View>
+  );
+}
+
+function GroupChipBody({ name, onPress, onRemove, removeLabel, disabled }: { name: string; onPress?: () => void; onRemove?: () => void; removeLabel?: string; disabled?: boolean }) {
   const { c } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const body = (
@@ -105,6 +137,7 @@ const makeStyles = styleCache((shape) =>
     chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, height: 26, borderRadius: 13, borderWidth: shape.hairline, alignSelf: "flex-start", maxWidth: "100%" },
     inner: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
     chipLabel: { flexShrink: 1 },
+    tagged: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", maxWidth: "100%" },
     tag: { borderWidth: shape.hairline, borderRadius: 9, paddingHorizontal: 6, paddingVertical: 1, alignSelf: "center" },
   }),
 );

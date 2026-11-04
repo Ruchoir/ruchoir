@@ -484,7 +484,7 @@ function usedKeys(files) {
       }
       // A key built from a template (`access.level.${kind}`): every key under its fixed head is asked for.
       for (const template of source.matchAll(/`([A-Za-z][\w]*(?:\.[A-Za-z]\w*)*\.)\$\{/g)) {
-        for (const key of webKeys()) if (key.startsWith(template[1])) record(key, template.index);
+        for (const key of webKeys()) if (key.startsWith(template[1])) record(pluralBase(key) ?? key, template.index);
       }
     }
     // `<Trans i18nKey={…}>` holds its key in an attribute, and sometimes chooses between two.

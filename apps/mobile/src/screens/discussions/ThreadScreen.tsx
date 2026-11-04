@@ -18,10 +18,12 @@ import { useMentionGroups } from "../../data/mentionGroups";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
+import { threadFooter } from "../../logic/threadCompose";
 import { affects } from "../../realtime/events";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
+import { useChannelGates } from "../../space/rights";
 import { useSpace } from "../../space/SpaceProvider";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
@@ -52,7 +54,10 @@ export function ThreadScreen() {
   const members = useSpaceMembers(current?.id);
   const mentionGroups = useMentionGroups(current?.id);
   const channels = useLoad(current ? `channels:${current.id}` : null, (signal) => getChannels(current!.id, signal));
-  useReloadOn((e) => !!current && affects.channels(e, current.id), channels.reload);
+  useReloadOn((e) => !!current && affects.channelRights(e, current.id), channels.reload);
+  const channel = channelId ? channels.data?.find((ch) => ch.id === channelId) : undefined;
+  const gates = useChannelGates(channel);
+  const footer = threadFooter({ signedIn: !!me, inChannel: !!channelId, channelsLoaded: !!channels.data, canSend: gates.send });
   const draftKey = `thread:${rootId}`;
   // "Also send to #general" under the field, where the instance can.
   const canAlso = useSupports("reply_to_channel");
@@ -166,13 +171,25 @@ export function ThreadScreen() {
                   }
                   onReact={(emoji) => react(conversationId, m, emoji)}
                   onAddReaction={() => navigation.navigate("emojiPicker", { conversationId, message: m })}
+                  reactable={gates.react}
                   highlighted={flash === m.id}
                 />
               );
             }}
           />
         )}
-        {me ? (
+        {footer === "waiting" ? (
+          // The channel's rights are not here yet: a gap of the note's height, neither note nor composer.
+          <View style={styles.readOnly} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <Text variant="small" tone="muted"> </Text>
+          </View>
+        ) : footer === "readOnly" ? (
+          <View style={styles.readOnly}>
+            <Text variant="small" tone="muted">
+              {t("compose.readOnly")}
+            </Text>
+          </View>
+        ) : footer === "composer" && me ? (
           <Composer
             key={edit.editing ? `edit:${edit.editing.id}` : draftKey}
             conversationId={conversationId}
@@ -184,14 +201,14 @@ export function ThreadScreen() {
             groups={mentionGroups}
             viewerRole={current?.role}
             channels={channels.data ?? []}
-            broadcasts={!!channelId}
+            broadcasts={!!channelId && gates.mentionAll}
             myUserId={me.id}
             baselineFor={outbox.baselineFor}
             typing={typing}
             editing={edit.editing}
             onSaveEdit={edit.save}
             onCancelEdit={edit.cancel}
-            onAttach={() => navigation.navigate("attachSheet", { draftKey })}
+            onAttach={gates.attach ? () => navigation.navigate("attachSheet", { draftKey }) : undefined}
             attachments={attachments}
           />
         ) : null}
@@ -204,6 +221,7 @@ const makeStyles = styleCache((shape) =>
   StyleSheet.create({
     fill: { flex: 1 },
     end: { height: 12 },
+    readOnly: { paddingHorizontal: 16, paddingVertical: 14 },
     count: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
     rule: { flex: 1, height: shape.hairline },
   }),

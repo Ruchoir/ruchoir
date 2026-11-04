@@ -133,7 +133,8 @@ export type MobileMessagesProps = {
   /** A space is loading: its conversations are not known yet, which is not the same as none. */
   loading?: boolean;
   onOpen: (id: string) => void;
-  onNew: () => void;
+  /** Absent when the person lacks `dm.start`: the empty state offers no button. */
+  onNew?: () => void;
 };
 
 /**
@@ -166,10 +167,12 @@ export function MobileMessages({ dms, loading = false, onOpen, onNew }: MobileMe
         title={t("switcher.empty")}
         description={t("mobile.noDmText")}
         action={
-          <button type="button" className="wc-btn wc-btn--md wc-btn--primary" onClick={onNew}>
-            <Icon name="square-pen" size={16} />
-            {t("sidebar.startConversation")}
-          </button>
+          onNew ? (
+            <button type="button" className="wc-btn wc-btn--md wc-btn--primary" onClick={onNew}>
+              <Icon name="square-pen" size={16} />
+              {t("sidebar.startConversation")}
+            </button>
+          ) : undefined
         }
         style={{ flex: 1 }}
       />

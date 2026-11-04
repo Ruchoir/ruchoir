@@ -9,7 +9,7 @@ import { StyleSheet } from "react-native";
 
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
-import { useSpace } from "../../space/SpaceProvider";
+import { useCreateGates } from "../../space/rights";
 import { useTheme } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Sheet } from "../../ui/Sheet";
@@ -19,8 +19,7 @@ export function NewMessageSheet() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c } = useTheme();
-  const { current } = useSpace();
-  const role = current?.role;
+  const create = useCreateGates();
   // The sheet goes away first, then the screen slides up in its place.
   const open = (screen: "newConversation" | "newGroup" | "invite") => {
     navigation.goBack();
@@ -31,6 +30,7 @@ export function NewMessageSheet() {
       <Text variant="heading" style={styles.title}>
         {t("newMessage.title")}
       </Text>
+      {create.dm ? (
       <ActionRow
         icon={SquarePen}
         tint={c.sky}
@@ -38,7 +38,8 @@ export function NewMessageSheet() {
         subtitle={t("newMessage.personHint")}
         onPress={() => open("newConversation")}
       />
-      {role !== "guest" ? (
+      ) : null}
+      {create.channel ? (
         <ActionRow
           icon={Users}
           tint={c.mint}
@@ -47,7 +48,7 @@ export function NewMessageSheet() {
           onPress={() => open("newGroup")}
         />
       ) : null}
-      {role === "owner" || role === "admin" ? (
+      {create.invite ? (
         <ActionRow
           icon={UserPlus}
           tint={c.pink}

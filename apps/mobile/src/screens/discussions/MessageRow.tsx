@@ -48,6 +48,8 @@ type Props = {
   /** A tap on a reaction pill, and on `+` beside them. */
   onReact?: (emoji: string) => void;
   onAddReaction?: () => void;
+  /** False when the person may not react here (`message.react`): the reactions already there stay, read only. */
+  reactable?: boolean;
   /** A tap on the line under a message with replies: its thread. Absent inside the thread itself. */
   onOpenThread?: () => void;
   /** Faces for the people who replied, by name. */
@@ -71,6 +73,7 @@ export const MessageRow = memo(function MessageRow({
   onLongPress,
   onReact,
   onAddReaction,
+  reactable = true,
   onOpenThread,
   avatarOf,
   highlighted,
@@ -209,11 +212,15 @@ export const MessageRow = memo(function MessageRow({
         {!m.deleted && m.reactions?.length && onReact && onAddReaction ? (
           <ReactionPills
             reactions={m.reactions}
-            onToggle={onReact}
-            onAdd={() => {
-              Keyboard.dismiss();
-              onAddReaction();
-            }}
+            onToggle={reactable ? onReact : undefined}
+            onAdd={
+              reactable
+                ? () => {
+                    Keyboard.dismiss();
+                    onAddReaction();
+                  }
+                : undefined
+            }
           />
         ) : null}
         {m.replies && onOpenThread ? <ReplyLine message={m} onPress={onOpenThread} avatarOf={avatarOf} /> : null}

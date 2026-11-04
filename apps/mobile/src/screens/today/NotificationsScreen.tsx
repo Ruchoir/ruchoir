@@ -24,7 +24,7 @@ import { key, useTranslation, type DictKey } from "../../i18n";
 import { useSharedT } from "../../i18n/sharedT";
 import { useLocale } from "../../i18n/useLocale";
 import { listStamp } from "../../logic/format";
-import { deviceZone, shortDay } from "../../logic/memberScreen";
+import { shortDay } from "../../logic/memberScreen";
 import { isGuestNotice, noticeData, offersProlong } from "../../logic/guestNotices";
 import { plainExcerpt } from "../../logic/inline";
 import { refusedBody, refusedSentence } from "../../logic/preview";
@@ -246,13 +246,13 @@ export function NotificationsScreen() {
   };
 
   const detail = (n: ApiNotification) =>
-    guestNoticeDetail(n, (iso) => shortDay(iso, locale, deviceZone(), new Date(now)), (which, vars) => say(DETAIL[which], vars));
+    guestNoticeDetail(n, (iso) => shortDay(iso, locale, timeZone, new Date(now)), (which, vars) => say(DETAIL[which], vars));
 
   const headline = (n: ApiNotification) => {
     const title = n.reminder?.title ?? n.calendarName ?? "";
     const notice = guestNoticeSummary(n, locale, (which, vars) => say(SAID[which === "soon" ? "guest_expiry_soon" : "guest_access_ending"], vars), {
       now: new Date(now),
-      zone: deviceZone(),
+      zone: timeZone,
     });
     if (notice !== null) return notice;
     switch (n.kind) {

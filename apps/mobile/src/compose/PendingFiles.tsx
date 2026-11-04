@@ -16,13 +16,14 @@ import type { Attachments } from "./useAttachments";
  * upload is (a bar along the bottom), and a cross to take it out. A failed one says so and retries
  * on a tap.
  */
-export function PendingFiles({ attachments }: { attachments: Attachments }) {
+export function PendingFiles({ attachments, blocked = false }: { attachments: Attachments; blocked?: boolean }) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { locale } = useLocale();
   if (attachments.files.length === 0) return null;
   return (
+    <>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll} contentContainerStyle={styles.row}>
       {attachments.files.map((f) => {
         const failed = f.state === "failed";
@@ -40,7 +41,7 @@ export function PendingFiles({ attachments }: { attachments: Attachments }) {
             disabled={!failed || f.tooLarge}
             onPress={() => attachments.retry(f.key)}
             accessibilityLabel={`${f.name}, ${line}`}
-            style={[styles.chip, { borderColor: failed ? s.danger : c.line, backgroundColor: c.surface }]}
+            style={[styles.chip, { borderColor: failed || blocked ? s.danger : c.line, backgroundColor: c.surface }, blocked && styles.dim]}
           >
             {f.uri && f.mime.startsWith("image/") ? (
               <Image source={{ uri: f.uri }} style={styles.thumb} contentFit="cover" />
@@ -76,12 +77,20 @@ export function PendingFiles({ attachments }: { attachments: Attachments }) {
         );
       })}
     </ScrollView>
+    {blocked ? (
+      <Text variant="small" tone="danger" style={styles.blocked}>
+        {t("attach.blocked")}
+      </Text>
+    ) : null}
+    </>
   );
 }
 
 const makeStyles = styleCache((shape) =>
   StyleSheet.create({
     scroll: { flexGrow: 0 },
+    blocked: { paddingHorizontal: 16, paddingTop: 6 },
+    dim: { opacity: 0.6 },
     row: { gap: 8, paddingHorizontal: 16, paddingTop: 8 },
     chip: {
       flexDirection: "row",

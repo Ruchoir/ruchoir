@@ -18,6 +18,7 @@ import { useRealtimeEvent } from "../../realtime/RealtimeProvider";
 import { listStamp } from "../../logic/format";
 import type { RootParams, TabParams } from "../../navigation/types";
 import { fonts } from "../../theme/fonts";
+import { useCreateGates } from "../../space/rights";
 import { useSpace } from "../../space/SpaceProvider";
 import { lift } from "../../theme/lift";
 import { styleCache } from "../../theme/themedStyles";
@@ -61,6 +62,9 @@ export function DiscussionsScreen() {
   const { c, s, shape } = theme;
   const styles = useThemedStyles(makeStyles);
   const navigation = useNavigation();
+  const create = useCreateGates();
+  // The sheet offers a message, a group and an invitation, each on its own right: with none, there is nothing to open.
+  const canStart = create.dm || create.channel || create.invite;
   const tablet = useTabletLayout();
   const wide = tablet !== null;
   const { current } = useSpace();
@@ -149,6 +153,7 @@ export function DiscussionsScreen() {
             <Text style={[styles.wideTitle, { color: c.ink }]}>{t("tabs.discussions")}</Text>
             <SpaceSwitch />
           </View>
+          {canStart ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("newMessage.title")}
@@ -157,6 +162,7 @@ export function DiscussionsScreen() {
           >
             <SquarePen size={20} color={c.ink} />
           </Pressable>
+          ) : null}
         </View>
       ) : (
         <TabHeader title={t("tabs.discussions")} />
@@ -206,7 +212,7 @@ export function DiscussionsScreen() {
         // Room under the last row for the floating button.
         contentContainerStyle={[styles.list, wide && styles.listWide]}
       />
-      {wide ? null : (
+      {wide || !canStart ? null : (
         <FloatingButton compact={floating.compact} icon={SquarePen} label={t("newMessage.title")} onPress={() => navigation.navigate("newMessage")} />
       )}
     </TabScreen>

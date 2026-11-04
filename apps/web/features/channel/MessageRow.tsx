@@ -37,6 +37,8 @@ export type MessageActions = {
   onOpenProfile: () => void;
   onEditProfile: () => void;
   onMessage: () => void;
+  /** Whether the card of this person offers "Message" (`dm.start`, or a conversation already there). */
+  canMessage: (name: string) => boolean;
   /** Open the full profile of a user @-mentioned in the body, from the card a mention opens. */
   onOpenMention: (name: string) => void;
   /** Write to a user @-mentioned in the body, from the card a mention opens. */
@@ -291,6 +293,8 @@ export type MessageRowProps = {
    * outside the channel, so none of it is offered.
    */
   readOnly?: boolean;
+  /** Whether the person may react here (`message.react`); reactions already on the message stay visible. */
+  canReact?: boolean;
 };
 
 const avatarBtn: CSSProperties = {
@@ -328,6 +332,7 @@ export function MessageRow({
   inThread = false,
   replyFaces,
   readOnly = false,
+  canReact = true,
 }: MessageRowProps) {
   const { t } = useTranslation();
   // API rows carry the complete arrays. The singular fields remain compatibility aliases for old
@@ -484,7 +489,7 @@ export function MessageRow({
         </button>
       )}
       <Popover anchorRef={avatarRef} open={profileOpen} onClose={() => setProfileOpen(false)} placement="bottom" align="start">
-        <UserProfileCard name={m.author} userId={m.authorId} presence={authorPresence} onViewFull={openProfileFromCard} onEditProfile={editProfileFromCard} onMessage={messageFromCard} />
+        <UserProfileCard name={m.author} userId={m.authorId} presence={authorPresence} onViewFull={openProfileFromCard} onEditProfile={editProfileFromCard} onMessage={actions.canMessage(m.author) ? messageFromCard : undefined} />
       </Popover>
       <Popover
         anchorRef={mentionRef}
@@ -507,10 +512,14 @@ export function MessageRow({
               setMention(null);
               actions.onEditMentionProfile(mention);
             }}
-            onMessage={() => {
-              setMention(null);
-              actions.onMessageMention(mention);
-            }}
+            onMessage={
+              actions.canMessage(mention)
+                ? () => {
+                    setMention(null);
+                    actions.onMessageMention(mention);
+                  }
+                : undefined
+            }
           />
         ) : null}
       </Popover>
@@ -608,10 +617,10 @@ export function MessageRow({
                     mine={r.mine}
                     users={r.users}
                     style={reactionPill(r.mine)}
-                    onClick={readOnly ? undefined : () => actions.onReact(r.emoji)}
+                    onClick={readOnly || !canReact ? undefined : () => actions.onReact(r.emoji)}
                   />
                 ))}
-                {readOnly ? null : <ReactionMenu variant="pill" onPick={actions.onReact} />}
+                {readOnly || !canReact ? null : <ReactionMenu variant="pill" onPick={actions.onReact} />}
               </div>
             ) : null}
 
@@ -682,7 +691,7 @@ export function MessageRow({
         // A line continuing a block has no such room: raised, the bar covered the end of the line
         // above, which belongs to another message, so it stays on the row's own first line instead.
         <div style={{ ...styles.actions, top: grouped ? 2 : -14 }}>
-          <ReactionMenu variant="action" onPick={actions.onReact} onOpenChange={setReactOpen} />
+          {canReact ? <ReactionMenu variant="action" onPick={actions.onReact} onOpenChange={setReactOpen} /> : null}
           {inThread ? null : (
             <Tooltip label={t("message.replyInThread")} side="top">
               <IconButton icon="message-square" label={t("message.replyInThread")} size="sm" onClick={actions.onOpenThread} />
@@ -731,7 +740,7 @@ export function MessageRow({
           canPin={canPin}
           inThread={inThread}
           hasReactions={!!m.reactions?.length}
-          onReact={actions.onReact}
+          onReact={canReact ? actions.onReact : undefined}
           onOpenThread={actions.onOpenThread}
           onToggleSave={actions.onToggleSave}
           onEdit={actions.onEdit}

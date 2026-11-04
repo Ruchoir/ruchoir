@@ -6,7 +6,7 @@ import type { Workspace } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
-import { Hash, LogOut, Server, Trash2 } from "lucide-react-native";
+import { ArrowUpDown, Hash, LogOut, Server, Trash2 } from "lucide-react-native";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,7 +16,8 @@ import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
 import { memberDoors } from "../../logic/sectionGuard";
-import { canAdminister, canDeleteSpace, canEditIdentity } from "../../logic/spaceRoles";
+import { channelOrderDoor } from "../../logic/channelOrder";
+import { legacyDoors } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
 import { affects } from "../../realtime/events";
 import { useSession } from "../../session/SessionProvider";
@@ -59,9 +60,10 @@ function General({ space }: { space: Workspace }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { spaces } = useSpace();
   const leave = useLeaveSpace();
-  const owner = canEditIdentity(space.role);
+  const owner = legacyDoors(space.role).identity;
   const { supported, gates } = useRights();
-  const canDefault = memberDoors(supported, gates, canAdminister(space.role)).defaultChannel;
+  const canDefault = memberDoors(supported, gates, legacyDoors(space.role).defaultChannel).defaultChannel;
+  const canOrder = channelOrderDoor(supported, gates, legacyDoors(space.role).channelOrder);
   const [name, setName] = useState(space.name);
   const [saving, setSaving] = useState(false);
   const [iconBusy, setIconBusy] = useState(false);
@@ -158,11 +160,20 @@ function General({ space }: { space: Workspace }) {
             onPress={() => navigation.navigate("spaceDefaultChannel")}
           />
         ) : null}
+        {canOrder ? (
+          <ActionRow
+            icon={ArrowUpDown}
+            tint={c.mint}
+            title={t("spaceAdmin.channelOrder")}
+            subtitle={t("spaceAdmin.channelOrderRow")}
+            onPress={() => navigation.navigate("spaceChannelOrder")}
+          />
+        ) : null}
       </Section>
 
       <Section label={t("spaceAdmin.danger")}>
         <ActionRow icon={LogOut} title={t("spaceAdmin.leave")} subtitle={t("spaceAdmin.leaveHint")} danger onPress={() => leave(space)} />
-        {canDeleteSpace(space.role) ? (
+        {legacyDoors(space.role).deleteSpace ? (
           <ActionRow
             icon={Trash2}
             title={t("spaceAdmin.delete")}

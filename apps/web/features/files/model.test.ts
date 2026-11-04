@@ -6,6 +6,7 @@ import {
   middleTruncate,
   rangeBetween,
   sortEntries,
+  withLiveFields,
   type Entry,
 } from "./model.ts";
 
@@ -69,4 +70,12 @@ test("middle truncation keeps the extension", () => {
   const out = middleTruncate("Rapprochement bancaire de mars.csv", 22);
   assert.ok(out.endsWith("….csv"));
   assert.ok(out.length <= 22);
+});
+
+test("a_silent_refresh_keeps_who_is_editing_what_the_listing_does_not_carry", () => {
+  const prev = [{ id: "a", editors: ["Bob"] }, { id: "b", editors: undefined }];
+  const fresh = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  assert.deepEqual(withLiveFields(prev, fresh), [{ id: "a", editors: ["Bob"] }, { id: "b" }, { id: "c" }]);
+  // The server's own word wins when it has one.
+  assert.deepEqual(withLiveFields([{ id: "a", editors: ["Bob"] }], [{ id: "a", editors: [] }]), [{ id: "a", editors: [] }]);
 });

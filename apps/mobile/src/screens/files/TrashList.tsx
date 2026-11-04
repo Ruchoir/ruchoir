@@ -5,9 +5,12 @@ import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
+import { affects } from "../../realtime/events";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
+import { useRights } from "../../space/rights";
 import { useSpace } from "../../space/SpaceProvider";
+import { legacyDoors } from "../../logic/spaceRoles";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
@@ -34,8 +37,10 @@ export function TrashList() {
   const space = current?.id;
   const trash = useLoad(space ? `trash:${space}` : null, (signal) => getTrash(space!, signal));
   const caps = useLoad("capabilities", (signal) => getInstanceCapabilities(signal));
-  useReloadOn((e) => e.type === "files" && e.spaceId === space, trash.reload);
-  const admin = current?.role === "owner" || current?.role === "admin";
+  useReloadOn((e) => !!space && affects.files(e, space), trash.reload);
+  // Emptying the trash is `files.trash.purge`; an older instance leaves it to the owner and the administrators.
+  const { supported, rights } = useRights();
+  const admin = supported ? rights.includes("files.trash.purge") : legacyDoors(current?.role).trashPurge;
   const when = (iso: string) => new Intl.DateTimeFormat(locale, { timeZone, day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
   const restore = (entry: TrashEntry) =>

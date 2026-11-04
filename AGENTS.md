@@ -348,6 +348,18 @@ What cost time while integrating Euro-Office (2026-10-01), so it is not paid twi
 - An expired session keeps the opened copies and their watches; only a sign-out or a removal of the
   instance deletes them (`SessionEnd` in the desktop core).
 
+### Permissions in the clients
+
+- **Gate by permissions, never by role strings** (web and apps). A button, a menu entry or a composer
+  is shown on `rightsOf(space)` / `spaceGates` for the space and `channelGates(channel, space, supported)`
+  for a channel (its `myPermissions`: send, react, attach, pin, moderate, manage, members), all in
+  `packages/client/src/permissionsLogic`. `createGates` does the same for "new channel", "new message",
+  "new calendar". The role is only the fallback of an instance that does not announce the `permissions`
+  feature, and lives inside those functions. A write the person's rights refuse is hidden, or the
+  composer gives way to a read-only note. The phone's `test/noRoleGates.test.ts` enforces it. What each
+  app did before the permissions (who pins, who deletes another person's message) is passed to
+  `channelGates` as its own explicit legacy rules, never a shared guess.
+
 ## Design system
 
 The product is drawn with the Ruchoir design system, the same one as the public site (redesign of

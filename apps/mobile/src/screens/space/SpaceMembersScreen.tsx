@@ -19,7 +19,6 @@ import { useReloadOn } from "../../data/useReloadOn";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import {
-  deviceZone,
   endedRowText,
   filterCounts,
   filterPeople,
@@ -31,7 +30,7 @@ import {
   type PeopleFilter,
 } from "../../logic/memberScreen";
 import { refusalSaid } from "../../logic/refusals";
-import { canAdminister, matchesMember, memberCounts } from "../../logic/spaceRoles";
+import { legacyDoors, matchesMember, memberCounts } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
 import { affects } from "../../realtime/events";
 import { useSession } from "../../session/SessionProvider";
@@ -129,7 +128,7 @@ function Members({ space }: { space: Workspace }) {
         .filter(Boolean)
         .join(" · ")
     : "";
-  const mayInvite = memberDoors(supported, gates, canAdminister(space.role)).invite;
+  const mayInvite = memberDoors(supported, gates, legacyDoors(space.role).invite).invite;
   const shown = list ? filterPeople(list, filter).filter((m) => matchesMember(m, query)) : [];
 
   return (
@@ -195,7 +194,7 @@ function PersonRow({ member: m, me, space, roles, groups, supported, manages }: 
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { locale } = useLocale();
+  const { locale, timeZone: zone } = useLocale();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const mine = m.userId === me;
   // An older server says nothing of `manageable`: the legacy ranks decide who opens.
@@ -215,7 +214,6 @@ function PersonRow({ member: m, me, space, roles, groups, supported, manages }: 
     }
   }
   const noRole = supported && !m.bot && m.role === "member" && held.length === 0;
-  const zone = deviceZone();
   const open = access === "open" ? () => navigation.navigate("spaceMember", { userId: m.userId }) : undefined;
   return (
     <Pressable
@@ -276,12 +274,11 @@ function EndedBlock({ space, items, onChanged, onFailed }: { space: Workspace; i
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { locale } = useLocale();
+  const { locale, timeZone: zone } = useLocale();
   const toast = useToast();
   const [reviving, setReviving] = useState<{ userId: string; choice: EndChoice } | null>(null);
   const [busy, setBusy] = useState(false);
   const now = new Date();
-  const zone = deviceZone();
 
   const revive = async (userId: string, choice: EndChoice) => {
     setBusy(true);

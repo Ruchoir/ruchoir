@@ -72,3 +72,12 @@ export function middleTruncate(name: string, max: number): string {
   const keep = Math.max(4, max - ext.length - 1);
   return `${base.slice(0, keep)}…${ext}`;
 }
+
+/**
+ * A listing read again in the background, with what only the live events know kept from the one
+ * on screen (who is editing which file): the rights moved, the rows stay as they were.
+ */
+export function withLiveFields<T extends { id?: string; editors?: unknown }>(prev: T[], fresh: T[]): T[] {
+  const live = new Map(prev.filter((f) => f.id && f.editors !== undefined).map((f) => [f.id, f.editors] as const));
+  return fresh.map((f) => (f.editors === undefined && f.id && live.has(f.id) ? { ...f, editors: live.get(f.id) } : f));
+}

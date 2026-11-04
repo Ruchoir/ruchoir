@@ -8,6 +8,7 @@ import { useTranslation } from "@/lib/i18n";
 import { formatDate, formatUtcDate } from "@/lib/i18n/format";
 import type { Toast } from "../app/types";
 import { daysLeftBanner } from "./auditLogic";
+import { displayZone } from "./guestLogic";
 import { refusalMessage } from "./roleChips";
 
 const st: Record<string, CSSProperties> = {
@@ -47,7 +48,7 @@ export function LicenceSettings({ spaceId, spaceName, edition, licence, pricingU
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const banner = daysLeftBanner(licence, edition);
+  const banner = daysLeftBanner(licence, edition, new Date(), displayZone());
 
   useEffect(() => {
     let active = true;

@@ -39,7 +39,8 @@ test("space_and_channel_changes_are_relayed", () => {
     { type: "channels", spaceId: "s1", channelId: "c1" },
     { type: "channels", spaceId: "s1", channelId: "c1", deleted: true },
     { type: "spaces" },
-    { type: "spaces" },
+    // The reason travels so a screen can tell a removal from a deletion or a departure.
+    { type: "spaces", removed: { spaceId: "s1", reason: "left" } },
   ]);
   assert.equal(reconnects(), 1);
 });
@@ -137,4 +138,37 @@ test("a_change_of_permissions_is_relayed_and_only_for_its_space", () => {
   assert.equal(affects.permissions(out[0], "s1"), true);
   assert.equal(affects.permissions(out[0], "s2"), false);
   assert.equal(affects.permissions({ type: "spaces" }, "s1"), false);
+});
+
+test("a_change_of_rights_reloads_the_lists_that_depend_on_them", () => {
+  const rights: RealtimeEvent = { type: "permissions", spaceId: "s1" };
+  const other: RealtimeEvent = { type: "permissions", spaceId: "s2" };
+  // The channels' own lists of rights ride on the conversations, and files and calendars carry markers of their own.
+  assert.ok(affects.conversations(rights, "s1"));
+  assert.ok(!affects.conversations(other, "s1"));
+  assert.ok(affects.files(rights, "s1"));
+  assert.ok(!affects.files(other, "s1"));
+  assert.ok(affects.files({ type: "files", spaceId: "s1" }, "s1"));
+  assert.ok(affects.calendars(rights, "s1"));
+  assert.ok(!affects.calendars(other, "s1"));
+  assert.ok(affects.calendars({ type: "calendar" }, "s1"));
+});
+
+test("an_open_conversation_reloads_its_channels_on_a_rights_change_too", () => {
+  const perm: RealtimeEvent = { type: "permissions", spaceId: "s1" };
+  assert.equal(affects.channelRights(perm, "s1"), true);
+  assert.equal(affects.channelRights(perm, "s2"), false);
+  assert.equal(affects.channelRights({ type: "channels", spaceId: "s1" }, "s1"), true);
+  assert.equal(affects.channelRights({ type: "calendar" }, "s1"), false);
+  // The plain list of channels keeps its meaning.
+  assert.equal(affects.channels(perm, "s1"), false);
+});
+
+test("calendars_reload_on_a_rights_change_of_the_current_space_only", () => {
+  const rights: RealtimeEvent = { type: "permissions", spaceId: "s2" };
+  assert.equal(affects.calendars(rights, "s2"), true);
+  assert.equal(affects.calendars(rights, "s1"), false);
+  // No space known: a rights change of some other space is none of this screen's business.
+  assert.equal(affects.calendars(rights, undefined), false);
+  assert.equal(affects.calendars({ type: "calendar" }, undefined), true);
 });

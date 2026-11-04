@@ -8,6 +8,7 @@ import type { Channel } from "@/lib/data";
 import type { Group, Role, SpaceEdition, SpaceLicence } from "@/lib/data/types";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { displayZone } from "./guestLogic";
 import { formatUtcDate } from "@/lib/i18n/format";
 import { BackHeading } from "../app/BackHeading";
 import { MembersSettings, type SettingsMember } from "./MembersSettings";
@@ -17,6 +18,7 @@ import { RolesSettings } from "./RolesSettings";
 import { GroupsSettings } from "./GroupsSettings";
 import { AuditSettings } from "./AuditSettings";
 import { LicenceSettings } from "./LicenceSettings";
+import { spaceLicenceBanner } from "@ruchoir/client/permissionsLogic";
 
 type NavKey = "general" | "members" | "roles" | "groups" | "audit" | "licence";
 
@@ -278,6 +280,9 @@ export function WorkspaceSettings({
 }: WorkspaceSettingsProps) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<NavKey>(prolongGuestId ? "members" : "general");
+  // The last 30 days of the licence, said to its owner in every section (the frozen state has its own banner above).
+  const licenceNote = spaceLicenceBanner({ role: canManageLicence ? "owner" : "member", edition, licence }, new Date(), displayZone());
+  const endsBanner = licenceNote?.kind === "ends" ? licenceNote : null;
   // A group opened from elsewhere (a role's people): the Groupes tab shows it straight away.
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   // "Droits des invités": the guests' role opened in the Rôles tab (licensed), or the read-only summary (community).
@@ -400,6 +405,12 @@ export function WorkspaceSettings({
             <b>{frozenSince ? t("roles.frozenBannerSince", { date: formatUtcDate(frozenSince) }) : t("roles.frozenBanner")}</b>{" "}
             {t("roles.frozenBannerRest", { owners: ownerNames.join(", "), count: ownerNames.length })}
           </span>
+        </div>
+      ) : null}
+      {tab !== "licence" && endsBanner ? (
+        <div role="status" style={{ ...st.banner, background: endsBanner.tone === "danger" ? "var(--peach)" : "var(--sun)" }}>
+          <Icon name="clock" size={15} style={{ flex: "none", marginTop: 1 }} />
+          <span>{t("licence.endsIn", { count: endsBanner.days })}</span>
         </div>
       ) : null}
       <div style={compact ? { ...st.body, flexDirection: "column" } : st.body}>

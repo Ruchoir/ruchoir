@@ -13,7 +13,7 @@ import { useLocale } from "../i18n/useLocale";
 import { joinClosed, tidyPeriods, whenLabel } from "@ruchoir/client/permissionsLogic";
 import { useNow } from "../data/useNow";
 import { guestBannerFor } from "../logic/guestNotices";
-import { deviceZone, shortDay } from "../logic/memberScreen";
+import { shortDay } from "../logic/memberScreen";
 import { useSpace } from "../space/SpaceProvider";
 import { styleCache } from "../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../theme/useTheme";
@@ -22,8 +22,7 @@ import { Text } from "./Text";
 function useGuestBanner() {
   const { current } = useSpace();
   const now = useNow();
-  const { locale } = useLocale();
-  const zone = deviceZone();
+  const { locale, timeZone: zone } = useLocale();
   const at = new Date(now);
   const state = guestBannerFor(current, at, zone);
   return state && current ? { state, space: current.name, date: shortDay(state.until, locale, zone, at), locale } : null;

@@ -725,6 +725,7 @@
     "broadcastHere": "Powiadamia tylko osoby połączone",
     "archived": "Ten kanał jest zarchiwizowany: nie można już w nim pisać.",
     "notMember": "Dołącz do kanału, aby w nim pisać.",
+    "readOnly": "Możesz czytać ten kanał, ale nie możesz w nim pisać.",
     "join": "Dołącz",
     "joinFailed": "Nie udało się teraz dołączyć do kanału.",
     "editFailed": "Nie zapisano zmiany",
@@ -751,6 +752,7 @@
     "symbols": "Symbole"
   },
   "attach": {
+    "blocked": "Nie można już tutaj załączać plików: pozostaną w wersji roboczej, ale nie zostaną wysłane.",
     "gallery": "Zdjęcie lub film",
     "galleryHint": "Z galerii",
     "camera": "Zrób zdjęcie",
@@ -1220,11 +1222,17 @@
     "addressFollowsName": "Adres przestrzeni będzie podążał za nazwą. Stare adresy nadal działają.",
     "ownerOnly": "Tylko właściciel przestrzeni może zmienić jej nazwę i ikonę.",
     "serverAddress": "Adres serwera",
-    "defaultChannel": "Kanał domyślny",
+    "defaultChannel": "Kanał powitalny",
     "defaultChannelHint": "Nowe osoby najpierw dołączają do tego kanału.",
     "defaultChannelNone": "Brak",
-    "defaultChannelUpdated": "Zaktualizowano kanał domyślny",
-    "defaultChannelFailed": "Nie zapisano kanału domyślnego",
+    "defaultChannelUpdated": "Kanał powitalny zaktualizowany",
+    "defaultChannelFailed": "Nie zapisano kanału powitalnego",
+    "channelOrder": "Kolejność kanałów",
+    "channelOrderRow": "Przesuń kanał w górę lub w dół",
+    "channelOrderHint": "Przesuwaj kanał strzałkami w górę lub w dół. Nowa kolejność jest widoczna dla wszystkich w przestrzeni.",
+    "channelOrderFailed": "Nie zapisano kolejności",
+    "channelMoveUp": "Przesuń {{channel}} w górę",
+    "channelMoveDown": "Przesuń {{channel}} w dół",
     "danger": "Strefa zagrożenia",
     "delete": "Usuń przestrzeń",
     "deleteHint": "Usuwa przestrzeń i wszystko, co zawiera, dla wszystkich jej członków.",
@@ -1424,7 +1432,22 @@
     "webPushOn": "Powiadomienia push włączone",
     "webPushOff": "Powiadomienia push wyłączone",
     "hint": "Ustawienia instancji, dostęp do kont",
-    "issueConfirm": "Wystawić link do resetowania hasła dla {{name}}?"
+    "issueConfirm": "Wystawić link do resetowania hasła dla {{name}}?",
+    "licencesTitle": "Licencje przestrzeni",
+    "licencesIntro": "Licencje zainstalowane w tej instancji, od kończącej się najwcześniej. Tylko do odczytu: osoba będąca właścicielem przestrzeni instaluje i usuwa jej licencję w ustawieniach tej przestrzeni.",
+    "licencesEmpty": "Żadna przestrzeń nie ma zainstalowanej licencji.",
+    "licenceFrozen": "Zamrożona",
+    "licenceUnreadable": "Nieczytelna",
+    "licenceSeats_one": "{{used}} z {{count}} miejsca",
+    "licenceSeats_few": "{{used}} z {{count}} miejsc",
+    "licenceSeats_many": "{{used}} z {{count}} miejsc",
+    "licenceSeats_other": "{{used}} z {{count}} miejsca",
+    "licenceDaysLeft_one": "został {{count}} dzień",
+    "licenceDaysLeft_few": "zostały {{count}} dni",
+    "licenceDaysLeft_many": "zostało {{count}} dni",
+    "licenceDaysLeft_other": "zostało {{count}} dnia",
+    "licenceLastDay": "ostatni dzień",
+    "licenceExpiredOn": "Wygasła {{date}}"
   },
   "access": {
     "readOnly": {
@@ -1654,7 +1677,8 @@
       "notText": "Ten plik nie jest tekstem: licencja to jedna linia tekstu.",
       "unreadable": "Nie udało się odczytać tego pliku. Spróbuj ponownie lub wklej tekst licencji."
     },
-    "active": "Aktywna"
+    "active": "Aktywna",
+    "frozenBanner": "Licencja tej przestrzeni wygasła: istniejące role nadal obowiązują, ale nie można ich już zmieniać. Zainstaluj nową licencję w sekcji Licencja."
   },
   "groups": {
     "noSelfRole": "Nikt nie nadaje sobie roli, także przez grupę: nie możesz zmieniać ról grupy, do której należysz.",
@@ -1903,7 +1927,10 @@
         "removed": "Baza: rola bazowa przestrzeni odbiera {{person}} uprawnienie {{permission}}."
       },
       "role": {
-        "granted": "Rola: {{permission}} pochodzi z roli {{role}}.",
+        "granted_one": "Rola: {{permission}} pochodzi z roli {{role}}.",
+        "granted_few": "Rola: {{permission}} pochodzą z roli {{role}}.",
+        "granted_many": "Rola: {{permission}} pochodzą z roli {{role}}.",
+        "granted_other": "Rola: {{permission}} pochodzą z roli {{role}}.",
         "removed": "Rola: rola {{role}} odbiera {{permission}}."
       },
       "rule": {
@@ -1912,43 +1939,100 @@
       },
       "private_lock": {
         "granted": "Blokada prywatna: {{target}} otwiera ten kanał prywatny ({{permission}}).",
-        "removed": "Blokada prywatna: kanał jest prywatny, {{person}} traci {{permission}}, dopóki reguła go nie otworzy."
+        "removed_one": "Blokada prywatna: kanał jest prywatny, {{person}} traci {{permission}}, dopóki reguła go nie otworzy.",
+        "removed_few": "Blokada prywatna: kanał jest prywatny, {{person}} traci {{permission}}, dopóki reguła go nie otworzy.",
+        "removed_many": "Blokada prywatna: kanał jest prywatny, {{person}} traci {{permission}}, dopóki reguła go nie otworzy.",
+        "removed_other": "Blokada prywatna: kanał jest prywatny, {{person}} traci {{permission}}, dopóki reguła go nie otworzy."
       },
       "guest_ceiling": {
-        "granted": "Limit gości: gość może zachować {{permission}}.",
-        "removed": "Limit gości: {{person}} ma status gościa, a {{permission}} to więcej, niż może mieć gość."
+        "granted_one": "Limit gości: gość może zachować {{permission}}.",
+        "granted_few": "Limit gości: gość może zachować {{permission}}.",
+        "granted_many": "Limit gości: gość może zachować {{permission}}.",
+        "granted_other": "Limit gości: gość może zachować {{permission}}.",
+        "removed_one": "Limit gości: {{person}} ma status gościa, a {{permission}} to więcej, niż może mieć gość.",
+        "removed_few": "Limit gości: {{person}} ma status gościa, a {{permission}} to więcej, niż może mieć gość.",
+        "removed_many": "Limit gości: {{person}} ma status gościa, a {{permission}} to więcej, niż może mieć gość.",
+        "removed_other": "Limit gości: {{person}} ma status gościa, a {{permission}} to więcej, niż może mieć gość."
       },
       "owner": {
-        "granted": "Właściciel: {{person}} jest właścicielem przestrzeni, więc {{permission}} jest nadane.",
-        "removed": "Właściciel: {{permission}} jest odebrane mimo własności."
+        "granted_one": "Właściciel: {{person}} jest właścicielem przestrzeni, więc {{permission}} jest nadane.",
+        "granted_few": "Właściciel: {{person}} jest właścicielem przestrzeni, więc {{permission}} są nadane.",
+        "granted_many": "Właściciel: {{person}} jest właścicielem przestrzeni, więc {{permission}} są nadane.",
+        "granted_other": "Właściciel: {{person}} jest właścicielem przestrzeni, więc {{permission}} są nadane.",
+        "removed_one": "Właściciel: {{permission}} jest odebrane mimo własności.",
+        "removed_few": "Właściciel: {{permission}} są odebrane mimo własności.",
+        "removed_many": "Właściciel: {{permission}} są odebrane mimo własności.",
+        "removed_other": "Właściciel: {{permission}} są odebrane mimo własności."
       },
       "author": {
-        "granted": "Autorstwo: element utworzony przez {{person}}, więc {{permission}} jest nadane.",
-        "removed": "Autor: {{permission}} jest odebrane mimo utworzenia elementu."
+        "granted_one": "Autorstwo: element utworzony przez {{person}}, więc {{permission}} jest nadane.",
+        "granted_few": "Autorstwo: element utworzony przez {{person}}, więc {{permission}} są nadane.",
+        "granted_many": "Autorstwo: element utworzony przez {{person}}, więc {{permission}} są nadane.",
+        "granted_other": "Autorstwo: element utworzony przez {{person}}, więc {{permission}} są nadane.",
+        "removed_one": "Autor: {{permission}} jest odebrane mimo utworzenia elementu.",
+        "removed_few": "Autor: {{permission}} są odebrane mimo utworzenia elementu.",
+        "removed_many": "Autor: {{permission}} są odebrane mimo utworzenia elementu.",
+        "removed_other": "Autor: {{permission}} są odebrane mimo utworzenia elementu."
       },
       "archived": {
-        "granted": "Zarchiwizowane: {{permission}} pozostaje nadane mimo archiwizacji.",
-        "removed": "Zarchiwizowane: element jest zarchiwizowany lub w koszu, więc {{permission}} jest odebrane."
+        "granted_one": "Zarchiwizowane: {{permission}} pozostaje nadane mimo archiwizacji.",
+        "granted_few": "Zarchiwizowane: {{permission}} pozostają nadane mimo archiwizacji.",
+        "granted_many": "Zarchiwizowane: {{permission}} pozostają nadane mimo archiwizacji.",
+        "granted_other": "Zarchiwizowane: {{permission}} pozostają nadane mimo archiwizacji.",
+        "removed_one": "Zarchiwizowane: element jest zarchiwizowany lub w koszu, więc {{permission}} jest odebrane.",
+        "removed_few": "Zarchiwizowane: element jest zarchiwizowany lub w koszu, więc {{permission}} są odebrane.",
+        "removed_many": "Zarchiwizowane: element jest zarchiwizowany lub w koszu, więc {{permission}} są odebrane.",
+        "removed_other": "Zarchiwizowane: element jest zarchiwizowany lub w koszu, więc {{permission}} są odebrane."
       },
       "joined": {
-        "granted": "Członkostwo w kanale: {{person}} jest w kanale, więc {{permission}} jest nadane.",
-        "removed": "Członek kanału: {{person}} traci {{permission}} mimo obecności w kanale."
+        "granted_one": "Członkostwo w kanale: {{person}} jest w kanale, więc {{permission}} jest nadane.",
+        "granted_few": "Członkostwo w kanale: {{person}} jest w kanale, więc {{permission}} są nadane.",
+        "granted_many": "Członkostwo w kanale: {{person}} jest w kanale, więc {{permission}} są nadane.",
+        "granted_other": "Członkostwo w kanale: {{person}} jest w kanale, więc {{permission}} są nadane.",
+        "removed_one": "Członek kanału: {{person}} traci {{permission}} mimo obecności w kanale.",
+        "removed_few": "Członek kanału: {{person}} traci {{permission}} mimo obecności w kanale.",
+        "removed_many": "Członek kanału: {{person}} traci {{permission}} mimo obecności w kanale.",
+        "removed_other": "Członek kanału: {{person}} traci {{permission}} mimo obecności w kanale."
       },
       "unseen": {
-        "granted": "Ścieżka: {{permission}} jest nadane przez to, co zawiera element.",
-        "removed": "Ścieżka: {{person}} nie może otworzyć tego, co zawiera element, więc {{permission}} jest odebrane."
+        "granted_one": "Ścieżka: {{permission}} jest nadane przez to, co zawiera element.",
+        "granted_few": "Ścieżka: {{permission}} są nadane przez to, co zawiera element.",
+        "granted_many": "Ścieżka: {{permission}} są nadane przez to, co zawiera element.",
+        "granted_other": "Ścieżka: {{permission}} są nadane przez to, co zawiera element.",
+        "removed_one": "Ścieżka: {{person}} nie może otworzyć tego, co zawiera element, więc {{permission}} jest odebrane.",
+        "removed_few": "Ścieżka: {{person}} nie może otworzyć tego, co zawiera element, więc {{permission}} są odebrane.",
+        "removed_many": "Ścieżka: {{person}} nie może otworzyć tego, co zawiera element, więc {{permission}} są odebrane.",
+        "removed_other": "Ścieżka: {{person}} nie może otworzyć tego, co zawiera element, więc {{permission}} są odebrane."
       },
       "conversation": {
-        "granted": "Rozmowa: {{person}} jest w rozmowie, w której udostępniono element, więc {{permission}} jest nadane.",
-        "removed": "Rozmowa: {{permission}} jest odebrane dla tej rozmowy."
+        "granted_one": "Rozmowa: {{person}} jest w rozmowie, w której udostępniono element, więc {{permission}} jest nadane.",
+        "granted_few": "Rozmowa: {{person}} jest w rozmowie, w której udostępniono element, więc {{permission}} są nadane.",
+        "granted_many": "Rozmowa: {{person}} jest w rozmowie, w której udostępniono element, więc {{permission}} są nadane.",
+        "granted_other": "Rozmowa: {{person}} jest w rozmowie, w której udostępniono element, więc {{permission}} są nadane.",
+        "removed_one": "Rozmowa: {{permission}} jest odebrane dla tej rozmowy.",
+        "removed_few": "Rozmowa: {{permission}} są odebrane dla tej rozmowy.",
+        "removed_many": "Rozmowa: {{permission}} są odebrane dla tej rozmowy.",
+        "removed_other": "Rozmowa: {{permission}} są odebrane dla tej rozmowy."
       },
       "message": {
-        "granted": "Wiadomość: element jest dołączony do wiadomości, którą {{person}} może czytać, więc {{permission}} jest nadane.",
-        "removed": "Wiadomość: {{permission}} jest odebrane dla tej wiadomości."
+        "granted_one": "Wiadomość: element jest dołączony do wiadomości, którą {{person}} może czytać, więc {{permission}} jest nadane.",
+        "granted_few": "Wiadomość: element jest dołączony do wiadomości, którą {{person}} może czytać, więc {{permission}} są nadane.",
+        "granted_many": "Wiadomość: element jest dołączony do wiadomości, którą {{person}} może czytać, więc {{permission}} są nadane.",
+        "granted_other": "Wiadomość: element jest dołączony do wiadomości, którą {{person}} może czytać, więc {{permission}} są nadane.",
+        "removed_one": "Wiadomość: {{permission}} jest odebrane dla tej wiadomości.",
+        "removed_few": "Wiadomość: {{permission}} są odebrane dla tej wiadomości.",
+        "removed_many": "Wiadomość: {{permission}} są odebrane dla tej wiadomości.",
+        "removed_other": "Wiadomość: {{permission}} są odebrane dla tej wiadomości."
       },
       "event": {
-        "granted": "Wydarzenie: element jest powiązany z wydarzeniem, które {{person}} może zobaczyć, więc {{permission}} jest nadane.",
-        "removed": "Wydarzenie: {{permission}} jest odebrane dla tego wydarzenia."
+        "granted_one": "Wydarzenie: element jest powiązany z wydarzeniem, które {{person}} może zobaczyć, więc {{permission}} jest nadane.",
+        "granted_few": "Wydarzenie: element jest powiązany z wydarzeniem, które {{person}} może zobaczyć, więc {{permission}} są nadane.",
+        "granted_many": "Wydarzenie: element jest powiązany z wydarzeniem, które {{person}} może zobaczyć, więc {{permission}} są nadane.",
+        "granted_other": "Wydarzenie: element jest powiązany z wydarzeniem, które {{person}} może zobaczyć, więc {{permission}} są nadane.",
+        "removed_one": "Wydarzenie: {{permission}} jest odebrane dla tego wydarzenia.",
+        "removed_few": "Wydarzenie: {{permission}} są odebrane dla tego wydarzenia.",
+        "removed_many": "Wydarzenie: {{permission}} są odebrane dla tego wydarzenia.",
+        "removed_other": "Wydarzenie: {{permission}} są odebrane dla tego wydarzenia."
       }
     },
     "reason": {

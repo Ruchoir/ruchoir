@@ -7,15 +7,18 @@
  * The API guards both; the entry is only offered to `isInstanceAdmin`.
  */
 import type { AdminUser, InstanceSettings } from "@ruchoir/client";
+import { licenceDetail, licenceRows } from "@ruchoir/client/permissionsLogic";
 import { useNavigation } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import { ShieldCheck } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, Share, StyleSheet, View } from "react-native";
 
+import { useSupports } from "../../api/features";
 import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
+import { useLocale } from "../../i18n/useLocale";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
@@ -29,12 +32,19 @@ import { Section } from "./Section";
 import { ToggleRow } from "./ToggleRow";
 
 export function InstanceAdminScreen() {
-  const { getInstanceSettings, issuePasswordResetLink, searchAccounts, updateInstanceSettings } = useApi();
+  const { getAdminLicences, getInstanceSettings, issuePasswordResetLink, searchAccounts, updateInstanceSettings } = useApi();
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const toast = useToast();
+  const { locale, timeZone } = useLocale();
+
+  // The paid edition lists every space's licence; read only, the owners manage their own.
+  const hasLicences = useSupports("licences");
+  const licences = useLoad(hasLicences ? "adminLicences" : null, (signal) => getAdminLicences(signal));
+  const licenceList = licences.data ? licenceRows(licences.data, new Date(), timeZone) : undefined;
+  const day = (iso: string) => new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone }).format(new Date(iso));
 
   const loaded = useLoad("instanceSettings", (signal) => getInstanceSettings(signal));
   const [changed, setChanged] = useState<InstanceSettings | null>(null);
@@ -109,6 +119,33 @@ export function InstanceAdminScreen() {
             </>
           )}
         </Section>
+
+        {hasLicences ? (
+          <Section label={t("admin.licencesTitle")}>
+            <Text variant="small" tone="muted">
+              {t("admin.licencesIntro")}
+            </Text>
+            {!licenceList ? (
+              <LoadState error={licences.error} onRetry={licences.reload} />
+            ) : licenceList.length === 0 ? (
+              <Text tone="muted">{t("admin.licencesEmpty")}</Text>
+            ) : (
+              <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.line }]}>
+                {licenceList.map((row) => {
+                  const edition = t(row.edition === "frozen" ? "admin.licenceFrozen" : row.edition === "invalid" ? "admin.licenceUnreadable" : "licence.enterprise");
+                  const end = row.unreadable ? t("admin.licenceUnreadable") : row.frozen ? t("admin.licenceExpiredOn", { date: day(row.validUntil) }) : `${day(row.validUntil)} · ${row.daysLeft === 0 ? t("admin.licenceLastDay") : t("admin.licenceDaysLeft", { count: row.daysLeft })}`;
+                  return (
+                    <ActionRow
+                      key={row.spaceId}
+                      title={row.spaceName}
+                      subtitle={licenceDetail(row, [edition, t("admin.licenceSeats", { used: row.used, count: row.seats }), end]).join(" · ")}
+                    />
+                  );
+                })}
+              </View>
+            )}
+          </Section>
+        ) : null}
 
         <Section label={t("admin.accountsTitle")}>
           <Text variant="small" tone="muted">

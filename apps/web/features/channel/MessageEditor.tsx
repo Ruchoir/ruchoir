@@ -11,6 +11,7 @@ import {
   getSpaceRooms,
   subscribeToDirectory,
 } from "@/lib/data";
+import { offeredBroadcasts } from "@ruchoir/client/permissionsLogic";
 import { searchShortcodes } from "@/lib/shortcodes";
 import { Emoji } from "../app/Emoji";
 import { GroupIcon } from "../groups/GroupIcon";
@@ -204,7 +205,7 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
       const q = trigger.query.toLowerCase();
       // Above the people, because they are the two entries someone is looking for when they do not
       // have a particular person in mind, and because there are only ever two of them.
-      const broadcasts = BROADCASTS.filter((b) => b.name.startsWith(q)).map(
+      const broadcasts = offeredBroadcasts(BROADCASTS, q, mentionGroups.broadcasts !== false).map(
         (b): Hit => ({ kind: "broadcast", name: b.name, hint: b.hint }),
       );
       // Between the two: a group names several people at once, but is still a name to be looked up.

@@ -27,7 +27,7 @@ export function DeleteSpaceScreen() {
   const { c } = useTheme();
   const toast = useToast();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
-  const { current, spaces } = useSpace();
+  const { current, spaces, markGone } = useSpace();
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   if (!current) return null;
@@ -37,9 +37,12 @@ export function DeleteSpaceScreen() {
 
   const remove = async () => {
     setBusy(true);
+    // Marked before the call: the list may change before it answers, and no notice is owed for this.
+    const unmark = markGone(current.id);
     try {
       await deleteSpace(current.id);
     } catch {
+      unmark();
       setBusy(false);
       toast(t("spaceAdmin.deleteFailed"), "failure");
       return;

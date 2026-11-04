@@ -643,6 +643,7 @@
     "broadcastHere": "Benachrichtigt nur Personen, die gerade verbunden sind",
     "archived": "Dieser Kanal ist archiviert: Hier wird nicht mehr geschrieben.",
     "notMember": "Treten Sie dem Kanal bei, um darin zu schreiben.",
+    "readOnly": "Sie können diesen Kanal lesen, aber nicht darin schreiben.",
     "join": "Beitreten",
     "joinFailed": "Dem Kanal konnte gerade nicht beigetreten werden.",
     "editFailed": "Änderung nicht gespeichert",
@@ -667,6 +668,7 @@
     "symbols": "Symbole"
   },
   "attach": {
+    "blocked": "Sie können hier keine Dateien mehr anhängen: Sie bleiben im Entwurf, werden aber nicht gesendet.",
     "gallery": "Foto oder Video",
     "galleryHint": "Aus Ihrer Galerie",
     "camera": "Foto aufnehmen",
@@ -1114,11 +1116,17 @@
     "addressFollowsName": "Die Adresse des Bereichs folgt dem Namen. Die alten funktionieren weiter.",
     "ownerOnly": "Nur der Eigentümer des Bereichs kann seinen Namen und sein Symbol ändern.",
     "serverAddress": "Serveradresse",
-    "defaultChannel": "Standardkanal",
+    "defaultChannel": "Ankunftskanal",
     "defaultChannelHint": "Neue Personen treten zuerst diesem Kanal bei.",
     "defaultChannelNone": "Keiner",
-    "defaultChannelUpdated": "Standardkanal aktualisiert",
-    "defaultChannelFailed": "Standardkanal nicht gespeichert",
+    "defaultChannelUpdated": "Ankunftskanal aktualisiert",
+    "defaultChannelFailed": "Ankunftskanal nicht gespeichert",
+    "channelOrder": "Reihenfolge der Kanäle",
+    "channelOrderRow": "Einen Kanal nach oben oder unten schieben",
+    "channelOrderHint": "Schieben Sie einen Kanal mit den Pfeilen nach oben oder unten. Die neue Reihenfolge sehen alle im Bereich.",
+    "channelOrderFailed": "Reihenfolge nicht gespeichert",
+    "channelMoveUp": "{{channel}} nach oben",
+    "channelMoveDown": "{{channel}} nach unten",
     "danger": "Gefahrenzone",
     "delete": "Bereich löschen",
     "deleteHint": "Löscht den Bereich und alles darin, für alle seine Mitglieder.",
@@ -1304,7 +1312,18 @@
     "webPushOn": "Push-Benachrichtigungen aktiviert",
     "webPushOff": "Push-Benachrichtigungen deaktiviert",
     "hint": "Instanzeinstellungen, Zugang zu Konten",
-    "issueConfirm": "Einen Link zum Zurücksetzen des Passworts für {{name}} ausstellen?"
+    "issueConfirm": "Einen Link zum Zurücksetzen des Passworts für {{name}} ausstellen?",
+    "licencesTitle": "Lizenzen der Bereiche",
+    "licencesIntro": "Die auf dieser Instanz installierten Lizenzen, die am frühesten endende zuerst. Nur Lesezugriff: Die Inhaber eines Bereichs installieren und entfernen dessen Lizenz in den Einstellungen des Bereichs.",
+    "licencesEmpty": "Kein Bereich hat eine installierte Lizenz.",
+    "licenceFrozen": "Eingefroren",
+    "licenceUnreadable": "Nicht lesbar",
+    "licenceSeats_one": "{{used}} von {{count}} Platz",
+    "licenceSeats_other": "{{used}} von {{count}} Plätzen",
+    "licenceDaysLeft_one": "noch {{count}} Tag",
+    "licenceDaysLeft_other": "noch {{count}} Tage",
+    "licenceLastDay": "letzter Tag",
+    "licenceExpiredOn": "Abgelaufen am {{date}}"
   },
   "access": {
     "readOnly": {
@@ -1516,7 +1535,8 @@
       "notText": "Diese Datei ist kein Text: Eine Lizenz ist eine Textzeile.",
       "unreadable": "Diese Datei konnte nicht gelesen werden. Versuchen Sie es noch einmal oder fügen Sie den Text der Lizenz ein."
     },
-    "active": "Aktiv"
+    "active": "Aktiv",
+    "frozenBanner": "Die Lizenz dieses Bereichs ist abgelaufen: Die vorhandenen Rollen gelten weiter, lassen sich aber nicht mehr ändern. Installieren Sie unter Lizenz eine neue Lizenz."
   },
   "groups": {
     "noSelfRole": "Niemand gibt sich selbst eine Rolle, auch nicht über eine Gruppe: Sie können die Rollen einer Gruppe, der Sie angehören, nicht ändern.",
@@ -1755,7 +1775,8 @@
         "removed": "Basis: Die Basisrolle des Bereichs nimmt {{person}} das Recht {{permission}}."
       },
       "role": {
-        "granted": "Rolle: {{permission}} kommt von der Rolle {{role}}.",
+        "granted_one": "Rolle: {{permission}} kommt von der Rolle {{role}}.",
+        "granted_other": "Rolle: {{permission}} kommen von der Rolle {{role}}.",
         "removed": "Rolle: Die Rolle {{role}} nimmt {{permission}} weg."
       },
       "rule": {
@@ -1764,43 +1785,62 @@
       },
       "private_lock": {
         "granted": "Privatsperre: {{target}} öffnet diesen privaten Kanal ({{permission}}).",
-        "removed": "Privatsperre: Der Kanal ist privat, {{person}} verliert {{permission}}, solange keine Regel ihn öffnet."
+        "removed_one": "Privatsperre: Der Kanal ist privat, {{person}} verliert {{permission}}, solange keine Regel ihn öffnet.",
+        "removed_other": "Privatsperre: Der Kanal ist privat, {{person}} verliert {{permission}}, solange keine Regel ihn öffnet."
       },
       "guest_ceiling": {
-        "granted": "Gästegrenze: Ein Gast darf {{permission}} behalten.",
-        "removed": "Gästegrenze: {{person}} ist Gast, {{permission}} geht über das hinaus, was ein Gast haben darf."
+        "granted_one": "Gästegrenze: Ein Gast darf {{permission}} behalten.",
+        "granted_other": "Gästegrenze: Ein Gast darf {{permission}} behalten.",
+        "removed_one": "Gästegrenze: {{person}} ist Gast, {{permission}} geht über das hinaus, was ein Gast haben darf.",
+        "removed_other": "Gästegrenze: {{person}} ist Gast, {{permission}} gehen über das hinaus, was ein Gast haben darf."
       },
       "owner": {
-        "granted": "Inhaber: {{person}} besitzt den Bereich, {{permission}} wird gewährt.",
-        "removed": "Inhaber: {{permission}} wird trotz Inhaberstatus entzogen."
+        "granted_one": "Inhaber: {{person}} besitzt den Bereich, {{permission}} wird gewährt.",
+        "granted_other": "Inhaber: {{person}} besitzt den Bereich, {{permission}} werden gewährt.",
+        "removed_one": "Inhaber: {{permission}} wird trotz Inhaberstatus entzogen.",
+        "removed_other": "Inhaber: {{permission}} wird trotz Inhaberstatus entzogen."
       },
       "author": {
-        "granted": "Autor: {{person}} hat dieses Element erstellt, {{permission}} wird gewährt.",
-        "removed": "Autor: {{permission}} wird trotz Erstellung des Elements entzogen."
+        "granted_one": "Autor: {{person}} hat dieses Element erstellt, {{permission}} wird gewährt.",
+        "granted_other": "Autor: {{person}} hat dieses Element erstellt, {{permission}} werden gewährt.",
+        "removed_one": "Autor: {{permission}} wird trotz Erstellung des Elements entzogen.",
+        "removed_other": "Autor: {{permission}} wird trotz Erstellung des Elements entzogen."
       },
       "archived": {
-        "granted": "Archiviert: {{permission}} bleibt trotz Archivierung gewährt.",
-        "removed": "Archiviert: Das Element ist archiviert oder im Papierkorb, {{permission}} wird entzogen."
+        "granted_one": "Archiviert: {{permission}} bleibt trotz Archivierung gewährt.",
+        "granted_other": "Archiviert: {{permission}} bleiben trotz Archivierung gewährt.",
+        "removed_one": "Archiviert: Das Element ist archiviert oder im Papierkorb, {{permission}} wird entzogen.",
+        "removed_other": "Archiviert: Das Element ist archiviert oder im Papierkorb, {{permission}} werden entzogen."
       },
       "joined": {
-        "granted": "Kanalmitglied: {{person}} ist dem Kanal beigetreten, {{permission}} wird gewährt.",
-        "removed": "Kanalmitglied: {{person}} verliert {{permission}}, obwohl er im Kanal ist."
+        "granted_one": "Kanalmitglied: {{person}} ist dem Kanal beigetreten, {{permission}} wird gewährt.",
+        "granted_other": "Kanalmitglied: {{person}} ist dem Kanal beigetreten, {{permission}} werden gewährt.",
+        "removed_one": "Kanalmitglied: {{person}} verliert {{permission}}, obwohl er im Kanal ist.",
+        "removed_other": "Kanalmitglied: {{person}} verliert {{permission}}, obwohl er im Kanal ist."
       },
       "unseen": {
-        "granted": "Pfad: {{permission}} wird durch den Container des Elements gewährt.",
-        "removed": "Pfad: {{person}} kann den Container des Elements nicht öffnen, {{permission}} wird entzogen."
+        "granted_one": "Pfad: {{permission}} wird durch den Container des Elements gewährt.",
+        "granted_other": "Pfad: {{permission}} wird durch den Container des Elements gewährt.",
+        "removed_one": "Pfad: {{person}} kann den Container des Elements nicht öffnen, {{permission}} wird entzogen.",
+        "removed_other": "Pfad: {{person}} kann den Container des Elements nicht öffnen, {{permission}} werden entzogen."
       },
       "conversation": {
-        "granted": "Unterhaltung: {{person}} ist in der Unterhaltung, in der das Element geteilt wurde, {{permission}} wird gewährt.",
-        "removed": "Unterhaltung: {{permission}} wird für diese Unterhaltung entzogen."
+        "granted_one": "Unterhaltung: {{person}} ist in der Unterhaltung, in der das Element geteilt wurde, {{permission}} wird gewährt.",
+        "granted_other": "Unterhaltung: {{person}} ist in der Unterhaltung, in der das Element geteilt wurde, {{permission}} werden gewährt.",
+        "removed_one": "Unterhaltung: {{permission}} wird für diese Unterhaltung entzogen.",
+        "removed_other": "Unterhaltung: {{permission}} wird für diese Unterhaltung entzogen."
       },
       "message": {
-        "granted": "Nachricht: Das Element hängt an einer Nachricht, die {{person}} lesen kann, {{permission}} wird gewährt.",
-        "removed": "Nachricht: {{permission}} wird für diese Nachricht entzogen."
+        "granted_one": "Nachricht: Das Element hängt an einer Nachricht, die {{person}} lesen kann, {{permission}} wird gewährt.",
+        "granted_other": "Nachricht: Das Element hängt an einer Nachricht, die {{person}} lesen kann, {{permission}} werden gewährt.",
+        "removed_one": "Nachricht: {{permission}} wird für diese Nachricht entzogen.",
+        "removed_other": "Nachricht: {{permission}} wird für diese Nachricht entzogen."
       },
       "event": {
-        "granted": "Termin: Das Element ist mit einem Termin verknüpft, den {{person}} sehen kann, {{permission}} wird gewährt.",
-        "removed": "Termin: {{permission}} wird für diesen Termin entzogen."
+        "granted_one": "Termin: Das Element ist mit einem Termin verknüpft, den {{person}} sehen kann, {{permission}} wird gewährt.",
+        "granted_other": "Termin: Das Element ist mit einem Termin verknüpft, den {{person}} sehen kann, {{permission}} werden gewährt.",
+        "removed_one": "Termin: {{permission}} wird für diesen Termin entzogen.",
+        "removed_other": "Termin: {{permission}} wird für diesen Termin entzogen."
       }
     },
     "reason": {

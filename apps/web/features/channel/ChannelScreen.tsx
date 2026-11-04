@@ -2,6 +2,7 @@
 
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Icon, IconButton, Skeleton, SkeletonGroup, Tooltip } from "@/components/ds";
+import { channelGates, createGates } from "@ruchoir/client/permissionsLogic";
 import { getAvatar, getChannelMembers, getCurrentUser, setMentionGroups } from "@/lib/data";
 import { getConversationFiles, getPinnedMessages, listChannelMembers } from "@/lib/data/api";
 import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } from "@/lib/data";
@@ -261,6 +262,8 @@ export type MessageActionHandlers = {
   openProfile: (name: string) => void;
   editProfile: (name: string) => void;
   message: (name: string) => void;
+  /** Whether a conversation with this person already exists (opening it needs no `dm.start`). */
+  hasDm: (name: string) => boolean;
   /** Open the channel a `#room` in a message names. */
   openRoom: (name: string) => void;
   /** Tick or untick one checklist line of a message, without opening it for editing. */
@@ -318,6 +321,9 @@ export type ChannelScreenProps = {
   accessRules?: ChannelAccessRules;
   /** The caller's own space role, for the channel settings' role reservation. */
   myRole: string;
+  /** The caller's rights in the space and whether the instance announces the permissions: what the channel's controls follow. */
+  space: { role: string; myPermissions?: string[] };
+  permissionsSupported: boolean;
   /**
    * What the caller counts as in this channel before its roster is read: a space owner or
    * administrator counts as its owner, everyone else as an ordinary member until the roster says
@@ -469,6 +475,8 @@ export function ChannelScreen({
   onUpdateChannel,
   accessRules,
   myRole,
+  space,
+  permissionsSupported,
   myChannelRole,
   myUserId,
   canModerateChannels,
@@ -572,8 +580,23 @@ export function ChannelScreen({
       : roster?.channelId === channel.id
         ? (roster.myRole ?? myChannelRole)
         : myChannelRole;
-  const canModerate =
-    canModerateChannels && (effectiveChannelRole === "owner" || effectiveChannelRole === "admin");
+  // What the channel's controls follow: the rights the server listed for this channel, the role
+  // only on an older instance (`channelGates`).
+  const gates = channelGates(isDm ? undefined : channel, space, permissionsSupported, {
+    // What the web did before the permissions: every non-guest pins, nobody deletes another person's message.
+    legacyPin: "members",
+    legacyDeleteOthers: false,
+    legacyChannelRole: effectiveChannelRole,
+  });
+  const canModerate = !isDm && gates.moderate;
+  /** Writing to someone new starts a direct message: a right of the space (`dm.start`). */
+  const canStartDm = createGates(space, permissionsSupported).dm;
+  const canAddPeople = !isDm && gates.addPeople;
+  const runsChannel = !isDm && (gates.moderate || gates.manage || gates.manageMembers);
+  // The settings are read by anyone on an older instance; with the permissions, by those who manage the channel or its people.
+  const openSettings = !permissionsSupported || channel.myPermissions == null || gates.manage || gates.manageMembers ? () => setMenuDialog("settings") : undefined;
+  // A person who manages the channel without being its administrator still gets the controls the dialog withholds below that rank.
+  const dialogRole = runsChannel && effectiveChannelRole !== "owner" && effectiveChannelRole !== "admin" ? "admin" : effectiveChannelRole;
   /**
    * Reading a channel one is not in. True only for a channel: a direct message has no such state,
    * and an archived channel says its own thing.
@@ -584,6 +607,14 @@ export function ChannelScreen({
    * the API refuses the rest, so the button is only offered where it would be accepted.
    */
   const canJoinHere = canModerateChannels && channel.type === "public";
+  /** Read and react, without writing: the composer gives way to a note, the rows stay alive. */
+  const noWrite = !isVisitor && !isArchived && !gates.send;
+  const noWriteNotice = (
+    <p style={styles.archivedNotice}>
+      <Icon name="eye" size={14} />
+      {t("conversation.readOnlyNotice")}
+    </p>
+  );
   /**
    * What a reader outside the channel gets in place of a composer, in the feed and in a thread alike.
    *
@@ -625,8 +656,10 @@ export function ChannelScreen({
       audience: audienceKey === null ? null : audienceKey ? audienceKey.split(",") : [],
       dm: isDm,
       viewerRole: myRole,
+      // `@canal` and `@ici` are a right of the channel (`message.mention_all`); a conversation has no such right to hold.
+      broadcasts: isDm || gates.mentionAll,
     });
-  }, [mentionGroups, audienceKey, myRole, isDm]);
+  }, [mentionGroups, audienceKey, myRole, isDm, gates.mentionAll]);
   useEffect(() => () => setMentionGroups({ groups: [], audience: [] }), []);
   const presenceByName = new Map(members.map((m) => [m.name, m.presence] as const));
   // Uploaded avatars, by display name: a row only knows its author's name, and the roster is the one
@@ -663,6 +696,7 @@ export function ChannelScreen({
     onDelete: () => actions.remove(m.id),
     onOpenProfile: () => actions.openProfile(m.author),
     onEditProfile: () => actions.editProfile(m.author),
+    canMessage: (name) => canStartDm || actions.hasDm(name),
     onMessage: () => actions.message(m.author),
     onOpenMention: (name) => actions.openProfile(name),
     onMessageMention: (name) => actions.message(name),
@@ -843,7 +877,7 @@ export function ChannelScreen({
       startEditing={profileEditing}
       access={profileUserId ? memberAccess?.(profileUserId) : undefined}
       onClose={onCloseProfile}
-      onMessage={() => actions.message(profileName)}
+      onMessage={canStartDm || actions.hasDm(profileName) ? () => actions.message(profileName) : undefined}
       onAvatarChanged={onAvatarChanged}
       onNotify={onNotify}
     />
@@ -867,18 +901,21 @@ export function ChannelScreen({
       onNotify={onNotify}
       onClose={onCloseThread}
       readOnlyNotice={isVisitor ? visitorNotice : undefined}
+      noWriteNotice={noWrite ? noWriteNotice : undefined}
+      canReact={gates.react}
+      canAttach={gates.attach}
       loadingReplies={threadLoading}
     />
   ) : panel === "details" && !isDm ? (
     <ChannelDetails
       channel={channel}
       members={memberList}
-      canModerate={canModerate}
+      canModerate={canAddPeople}
       onClose={closePanel}
       onOpenPanel={openFromDetails}
       onNotifications={() => setMenuDialog("notifications")}
       onAddPeople={() => setMenuDialog("addpeople")}
-      onSettings={() => setMenuDialog("settings")}
+      onSettings={openSettings}
       onLeave={() => setMenuDialog("leave")}
       onJoin={onJoinChannel}
       onPlanEvent={canPlan ? onPlanEvent : undefined}
@@ -1025,10 +1062,10 @@ export function ChannelScreen({
             <ChannelMenu
               channel={channel}
               onToggleFavourite={onToggleFavorite}
-              onSettings={() => setMenuDialog("settings")}
+              onSettings={openSettings}
               onNotifications={() => setMenuDialog("notifications")}
               onAddPeople={() => setMenuDialog("addpeople")}
-              canModerate={canModerate}
+              canModerate={canAddPeople}
               onLeave={() => setMenuDialog("leave")}
               onJoin={onJoinChannel}
               onPlanEvent={canPlan ? onPlanEvent : undefined}
@@ -1133,11 +1170,8 @@ export function ChannelScreen({
                         authorPresence={presenceByName.get(m.author)}
                         authorAvatar={avatarByName.get(m.author)}
                         authorGuest={guestNames.has(m.author)}
-                        canPin={
-                          canModerateChannels &&
-                          channel.member !== false &&
-                          (!m.pinned || m.pinnedBy === myUserId || canModerate)
-                        }
+                        canPin={gates.pin && channel.member !== false && (!m.pinned || m.pinnedBy === myUserId || canModerate)}
+                        canReact={gates.react}
                         replyFaces={replyFaces(m)}
                         actions={rowActions(m)}
                         readOnly={isVisitor}
@@ -1193,6 +1227,8 @@ export function ChannelScreen({
           </p>
         ) : isVisitor ? (
           visitorNotice
+        ) : noWrite ? (
+          noWriteNotice
         ) : (
           <Composer
             channelName={isDm ? dm.name : channel.name}
@@ -1204,6 +1240,7 @@ export function ChannelScreen({
             onSaveEdit={onSaveEdit}
             onCancelEdit={onCancelEdit}
             onEditLast={editLastIn(messages)}
+            canAttach={gates.attach}
           />
         )}
       </div>
@@ -1232,7 +1269,7 @@ export function ChannelScreen({
           accessRules={accessRules}
           onNotify={onNotify}
           myRole={myRole}
-          myChannelRole={canModerate ? effectiveChannelRole : "member"}
+          myChannelRole={runsChannel ? dialogRole : "member"}
           onDelete={onDeleteChannel}
           isDefault={isDefaultChannel}
         />

@@ -105,12 +105,16 @@ test("entries_are_grouped_by_local_day", () => {
 });
 
 test("the_licence_warns_in_its_last_month", () => {
-  assert.equal(daysLeftBanner({ expiresInDays: 120 }, "enterprise"), null);
-  assert.deepEqual(daysLeftBanner({ expiresInDays: 30 }, "enterprise"), { tone: "warning", days: 30 });
-  assert.deepEqual(daysLeftBanner({ expiresInDays: 7 }, "enterprise"), { tone: "danger", days: 7 });
+  const now = new Date("2026-11-01T10:00:00Z");
+  const ends = (days: number) => ({ validUntil: new Date(now.getTime() + days * 86400000).toISOString(), expiresInDays: days });
+  assert.equal(daysLeftBanner(ends(120), "enterprise", now, "UTC"), null);
+  assert.deepEqual(daysLeftBanner(ends(30), "enterprise", now, "UTC"), { tone: "warning", days: 30 });
+  assert.deepEqual(daysLeftBanner(ends(7), "enterprise", now, "UTC"), { tone: "danger", days: 7 });
+  // An end date that cannot be read falls back on the server's count.
+  assert.deepEqual(daysLeftBanner({ validUntil: "", expiresInDays: 5 }, "enterprise", now, "UTC"), { tone: "danger", days: 5 });
   // Expired, the frozen banner says it; without a licence there is nothing to count.
-  assert.equal(daysLeftBanner({ expiresInDays: 0 }, "frozen"), null);
-  assert.equal(daysLeftBanner(undefined, "community"), null);
+  assert.equal(daysLeftBanner({ expiresInDays: 0 }, "frozen", now, "UTC"), null);
+  assert.equal(daysLeftBanner(undefined, "community", now, "UTC"), null);
 });
 
 const group = { kind: "group", id: "7532ecb1-2661-5a23-b725-0713adf42f31", label: "Comptabilité" };

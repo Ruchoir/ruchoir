@@ -12,7 +12,8 @@ export type ChannelMenuActions = {
   onToggleFavourite?: () => void;
   onMarkRead?: () => void;
   onNotifications: () => void;
-  onSettings: () => void;
+  /** Absent when the person holds neither `channel.manage` nor `channel.members.manage` here. */
+  onSettings?: () => void;
   /** Plan an event linked to the channel: absent for an archived channel or one the reader left. */
   onPlanEvent?: () => void;
   /** Decide who is in the channel: absent for anyone who does not moderate it. */
@@ -44,7 +45,7 @@ export function channelMenuItems(
     },
     a.onMarkRead && { icon: "check-check", label: t("sidebar.markRead"), onClick: a.onMarkRead },
     { icon: "bell", label: t("notif.title"), onClick: a.onNotifications },
-    { icon: "settings", label: t("sidebar.channelSettings"), onClick: a.onSettings },
+    a.onSettings && { icon: "settings", label: t("sidebar.channelSettings"), onClick: a.onSettings },
     a.onPlanEvent && { icon: "calendar-plus", label: t("calendar.planEvent"), onClick: a.onPlanEvent },
     a.onAddPeople && { icon: "user-plus", label: t("channel.addPeople"), onClick: a.onAddPeople },
     a.onSetDefault && { icon: "house", label: t("sidebar.setDefaultChannel"), onClick: a.onSetDefault },

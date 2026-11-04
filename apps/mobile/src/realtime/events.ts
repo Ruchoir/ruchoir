@@ -20,7 +20,7 @@ export type RealtimeEvent =
   | { type: "typing"; conversationId: string; userId: string }
   | { type: "presence"; userId: string; presence: Presence }
   /** My spaces changed: renamed, left, removed, or my role in one. */
-  | { type: "spaces" }
+  | { type: "spaces"; removed?: { spaceId: string; reason: "left" | "deleted" | "removed" } }
   /**
    * A space's channels changed; `channelId` names the one, `deleted` when it is gone, `membership`
    * when someone's place in it changed (mine included, from another device or by a moderator).
@@ -69,7 +69,7 @@ export function handlersFor(emit: (event: RealtimeEvent) => void, onReconnect: (
     onPermissionsChanged: (spaceId) => emit({ type: "permissions", spaceId }),
     onMemberUpdated: (member) => emit({ type: "member", member }),
     onSpaceUpdated: () => emit({ type: "spaces" }),
-    onSpaceRemoved: () => emit({ type: "spaces" }),
+    onSpaceRemoved: (spaceId, reason) => emit({ type: "spaces", removed: { spaceId, reason } }),
     onChannelsReordered: (spaceId) => emit({ type: "channels", spaceId }),
     onChannelCreated: (channel) => emit({ type: "channels", spaceId: channel.spaceId, channelId: channel.id }),
     onChannelUpdated: (channel) => emit({ type: "channels", spaceId: channel.spaceId, channelId: channel.id }),
@@ -99,7 +99,14 @@ export const affects = {
     e.type === "dmHidden" ||
     e.type === "member" ||
     (e.type === "members" && e.spaceId === spaceId) ||
-    (e.type === "channels" && inSpace(e, spaceId)),
+    (e.type === "channels" && inSpace(e, spaceId)) ||
+    // Each channel carries what I may do in it (`myPermissions`): a role edit moves it.
+    (e.type === "permissions" && e.spaceId === spaceId),
+  /** A space's files and folders, and the marks of what I may do with each. */
+  files: (e: RealtimeEvent, spaceId: string) => (e.type === "files" || e.type === "permissions") && e.spaceId === spaceId,
+  /** The calendars and their events; my rights in the space move which ones I can create or change. */
+  calendars: (e: RealtimeEvent, spaceId: string | undefined) =>
+    e.type === "calendar" || (e.type === "permissions" && !!spaceId && e.spaceId === spaceId),
   /** The people of a space. */
   members: (e: RealtimeEvent, spaceId: string) => e.type === "member" || (e.type === "members" && e.spaceId === spaceId),
   /** What a space's roles, groups, rules and licence say, and so what I may do in it. */
@@ -115,6 +122,12 @@ export const affects = {
     (kind === "calendar" && e.type === "calendar"),
   /** The channels of a space. */
   channels: (e: RealtimeEvent, spaceId: string) => e.type === "channels" && inSpace(e, spaceId),
+  /**
+   * The channels of a space as one's own rights read them: the list moved, or a role edit changed
+   * what each channel lets me do (`myPermissions`). For an open conversation, which gates on them.
+   */
+  channelRights: (e: RealtimeEvent, spaceId: string) =>
+    (e.type === "channels" && inSpace(e, spaceId)) || (e.type === "permissions" && e.spaceId === spaceId),
   /** The people of a channel: a face or a name, or the channel itself changed. */
   channelMembers: (e: RealtimeEvent, channelId: string) =>
     e.type === "member" ||

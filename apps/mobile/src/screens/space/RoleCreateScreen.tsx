@@ -4,6 +4,7 @@
  * editor, which opens next. Name limits and refusals are the web's.
  */
 import { refusalOf } from "@ruchoir/client";
+import { ROLE_NAME_MAX } from "@ruchoir/client/permissionsLogic";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Check } from "lucide-react-native";
@@ -30,7 +31,7 @@ import { TextField } from "../../ui/TextField";
 import { RoleColours } from "./RoleColours";
 
 /** A role's name is 1 to 40 characters (the API's rule, the web's field). */
-const NAME_MAX = 40;
+const NAME_MAX = ROLE_NAME_MAX;
 
 export function RoleCreateScreen() {
   const { listRoles, createRole } = useApi();
@@ -92,6 +93,7 @@ export function RoleCreateScreen() {
               setError(undefined);
             }}
             maxLength={NAME_MAX}
+            showCount
             placeholder={t("roles.namePlaceholder")}
             autoFocus
             error={error}

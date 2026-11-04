@@ -117,3 +117,14 @@ export function matchMentionTarget(
   if (group && (!person || group.length > person.length)) return { kind: "group", name: group };
   return person ? { kind: "person", name: person } : null;
 }
+
+/**
+ * The room-wide handles (`@canal`, `@ici`) a composer suggests for what was typed. None where the
+ * person does not hold `message.mention_all` there (`channelGates(...).mentionAll`): the server
+ * refuses them, so they are not offered.
+ */
+export function offeredBroadcasts<T extends { name: string }>(all: readonly T[], query: string, allowed: boolean): T[] {
+  if (!allowed) return [];
+  const q = query.toLowerCase();
+  return all.filter((b) => b.name.startsWith(q));
+}

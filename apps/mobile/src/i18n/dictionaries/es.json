@@ -684,6 +684,7 @@
     "broadcastHere": "Avisa solo a quienes están conectados",
     "archived": "Este canal está archivado: ya no se escribe en él.",
     "notMember": "Únase al canal para escribir en él.",
+    "readOnly": "Puedes leer este canal, pero no escribir en él.",
     "join": "Unirse",
     "joinFailed": "No se ha podido unir al canal por ahora.",
     "editFailed": "Edición no guardada",
@@ -709,6 +710,7 @@
     "symbols": "Símbolos"
   },
   "attach": {
+    "blocked": "Ya no puedes adjuntar archivos aquí: se quedan en el borrador pero no se enviarán.",
     "gallery": "Foto o vídeo",
     "galleryHint": "Desde su galería",
     "camera": "Hacer una foto",
@@ -1167,11 +1169,17 @@
     "addressFollowsName": "La dirección del espacio seguirá al nombre. Las anteriores siguen funcionando.",
     "ownerOnly": "Solo el propietario del espacio puede cambiar su nombre y su icono.",
     "serverAddress": "Dirección del servidor",
-    "defaultChannel": "Canal por defecto",
+    "defaultChannel": "Canal de llegada",
     "defaultChannelHint": "Las personas nuevas entran primero en este canal.",
     "defaultChannelNone": "Ninguno",
-    "defaultChannelUpdated": "Canal por defecto actualizado",
-    "defaultChannelFailed": "Canal por defecto no guardado",
+    "defaultChannelUpdated": "Canal de llegada actualizado",
+    "defaultChannelFailed": "No se guardó el canal de llegada",
+    "channelOrder": "Orden de los canales",
+    "channelOrderRow": "Subir o bajar un canal",
+    "channelOrderHint": "Sube o baja un canal con las flechas. El nuevo orden es el que ve todo el espacio.",
+    "channelOrderFailed": "Orden no guardado",
+    "channelMoveUp": "Subir {{channel}}",
+    "channelMoveDown": "Bajar {{channel}}",
     "danger": "Zona de peligro",
     "delete": "Eliminar el espacio",
     "deleteHint": "Borra el espacio y todo lo que contiene, para todos sus miembros.",
@@ -1364,7 +1372,20 @@
     "webPushOn": "Notificaciones push activadas",
     "webPushOff": "Notificaciones push desactivadas",
     "hint": "Ajustes de la instancia, acceso a las cuentas",
-    "issueConfirm": "¿Emitir un enlace de restablecimiento de contraseña para {{name}}?"
+    "issueConfirm": "¿Emitir un enlace de restablecimiento de contraseña para {{name}}?",
+    "licencesTitle": "Licencias de los espacios",
+    "licencesIntro": "Las licencias instaladas en esta instancia, empezando por la que termina antes. Solo lectura: la persona propietaria de cada espacio instala y retira la licencia de su espacio en los ajustes de ese espacio.",
+    "licencesEmpty": "Ningún espacio tiene una licencia instalada.",
+    "licenceFrozen": "Congelada",
+    "licenceUnreadable": "Ilegible",
+    "licenceSeats_one": "{{used}} de {{count}} plaza",
+    "licenceSeats_many": "{{used}} de {{count}} plazas",
+    "licenceSeats_other": "{{used}} de {{count}} plazas",
+    "licenceDaysLeft_one": "queda {{count}} día",
+    "licenceDaysLeft_many": "quedan {{count}} días",
+    "licenceDaysLeft_other": "quedan {{count}} días",
+    "licenceLastDay": "último día",
+    "licenceExpiredOn": "Caducó el {{date}}"
   },
   "access": {
     "readOnly": {
@@ -1585,7 +1606,8 @@
       "notText": "Este archivo no es texto: una licencia es una línea de texto.",
       "unreadable": "No se ha podido leer este archivo. Vuelve a intentarlo o pega el texto de la licencia."
     },
-    "active": "Activa"
+    "active": "Activa",
+    "frozenBanner": "La licencia de este espacio ha caducado: los roles existentes siguen aplicándose, pero ya no se pueden modificar. Instala una nueva en Licencia."
   },
   "groups": {
     "noSelfRole": "Nadie se da un rol a sí mismo, tampoco a través de un grupo: no puedes cambiar los roles de un grupo del que formas parte.",
@@ -1829,7 +1851,9 @@
         "removed": "Base: el rol base del espacio quita {{permission}} a {{person}}."
       },
       "role": {
-        "granted": "Rol: {{permission}} viene del rol {{role}}.",
+        "granted_one": "Rol: {{permission}} viene del rol {{role}}.",
+        "granted_many": "Rol: {{permission}} vienen del rol {{role}}.",
+        "granted_other": "Rol: {{permission}} vienen del rol {{role}}.",
         "removed": "Rol: el rol {{role}} quita {{permission}}."
       },
       "rule": {
@@ -1838,43 +1862,81 @@
       },
       "private_lock": {
         "granted": "Cerrojo privado: {{target}} abre este canal privado ({{permission}}).",
-        "removed": "Cerrojo privado: el canal es privado, {{person}} pierde {{permission}} mientras una regla no lo abra."
+        "removed_one": "Cerrojo privado: el canal es privado, {{person}} pierde {{permission}} mientras una regla no lo abra.",
+        "removed_many": "Cerrojo privado: el canal es privado, {{person}} pierde {{permission}} mientras una regla no lo abra.",
+        "removed_other": "Cerrojo privado: el canal es privado, {{person}} pierde {{permission}} mientras una regla no lo abra."
       },
       "guest_ceiling": {
-        "granted": "Techo de invitados: un invitado puede conservar {{permission}}.",
-        "removed": "Techo de invitados: {{person}} tiene el estatus de invitado y {{permission}} supera lo que puede tener un invitado."
+        "granted_one": "Techo de invitados: un invitado puede conservar {{permission}}.",
+        "granted_many": "Techo de invitados: un invitado puede conservar {{permission}}.",
+        "granted_other": "Techo de invitados: un invitado puede conservar {{permission}}.",
+        "removed_one": "Techo de invitados: {{person}} tiene el estatus de invitado y {{permission}} supera lo que puede tener un invitado.",
+        "removed_many": "Techo de invitados: {{person}} tiene el estatus de invitado y {{permission}} superan lo que puede tener un invitado.",
+        "removed_other": "Techo de invitados: {{person}} tiene el estatus de invitado y {{permission}} superan lo que puede tener un invitado."
       },
       "owner": {
-        "granted": "Propietario: {{person}} es propietario del espacio, así que {{permission}} se concede.",
-        "removed": "Propietario: {{permission}} se quita a pesar de ser propietario."
+        "granted_one": "Propietario: {{person}} es propietario del espacio, así que {{permission}} se concede.",
+        "granted_many": "Propietario: {{person}} es propietario del espacio, así que {{permission}} se conceden.",
+        "granted_other": "Propietario: {{person}} es propietario del espacio, así que {{permission}} se conceden.",
+        "removed_one": "Propietario: {{permission}} se quita a pesar de ser propietario.",
+        "removed_many": "Propietario: {{permission}} se quitan a pesar de ser propietario.",
+        "removed_other": "Propietario: {{permission}} se quitan a pesar de ser propietario."
       },
       "author": {
-        "granted": "Autor: {{person}} creó este elemento, así que {{permission}} se concede.",
-        "removed": "Autor: {{permission}} se quita a pesar de haber creado el elemento."
+        "granted_one": "Autor: {{person}} creó este elemento, así que {{permission}} se concede.",
+        "granted_many": "Autor: {{person}} creó este elemento, así que {{permission}} se conceden.",
+        "granted_other": "Autor: {{person}} creó este elemento, así que {{permission}} se conceden.",
+        "removed_one": "Autor: {{permission}} se quita a pesar de haber creado el elemento.",
+        "removed_many": "Autor: {{permission}} se quitan a pesar de haber creado el elemento.",
+        "removed_other": "Autor: {{permission}} se quitan a pesar de haber creado el elemento."
       },
       "archived": {
-        "granted": "Archivado: {{permission}} sigue concedido a pesar del archivo.",
-        "removed": "Archivado: el elemento está archivado o en la papelera, así que {{permission}} se quita."
+        "granted_one": "Archivado: {{permission}} sigue concedido a pesar del archivo.",
+        "granted_many": "Archivado: {{permission}} siguen concedidos a pesar del archivo.",
+        "granted_other": "Archivado: {{permission}} siguen concedidos a pesar del archivo.",
+        "removed_one": "Archivado: el elemento está archivado o en la papelera, así que {{permission}} se quita.",
+        "removed_many": "Archivado: el elemento está archivado o en la papelera, así que {{permission}} se quitan.",
+        "removed_other": "Archivado: el elemento está archivado o en la papelera, así que {{permission}} se quitan."
       },
       "joined": {
-        "granted": "Miembro del canal: {{person}} se unió al canal, así que {{permission}} se concede.",
-        "removed": "Miembro del canal: {{person}} pierde {{permission}} a pesar de estar en el canal."
+        "granted_one": "Miembro del canal: {{person}} se unió al canal, así que {{permission}} se concede.",
+        "granted_many": "Miembro del canal: {{person}} se unió al canal, así que {{permission}} se conceden.",
+        "granted_other": "Miembro del canal: {{person}} se unió al canal, así que {{permission}} se conceden.",
+        "removed_one": "Miembro del canal: {{person}} pierde {{permission}} a pesar de estar en el canal.",
+        "removed_many": "Miembro del canal: {{person}} pierde {{permission}} a pesar de estar en el canal.",
+        "removed_other": "Miembro del canal: {{person}} pierde {{permission}} a pesar de estar en el canal."
       },
       "unseen": {
-        "granted": "Ruta: {{permission}} se concede por lo que contiene el elemento.",
-        "removed": "Ruta: {{person}} no puede abrir lo que contiene el elemento, así que {{permission}} se quita."
+        "granted_one": "Ruta: {{permission}} se concede por lo que contiene el elemento.",
+        "granted_many": "Ruta: {{permission}} se conceden por lo que contiene el elemento.",
+        "granted_other": "Ruta: {{permission}} se conceden por lo que contiene el elemento.",
+        "removed_one": "Ruta: {{person}} no puede abrir lo que contiene el elemento, así que {{permission}} se quita.",
+        "removed_many": "Ruta: {{person}} no puede abrir lo que contiene el elemento, así que {{permission}} se quitan.",
+        "removed_other": "Ruta: {{person}} no puede abrir lo que contiene el elemento, así que {{permission}} se quitan."
       },
       "conversation": {
-        "granted": "Conversación: {{person}} está en la conversación donde se compartió el elemento, así que {{permission}} se concede.",
-        "removed": "Conversación: {{permission}} se quita para esta conversación."
+        "granted_one": "Conversación: {{person}} está en la conversación donde se compartió el elemento, así que {{permission}} se concede.",
+        "granted_many": "Conversación: {{person}} está en la conversación donde se compartió el elemento, así que {{permission}} se conceden.",
+        "granted_other": "Conversación: {{person}} está en la conversación donde se compartió el elemento, así que {{permission}} se conceden.",
+        "removed_one": "Conversación: {{permission}} se quita para esta conversación.",
+        "removed_many": "Conversación: {{permission}} se quitan para esta conversación.",
+        "removed_other": "Conversación: {{permission}} se quitan para esta conversación."
       },
       "message": {
-        "granted": "Mensaje: el elemento está adjunto a un mensaje que {{person}} puede leer, así que {{permission}} se concede.",
-        "removed": "Mensaje: {{permission}} se quita para este mensaje."
+        "granted_one": "Mensaje: el elemento está adjunto a un mensaje que {{person}} puede leer, así que {{permission}} se concede.",
+        "granted_many": "Mensaje: el elemento está adjunto a un mensaje que {{person}} puede leer, así que {{permission}} se conceden.",
+        "granted_other": "Mensaje: el elemento está adjunto a un mensaje que {{person}} puede leer, así que {{permission}} se conceden.",
+        "removed_one": "Mensaje: {{permission}} se quita para este mensaje.",
+        "removed_many": "Mensaje: {{permission}} se quitan para este mensaje.",
+        "removed_other": "Mensaje: {{permission}} se quitan para este mensaje."
       },
       "event": {
-        "granted": "Evento: el elemento está vinculado a un evento que {{person}} puede ver, así que {{permission}} se concede.",
-        "removed": "Evento: {{permission}} se quita para este evento."
+        "granted_one": "Evento: el elemento está vinculado a un evento que {{person}} puede ver, así que {{permission}} se concede.",
+        "granted_many": "Evento: el elemento está vinculado a un evento que {{person}} puede ver, así que {{permission}} se conceden.",
+        "granted_other": "Evento: el elemento está vinculado a un evento que {{person}} puede ver, así que {{permission}} se conceden.",
+        "removed_one": "Evento: {{permission}} se quita para este evento.",
+        "removed_many": "Evento: {{permission}} se quitan para este evento.",
+        "removed_other": "Evento: {{permission}} se quitan para este evento."
       }
     },
     "reason": {

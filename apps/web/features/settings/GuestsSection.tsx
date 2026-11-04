@@ -7,7 +7,7 @@ import { useTranslation } from "@/lib/i18n";
 import { currentLocale } from "@/lib/i18n/current";
 import { MenuPopover } from "../app/MenuPopover";
 import type { Toast } from "../app/types";
-import { browserZone, canSeeEnded, endLabel, guestMenu, guestRow, inDaysLabel } from "./guestLogic.ts";
+import { displayZone, canSeeEnded, endLabel, guestMenu, guestRow, inDaysLabel } from "./guestLogic.ts";
 import { guestMadeByImport } from "./importLogic.ts";
 import { PasserMembreDialog } from "./StandingDialogs";
 import { ProlongDialog } from "./ProlongDialog";
@@ -155,7 +155,7 @@ function GuestRow({
 }) {
   const { t } = useTranslation();
   const locale = currentLocale();
-  const zone = browserZone();
+  const zone = displayZone();
   const row = guestRow(guest, now);
   const menuRef = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState(false);

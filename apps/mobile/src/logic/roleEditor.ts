@@ -6,6 +6,7 @@
  */
 import {
   FAMILIES,
+  ROLE_COLOURS,
   GUEST_CEILING_SET,
   changedPermissions,
   permissionRow,
@@ -28,7 +29,7 @@ type RoleLike = {
 export type RoleDraft = { name: string; colour: string; permissions: Set<string> };
 
 /** The pastels the server accepts (`ROLE_COLOURS` in `apps/api/src/permissions/roles.rs`). */
-export const COLOUR_CHOICES = ["sky", "mint", "violet", "pink", "peach", "lime", "sun"] as const;
+export const COLOUR_CHOICES = ROLE_COLOURS;
 
 /** The colour a role shows when it has none set. */
 export const DEFAULT_COLOUR = "sky";

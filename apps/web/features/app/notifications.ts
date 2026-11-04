@@ -13,7 +13,7 @@ import type { ReminderInfo } from "@/lib/data/api";
 import { key, type Translate, type TranslationKey } from "@/lib/i18n";
 import { currentLocale } from "@/lib/i18n/current";
 import { formatDayMonth } from "@/lib/i18n/format";
-import { browserZone } from "../settings/guestLogic.ts";
+import { displayZone } from "../settings/guestLogic.ts";
 import { guestNoticeDetail, guestNoticeSummary } from "./guestNotices.ts";
 
 /**
@@ -211,7 +211,7 @@ const KIND_VERB: Record<NotifKind, TranslationKey> = {
  * components, and each of them already holds it.
  */
 export function notifSummary(n: AppNotification, t: Translate): string {
-  const guest = guestNoticeSummary(n, currentLocale(), (which, vars) => t(which === "soon" ? KIND_VERB.guest_expiry_soon : KIND_VERB.guest_access_ending, vars), { now: new Date(), zone: browserZone() });
+  const guest = guestNoticeSummary(n, currentLocale(), (which, vars) => t(which === "soon" ? KIND_VERB.guest_expiry_soon : KIND_VERB.guest_access_ending, vars), { now: new Date(), zone: displayZone() });
   if (guest !== null) return guest;
   if (n.reminder && isInvitationKind(n.kind)) return t(KIND_VERB[n.kind], { actor: n.actor, title: n.reminder.title });
   if (n.reminder) return t(KIND_VERB.calendar_reminder, { title: n.reminder.title });

@@ -33,7 +33,8 @@ export type UserProfileCardProps = {
   presence?: Presence;
   onViewFull: () => void;
   onEditProfile: () => void;
-  onMessage: () => void;
+  /** Absent when the person may not start a direct message (`dm.start`): the button is not drawn. */
+  onMessage?: () => void;
 };
 
 /** Compact profile shown in a popover when a user is clicked in the feed. */
@@ -102,9 +103,11 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
             </Button>
           ) : (
             <>
-              <Button variant="primary" size="sm" iconLeft="message-square" onClick={onMessage} fullWidth>
-                {t("tabs.messages")}
-              </Button>
+              {onMessage ? (
+                <Button variant="primary" size="sm" iconLeft="message-square" onClick={onMessage} fullWidth>
+                  {t("tabs.messages")}
+                </Button>
+              ) : null}
               <Button variant="secondary" size="sm" onClick={onViewFull}>
                 {t("profile.title")}
               </Button>

@@ -13,7 +13,8 @@ const SEARCH_FROM = 6;
 /** Where the column keeps whether "My other spaces" is folded. */
 const OTHERS_KEY = "ruchoir.calendar.othersFolded";
 
-type Space = { id: string; name: string };
+/** `canCreate`: the person holds `calendars.create` there; absent on an older instance, which keeps the "manages one of them" rule. */
+type Space = { id: string; name: string; canCreate?: boolean };
 
 function byName(a: Space, b: Space): number {
   return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
@@ -294,7 +295,7 @@ export function CalendarSidebar({
         {open ? (
           <>
             {items.map((c) => calendarRow(c, true))}
-            {onNewCalendar && items.some((c) => c.canManage) ? (
+            {onNewCalendar && (space.canCreate ?? items.some((c) => c.canManage)) ? (
               <div style={{ paddingLeft: 24 }}>
                 <Button size="sm" variant="ghost" iconLeft="plus" onClick={() => onNewCalendar(space.id)}>
                   {t("calendar.newCalendar")}
@@ -355,7 +356,7 @@ export function CalendarSidebar({
           <section style={section}>
             {heading(
               current.name,
-              of(current.id).some((c) => c.canManage) ? newIn(current) : null,
+              current.canCreate ?? of(current.id).some((c) => c.canManage) ? newIn(current) : null,
               <span style={{ fontWeight: 400, color: "var(--text-muted)" }}> · {t("calendar.thisSpace").toLocaleLowerCase()}</span>,
             )}
             {of(current.id).map((c) => calendarRow(c))}

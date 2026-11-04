@@ -1,3 +1,4 @@
+import { charCount } from "@ruchoir/client/permissionsLogic";
 import { Eye, EyeOff } from "lucide-react-native";
 import { useState, type Ref } from "react";
 import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from "react-native";
@@ -20,8 +21,9 @@ export function TextField({
   error,
   secret,
   minHeight,
+  showCount,
   ...input
-}: TextInputProps & { label: string; hint?: string; error?: string; secret?: boolean; minHeight?: number; ref?: Ref<TextInput> }) {
+}: TextInputProps & { showCount?: boolean; label: string; hint?: string; error?: string; secret?: boolean; minHeight?: number; ref?: Ref<TextInput> }) {
   const { c, s } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { t } = useTranslation();
@@ -67,6 +69,11 @@ export function TextField({
           {hint}
         </Text>
       ) : null}
+      {showCount && input.maxLength ? (
+        <Text variant="tiny" tone="muted" style={styles.count} accessibilityElementsHidden importantForAccessibility="no">
+          {charCount(input.value ?? "", input.maxLength)}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -74,6 +81,7 @@ export function TextField({
 const makeStyles = styleCache((shape) =>
   StyleSheet.create({
     field: { gap: 6 },
+    count: { textAlign: "right" },
     input: {
       minHeight: 52,
       paddingHorizontal: 14,

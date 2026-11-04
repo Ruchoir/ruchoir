@@ -62,7 +62,7 @@ function Licence({ space }: { space: Workspace }) {
 
   const view = licence.data;
   const owner = space.role === "owner";
-  const banner = daysLeftBanner(space.licence, space.edition);
+  const banner = daysLeftBanner(space.licence, space.edition, new Date(), timeZone);
   const day = (iso: string, zone: string) => new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: zone }).format(new Date(iso));
 
   const remove = async () => {

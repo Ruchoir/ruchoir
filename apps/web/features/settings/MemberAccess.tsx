@@ -13,7 +13,7 @@ import { rolesViaGroups } from "./groupsLogic.ts";
 import { ProlongDialog } from "./ProlongDialog";
 import { PasserInviteDialog, PasserMembreDialog } from "./StandingDialogs";
 import { saveGuestExpiry } from "./guestActions.ts";
-import { browserZone, daysLeft, endLabel, expiryTone, gestionControls, inDaysLabel } from "./guestLogic.ts";
+import { displayZone, daysLeft, endLabel, expiryTone, gestionControls, inDaysLabel } from "./guestLogic.ts";
 import { setGuestExpiry } from "@/lib/data/api";
 import { currentLocale } from "@/lib/i18n/current";
 import { PERMISSION_TEXT } from "./permissionText";
@@ -135,7 +135,7 @@ export function MemberManagement({ member, me, myRole, myRights, edition, roles,
   const removeDate = async () => {
     if (!spaceId || !onGroupsChanged) return;
     try {
-      await saveGuestExpiry({ setGuestExpiry }, { spaceId, userId: member.userId, choice: "none", now: new Date(), zone: browserZone() }, onGroupsChanged);
+      await saveGuestExpiry({ setGuestExpiry }, { spaceId, userId: member.userId, choice: "none", now: new Date(), zone: displayZone() }, onGroupsChanged);
       onNotify?.({ tone: "success", title: t("guests.updated"), description: member.name });
     } catch {
       onNotify?.({ tone: "danger", title: t("guests.updateFailed") });
@@ -215,7 +215,7 @@ export function MemberManagement({ member, me, myRole, myRights, edition, roles,
             <span style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", lineHeight: "var(--leading-snug)" }}>
               {member.expiresAt && guestDays !== null ? (
                 <>
-                  <b style={{ display: "block", fontSize: "var(--text-sm)", color: "var(--text-strong)" }}>{t("files.linkUntil", { date: endLabel(member.expiresAt, currentLocale(), browserZone()) })}</b>
+                  <b style={{ display: "block", fontSize: "var(--text-sm)", color: "var(--text-strong)" }}>{t("files.linkUntil", { date: endLabel(member.expiresAt, currentLocale(), displayZone()) })}</b>
                   {t("guests.remaining", { when: inDaysLabel(guestDays, currentLocale()), name: member.name.split(" ")[0] })}
                   {expiryTone(guestDays) === "soon" ? <Icon name="alert-triangle" size={12} style={{ marginLeft: 4, color: "var(--status-warning-fg)" }} /> : null}
                 </>

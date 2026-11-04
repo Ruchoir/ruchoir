@@ -1068,8 +1068,14 @@ export function ImportScreen({
             )
           }
         >
+          {/* The producer's and the checker's own sentences are written in English: said so, and marked as such for a screen reader. */}
+          {plan.limits.length > 0 || plan.warnings.length > 0 ? (
+            <p className="wc-imp-check__aside" style={{ margin: "0 0 4px" }}>
+              {t(key("import.producerText"))}
+            </p>
+          ) : null}
           {plan.limits.length > 0 ? (
-            <ul>
+            <ul lang="en">
               {plan.limits.map((limit) => (
                 <li key={limit}>{limit}</li>
               ))}
@@ -1082,7 +1088,7 @@ export function ImportScreen({
               <Icon name="alert-triangle" size={13} style={{ flex: "none", marginTop: 3 }} />
               <span>
                 <span className="wc-imp-visually-hidden">{t(key("import.warnings"))}</span>{" "}
-                {warning}
+                <span lang="en">{warning}</span>
               </span>
             </div>
           ))}
@@ -1343,7 +1349,10 @@ export function ImportScreen({
                   </>
                 }
               >
-                <ul>
+                <p className="wc-imp-check__aside" style={{ margin: "0 0 4px" }}>
+                  {t(key("import.producerText"))}
+                </p>
+                <ul lang="en">
                   {job.limits.map((limit) => (
                     <li key={limit}>{limit}</li>
                   ))}

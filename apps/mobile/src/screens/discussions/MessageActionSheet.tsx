@@ -18,8 +18,10 @@ import { useReact } from "../../compose/useReact";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import type { RootParams } from "../../navigation/types";
+import { useLoad } from "../../data/useLoad";
 import { useRealtimeActions } from "../../realtime/RealtimeProvider";
 import { useSession } from "../../session/SessionProvider";
+import { useChannelGates } from "../../space/rights";
 import { useSpace } from "../../space/SpaceProvider";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
@@ -29,7 +31,7 @@ import { Text } from "../../ui/Text";
 import { useToast } from "../../ui/Toast";
 
 export function MessageActionSheet() {
-  const { deleteMessage, setMessagePinned, setMessageSaved } = useApi();
+  const { deleteMessage, getChannels, setMessagePinned, setMessageSaved } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "messageActions">>();
   const { message: m, conversationId, channelId, draftKey, inThread, fromList } = params;
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
@@ -44,7 +46,10 @@ export function MessageActionSheet() {
   const toast = useToast();
 
   const own = state.kind === "signedIn" && m.authorId === state.user.id;
-  const canPin = !!channelId && (current?.role === "owner" || current?.role === "admin");
+  const channels = useLoad(current ? `channels:${current.id}` : null, (signal) => getChannels(current!.id, signal));
+  const gates = useChannelGates(channelId ? channels.data?.find((ch) => ch.id === channelId) : undefined);
+  // Pinning is a right of the channel (`message.pin`), the same one the web checks.
+  const canPin = !!channelId && gates.pin;
   const close = () => navigation.goBack();
   const sentAt = new Intl.DateTimeFormat(locale, {
     timeZone,
@@ -115,6 +120,7 @@ export function MessageActionSheet() {
       <Text variant="label" tone="muted">
         {t("message.sentAt", { at: sentAt })}
       </Text>
+      {gates.react ? (
       <View style={styles.quick}>
         {quick.map((emoji) => {
           const mine = !!m.reactions?.find((r) => r.emoji === emoji)?.mine;
@@ -147,6 +153,7 @@ export function MessageActionSheet() {
           <SmilePlus size={22} color={c.ink} />
         </Pressable>
       </View>
+      ) : null}
       {!inThread && !m.parentId ? (
         <ActionRow
           icon={MessageSquareReply}
@@ -164,7 +171,7 @@ export function MessageActionSheet() {
       {canPin ? (
         <ActionRow icon={m.pinned ? PinOff : Pin} tint={c.sun} title={m.pinned ? t("message.unpin") : t("message.pin")} onPress={togglePin} />
       ) : null}
-      {own ? (
+      {own || (!!channelId && gates.deleteOthers) ? (
         <>
           <View style={[styles.rule, { backgroundColor: c.line }]} />
           <ActionRow icon={Trash2} danger title={t("message.delete")} onPress={remove} />

@@ -8,6 +8,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-n
 import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
+import { affects } from "../../realtime/events";
 import { key, useTranslation } from "../../i18n";
 import { useWide } from "../../layout/useWide";
 import type { RootParams } from "../../navigation/types";
@@ -63,7 +64,7 @@ export function FilesScreen() {
     keep: space,
   });
   const found = useLoad(space && debounced ? `search:${space}:${debounced}` : null, (signal) => searchFiles(space!, debounced, signal));
-  useReloadOn((e) => e.type === "files" && e.spaceId === space, () => {
+  useReloadOn((e) => !!space && affects.files(e, space), () => {
     root.reload();
     listed.reload();
   });

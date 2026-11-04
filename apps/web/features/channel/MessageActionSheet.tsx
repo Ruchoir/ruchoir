@@ -25,7 +25,8 @@ export type MessageActionSheetProps = {
   /** Inside a thread there is no thread to open and no feed position to mark unread from. */
   inThread: boolean;
   hasReactions: boolean;
-  onReact: (emoji: string) => void;
+  /** Absent when the person may not react (`message.react`): the sheet draws no emoji row. */
+  onReact?: (emoji: string) => void;
   onOpenThread: () => void;
   onToggleSave: () => void;
   onEdit: () => void;
@@ -54,14 +55,15 @@ export function MessageActionSheet(p: MessageActionSheetProps) {
     <Sheet open={p.open} label={t("message.more")} onClose={close}>
       {picking ? (
         <div style={{ display: "flex", justifyContent: "center", paddingBottom: 8 }}>
-          <EmojiPicker quick={quick} onPick={(emoji) => run(() => p.onReact(emoji))()} />
+          <EmojiPicker quick={quick} onPick={(emoji) => run(() => p.onReact?.(emoji))()} />
         </div>
       ) : (
         <>
           <div style={{ padding: "0 6px 10px", fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{p.sentAt}</div>
+          {p.onReact ? (
           <div className="wc-sheet__reacts">
             {quick.map((emoji) => (
-              <button key={emoji} type="button" className="wc-sheet__react" aria-label={emoji} onClick={run(() => p.onReact(emoji))}>
+              <button key={emoji} type="button" className="wc-sheet__react" aria-label={emoji} onClick={run(() => p.onReact?.(emoji))}>
                 <Emoji emoji={emoji} size={24} />
               </button>
             ))}
@@ -69,6 +71,7 @@ export function MessageActionSheet(p: MessageActionSheetProps) {
               <Icon name="smile-plus" size={22} />
             </button>
           </div>
+          ) : null}
           <SheetGroup>
             {p.inThread ? null : <SheetItem icon="message-square" label={t("message.replyInThread")} onClick={run(p.onOpenThread)} />}
             <SheetItem icon="bookmark" label={p.saved ? t("message.unsave") : t("message.save")} onClick={run(p.onToggleSave)} />

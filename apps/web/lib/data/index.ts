@@ -128,6 +128,8 @@ export type MentionGroups = {
   dm?: boolean;
   /** The viewer's standing in the space (a guest cannot mention a group). */
   viewerRole?: string;
+  /** Whether the person may address the whole room (`message.mention_all`); absent reads as yes. */
+  broadcasts?: boolean;
 };
 
 const NO_MENTION_GROUPS: MentionGroups = { groups: [], audience: [] };
@@ -137,6 +139,7 @@ export function setMentionGroups(next: MentionGroups): void {
   const same =
     next.viewerRole === liveMentionGroups.viewerRole &&
     next.dm === liveMentionGroups.dm &&
+    next.broadcasts === liveMentionGroups.broadcasts &&
     next.groups === liveMentionGroups.groups &&
     (next.audience === liveMentionGroups.audience ||
       (next.audience !== null &&

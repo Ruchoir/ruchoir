@@ -151,6 +151,20 @@ export type LicenceView = {
   installedBy?: { id: string; name: string };
 };
 
+/** One space's licence as the instance's administrator reads it (`GET /admin/licences`). */
+export type AdminLicence = {
+  spaceId: string;
+  spaceName: string;
+  /** The holder named on the licence. */
+  organisation: string;
+  seats: number;
+  used: number;
+  /** RFC 3339. */
+  validUntil: string;
+  /** `invalid` is a stored licence this build cannot verify. */
+  edition: "enterprise" | "frozen" | "invalid";
+};
+
 /**
  * Why the server refused, when it said so by name: what the screens explain in plain words (see
  * `refusalOf`). Codes the app does not know read as no refusal at all, and the generic message shows.

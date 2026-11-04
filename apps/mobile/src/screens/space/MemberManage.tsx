@@ -17,6 +17,7 @@ import {
   sortGroups,
   presetToInstant,
   rightsOf,
+  groupTagFor,
   roleIdsToSave,
   rolesViaGroups,
   seatsAfterInvite,
@@ -37,7 +38,6 @@ import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import {
   changeCount,
-  deviceZone,
   draftOf,
   heldRoles,
   liveDraft,
@@ -92,13 +92,15 @@ type Props = {
   me?: Member;
   roles: Role[];
   groups: Group[];
+  /** Everyone in the space, to tell the groups made of guests only. */
+  people?: Member[];
   /** The person's data changed: read the people (and the roles' holders) again. */
   onChanged: () => void;
 };
 
 type Choices = RoleChoice<Role>[];
 
-export function MemberManage({ space, member, me, roles, groups, onChanged }: Props) {
+export function MemberManage({ space, member, me, roles, groups, people, onChanged }: Props) {
   const { t } = useTranslation();
   const { c } = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -199,6 +201,7 @@ export function MemberManage({ space, member, me, roles, groups, onChanged }: Pr
                 <GroupChip
                   key={g.id}
                   name={g.name}
+                  guestsOnly={groupTagFor(g, people) === "guests"}
                   disabled={groupBusy}
                   onRemove={canSortOut(g) ? () => void changeGroup(() => removeGroupMember(space.id, g.id, member.userId), t("groups.personRemoved")) : undefined}
                   removeLabel={t("groups.leaveNamed", { name: first, group: g.name })}
@@ -330,12 +333,11 @@ function Standing({ space, member, roles, rights, first, onChanged }: { space: W
   const { t } = useTranslation();
   const { c } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { locale } = useLocale();
+  const { locale, timeZone: zone } = useLocale();
   const toast = useToast();
   const failed = useFailed();
   const { spaces } = useSpace();
   const navigation = useNavigation();
-  const zone = deviceZone();
   // Read at each render, and again at each tap: a screen left open past midnight must not count from yesterday.
   const now = new Date();
   const [choice, setChoice] = useState<EndChoice | null>(null);

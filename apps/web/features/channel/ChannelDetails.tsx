@@ -24,7 +24,7 @@ export type ChannelDetailsProps = {
   onOpenPanel: (panel: "members" | "pinned" | "files" | "search") => void;
   onNotifications: () => void;
   onAddPeople: () => void;
-  onSettings: () => void;
+  onSettings?: () => void;
   onLeave: () => void;
   onJoin: () => void;
   /** Plan an event linked to this channel. */
@@ -125,7 +125,7 @@ export function ChannelDetails({
           <Row icon="pin" label={t("panel.pinned")} onClick={() => onOpenPanel("pinned")} />
           <Row icon="folder" label={t("gsearch.files")} onClick={() => onOpenPanel("files")} />
           {onPlanEvent ? <Row icon="calendar-plus" label={t("calendar.planEvent")} onClick={onPlanEvent} /> : null}
-          <Row icon="settings" label={t("sidebar.channelSettings")} onClick={onSettings} />
+          {onSettings ? <Row icon="settings" label={t("sidebar.channelSettings")} onClick={onSettings} /> : null}
         </div>
 
         <div className="wc-sheet__group">

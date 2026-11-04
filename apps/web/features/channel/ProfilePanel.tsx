@@ -100,7 +100,8 @@ export type ProfilePanelProps = {
   presence?: Presence;
   startEditing?: boolean;
   onClose: () => void;
-  onMessage: () => void;
+  /** Absent when the person may not start a direct message (`dm.start`): the button is not drawn. */
+  onMessage?: () => void;
   /**
    * The signed-in user's own avatar changed. Message rows and the member list read the roster, not
    * this panel, so without this the new picture only appears after a reload.
@@ -331,11 +332,11 @@ export function ProfilePanel({
                   {t("profile.edit")}
                 </Button>
               )
-            ) : (
+            ) : onMessage ? (
               <Button variant="primary" size="md" iconLeft="message-square" onClick={onMessage} fullWidth>
                 {t("profile.sendMessage")}
               </Button>
-            )}
+            ) : null}
           </div>
         </div>
 

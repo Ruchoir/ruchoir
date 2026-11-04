@@ -12,6 +12,7 @@ import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTranslation } from "../i18n";
+import { sendPlan } from "../logic/attachments";
 import { composerRoom } from "../logic/keyboard";
 import { useTabletLayout } from "../layout/useWide";
 import { mentionableGroups, mentionOrder } from "../logic/groupMentions";
@@ -150,7 +151,9 @@ export function Composer(props: Props) {
   const body = text.trim();
   // Files go with the text once they have all arrived; one that failed has to be retried or removed.
   const waiting = !!files && (files.uploading || files.failed);
-  const ready = (body.length > 0 || (files?.attachments.length ?? 0) > 0) && !waiting;
+  // Files picked before the right to attach was lost stay as chips, marked, and stay out of the message.
+  const plan = sendPlan({ canAttach: !!props.onAttach, body, pending: files?.files.length ?? 0, waiting });
+  const ready = editing ? body.length > 0 || (files?.attachments.length ?? 0) > 0 : plan.ready;
 
   const [alsoInChannel, setAlsoInChannel] = useState(false);
 
@@ -164,13 +167,13 @@ export function Composer(props: Props) {
     outbox.send({
       conversationId,
       body,
-      attachments: files?.attachments ?? [],
-      images: files?.images,
+      attachments: plan.withFiles ? (files?.attachments ?? []) : [],
+      images: plan.withFiles ? files?.images : undefined,
       parentId,
       alsoInChannel: parentId && alsoInChannel ? true : undefined,
       baseline: props.baselineFor(body),
     });
-    files?.clear();
+    if (plan.withFiles) files?.clear();
     // One reply at a time: the next stays in the thread unless asked again.
     setAlsoInChannel(false);
     change("");
@@ -199,7 +202,7 @@ export function Composer(props: Props) {
           </Pressable>
         </View>
       ) : null}
-      {files ? <PendingFiles attachments={files} /> : null}
+      {files ? <PendingFiles attachments={files} blocked={plan.blocked} /> : null}
       {props.alsoInChannelLabel && !editing ? (
         <Pressable
           accessibilityRole="checkbox"

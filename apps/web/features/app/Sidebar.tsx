@@ -387,7 +387,8 @@ export type SidebarProps = {
   onChannel: (id: string) => void;
   onNotify: (toast: Toast) => void;
   onInvite: () => void;
-  onNewChannel: () => void;
+  /** Absent when the person lacks `channels.create` here. */
+  onNewChannel?: () => void;
   /**
    * Whether the caller reaches the space at large: its files, a new channel, an invitation. False
    * for a guest, who is in the space only through the conversations they were added to. The API
@@ -419,7 +420,8 @@ export type SidebarProps = {
   importRun?: ImportTicker | null;
   /** Open the screen that brings a workspace over from another product. */
   onImport: () => void;
-  onNewMessage: () => void;
+  /** Absent when the person lacks `dm.start` here. */
+  onNewMessage?: () => void;
   /** Pin or unpin a channel in the caller's own sidebar. */
   onToggleFavorite: (id: string) => void;
   /** Make an eligible public channel the arrival point for new members. */
@@ -439,6 +441,9 @@ export type SidebarProps = {
   onPlanEvent?: (id: string) => void;
   /** Decide who is in a channel: given only to those who moderate the space's channels. */
   onAddPeople?: (id: string) => void;
+  /** Per channel, on its own `myPermissions` (the space-wide `onAddPeople` is the fallback). */
+  canAddPeopleTo?: (id: string) => boolean;
+  canOpenSettingsOf?: (id: string) => boolean;
   onMarkRead: (id: string) => void;
   onOpenNotification: (channelId: string, messageId: string, id: string) => void;
   onToggleNotifRead: (id: string, read: boolean) => void;
@@ -518,6 +523,8 @@ export function Sidebar({
   onChannelNotifications,
   onPlanEvent,
   onAddPeople,
+  canAddPeopleTo,
+  canOpenSettingsOf,
   onMarkRead,
   onOpenNotification,
   onToggleNotifRead,
@@ -585,12 +592,12 @@ export function Sidebar({
       onToggleFavourite: () => onToggleFavorite(channel.id),
       onMarkRead: () => onMarkRead(channel.id),
       onNotifications: () => onChannelNotifications(channel.id),
-      onSettings: () => onChannelSettings(channel.id),
+      onSettings: canOpenSettingsOf && !canOpenSettingsOf(channel.id) ? undefined : () => onChannelSettings(channel.id),
       onPlanEvent:
         onPlanEvent && channel.type !== "archived" && channel.member !== false
           ? () => onPlanEvent(channel.id)
           : undefined,
-      onAddPeople: onAddPeople ? () => onAddPeople(channel.id) : undefined,
+      onAddPeople: onAddPeople && (!canAddPeopleTo || canAddPeopleTo(channel.id)) ? () => onAddPeople(channel.id) : undefined,
       onSetDefault:
         canSetDefaultChannel && canBeDefaultChannel(channel, workspace?.defaultChannelId)
           ? () => onSetDefaultChannel(channel.id)
@@ -715,9 +722,11 @@ export function Sidebar({
                   </span>
                 ) : null}
               </span>
-              <Tooltip label={t("shell.newMessage")}>
-                <IconButton icon="square-pen" label={t("shell.newMessage")} size="sm" onClick={onNewMessage} />
-              </Tooltip>
+              {onNewMessage ? (
+                <Tooltip label={t("shell.newMessage")}>
+                  <IconButton icon="square-pen" label={t("shell.newMessage")} size="sm" onClick={onNewMessage} />
+                </Tooltip>
+              ) : null}
               {railless?.you}
             </span>
             <NotificationCenter
@@ -814,7 +823,7 @@ export function Sidebar({
               collapsed={isFolded("channels")}
               onToggle={foldable ? () => toggleFold("channels") : undefined}
             >
-              {canBrowseSpace ? (
+              {canBrowseSpace && onNewChannel ? (
                 <button
                   onClick={onNewChannel}
                   aria-label={t("sidebar.newChannel")}
@@ -874,7 +883,7 @@ export function Sidebar({
               collapsed={isFolded("messages")}
               onToggle={foldable ? () => toggleFold("messages") : undefined}
             />
-            {directMessages.length === 0 && !isFolded("messages") ? (
+            {directMessages.length === 0 && !isFolded("messages") && onNewMessage ? (
               <SideItem icon="square-pen" label={t("sidebar.startConversation")} onClick={onNewMessage} />
             ) : null}
             {directMessages.filter((d) => !isFolded("messages") || stays(d.id, d.unread)).map((d) => (

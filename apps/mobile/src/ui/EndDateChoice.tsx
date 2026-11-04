@@ -2,7 +2,7 @@
  * The end of a guest's access when inviting (mockup 14, left): ready-made durations, a day picked on
  * the phone's calendar, or no end; the day it comes to, and what the reminders will be. It holds no
  * state: the screen keeps the choice and turns it into an instant with `presetToInstant`, in the
- * phone's zone (`deviceZone`), as the web's `EndDateField` does for its browser's.
+ * profile zone, else the phone's (`useLocale().timeZone`), as the web's `EndDateField` does for its browser's.
  */
 import {
   choiceRefusal,
@@ -17,7 +17,7 @@ import { Platform, Pressable, StyleSheet, View } from "react-native";
 
 import { key, useTranslation } from "../i18n";
 import { useLocale } from "../i18n/useLocale";
-import { deviceZone, pickedDay, pickedFromEvent, shortDay } from "../logic/memberScreen";
+import { pickedDay, pickedFromEvent, shortDay } from "../logic/memberScreen";
 import { styleCache } from "../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { feel } from "./haptics";
@@ -55,8 +55,7 @@ export function EndDateChoice({
   const { t } = useTranslation();
   const { c, s, dark } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { locale } = useLocale();
-  const zone = deviceZone();
+  const { locale, timeZone: zone } = useLocale();
   const [picking, setPicking] = useState(false);
   // Read at each render: a screen left open past midnight must not offer yesterday.
   const now = new Date();

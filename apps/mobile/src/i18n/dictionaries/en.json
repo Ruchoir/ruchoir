@@ -643,6 +643,7 @@
     "broadcastHere": "Notifies only the people connected",
     "archived": "This channel is archived: nobody writes here any more.",
     "notMember": "Join the channel to write in it.",
+    "readOnly": "You can read this channel, but not write in it.",
     "join": "Join",
     "joinFailed": "The channel could not be joined just now.",
     "editFailed": "Edit not saved",
@@ -667,6 +668,7 @@
     "symbols": "Symbols"
   },
   "attach": {
+    "blocked": "You can no longer attach files here: they stay in the draft but will not be sent.",
     "gallery": "Photo or video",
     "galleryHint": "From your gallery",
     "camera": "Take a photo",
@@ -1114,11 +1116,17 @@
     "addressFollowsName": "The space's address will follow its name. The old ones keep working.",
     "ownerOnly": "Only the space's owner can change its name and icon.",
     "serverAddress": "Server address",
-    "defaultChannel": "Default channel",
+    "defaultChannel": "Arrival channel",
     "defaultChannelHint": "New people join this channel first.",
     "defaultChannelNone": "None",
-    "defaultChannelUpdated": "Default channel updated",
-    "defaultChannelFailed": "Default channel not saved",
+    "defaultChannelUpdated": "Arrival channel updated",
+    "defaultChannelFailed": "Arrival channel not saved",
+    "channelOrder": "Channel order",
+    "channelOrderRow": "Move a channel up or down",
+    "channelOrderHint": "Move a channel up or down with the arrows. The new order is the one everyone in the space sees.",
+    "channelOrderFailed": "Order not saved",
+    "channelMoveUp": "Move {{channel}} up",
+    "channelMoveDown": "Move {{channel}} down",
     "danger": "Danger zone",
     "delete": "Delete the space",
     "deleteHint": "Erases the space and everything in it, for all its members.",
@@ -1304,7 +1312,18 @@
     "webPushOn": "Push notifications on",
     "webPushOff": "Push notifications off",
     "hint": "Instance settings, access to accounts",
-    "issueConfirm": "Issue a password reset link for {{name}}?"
+    "issueConfirm": "Issue a password reset link for {{name}}?",
+    "licencesTitle": "Space licences",
+    "licencesIntro": "The licences installed on this instance, soonest to end first. Read only: the owner of each space installs and removes that space's licence from its settings.",
+    "licencesEmpty": "No space has a licence installed.",
+    "licenceFrozen": "Frozen",
+    "licenceUnreadable": "Unreadable",
+    "licenceSeats_one": "{{used}} of {{count}} seat",
+    "licenceSeats_other": "{{used}} of {{count}} seats",
+    "licenceDaysLeft_one": "{{count}} day left",
+    "licenceDaysLeft_other": "{{count}} days left",
+    "licenceLastDay": "last day",
+    "licenceExpiredOn": "Expired on {{date}}"
   },
   "access": {
     "readOnly": {
@@ -1516,7 +1535,8 @@
       "notText": "This file is not text: a licence is a line of text.",
       "unreadable": "This file could not be read. Try again, or paste the licence's text."
     },
-    "active": "Active"
+    "active": "Active",
+    "frozenBanner": "This space's licence has expired: the roles in place still apply, but can no longer be edited. Install a new licence under Licence."
   },
   "groups": {
     "noSelfRole": "Nobody gives themselves a role, through a group either: you cannot change the roles of a group you belong to.",
@@ -1755,7 +1775,8 @@
         "removed": "Base: the space's base role takes {{permission}} from {{person}}."
       },
       "role": {
-        "granted": "Role: {{permission}} comes from the role {{role}}.",
+        "granted_one": "Role: {{permission}} comes from the role {{role}}.",
+        "granted_other": "Role: {{permission}} come from the role {{role}}.",
         "removed": "Role: the role {{role}} takes {{permission}} away."
       },
       "rule": {
@@ -1764,43 +1785,62 @@
       },
       "private_lock": {
         "granted": "Private lock: {{target}} opens this private channel ({{permission}}).",
-        "removed": "Private lock: the channel is private, so {{person}} loses {{permission}} unless a rule opens it."
+        "removed_one": "Private lock: the channel is private, so {{person}} loses {{permission}} unless a rule opens it.",
+        "removed_other": "Private lock: the channel is private, so {{person}} loses {{permission}} unless a rule opens it."
       },
       "guest_ceiling": {
-        "granted": "Guest ceiling: a guest may keep {{permission}}.",
-        "removed": "Guest ceiling: {{person}} is a guest, and {{permission}} is more than a guest can hold."
+        "granted_one": "Guest ceiling: a guest may keep {{permission}}.",
+        "granted_other": "Guest ceiling: a guest may keep {{permission}}.",
+        "removed_one": "Guest ceiling: {{person}} is a guest, and {{permission}} is more than a guest can hold.",
+        "removed_other": "Guest ceiling: {{person}} is a guest, and {{permission}} are more than a guest can hold."
       },
       "owner": {
-        "granted": "Owner: {{person}} owns the space, so {{permission}} is granted.",
-        "removed": "Owner: {{permission}} is taken away despite ownership."
+        "granted_one": "Owner: {{person}} owns the space, so {{permission}} is granted.",
+        "granted_other": "Owner: {{person}} owns the space, so {{permission}} are granted.",
+        "removed_one": "Owner: {{permission}} is taken away despite ownership.",
+        "removed_other": "Owner: {{permission}} are taken away despite ownership."
       },
       "author": {
-        "granted": "Author: {{person}} created this item, so {{permission}} is granted.",
-        "removed": "Author: {{permission}} is taken away despite having created the item."
+        "granted_one": "Author: {{person}} created this item, so {{permission}} is granted.",
+        "granted_other": "Author: {{person}} created this item, so {{permission}} are granted.",
+        "removed_one": "Author: {{permission}} is taken away despite having created the item.",
+        "removed_other": "Author: {{permission}} are taken away despite having created the item."
       },
       "archived": {
-        "granted": "Archived: {{permission}} stays granted despite the archiving.",
-        "removed": "Archived: the item is archived or in the trash, so {{permission}} is taken away."
+        "granted_one": "Archived: {{permission}} stays granted despite the archiving.",
+        "granted_other": "Archived: {{permission}} stay granted despite the archiving.",
+        "removed_one": "Archived: the item is archived or in the trash, so {{permission}} is taken away.",
+        "removed_other": "Archived: the item is archived or in the trash, so {{permission}} are taken away."
       },
       "joined": {
-        "granted": "Channel member: {{person}} joined the channel, so {{permission}} is granted.",
-        "removed": "Channel member: {{person}} loses {{permission}} despite being in the channel."
+        "granted_one": "Channel member: {{person}} joined the channel, so {{permission}} is granted.",
+        "granted_other": "Channel member: {{person}} joined the channel, so {{permission}} are granted.",
+        "removed_one": "Channel member: {{person}} loses {{permission}} despite being in the channel.",
+        "removed_other": "Channel member: {{person}} loses {{permission}} despite being in the channel."
       },
       "unseen": {
-        "granted": "Path: {{permission}} is granted through what contains the item.",
-        "removed": "Path: {{person}} cannot open what contains the item, so {{permission}} is taken away."
+        "granted_one": "Path: {{permission}} is granted through what contains the item.",
+        "granted_other": "Path: {{permission}} are granted through what contains the item.",
+        "removed_one": "Path: {{person}} cannot open what contains the item, so {{permission}} is taken away.",
+        "removed_other": "Path: {{person}} cannot open what contains the item, so {{permission}} are taken away."
       },
       "conversation": {
-        "granted": "Conversation: {{person}} is in the conversation where the item was shared, so {{permission}} is granted.",
-        "removed": "Conversation: {{permission}} is taken away for this conversation."
+        "granted_one": "Conversation: {{person}} is in the conversation where the item was shared, so {{permission}} is granted.",
+        "granted_other": "Conversation: {{person}} is in the conversation where the item was shared, so {{permission}} are granted.",
+        "removed_one": "Conversation: {{permission}} is taken away for this conversation.",
+        "removed_other": "Conversation: {{permission}} are taken away for this conversation."
       },
       "message": {
-        "granted": "Message: the item is attached to a message {{person}} can read, so {{permission}} is granted.",
-        "removed": "Message: {{permission}} is taken away for this message."
+        "granted_one": "Message: the item is attached to a message {{person}} can read, so {{permission}} is granted.",
+        "granted_other": "Message: the item is attached to a message {{person}} can read, so {{permission}} are granted.",
+        "removed_one": "Message: {{permission}} is taken away for this message.",
+        "removed_other": "Message: {{permission}} are taken away for this message."
       },
       "event": {
-        "granted": "Event: the item is linked to an event {{person}} can see, so {{permission}} is granted.",
-        "removed": "Event: {{permission}} is taken away for this event."
+        "granted_one": "Event: the item is linked to an event {{person}} can see, so {{permission}} is granted.",
+        "granted_other": "Event: the item is linked to an event {{person}} can see, so {{permission}} are granted.",
+        "removed_one": "Event: {{permission}} is taken away for this event.",
+        "removed_other": "Event: {{permission}} are taken away for this event."
       }
     },
     "reason": {
