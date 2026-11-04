@@ -48,6 +48,12 @@ pub use crate::permissions::levels::{
     Level, LevelError, LevelRead, Target as RuleTarget, TriState,
 };
 pub use crate::permissions::roles::{roles_of, validate_role_name, RoleDto, ROLE_COLOURS};
+/// The one write path of a rule (the preset levels of the free route, the fine rules of the
+/// edition): the target as a request names it, how to read it, the permission names a fine rule
+/// carries, and the dialog the write answers.
+pub use crate::permissions::rule_routes::{
+    pick_of, sets_from_names, write_entry, AccessDto, AccessTargetRequest, Change, Pick,
+};
 /// Who edits a resource's access and the one decision every rule write goes through, the writes
 /// themselves (log entry included), and where a group or a role is still named by a rule.
 pub use crate::permissions::rules::{
