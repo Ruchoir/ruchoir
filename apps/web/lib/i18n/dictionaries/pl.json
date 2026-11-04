@@ -1570,8 +1570,7 @@
     "seatsMissing_other": "Brakuje {{count}} miejsc",
     "seatsMissing_many": "Brakuje {{count}} miejsc",
     "seatsMissing_few": "Brakuje {{count}} miejsc",
-    "seatsOverText": "Liczą się tylko członkowie i administratorzy do dodania: goście nie zajmują miejsca, a osoby już obecne w przestrzeni zachowują swoje. Import nie może ruszyć, dopóki wszyscy nie zmieszczą się w licencji: nic nie zostało zapisane. Zwolnij miejsca albo przejdź na ofertę z większą liczbą miejsc, a potem wróć na ten ekran.",
-    "doneLimitsKept": "Przypomnienie o tym, czego nie wyeksportowano"
+    "seatsOverText": "Liczą się tylko członkowie i administratorzy do dodania: goście nie zajmują miejsca, a osoby już obecne w przestrzeni zachowują swoje. Import nie może ruszyć, dopóki wszyscy nie zmieszczą się w licencji: nic nie zostało zapisane. Zwolnij miejsca albo przejdź na ofertę z większą liczbą miejsc, a potem wróć na ten ekran."
   },
   "externalLink": {
     "title": "Uwaga, opuszczasz Ruchoir",

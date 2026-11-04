@@ -1442,8 +1442,7 @@
     "seatsMissingInline_other": "{{count}} seats short",
     "seatsMissing_one": "{{count}} seat short",
     "seatsMissing_other": "{{count}} seats short",
-    "seatsOverText": "Only the members and administrators to add count: guests do not take a seat, and people already in the space keep theirs. The import cannot start until everyone can be welcomed: nothing has been written. Free some seats, or move to a plan with more, then come back to this screen.",
-    "doneLimitsKept": "A reminder of what was not exported"
+    "seatsOverText": "Only the members and administrators to add count: guests do not take a seat, and people already in the space keep theirs. The import cannot start until everyone can be welcomed: nothing has been written. Free some seats, or move to a plan with more, then come back to this screen."
   },
   "externalLink": {
     "title": "Careful, you are leaving Ruchoir",

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { blockView, capNames, fallbackSentence, peopleLines, seatsView, startDisabled, viewFromPlan, viewFromSummary } from "./importPeople.ts";
+import { blockView, capNames, doneView, fallbackSentence, peopleLines, seatsView, startDisabled, viewFromPlan, viewFromSummary } from "./importPeople.ts";
 
 const dict = (locale: string) =>
   JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, Record<string, string>>;
@@ -211,4 +211,40 @@ test("frame_8_slack_shows_two_rows", () => {
 test("the_block_is_absent_when_the_archive_has_no_people", () => {
   assert.equal(blockView(viewFromPlan({ ...full, administrators: 0, guests: 0, moderators: 0, groups: 0, groupNames: [], seats: [] }), "slack", null), null);
   assert.equal(blockView(null, "slack", null), null);
+});
+
+// --- the done screen (Task 15) -----------------------------------------------------------------------
+
+const summary = {
+  administrators: 3, guests: 2, moderators: 4, groups: 5,
+  groupNames: ["Comptabilité", "Communication", "Chantier Rennes", "Direction", "Bureau d'études"],
+  kept: 0, keptNames: [], customRoles: 0, fallbacks: [],
+  seats: [{ space: "Atelier Dupont", usedBefore: 1, added: 11, total: 25 }],
+};
+const LIMITS = ["Les appels et leur historique (Calls) ne sont pas exportés par Mattermost.", "Les réglages de notification de chaque personne ne sont pas exportés."];
+
+test("frame_5_done_shows_what_crossed_and_the_limits_again", () => {
+  const done = doneView({ source: "mattermost", people: summary, limits: LIMITS }, "Camille Martin");
+  assert.deepEqual(done.block?.lines.map((l) => l.kind), ["admins", "guests", "moderators", "groups"]);
+  assert.equal(done.block?.seats[0].usedAfter, 12);
+  assert.equal(done.block?.seats[0].free, 13);
+  assert.equal(done.block?.over, false);
+  assert.deepEqual(done.limits, LIMITS, "the producer's words, in full, in order");
+});
+
+test("a_found_again_job_shows_the_same_block_without_a_plan", () => {
+  // The screen found the job again: no plan in state, only what the job kept.
+  const found = doneView({ source: "mattermost", people: summary, limits: LIMITS }, null);
+  const fresh = doneView({ source: "mattermost", people: summary, limits: LIMITS }, null);
+  assert.deepEqual(found.block?.lines.map((l) => [l.kind, l.count]), [["admins", 3], ["guests", 2], ["moderators", 4], ["groups", 5]]);
+  assert.deepEqual(found, fresh);
+  assert.equal(found.block?.lines[0].ownerKey, "import.peopleOwnerNobody");
+});
+
+test("a_job_without_a_summary_shows_no_block", () => {
+  // An import from before lot 6: no `people` on the job. The limits it kept still show.
+  const old = doneView({ source: "slack", people: null, limits: [] }, null);
+  assert.equal(old.block, null);
+  assert.deepEqual(old.limits, []);
+  assert.deepEqual(doneView({ source: "slack", people: null, limits: LIMITS }, null).limits, LIMITS);
 });

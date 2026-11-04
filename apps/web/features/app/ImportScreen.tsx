@@ -36,7 +36,7 @@ import {
   startImport,
 } from "@/lib/data/api";
 import { ImportPeopleBlock } from "./ImportPeopleBlock";
-import { missingPlaces, type PeopleView, seatsFromRefusal, startDisabled, viewFromPlan } from "./importPeople.ts";
+import { missingPlaces, type PeopleView, seatsFromRefusal, startDisabled, viewFromPlan, viewFromSummary } from "./importPeople.ts";
 import { PASS_WEIGHT } from "./importRun";
 import type { Toast } from "./types";
 
@@ -595,6 +595,9 @@ export function ImportScreen({
   const planPeople: PeopleView | null = plan
     ? { ...viewFromPlan(plan.people), seats: seatsRefusal ? [seatsFromRefusal(seatsRefusal)] : viewFromPlan(plan.people).seats }
     : null;
+  /** The source's name on the done screen, where the job (not the plan) says where it came from. */
+  const doneSource = job ? PLATFORMS.find((p) => p.toLowerCase() === job.source.toLowerCase()) : undefined;
+  const doneSourceName = brandFor(doneSource) ?? t(key("import.sourceUnknown"));
   const tooFewSeats = planPeople ? startDisabled(planPeople) : false;
   /** Who stays owner is only known for a space the import creates, which is the importer's own. */
   const stayingOwner = plan && plan.spaces.length > 0 && plan.spaces.every((x) => x.outcome === "created") ? ownerName : null;
@@ -1301,6 +1304,35 @@ export function ImportScreen({
                   files: formatNumber(job.filesDone),
                 })}
           </p>
+          {/* What crossed, as the run wrote it (so the same after a reload), then what the producer
+              left behind, again: the done screen is where somebody checks the move is complete. */}
+          <ImportPeopleBlock
+            people={job.people ? viewFromSummary(job.people) : null}
+            source={job.source}
+            sourceName={doneSourceName}
+            ownerName={stayingOwner}
+            pricingUrl={pricingUrl}
+          />
+          {job.limits.length > 0 ? (
+            <div className="wc-imp-card" style={{ marginBottom: 12 }}>
+              <Check
+                tone="info"
+                icon="info"
+                title={
+                  <>
+                    {t(key("import.limitsTitle"), { source: doneSourceName })}{" "}
+                    <span className="wc-imp-check__aside">· {t(key("import.limitsAside"))}</span>
+                  </>
+                }
+              >
+                <ul>
+                  {job.limits.map((limit) => (
+                    <li key={limit}>{limit}</li>
+                  ))}
+                </ul>
+              </Check>
+            </div>
+          ) : null}
           {/* Once it is done, and only then, the question of who hears about it. Nothing left during
               the import: ten thousand accounts arriving is not ten thousand emails leaving, and
               somebody has to say who. */}

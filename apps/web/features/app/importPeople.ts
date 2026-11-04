@@ -236,3 +236,18 @@ export function blockView(people: PeopleView | null, source: string, ownerName: 
   if (lines.length === 0 && seats.length === 0) return null;
   return { lines, seats, over: seats.some((s) => s.tone === "over"), missing: missingPlaces(people), pricing: people.fallbacks.length > 0 };
 }
+
+/**
+ * What the done screen shows from the finished job alone, so a screen that finds the job again (no
+ * plan in state) says the same as the one that watched it run: the block as the run wrote it, and
+ * the producer's limits again, in its own words and in full.
+ */
+export function doneView(
+  job: { source: string; people: SummaryPeople | null; limits: string[] },
+  ownerName: string | null,
+): { block: BlockView | null; limits: string[] } {
+  return {
+    block: blockView(job.people ? viewFromSummary(job.people) : null, job.source.toLowerCase(), ownerName),
+    limits: job.limits,
+  };
+}

@@ -1442,8 +1442,7 @@
     "seatsMissingInline_other": "es fehlen {{count}} Plätze",
     "seatsMissing_one": "Es fehlt {{count}} Platz",
     "seatsMissing_other": "Es fehlen {{count}} Plätze",
-    "seatsOverText": "Nur die hinzuzufügenden Mitglieder und Administratoren zählen: Gäste belegen keinen Platz, und wer schon im Bereich ist, behält seinen. Der Import kann erst starten, wenn alle aufgenommen werden können: Es wurde nichts geschrieben. Geben Sie Plätze frei oder wechseln Sie zu einem Angebot mit mehr Plätzen und kehren Sie dann zu diesem Bildschirm zurück.",
-    "doneLimitsKept": "Zur Erinnerung: Was nicht exportiert wurde"
+    "seatsOverText": "Nur die hinzuzufügenden Mitglieder und Administratoren zählen: Gäste belegen keinen Platz, und wer schon im Bereich ist, behält seinen. Der Import kann erst starten, wenn alle aufgenommen werden können: Es wurde nichts geschrieben. Geben Sie Plätze frei oder wechseln Sie zu einem Angebot mit mehr Plätzen und kehren Sie dann zu diesem Bildschirm zurück."
   },
   "externalLink": {
     "title": "Achtung, Sie verlassen Ruchoir",
