@@ -667,3 +667,68 @@ async fn a_rule_step_says_where_the_rule_sits_and_its_level() {
     assert_eq!(rule["target"]["kind"], "group");
     assert_eq!(rule["rule_level"], "manage");
 }
+
+#[tokio::test]
+async fn the_explain_names_every_role_the_person_holds() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let folder = make_node(&app.db, fx.space_id, fx.owner, "Compta", "folder", None).await;
+    // Comptable gives files rights and arrives through the group Comptabilité; Communication gives
+    // nothing on files and arrives through the group Communication; Direct is held without a group.
+    let comptable = make_role(&app.db, fx.space_id, "Comptable", 5, &["files.view"]).await;
+    let communication = make_role(
+        &app.db,
+        fx.space_id,
+        "Communication",
+        6,
+        &["channels.create"],
+    )
+    .await;
+    let direct = make_role(&app.db, fx.space_id, "Direct", 7, &["dm.start"]).await;
+    let compta = make_group(&app.db, fx.space_id, "Comptabilité").await;
+    give_role_to_group(&app.db, compta, fx.space_id, comptable)
+        .await
+        .expect("carries");
+    put_in_group(&app.db, compta, fx.space_id, fx.member, false).await;
+    let comm = make_group(&app.db, fx.space_id, "Communication").await;
+    give_role_to_group(&app.db, comm, fx.space_id, communication)
+        .await
+        .expect("carries");
+    put_in_group(&app.db, comm, fx.space_id, fx.member, false).await;
+    assign(&app.db, fx.space_id, fx.member, direct).await;
+
+    let (status, body) = why(&app, fx.admin, fx.space_id, "file", folder, fx.member).await;
+    assert_eq!(status, 200, "{body}");
+    let roles = body["person"]["roles"].as_array().expect("roles list");
+    let named: Vec<(&str, bool, Vec<&str>)> = roles
+        .iter()
+        .map(|r| {
+            (
+                r["name"].as_str().expect("name"),
+                r["direct"].as_bool().expect("direct"),
+                r["via_groups"]
+                    .as_array()
+                    .expect("groups")
+                    .iter()
+                    .map(|g| g["name"].as_str().expect("group"))
+                    .collect(),
+            )
+        })
+        .collect();
+    // Every role beyond the base, with how it is held, even Communication which no step names.
+    assert_eq!(
+        named,
+        [
+            ("Communication", false, vec!["Communication"]),
+            ("Comptable", false, vec!["Comptabilité"]),
+            ("Direct", true, vec![]),
+        ],
+        "{body}"
+    );
+    assert!(
+        !steps(&body)
+            .iter()
+            .any(|s| s["role"]["name"] == "Communication"),
+        "the role is listed although no step names it: {body}"
+    );
+}
