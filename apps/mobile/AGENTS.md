@@ -44,6 +44,13 @@ rules; this file holds what is particular to the app.
   `resolve.mjs`) and for contrast (`test/styleContrast.test.ts`); the iPhone widgets keep their own copy
   in `targets/widgets/Shared.swift`, checked by `test/widgets.test.ts`.
 
+- **Gate by permissions, never by role strings.** A control is shown on `rightsOf(space)` /
+  `useRights().gates` (space level) and `useChannelGates(channel)` / `channelGates` (a channel's
+  `myPermissions`: send, react, attach, pin, moderate, manage, members, delete), the same functions as
+  the web (`@ruchoir/client/permissionsLogic`). The role string is only the fallback of an instance without
+  the permissions, inside the places `test/noRoleGates.test.ts` lists; a new `role === "admin"` or
+  `canAdminister(` fails it. A write the person's rights refuse is hidden, or the composer gives way to a note.
+
 ## Design consistency
 
 The mockups (21 phone screens) are the reference; the web's design system fills what they do not
