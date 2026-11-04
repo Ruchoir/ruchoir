@@ -70,7 +70,7 @@
     "licencesIntro": "Las licencias instaladas en esta instancia, empezando por la que termina antes. Solo lectura: la persona propietaria de cada espacio instala y retira la licencia de su espacio en los ajustes de ese espacio.",
     "licencesEmpty": "Ningún espacio tiene una licencia instalada.",
     "licenceFrozen": "Congelada",
-    "licenceInvalid": "Ilegible",
+    "licenceUnreadable": "Ilegible",
     "licenceSeats_one": "{{used}} de {{count}} plaza",
     "licenceSeats_many": "{{used}} de {{count}} plazas",
     "licenceSeats_other": "{{used}} de {{count}} plazas",

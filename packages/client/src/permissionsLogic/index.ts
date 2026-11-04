@@ -9,7 +9,7 @@ export {
   spaceGates,
   canGiveAdministrator,
 } from "./spaceGates.ts";
-export { channelGates, createGates } from "./channelGates.ts";
+export { channelGates, createGates, type LegacyChannelRules } from "./channelGates.ts";
 export {
   type RoleLike,
   FAMILIES,
@@ -226,5 +226,6 @@ export {
   prepareGroupNames,
   matchGroupMention,
   matchMentionTarget,
+  offeredBroadcasts,
 } from "./mentions.ts";
-export { type AdminLicence, type LicenceRow, licenceRows, applyRights, spaceLicenceBanner } from "./licences.ts";
+export { type AdminLicence, type LicenceRow, licenceRows, applyRights, applyChannelRights, spaceLicenceBanner } from "./licences.ts";

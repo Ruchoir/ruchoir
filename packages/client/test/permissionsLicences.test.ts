@@ -2,7 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
 import { createClient, resetClientForTests } from "../src/index.ts";
-import { licenceRows } from "../src/permissionsLogic/index.ts";
+import { applyChannelRights, licenceRows } from "../src/permissionsLogic/index.ts";
 import { fakeFetch } from "./fakeFetch.ts";
 
 beforeEach(() => resetClientForTests());
@@ -60,4 +60,48 @@ test("the_owner_is_warned_in_the_settings_when_the_licence_ends_within_30_days_o
   assert.deepEqual(spaceLicenceBanner({ role: "owner", edition: "frozen", licence: licence(0) }), { kind: "frozen" });
   assert.equal(spaceLicenceBanner({ role: "admin", edition: "frozen" }), null, "the owners alone are told");
   assert.equal(spaceLicenceBanner({ role: "owner", edition: "community" }), null);
+});
+
+test("an_unreadable_licence_is_listed_last_flagged_and_never_throws", () => {
+  const base = { organisation: "X", seats: 5, used: 1 };
+  const rows = licenceRows(
+    [
+      { ...base, spaceId: "bad", spaceName: "Bad", validUntil: "not a date", edition: "invalid" },
+      { ...base, spaceId: "empty", spaceName: "Empty", validUntil: "", edition: "enterprise" },
+      { ...base, spaceId: "ok", spaceName: "Ok", validUntil: "2026-11-14T12:00:00Z", edition: "enterprise" },
+      { ...base, spaceId: "inv", spaceName: "Inv", validUntil: "2026-12-01T12:00:00Z", edition: "invalid" },
+    ],
+    new Date("2026-11-04T10:00:00Z"),
+    "Europe/Paris",
+  );
+  assert.deepEqual(rows.map((r) => r.spaceId).slice(0, 2), ["ok", "inv"]);
+  assert.deepEqual(new Set(rows.slice(2).map((r) => r.spaceId)), new Set(["bad", "empty"]));
+  const byId = Object.fromEntries(rows.map((r) => [r.spaceId, r]));
+  assert.equal(byId.bad.unreadable, true);
+  assert.equal(byId.empty.unreadable, true);
+  assert.equal(byId.inv.unreadable, true, "an invalid edition cannot be trusted either");
+  assert.equal(byId.ok.unreadable, false);
+  assert.ok(Number.isNaN(byId.bad.daysLeft) && Number.isNaN(byId.empty.daysLeft));
+  assert.equal(byId.bad.soon, false);
+});
+
+test("a_channel_list_read_after_a_role_edit_keeps_what_only_this_client_knows", () => {
+  const held = [
+    { id: "a", name: "A", fav: true, unread: 3, type: "public", myPermissions: ["message.send"], lastMessage: { body: "live" } },
+    { id: "gone", name: "Gone", fav: false, unread: 0, type: "public" },
+  ] as never[];
+  const fresh = [
+    { id: "b", name: "B", fav: false, unread: 0, type: "public", myPermissions: ["channel.view"] },
+    { id: "a", name: "A2", fav: false, unread: 0, type: "public", myPermissions: ["message.send", "message.pin"], member: true },
+  ] as never[];
+  const out = applyChannelRights(held, fresh) as any[];
+  // The server's order and set, the rights and the rest from the server; favourite, unread and last message from here.
+  assert.deepEqual(out.map((c) => c.id), ["b", "a"]);
+  assert.deepEqual(out[1].myPermissions, ["message.send", "message.pin"]);
+  assert.equal(out[1].name, "A2");
+  assert.equal(out[1].member, true);
+  assert.equal(out[1].fav, true);
+  assert.equal(out[1].unread, 3);
+  assert.deepEqual(out[1].lastMessage, { body: "live" });
+  assert.equal(out[0].unread, 0);
 });

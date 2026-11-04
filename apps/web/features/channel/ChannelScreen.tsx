@@ -2,7 +2,7 @@
 
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Icon, IconButton, Skeleton, SkeletonGroup, Tooltip } from "@/components/ds";
-import { channelGates } from "@ruchoir/client/permissionsLogic";
+import { channelGates, createGates } from "@ruchoir/client/permissionsLogic";
 import { getAvatar, getChannelMembers, getCurrentUser, setMentionGroups } from "@/lib/data";
 import { getConversationFiles, getPinnedMessages, listChannelMembers } from "@/lib/data/api";
 import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } from "@/lib/data";
@@ -262,6 +262,8 @@ export type MessageActionHandlers = {
   openProfile: (name: string) => void;
   editProfile: (name: string) => void;
   message: (name: string) => void;
+  /** Whether a conversation with this person already exists (opening it needs no `dm.start`). */
+  hasDm: (name: string) => boolean;
   /** Open the channel a `#room` in a message names. */
   openRoom: (name: string) => void;
   /** Tick or untick one checklist line of a message, without opening it for editing. */
@@ -580,8 +582,15 @@ export function ChannelScreen({
         : myChannelRole;
   // What the channel's controls follow: the rights the server listed for this channel, the role
   // only on an older instance (`channelGates`).
-  const gates = channelGates(isDm ? undefined : channel, space, permissionsSupported, effectiveChannelRole);
+  const gates = channelGates(isDm ? undefined : channel, space, permissionsSupported, {
+    // What the web did before the permissions: every non-guest pins, nobody deletes another person's message.
+    legacyPin: "members",
+    legacyDeleteOthers: false,
+    legacyChannelRole: effectiveChannelRole,
+  });
   const canModerate = !isDm && gates.moderate;
+  /** Writing to someone new starts a direct message: a right of the space (`dm.start`). */
+  const canStartDm = createGates(space, permissionsSupported).dm;
   const canAddPeople = !isDm && gates.addPeople;
   const runsChannel = !isDm && (gates.moderate || gates.manage || gates.manageMembers);
   // The settings are read by anyone on an older instance; with the permissions, by those who manage the channel or its people.
@@ -647,8 +656,10 @@ export function ChannelScreen({
       audience: audienceKey === null ? null : audienceKey ? audienceKey.split(",") : [],
       dm: isDm,
       viewerRole: myRole,
+      // `@canal` and `@ici` are a right of the channel (`message.mention_all`); a conversation has no such right to hold.
+      broadcasts: isDm || gates.mentionAll,
     });
-  }, [mentionGroups, audienceKey, myRole, isDm]);
+  }, [mentionGroups, audienceKey, myRole, isDm, gates.mentionAll]);
   useEffect(() => () => setMentionGroups({ groups: [], audience: [] }), []);
   const presenceByName = new Map(members.map((m) => [m.name, m.presence] as const));
   // Uploaded avatars, by display name: a row only knows its author's name, and the roster is the one
@@ -685,6 +696,7 @@ export function ChannelScreen({
     onDelete: () => actions.remove(m.id),
     onOpenProfile: () => actions.openProfile(m.author),
     onEditProfile: () => actions.editProfile(m.author),
+    canMessage: (name) => canStartDm || actions.hasDm(name),
     onMessage: () => actions.message(m.author),
     onOpenMention: (name) => actions.openProfile(name),
     onMessageMention: (name) => actions.message(name),
@@ -865,7 +877,7 @@ export function ChannelScreen({
       startEditing={profileEditing}
       access={profileUserId ? memberAccess?.(profileUserId) : undefined}
       onClose={onCloseProfile}
-      onMessage={() => actions.message(profileName)}
+      onMessage={canStartDm || actions.hasDm(profileName) ? () => actions.message(profileName) : undefined}
       onAvatarChanged={onAvatarChanged}
       onNotify={onNotify}
     />

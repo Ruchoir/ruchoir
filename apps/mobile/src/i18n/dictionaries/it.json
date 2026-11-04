@@ -710,6 +710,7 @@
     "symbols": "Simboli"
   },
   "attach": {
+    "blocked": "Non puoi più allegare file qui: restano nella bozza ma non verranno inviati.",
     "gallery": "Foto o video",
     "galleryHint": "Dalla vostra galleria",
     "camera": "Scatta una foto",
@@ -1376,7 +1377,7 @@
     "licencesIntro": "Le licenze installate su questa istanza, a partire da quella che scade prima. Sola lettura: la persona proprietaria di ogni spazio installa e rimuove la licenza del proprio spazio nelle impostazioni di quello spazio.",
     "licencesEmpty": "Nessuno spazio ha una licenza installata.",
     "licenceFrozen": "Congelata",
-    "licenceInvalid": "Illeggibile",
+    "licenceUnreadable": "Illeggibile",
     "licenceSeats_one": "{{used}} su {{count}} posto",
     "licenceSeats_many": "{{used}} su {{count}} posti",
     "licenceSeats_other": "{{used}} su {{count}} posti",

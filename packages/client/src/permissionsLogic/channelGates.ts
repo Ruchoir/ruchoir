@@ -1,12 +1,26 @@
 import { rightsOf } from "./spaceGates.ts";
 
 /**
+ * What each app did before the permissions existed, which differs between them and is kept as it
+ * was (there is no common guess): who pins, and whether a moderator deletes a message that is not
+ * theirs. Used only on an instance that does not announce the permissions, or a channel without
+ * `myPermissions`. The web pins for every non-guest, the phone for the space's owners and
+ * administrators; neither deleted another person's message.
+ */
+export type LegacyChannelRules = {
+  legacyPin: "members" | "admins";
+  legacyDeleteOthers: boolean;
+  /** The caller's own row in the channel when the screen has it. */
+  legacyChannelRole?: string;
+};
+
+/**
  * What the caller may do in one channel, each control on the right the API checks behind it. When
  * the instance announces the permissions and the channel carries `myPermissions`, that list is the
  * whole answer (a custom role that moderates, an administrator by role who was given nothing in
  * this channel). Otherwise the rule an older instance applied: a guest takes part but moderates
  * nothing, the space's owner and administrators run every channel, and `legacyChannelRole` (the
- * caller's own row in the channel, when the screen has it) lets a channel's administrator moderate.
+ * caller's own row in the channel, when the screen has it) lets a channel's administrator moderate. `rules` says what the calling app did before.
  *
  * The server stays the judge: this only keeps the interface from offering what would be refused.
  * Deleting a channel is a space-level right (`channels.delete`), not the channel's.
@@ -15,8 +29,9 @@ export function channelGates(
   channel: { myPermissions?: string[] } | undefined,
   space: { role: string; myPermissions?: string[] } | undefined,
   supported: boolean,
-  legacyChannelRole?: string,
+  rules: LegacyChannelRules,
 ) {
+  const { legacyChannelRole } = rules;
   const mine = supported ? channel?.myPermissions : undefined;
   if (mine) {
     const has = (p: string) => mine.includes(p);
@@ -28,6 +43,7 @@ export function channelGates(
       mentionAll: has("message.mention_all"),
       pin: has("message.pin"),
       moderate: has("message.manage"),
+      deleteOthers: has("message.manage"),
       manage: has("channel.manage"),
       manageMembers: has("channel.members.manage"),
       addPeople: has("channel.members.manage"),
@@ -43,7 +59,8 @@ export function channelGates(
     react: true,
     attach: true,
     mentionAll: true,
-    pin: !guest,
+    pin: rules.legacyPin === "admins" ? spaceRuns : !guest,
+    deleteOthers: rules.legacyDeleteOthers && runs,
     moderate: runs,
     manage: runs,
     manageMembers: runs,

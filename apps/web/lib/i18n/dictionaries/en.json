@@ -70,7 +70,7 @@
     "licencesIntro": "The licences installed on this instance, soonest to end first. Read only: the owner of each space installs and removes that space's licence from its settings.",
     "licencesEmpty": "No space has a licence installed.",
     "licenceFrozen": "Frozen",
-    "licenceInvalid": "Unreadable",
+    "licenceUnreadable": "Unreadable",
     "licenceSeats_one": "{{used}} of {{count}} seat",
     "licenceSeats_other": "{{used}} of {{count}} seats",
     "licenceDaysLeft_one": "{{count}} day left",

@@ -70,7 +70,7 @@
     "licencesIntro": "Les licences installées sur cette instance, de la plus proche de son terme à la plus lointaine. Lecture seule : la personne propriétaire de chaque espace installe et retire la licence de son espace dans les réglages de cet espace.",
     "licencesEmpty": "Aucun espace n'a de licence installée.",
     "licenceFrozen": "Gelée",
-    "licenceInvalid": "Illisible",
+    "licenceUnreadable": "Illisible",
     "licenceSeats_one": "{{used}} sur {{count}} place",
     "licenceSeats_other": "{{used}} sur {{count}} places",
     "licenceDaysLeft_one": "{{count}} jour restant",

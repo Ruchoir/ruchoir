@@ -70,7 +70,7 @@
     "licencesIntro": "Die auf dieser Instanz installierten Lizenzen, die am frühesten endende zuerst. Nur Lesezugriff: Die Inhaber eines Bereichs installieren und entfernen dessen Lizenz in den Einstellungen des Bereichs.",
     "licencesEmpty": "Kein Bereich hat eine installierte Lizenz.",
     "licenceFrozen": "Eingefroren",
-    "licenceInvalid": "Nicht lesbar",
+    "licenceUnreadable": "Nicht lesbar",
     "licenceSeats_one": "{{used}} von {{count}} Platz",
     "licenceSeats_other": "{{used}} von {{count}} Plätzen",
     "licenceDaysLeft_one": "noch {{count}} Tag",

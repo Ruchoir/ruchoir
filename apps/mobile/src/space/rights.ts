@@ -9,7 +9,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useEffect, useMemo } from "react";
 
 import { useFeature } from "../api/features";
-import { canAdminister } from "../logic/spaceRoles";
+import { legacyDoors, PHONE_LEGACY_CHANNEL } from "../logic/spaceRoles";
 import { guardDecision } from "../logic/sectionGuard";
 import { sectionsFor, type SectionKey } from "../logic/spaceSections";
 import { useSpace } from "./SpaceProvider";
@@ -33,7 +33,7 @@ export function useChannelGates(channel: Pick<Channel, "myPermissions"> | null |
   const { supported } = useRights();
   const { current } = useSpace();
   return useMemo(
-    () => channelGates(channel ?? undefined, current ?? undefined, supported, legacyChannelRole),
+    () => channelGates(channel ?? undefined, current ?? undefined, supported, { ...PHONE_LEGACY_CHANNEL, legacyChannelRole }),
     [channel, current, supported, legacyChannelRole],
   );
 }
@@ -47,7 +47,7 @@ export function useCreateGates() {
   const { supported, gates } = useRights();
   const { current } = useSpace();
   return useMemo(
-    () => ({ ...createGates(current ?? undefined, supported), invite: supported ? gates.invite : canAdminister(current?.role) }),
+    () => ({ ...createGates(current ?? undefined, supported), invite: supported ? gates.invite : legacyDoors(current?.role).invite }),
     [current, supported, gates],
   );
 }

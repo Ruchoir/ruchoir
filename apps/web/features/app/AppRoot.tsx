@@ -142,7 +142,7 @@ import { MemberManagement, MemberRolesSummary } from "@/features/settings/Member
 import { refusalMessage } from "@/features/settings/roleChips";
 import { canGiveAdministrator, rightsOf, spaceGates } from "./spaceGates";
 import { setProfileZone } from "@/features/settings/guestLogic.ts";
-import { applyRights, channelGates, createGates, pickZone } from "@ruchoir/client/permissionsLogic";
+import { applyChannelRights, applyRights, channelGates, createGates, pickZone } from "@ruchoir/client/permissionsLogic";
 import { ActivityView } from "./ActivityView";
 import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
 import {
@@ -767,6 +767,8 @@ function AppShell() {
    */
   const rightsTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const countersTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // The pending re-read of channels and files after a rights change dies with the screen.
+  useEffect(() => () => clearTimeout(rightsTimer.current), []);
   // Both are stable by construction (a ref and a state setter), so they can be dependencies of the
   // realtime effect without tearing its socket down on every render.
   const reloadSpaceCounters = useCallback(
@@ -852,6 +854,8 @@ function AppShell() {
     loadingSpaceRef.current = activeWs;
     // The people of the space being left are not an approximation of the people of the one being
     // entered, not even for the few hundred milliseconds the fetch takes.
+    // A re-read of the old space's rights is no longer wanted.
+    clearTimeout(rightsTimer.current);
     setMembers([]);
     setSpaceRoles([]);
     setSpaceGroups([]);
@@ -1573,7 +1577,8 @@ function AppShell() {
           if (liveRef.current.ws !== spaceId) return;
           void getChannels(spaceId)
             .then((fresh) => {
-              if (liveRef.current.ws === spaceId) setChannels(fresh);
+              // Merged, not swapped in: a favourite or an unread count moved here meanwhile stays.
+              if (liveRef.current.ws === spaceId) setChannels((prev) => applyChannelRights(prev, fresh));
             })
             .catch(() => {});
           emitFileEvent({ type: "rights", spaceId });
@@ -2770,6 +2775,9 @@ function AppShell() {
   const rollbackMessage = (targetChannel: string, snapshot: Message) =>
     updateMessage(targetChannel, snapshot.id, () => snapshot);
 
+  /** The people one already has a conversation with: writing to them is opening it, not starting one. */
+  const dmNames = new Set(dms.map((d) => d.name));
+
   /** Open (or create, via the API) a direct message with a person, then navigate to it. */
   const openDmByName = (name: string) => {
     setModal(null);
@@ -2782,7 +2790,7 @@ function AppShell() {
       return;
     }
     const target = members.find((m) => m.name === name);
-    if (!target) {
+    if (!target || !creates.dm) {
       showToast({ tone: "info", title: t("toast.dmFailed"), description: name });
       return;
     }
@@ -3034,6 +3042,8 @@ function AppShell() {
       setThread(null);
     },
     message: (name: string) => openDmByName(name),
+    // Whether a conversation with this person exists: opening it needs no `dm.start`.
+    hasDm: (name: string) => dmNames.has(name),
     // A `#room` written in a message opens that room. Only the channels of this space can be
     // named, which is also all the composer offers, so an unknown name simply is not a link.
     openRoom: (name: string) => {
@@ -3593,7 +3603,11 @@ function AppShell() {
     return myChannelRole(channelId) === "owner" ? "owner" : "admin";
   };
   const channelGatesOf = (channelId: string) =>
-    channelGates(channels.find((c) => c.id === channelId), currentWorkspace, canPermissions, myChannelRole(channelId));
+    channelGates(channels.find((c) => c.id === channelId), currentWorkspace, canPermissions, {
+      legacyPin: "members",
+      legacyDeleteOthers: false,
+      legacyChannelRole: myChannelRole(channelId),
+    });
   /**
    * Whether the caller runs the space: the settings screen, its people, its identity. The screen
    * itself already refuses every control below this rung, and the API refuses the calls behind them,

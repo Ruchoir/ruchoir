@@ -8,7 +8,7 @@ import { useAccounts, type Account } from "../../accounts/AccountsProvider";
 import { groupSpaces, hostOf, type SpaceSection } from "../../accounts/summary";
 import { ApiProvider } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
-import { canAdminister } from "../../logic/spaceRoles";
+import { legacyDoors } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
 import { useRights } from "../../space/rights";
 import { useSpace } from "../../space/SpaceProvider";
@@ -92,10 +92,10 @@ export function SpaceSheet() {
           <Text variant="smallStrong" tone="muted" style={styles.section}>
             {current.name}
           </Text>
-          {(supported ? gates.invite : canAdminister(current.role)) ? (
+          {(supported ? gates.invite : legacyDoors(current.role).invite) ? (
             <ActionRow icon={UserPlus} tint={c.pink} title={t("spaceAdmin.invite")} onPress={() => open("invite")} />
           ) : null}
-          {(supported ? gates.openSettings : canAdminister(current.role)) ? (
+          {(supported ? gates.openSettings : legacyDoors(current.role).openSettings) ? (
             <ActionRow icon={Settings} tint={c.sky} title={t("spaceAdmin.settings")} onPress={() => open("spaceSettings")} />
           ) : null}
           <ActionRow icon={Bell} tint={c.sun} title={t("spaceAdmin.notifications")} onPress={() => open("spaceNotify")} />

@@ -37,6 +37,8 @@ export type MessageActions = {
   onOpenProfile: () => void;
   onEditProfile: () => void;
   onMessage: () => void;
+  /** Whether the card of this person offers "Message" (`dm.start`, or a conversation already there). */
+  canMessage: (name: string) => boolean;
   /** Open the full profile of a user @-mentioned in the body, from the card a mention opens. */
   onOpenMention: (name: string) => void;
   /** Write to a user @-mentioned in the body, from the card a mention opens. */
@@ -487,7 +489,7 @@ export function MessageRow({
         </button>
       )}
       <Popover anchorRef={avatarRef} open={profileOpen} onClose={() => setProfileOpen(false)} placement="bottom" align="start">
-        <UserProfileCard name={m.author} userId={m.authorId} presence={authorPresence} onViewFull={openProfileFromCard} onEditProfile={editProfileFromCard} onMessage={messageFromCard} />
+        <UserProfileCard name={m.author} userId={m.authorId} presence={authorPresence} onViewFull={openProfileFromCard} onEditProfile={editProfileFromCard} onMessage={actions.canMessage(m.author) ? messageFromCard : undefined} />
       </Popover>
       <Popover
         anchorRef={mentionRef}
@@ -510,10 +512,14 @@ export function MessageRow({
               setMention(null);
               actions.onEditMentionProfile(mention);
             }}
-            onMessage={() => {
-              setMention(null);
-              actions.onMessageMention(mention);
-            }}
+            onMessage={
+              actions.canMessage(mention)
+                ? () => {
+                    setMention(null);
+                    actions.onMessageMention(mention);
+                  }
+                : undefined
+            }
           />
         ) : null}
       </Popover>

@@ -24,7 +24,7 @@ import { useApi } from "../../api/useApi";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { key, useTranslation } from "../../i18n";
-import { canAdminister } from "../../logic/spaceRoles";
+import { legacyDoors } from "../../logic/spaceRoles";
 import { useChannelGates } from "../../space/rights";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
@@ -86,7 +86,7 @@ export function ConversationDetails() {
   const channelMembers = useLoad(channelId ? `channelMembers:${channelId}` : null, (signal) => listChannelMembers(channelId!, signal));
   const cursors = useLoad(channelId ? null : `read:${conversationId}`, (signal) => getReadCursors(conversationId, signal));
   // What this page shows, as it changes elsewhere: the channel itself, its people, who read.
-  useReloadOn((e) => !!space && affects.channels(e, space), channels.reload);
+  useReloadOn((e) => !!space && affects.channelRights(e, space), channels.reload);
   useReloadOn((e) => !!space && affects.conversations(e, space), dms.reload);
   useReloadOn((e) => !!channelId && affects.channelMembers(e, channelId), channelMembers.reload);
   useReloadOn((e) => e.type === "readCursor" && e.conversationId === conversationId, cursors.reload);
@@ -121,7 +121,7 @@ export function ConversationDetails() {
   const { state } = useSession();
   const me = state.kind === "signedIn" ? state.user.id : undefined;
   const isChannel = !!channelId && !!channel;
-  const guest = current?.role === "guest";
+  const guest = legacyDoors(current?.role).guest;
   // Who reads, takes part in or manages the channel, by levels: an instance that sets access so (the web's channel settings).
   const levels = useSupports("resource_rules");
   const archived = channel?.type === "archived";
@@ -135,7 +135,7 @@ export function ConversationDetails() {
     ? gates.manageMembers
       ? "owner"
       : heldRole
-    : canAdminister(current?.role)
+    : legacyDoors(current?.role).channelRank
       ? "owner"
       : guest
         ? "member"

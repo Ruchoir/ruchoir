@@ -1,25 +1,33 @@
 /** The instance administrator's list of licences: one line per space, soonest end first. */
 
-import type { AdminLicence, Workspace } from "../types.ts";
+import type { AdminLicence, Channel, Workspace } from "../types.ts";
 import { daysLeftBanner } from "./audit.ts";
 import { daysLeft } from "./guests.ts";
 
 export type { AdminLicence };
 
-export type LicenceRow = AdminLicence & { daysLeft: number; frozen: boolean; soon: boolean };
+/** `unreadable`: the licence could not be read (invalid edition, or an end date that is empty or not a date): no date is shown and `daysLeft` is NaN. */
+export type LicenceRow = AdminLicence & { daysLeft: number; frozen: boolean; soon: boolean; unreadable: boolean };
 
 /** Days under which the owners are warned by mail (30, 7, 1). */
 const LICENCE_SOON_DAYS = 30;
 
-/** The rows sorted by soonest expiry (an expired one first), with the days left counted in `zone`. */
+/** The rows sorted by soonest expiry (an expired one first, an unreadable one last), with the days left counted in `zone`. */
 export function licenceRows(list: AdminLicence[], now: Date, zone: string): LicenceRow[] {
+  const end = (l: AdminLicence) => (l.validUntil ? Date.parse(l.validUntil) : NaN);
   return list
     .map((l) => {
-      const days = daysLeft(l.validUntil, now, zone);
+      const dated = !Number.isNaN(end(l));
+      const unreadable = !dated || l.edition === "invalid";
+      const days = dated ? daysLeft(l.validUntil, now, zone) : NaN;
       const frozen = l.edition === "frozen";
-      return { ...l, daysLeft: days, frozen, soon: !frozen && l.edition === "enterprise" && days <= LICENCE_SOON_DAYS };
+      return { ...l, daysLeft: days, frozen, unreadable, soon: !frozen && l.edition === "enterprise" && days <= LICENCE_SOON_DAYS };
     })
-    .sort((a, b) => Date.parse(a.validUntil) - Date.parse(b.validUntil));
+    .sort((a, b) => {
+      const ka = Number.isNaN(end(a)) ? Infinity : end(a);
+      const kb = Number.isNaN(end(b)) ? Infinity : end(b);
+      return ka === kb ? 0 : ka < kb ? -1 : 1;
+    });
 }
 
 /**
@@ -52,4 +60,19 @@ export function spaceLicenceBanner(space: {
   if (space.edition === "frozen") return { kind: "frozen" };
   const ends = daysLeftBanner(space.licence, space.edition);
   return ends ? { kind: "ends", ...ends } : null;
+}
+
+/**
+ * The channel list read again after a rights change, merged into the one this client holds: the
+ * server's set, order and rights (a channel the person gained appears, one they lost goes), while
+ * what only this client knows right now stays (favourite, unread count, last message: they move
+ * ahead of the server through live events and optimistic edits).
+ */
+export function applyChannelRights(held: Channel[], fresh: Channel[]): Channel[] {
+  const mine = new Map(held.map((c) => [c.id, c] as const));
+  return fresh.map((f) => {
+    const h = mine.get(f.id);
+    if (!h) return f;
+    return { ...f, fav: h.fav, unread: h.unread, ...(h.lastMessage ? { lastMessage: h.lastMessage } : {}), ...(h.notify ? { notify: h.notify } : {}) };
+  });
 }

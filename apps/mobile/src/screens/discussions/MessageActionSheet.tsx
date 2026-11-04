@@ -171,7 +171,7 @@ export function MessageActionSheet() {
       {canPin ? (
         <ActionRow icon={m.pinned ? PinOff : Pin} tint={c.sun} title={m.pinned ? t("message.unpin") : t("message.pin")} onPress={togglePin} />
       ) : null}
-      {own || (!!channelId && gates.moderate) ? (
+      {own || (!!channelId && gates.deleteOthers) ? (
         <>
           <View style={[styles.rule, { backgroundColor: c.line }]} />
           <ActionRow icon={Trash2} danger title={t("message.delete")} onPress={remove} />

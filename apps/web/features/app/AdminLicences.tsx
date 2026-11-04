@@ -34,7 +34,7 @@ const st: Record<string, CSSProperties> = {
 const EDITION: Record<AdminLicence["edition"], TranslationKey> = {
   enterprise: key("licence.enterprise"),
   frozen: key("admin.licenceFrozen"),
-  invalid: key("admin.licenceInvalid"),
+  invalid: key("admin.licenceUnreadable"),
 };
 
 export function AdminLicences() {
@@ -90,8 +90,12 @@ export function AdminLicences() {
                   </td>
                   <td style={st.td}>{t("admin.licenceSeats", { used: r.used, count: r.seats })}</td>
                   <td style={st.td}>
-                    {r.frozen ? t("admin.licenceExpiredOn", { date: endLabel(r.validUntil, locale, zone, now) }) : endLabel(r.validUntil, locale, zone, now)}
-                    {r.frozen || r.edition === "invalid" ? null : (
+                    {r.unreadable
+                      ? t("admin.licenceUnreadable")
+                      : r.frozen
+                        ? t("admin.licenceExpiredOn", { date: endLabel(r.validUntil, locale, zone, now) })
+                        : endLabel(r.validUntil, locale, zone, now)}
+                    {r.frozen || r.unreadable ? null : (
                       <div style={{ color: "var(--text-muted)", marginTop: 2 }}>{r.daysLeft === 0 ? t("admin.licenceLastDay") : t("admin.licenceDaysLeft", { count: r.daysLeft })}</div>
                     )}
                   </td>

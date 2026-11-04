@@ -5,6 +5,7 @@ import type { SpaceFile } from "@/lib/data";
 import { getFolder } from "@/lib/data/api";
 import { onFileEvent } from "@/lib/fileEvents";
 import { onUploadDone } from "@/lib/uploads";
+import { withLiveFields } from "./model.ts";
 
 export type Crumb = { id: string; name: string };
 
@@ -29,6 +30,7 @@ export function useFolder(spaceId: string, onError: () => void, initialFolderId?
 
   // A slow answer for a folder already left must not overwrite the one now open.
   const requestRef = useRef(0);
+  const refreshRef = useRef(0);
 
   /** Load a folder (the space root when `id` is undefined). */
   const load = useCallback(
@@ -49,6 +51,29 @@ export function useFolder(spaceId: string, onError: () => void, initialFolderId?
           setLoading(false);
           onErrorRef.current();
         });
+    },
+    [spaceId],
+  );
+
+  /**
+   * Read the open folder again without a skeleton: the rows stay on screen and are replaced when the
+   * answer comes. A failure leaves them as they are and says nothing (the next event or a manual
+   * reload tries again): a background read has no one waiting for it.
+   */
+  const refresh = useCallback(
+    (id?: string) => {
+      // Does not move `requestRef`, or it would cancel a folder being opened with its skeleton; it is
+      // dropped itself when a folder load starts meanwhile, or a newer refresh goes out.
+      const request = requestRef.current;
+      const mine = ++refreshRef.current;
+      getFolder(spaceId, id)
+        .then((listing) => {
+          if (request !== requestRef.current || mine !== refreshRef.current) return;
+          setEntries((prev) => withLiveFields(prev, listing.entries));
+          setBreadcrumb(listing.breadcrumb);
+          setFolderId(listing.folderId);
+        })
+        .catch(() => {});
     },
     [spaceId],
   );
@@ -84,8 +109,8 @@ export function useFolder(spaceId: string, onError: () => void, initialFolderId?
             return here ? [...prev, event.file] : prev;
           });
         } else if (event.type === "rights") {
-          // The server marks each entry with what the caller may do: read the folder again.
-          load(folderRef.current);
+          // The server marks each entry with what the caller may do: read the folder again, quietly.
+          refresh(folderRef.current);
         } else if (event.type === "deleted") {
           const gone = new Set(event.fileIds);
           setEntries((prev) => prev.filter((f) => !f.id || !gone.has(f.id)));
@@ -93,7 +118,7 @@ export function useFolder(spaceId: string, onError: () => void, initialFolderId?
           setEntries((prev) => prev.map((f) => (f.id === event.fileId ? { ...f, editors: event.editors } : f)));
         }
       }),
-    [spaceId, load],
+    [spaceId, refresh],
   );
 
   /** One more entry in a folder this list shows, so its size does not read "empty" while it fills. */

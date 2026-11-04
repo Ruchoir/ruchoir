@@ -54,14 +54,28 @@ export function prolongStep<T extends { slug: string }>(spaces: T[] | undefined,
  * What to tell about the spaces that left the list since the last read: a guest whose access ended,
  * a member who was removed. Once per space (`told` is kept by the caller). The keys are the ones the
  * web uses, `guests.endedNotice`, `guests.endedNoticeBody` and `guests.leftNotice`.
+ *
+ * Only a space the server said something about is told (`caused`: a rights change, or a removal; as
+ * the web, which speaks on a permissions event only), and never one this phone just deleted or left
+ * (`muted`). A space that merely vanished from a list (deleted by its owner, a sign-out, an instance
+ * switch, an empty answer) is not an ended access.
  */
 export function spaceEndings(
   before: { id: string; name: string; role?: string }[],
   after: { id: string }[],
   told: Set<string>,
+  ctx: { caused: ReadonlySet<string>; muted: ReadonlySet<string> },
 ): { space: string; title: "guests.endedNotice" | "guests.leftNotice"; body?: "guests.endedNoticeBody" }[] {
-  return endedSpaces(before, after, told).map((s) => {
+  const candidates = before.filter((s) => ctx.caused.has(s.id) && !ctx.muted.has(s.id));
+  return endedSpaces(candidates, after, told).map((s) => {
     const keys = endedNoticeKeys(s.role);
     return { space: s.name, title: keys.title as "guests.endedNotice" | "guests.leftNotice", ...(keys.body ? { body: keys.body as "guests.endedNoticeBody" } : {}) };
   });
+}
+
+/** The space an event may have ended the access of: its rights moved, or the server removed the person from it. */
+export function endingCause(e: { type: string; spaceId?: string; removed?: { spaceId: string; reason: string } }): string | null {
+  if (e.type === "permissions" && e.spaceId) return e.spaceId;
+  if (e.type === "spaces" && e.removed?.reason === "removed") return e.removed.spaceId;
+  return null;
 }

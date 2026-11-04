@@ -93,3 +93,12 @@ test("prepared_names_are_folded_once_and_reused", () => {
   assert.equal(matchGroupMention("@coeur", 1, prepared), "coeur");
   assert.equal(foldMention("Cœur"), "coeur");
 });
+
+test("the_room_wide_handles_are_offered_only_where_the_person_may_use_them", async () => {
+  const { offeredBroadcasts } = await import("../src/permissionsLogic/index.ts");
+  const all = [{ name: "canal" }, { name: "ici" }];
+  assert.deepEqual(offeredBroadcasts(all, "ca", true), [{ name: "canal" }]);
+  assert.deepEqual(offeredBroadcasts(all, "", true), all);
+  assert.deepEqual(offeredBroadcasts(all, "", false), []);
+  assert.deepEqual(offeredBroadcasts(all, "ca", false), []);
+});

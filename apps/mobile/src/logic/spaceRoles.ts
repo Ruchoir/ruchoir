@@ -39,6 +39,27 @@ export function canDeleteSpace(role: string | undefined): boolean {
   return role === "owner";
 }
 
+/**
+ * Every door an instance without the permissions decides by the role, in one place: the screens
+ * call `supported ? gate : legacyDoors(role).x`, and no screen reads a role string for it.
+ */
+export function legacyDoors(role: string | undefined) {
+  const runs = canAdminister(role);
+  return {
+    invite: runs,
+    openSettings: runs,
+    members: runs,
+    trashPurge: runs,
+    defaultChannel: runs,
+    channelOrder: runs,
+    channelRank: runs,
+    /** A guest takes part but moderates nothing. */
+    guest: role === "guest",
+    identity: canEditIdentity(role),
+    deleteSpace: canDeleteSpace(role),
+  };
+}
+
 /** "3 members, 1 external guest, 1 bot": people (guests included) and bots counted apart. */
 export function memberCounts(members: { role: string; bot: boolean }[]): {
   people: number;
@@ -59,3 +80,10 @@ export function matchesMember(member: { name: string }, query: string): boolean 
 export function nameConfirmed(typed: string, name: string): boolean {
   return typed.trim() !== "" && typed.trim() === name.trim();
 }
+
+/**
+ * What the phone did in a channel before the permissions existed, on an instance that does not
+ * announce them: pin for the space's owners and administrators, and delete only one's own message.
+ * (The web pins for every non-guest: its own rule, in its own call of `channelGates`.)
+ */
+export const PHONE_LEGACY_CHANNEL = { legacyPin: "admins", legacyDeleteOthers: false } as const;

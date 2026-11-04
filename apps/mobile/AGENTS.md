@@ -48,8 +48,10 @@ rules; this file holds what is particular to the app.
   `useRights().gates` (space level) and `useChannelGates(channel)` / `channelGates` (a channel's
   `myPermissions`: send, react, attach, pin, moderate, manage, members, delete), the same functions as
   the web (`@ruchoir/client/permissionsLogic`). The role string is only the fallback of an instance without
-  the permissions, inside the places `test/noRoleGates.test.ts` lists; a new `role === "admin"` or
-  `canAdminister(` fails it. A write the person's rights refuse is hidden, or the composer gives way to a note.
+  the permissions, inside the places `test/noRoleGates.test.ts` lists, counted per file (a new
+  `role === "admin"`, `"guest"` comparison, `includes(role)`, `switch (role)` or `canAdminister(` fails it). The
+  fallbacks of an older instance live in `logic/spaceRoles.ts` (`legacyDoors`, `PHONE_LEGACY_CHANNEL`): a screen
+  asks them, it never reads a role itself. A write the person's rights refuse is hidden, or the composer gives way to a note.
 
 ## Design consistency
 

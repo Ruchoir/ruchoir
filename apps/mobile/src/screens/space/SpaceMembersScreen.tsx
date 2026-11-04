@@ -30,7 +30,7 @@ import {
   type PeopleFilter,
 } from "../../logic/memberScreen";
 import { refusalSaid } from "../../logic/refusals";
-import { canAdminister, matchesMember, memberCounts } from "../../logic/spaceRoles";
+import { legacyDoors, matchesMember, memberCounts } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
 import { affects } from "../../realtime/events";
 import { useSession } from "../../session/SessionProvider";
@@ -128,7 +128,7 @@ function Members({ space }: { space: Workspace }) {
         .filter(Boolean)
         .join(" · ")
     : "";
-  const mayInvite = memberDoors(supported, gates, canAdminister(space.role)).invite;
+  const mayInvite = memberDoors(supported, gates, legacyDoors(space.role).invite).invite;
   const shown = list ? filterPeople(list, filter).filter((m) => matchesMember(m, query)) : [];
 
   return (

@@ -132,8 +132,8 @@ export function InstanceAdminScreen() {
             ) : (
               <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.line }]}>
                 {licenceList.map((row) => {
-                  const edition = t(row.edition === "frozen" ? "admin.licenceFrozen" : row.edition === "invalid" ? "admin.licenceInvalid" : "licence.enterprise");
-                  const end = row.frozen ? t("admin.licenceExpiredOn", { date: day(row.validUntil) }) : `${day(row.validUntil)} · ${row.daysLeft === 0 ? t("admin.licenceLastDay") : t("admin.licenceDaysLeft", { count: row.daysLeft })}`;
+                  const edition = t(row.edition === "frozen" ? "admin.licenceFrozen" : row.edition === "invalid" ? "admin.licenceUnreadable" : "licence.enterprise");
+                  const end = row.unreadable ? t("admin.licenceUnreadable") : row.frozen ? t("admin.licenceExpiredOn", { date: day(row.validUntil) }) : `${day(row.validUntil)} · ${row.daysLeft === 0 ? t("admin.licenceLastDay") : t("admin.licenceDaysLeft", { count: row.daysLeft })}`;
                   return (
                     <ActionRow
                       key={row.spaceId}

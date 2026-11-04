@@ -356,7 +356,9 @@ What cost time while integrating Euro-Office (2026-10-01), so it is not paid twi
   `packages/client/src/permissionsLogic`. `createGates` does the same for "new channel", "new message",
   "new calendar". The role is only the fallback of an instance that does not announce the `permissions`
   feature, and lives inside those functions. A write the person's rights refuse is hidden, or the
-  composer gives way to a read-only note. The phone's `test/noRoleGates.test.ts` enforces it.
+  composer gives way to a read-only note. The phone's `test/noRoleGates.test.ts` enforces it. What each
+  app did before the permissions (who pins, who deletes another person's message) is passed to
+  `channelGates` as its own explicit legacy rules, never a shared guess.
 
 ## Design system
 

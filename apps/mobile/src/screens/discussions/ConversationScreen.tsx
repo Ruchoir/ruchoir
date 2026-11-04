@@ -141,7 +141,7 @@ export function ConversationView({ params, onClose }: { params: RootParams["conv
   const navigation = useNavigation();
   const toast = useToast();
   // The channel and its people as they change elsewhere; a channel deleted while open says so and goes.
-  useReloadOn((e) => !!current && affects.channels(e, current.id), channels.reload);
+  useReloadOn((e) => !!current && affects.channelRights(e, current.id), channels.reload);
   useReloadOn((e) => !!params.channelId && affects.channelMembers(e, params.channelId), channelMembers.reload);
   const session = useSession();
   const myId = session.state.kind === "signedIn" ? session.state.user.id : null;

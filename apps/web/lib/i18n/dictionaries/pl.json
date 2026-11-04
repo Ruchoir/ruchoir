@@ -70,7 +70,7 @@
     "licencesIntro": "Licencje zainstalowane w tej instancji, od kończącej się najwcześniej. Tylko do odczytu: osoba będąca właścicielem przestrzeni instaluje i usuwa jej licencję w ustawieniach tej przestrzeni.",
     "licencesEmpty": "Żadna przestrzeń nie ma zainstalowanej licencji.",
     "licenceFrozen": "Zamrożona",
-    "licenceInvalid": "Nieczytelna",
+    "licenceUnreadable": "Nieczytelna",
     "licenceSeats_one": "{{used}} z {{count}} miejsca",
     "licenceSeats_few": "{{used}} z {{count}} miejsc",
     "licenceSeats_many": "{{used}} z {{count}} miejsc",

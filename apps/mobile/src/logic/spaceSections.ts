@@ -9,7 +9,7 @@
 import { rightsOf, type spaceGates } from "@ruchoir/client/permissionsLogic";
 import type { Workspace } from "@ruchoir/client";
 
-import { canAdminister } from "./spaceRoles.ts";
+import { legacyDoors } from "./spaceRoles.ts";
 
 export type SectionKey = "general" | "members" | "roles" | "groups" | "audit" | "licence";
 
@@ -53,7 +53,7 @@ export function sectionsFor(
 
   if (!supported) {
     add("general", [{ key: "spaceSections.generalLine" }]);
-    if (canAdminister(space.role)) add("members", members());
+    if (legacyDoors(space.role).members) add("members", members());
     return out;
   }
 

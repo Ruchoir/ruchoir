@@ -24,3 +24,14 @@ test("dates_are_read_in_one_zone_the_locale_hook_never_the_device_directly", () 
     assert.doesNotMatch(text, /deviceZone\(|DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone/, file);
   }
 });
+
+test("the_open_conversation_follows_a_role_edit", () => {
+  for (const f of ["screens/discussions/ConversationScreen.tsx", "screens/discussions/ThreadScreen.tsx", "screens/discussions/ConversationDetails.tsx"]) {
+    assert.match(src(f), /affects\.channelRights\(/, f);
+    assert.doesNotMatch(src(f), /useReloadOn\([^\n]*affects\.channels\(e, [^\n]*channels\.reload/, f);
+  }
+});
+
+test("an_unreadable_licence_shows_its_label_instead_of_a_formatted_date", () => {
+  assert.match(src("screens/account/InstanceAdminScreen.tsx"), /row\.unreadable \? t\("admin\.licenceUnreadable"\)/);
+});

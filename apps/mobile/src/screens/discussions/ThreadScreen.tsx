@@ -18,6 +18,7 @@ import { useMentionGroups } from "../../data/mentionGroups";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
+import { threadFooter } from "../../logic/threadCompose";
 import { affects } from "../../realtime/events";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
@@ -53,9 +54,10 @@ export function ThreadScreen() {
   const members = useSpaceMembers(current?.id);
   const mentionGroups = useMentionGroups(current?.id);
   const channels = useLoad(current ? `channels:${current.id}` : null, (signal) => getChannels(current!.id, signal));
-  useReloadOn((e) => !!current && affects.channels(e, current.id), channels.reload);
+  useReloadOn((e) => !!current && affects.channelRights(e, current.id), channels.reload);
   const channel = channelId ? channels.data?.find((ch) => ch.id === channelId) : undefined;
   const gates = useChannelGates(channel);
+  const footer = threadFooter({ signedIn: !!me, inChannel: !!channelId, channelsLoaded: !!channels.data, canSend: gates.send });
   const draftKey = `thread:${rootId}`;
   // "Also send to #general" under the field, where the instance can.
   const canAlso = useSupports("reply_to_channel");
@@ -176,13 +178,18 @@ export function ThreadScreen() {
             }}
           />
         )}
-        {me && !gates.send ? (
+        {footer === "waiting" ? (
+          // The channel's rights are not here yet: a gap of the note's height, neither note nor composer.
+          <View style={styles.readOnly} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <Text variant="small" tone="muted"> </Text>
+          </View>
+        ) : footer === "readOnly" ? (
           <View style={styles.readOnly}>
             <Text variant="small" tone="muted">
               {t("compose.readOnly")}
             </Text>
           </View>
-        ) : me ? (
+        ) : footer === "composer" && me ? (
           <Composer
             key={edit.editing ? `edit:${edit.editing.id}` : draftKey}
             conversationId={conversationId}
