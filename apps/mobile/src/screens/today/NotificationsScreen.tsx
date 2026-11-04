@@ -250,7 +250,10 @@ export function NotificationsScreen() {
 
   const headline = (n: ApiNotification) => {
     const title = n.reminder?.title ?? n.calendarName ?? "";
-    const notice = guestNoticeSummary(n, locale, (which, vars) => say(SAID[which === "soon" ? "guest_expiry_soon" : "guest_access_ending"], vars));
+    const notice = guestNoticeSummary(n, locale, (which, vars) => say(SAID[which === "soon" ? "guest_expiry_soon" : "guest_access_ending"], vars), {
+      now: new Date(now),
+      zone: deviceZone(),
+    });
     if (notice !== null) return notice;
     switch (n.kind) {
       case "calendar_reminder":

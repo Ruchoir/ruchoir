@@ -165,6 +165,16 @@ test("a_guest_held_back_by_the_ceiling_reads_base_rule_then_the_ceiling_and_a_re
   const result = resultRows(say, "channel", why);
   assert.deepEqual(result.map((r) => [r.id, r.granted]), [["view", true], ["participate", false], ["manage", false]]);
   assert.equal(result[0]?.reason, "why.reason.base");
+  // The right a rule gave and the ceiling took names the ceiling, not "no rule grants it".
+  assert.equal(result[2]?.reason, "why.reason.guest_ceiling");
+});
+
+test("the_words_after_a_lead_start_with_a_capital", () => {
+  const why = { person: { id: "u", name: "Julie", roles: [] }, steps: [step(1, "base", "channel.view")], result: [{ permission: "channel.view", granted: true, reasonStep: 1 }] };
+  const lower = (key: string, vars?: Record<string, string | number>) => (key === "why.locksNone" ? "Verrous : le verrou privé ne change rien ici." : say(key, vars));
+  const quiet = whyCards({ ...deps, say: lower }, why, [{ id: "c1", name: "compta", item: true }]).find((c) => c.type === "quiet");
+  assert.equal(quiet?.label, "Verrous");
+  assert.equal(quiet?.body, "Le verrou privé ne change rien ici.");
 });
 
 test("a_quiet_explanation_says_the_locks_changed_nothing_and_an_empty_one_says_so", () => {

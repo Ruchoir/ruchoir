@@ -253,9 +253,9 @@ export type WhyCard = { type: "base" | "roles" | "space" | "level" | "locks" | "
 const capital = (text: string, locale: string) => (text ? text.charAt(0).toLocaleUpperCase(locale) + text.slice(1) : text);
 
 /** "Plafond des invités : Thomas a le statut..." as a label and its sentence; a sentence with no lead keeps no label. */
-function leadOf(text: string): { label: string; body: string } {
+function leadOf(text: string, locale: string): { label: string; body: string } {
   const at = text.indexOf(":");
-  return at < 0 ? { label: "", body: text } : { label: text.slice(0, at).trim(), body: text.slice(at + 1).trim() };
+  return at < 0 ? { label: "", body: text } : { label: text.slice(0, at).trim(), body: capital(text.slice(at + 1).trim(), locale) };
 }
 
 /**
@@ -319,13 +319,13 @@ export function whyCards(deps: WhyDeps, why: WhyLike, chain: ChainLevel[]): WhyC
         break;
       }
       case "locks":
-        for (const g of para.groups) cards.push({ type: "locks", ...leadOf(fill(g)) });
+        for (const g of para.groups) cards.push({ type: "locks", ...leadOf(fill(g), locale) });
         break;
       case "quiet":
-        cards.push({ type: "quiet", ...leadOf(say("why.locksNone")) });
+        cards.push({ type: "quiet", ...leadOf(say("why.locksNone"), locale) });
         break;
       case "other":
-        cards.push({ type: "other", ...leadOf(fill(para.group)) });
+        cards.push({ type: "other", ...leadOf(fill(para.group), locale) });
         break;
     }
   }

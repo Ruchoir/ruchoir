@@ -172,6 +172,7 @@ export {
   noticeTarget,
   endedNoticeKeys,
 } from "./guestNotices.ts";
+export { capitalFirst, closeSentence, joinClosed, tidyPeriods } from "./sentences.ts";
 export {
   type EntryLike as AuditEntryLike,
   type Slot,
