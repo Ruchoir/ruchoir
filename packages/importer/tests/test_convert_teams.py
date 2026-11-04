@@ -522,6 +522,51 @@ class Tenant(unittest.TestCase):
         accepted, said = rust_accepts(self.convert())
         self.assertTrue(accepted, said)
 
+    # roles and guests (format 2) ---------------------------------------------------------------
+    def roles(self, archive: Path) -> dict[str, str]:
+        return {m["user"]: m["role"] for m in read_jsonl(archive, "members.jsonl") if m["space"] == TEAM}
+
+    def members(self, *rows: tuple) -> None:
+        self.fake.paged(f"/teams/{TEAM}/members", [[
+            {"@odata.type": "#microsoft.graph.aadUserConversationMember", "userId": uid,
+             "displayName": uid, "roles": roles, "tenantId": HOME}
+            for uid, roles in rows
+        ]])
+
+    def test_a_team_owner_is_an_administrator(self) -> None:
+        roles = self.roles(self.convert())
+        self.assertEqual(roles[ALICE], "admin")
+        self.assertEqual(roles[BOB], "member")
+        self.assertEqual(len(read_jsonl(self.root / "archive", "members.jsonl")), 4)
+
+    def test_a_guest_member_role_is_a_guest(self) -> None:
+        self.members((ALICE, ["owner"]), (BOB, ["guest"]), (DAN, []))
+        roles = self.roles(self.convert())
+        self.assertEqual(roles, {ALICE: "admin", BOB: "guest", DAN: "member"})
+
+    def test_a_directory_guest_is_a_guest_even_as_a_plain_member(self) -> None:
+        # Carol is a guest of the directory (userType Guest) and a plain member of the team; a guest
+        # who is also an owner stays a guest, because a guest holds no role.
+        self.members((CAROL, []), (ALICE, ["owner"]))
+        roles = self.roles(self.convert())
+        self.assertEqual(roles[CAROL], "guest")
+        self.assertEqual(roles[ALICE], "admin")
+        self.members((CAROL, ["owner"]))
+        self.assertEqual(self.roles(self.convert(out="again", cache="cache2"))[CAROL], "guest")
+
+    def test_the_old_no_roles_limit_is_gone_and_channel_owners_are_declared(self) -> None:
+        archive = self.convert()
+        limits = json.loads((archive / "manifest.json").read_text(encoding="utf-8"))["limits"]
+        self.assertFalse(any("no roles" in line for line in limits))
+        self.assertTrue(any("Channel owners" in line and "moderators" in line for line in limits))
+
+    def test_the_manifest_is_format_2_with_counts(self) -> None:
+        archive = self.convert()
+        manifest = json.loads((archive / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["format_version"], 2)
+        self.assertEqual(manifest["counts"]["members"], 4)
+        self.assertEqual(validator.validate(archive).errors, [])
+
     def test_a_team_becomes_a_space_and_only_the_chosen_ones_cross(self) -> None:
         archive = self.convert()
         spaces = read_jsonl(archive, "spaces.jsonl")

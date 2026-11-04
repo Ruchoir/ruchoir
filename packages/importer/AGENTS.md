@@ -63,6 +63,18 @@ them, not before: an entity nothing calls is dead weight, and the compiler says 
   `gpg`; a generated passphrase is printed once and stored nowhere. Calendars come out of the CalDAV
   tables, each event as the iCalendar text Nextcloud keeps (`docs/import-archive.md`, "Calendars").
 
+## Format 2 mappings (lot 6)
+
+Every producer writes `format_version` 2 (people, groups, moderators). The table is in
+`docs/import-archive.md`, "Producers". The rules a producer must keep: a guest holds no role (guest
+wins over admin), nobody is written as an owner (a source owner arrives as `admin`), a moderator
+must be a member of the conversation and not a guest, and what a source cannot give is declared in
+`limits`. Nextcloud's `admin` group is a plain group and gives nobody admin; Mattermost has no user
+groups in a bulk export (limit in English and French); Slack user groups stay a limit; Teams does
+not read channel owners (limit). `make-demo-archive.py` and `make-load-archive.py` write format 2
+too. `tests/test_checkers_agree.py` (`ProducersAgree`) puts the generators, Mattermost and Slack
+output to both checkers; run it with `RUCHOIR_API_BIN` and `RUCHOIR_TEST_REQUIRE_RUST_CHECKER=1`.
+
 ## Tests
 
 `cd packages/importer/tests && python3 -m unittest discover`. No dependencies beyond the standard

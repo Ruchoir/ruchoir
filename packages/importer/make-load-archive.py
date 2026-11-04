@@ -117,6 +117,21 @@ def main() -> None:
         })
     chan_ids = [c["id"] for c in channels]
 
+    # People and groups (format 2), deterministic and without a draw from the generator, so the
+    # messages of a seed do not move. In the first space: the first account administers, the second
+    # is a guest, the third is a plain member, and one group holds the first four. A guest holds no
+    # moderator seat; the first other member of each channel moderates it.
+    first = space_ids[0]
+    roles_by_user = {uids[0]: "admin", **({uids[1]: "guest"} if len(uids) > 1 else {})}
+    members = [{"space": first, "user": u, "role": roles_by_user.get(u, "member")} for u in uids[:3]]
+    groups = [{"id": f"{a.id_prefix}g-equipe", "space": first, "name": "Equipe",
+               "description": "Groupe de charge", "members": uids[:4]}]
+    for c in channels:
+        if c["kind"] == "channel":
+            mods = [m for m in c["members"] if roles_by_user.get(m) != "guest"][:1]
+            if mods:
+                c["moderators"] = mods
+
     # Files, and their bytes. Written first so messages can point at them.
     files = []
     for i in range(a.files):
@@ -207,16 +222,19 @@ def main() -> None:
         "channels.jsonl": write("channels.jsonl", channels),
         "messages.jsonl": write("messages.jsonl", messages),
         "files.jsonl": write("files.jsonl", files),
+        "members.jsonl": write("members.jsonl", members),
+        "groups.jsonl": write("groups.jsonl", groups),
     }
 
     manifest = {
-        "format_version": 1,
+        "format_version": 2,
         "source": "synthetic",
         "source_version": f"load generator, seed {a.seed}",
         "producer": "ruchoir-make-load-archive 0.1.0",
         "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "counts": {"spaces": len(spaces), "users": len(users), "channels": len(channels),
-                   "messages": len(messages), "files": len(files)},
+                   "messages": len(messages), "files": len(files),
+                   "members": len(members), "groups": len(groups)},
         "checksums": checksums,
         "limits": [
             "This archive is generated, not exported: every name, address and message in it is "
