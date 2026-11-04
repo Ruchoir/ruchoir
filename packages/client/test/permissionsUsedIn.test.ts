@@ -1,8 +1,9 @@
+// Run with `pnpm --filter @ruchoir/client test` (Node's own runner, types stripped by Node).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { usedInRows } from "./usedInLogic.ts";
+import { usedInRows } from "../src/permissionsLogic/usedIn.ts";
 
 test("a_deleted_group_or_role_refusal_lists_where_it_is_used", () => {
   const rows = usedInRows([
@@ -19,7 +20,7 @@ test("a_deleted_group_or_role_refusal_lists_where_it_is_used", () => {
   assert.deepEqual(rows[3], { kind: "file", id: undefined, label: undefined, hidden: true, kindKey: "access.usedIn.file", levelKey: undefined, open: undefined });
   assert.equal(usedInRows([]).length, 0);
   for (const locale of ["fr", "en", "de", "es", "it", "pl"]) {
-    const dict = JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
+    const dict = JSON.parse(readFileSync(new URL(`../../../apps/web/lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
     for (const row of rows) assert.ok(row.kindKey.split(".").reduce<unknown>((at, p) => (at as Record<string, unknown> | undefined)?.[p], dict), `${locale}: ${row.kindKey}`);
   }
 });

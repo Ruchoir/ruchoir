@@ -1,7 +1,8 @@
+// Run with `pnpm --filter @ruchoir/client test` (Node's own runner, types stripped by Node).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { canGiveAdministrator, rightsOf, spaceGates } from "./spaceGates.ts";
+import { canGiveAdministrator, rightsOf, spaceGates } from "../src/permissionsLogic/spaceGates.ts";
 
 test("a_custom_role_opens_what_its_rights_open_and_nothing_else", () => {
   // Karim: a member whose "Ressources humaines" role manages people and roles.

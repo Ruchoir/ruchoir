@@ -1,6 +1,7 @@
+// Run with `pnpm --filter @ruchoir/client test` (Node's own runner, types stripped by Node).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addBlockFor, groupHitsFor, guestCeilingApplies, offersLeaving, offersManagement, removalOf, type PanelGroup } from "./groupPanelLogic.ts";
+import { addBlockFor, groupHitsFor, guestCeilingApplies, offersLeaving, offersManagement, removalOf, type PanelGroup } from "../src/permissionsLogic/groupPanel.ts";
 
 const group = (over: Partial<PanelGroup> = {}): PanelGroup => ({
   id: "g1",

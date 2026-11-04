@@ -1,7 +1,8 @@
+// Run with `pnpm --filter @ruchoir/client test` (Node's own runner, types stripped by Node).
 // Run with `pnpm --filter @ruchoir/web test` (Node's own runner, types stripped by Node).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { endedNoticeKeys, endedSpaces, guestNoticeSummary, whenLabel } from "./guestNotices.ts";
+import { endedNoticeKeys, endedSpaces, guestNoticeSummary, whenLabel } from "../src/permissionsLogic/guestNotices.ts";
 
 const say = (which: "soon" | "ending", vars: Record<string, string>) => `${which}:${Object.values(vars).join("|")}`;
 
@@ -25,7 +26,7 @@ test("a_vanished_space_shows_the_ended_notice_once", () => {
   assert.deepEqual(endedSpaces(before, before, new Set()), []);
 });
 
-import { noticeTarget } from "./guestNotices.ts";
+import { noticeTarget } from "../src/permissionsLogic/guestNotices.ts";
 
 test("the_soon_notice_offers_prolong_for_that_guest", () => {
   assert.deepEqual(noticeTarget({ kind: "guest_expiry_soon", spaceId: "s1", actorId: "g9" }), { action: "prolong", spaceId: "s1", userId: "g9" });
@@ -47,7 +48,7 @@ test("the_ended_toast_fits_the_standing", () => {
   assert.deepEqual(endedSpaces([{ id: "a", name: "A", role: "guest" }], [], told), [{ id: "a", name: "A", role: "guest" }]);
 });
 
-import { guestNoticeDetail } from "./guestNotices.ts";
+import { guestNoticeDetail } from "../src/permissionsLogic/guestNotices.ts";
 
 const sayDetail = (which: string, vars: Record<string, string>) => `${which}:${Object.values(vars).join("|")}`;
 const day = (iso: string) => iso.slice(0, 10);

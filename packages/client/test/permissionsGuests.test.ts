@@ -1,8 +1,9 @@
+// Run with `pnpm --filter @ruchoir/client test` (Node's own runner, types stripped by Node).
 // Run with `pnpm --filter @ruchoir/web test` (Node's own runner, types stripped by Node).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { dateRefusal, daysLeft, endLabel, expiryTone, keepLabel, presetToInstant, showsEndDate } from "./guestLogic.ts";
+import { dateRefusal, daysLeft, endLabel, expiryTone, keepLabel, presetToInstant, showsEndDate } from "../src/permissionsLogic/guests.ts";
 
 const PARIS = "Europe/Paris";
 
@@ -94,7 +95,7 @@ function flat(node: unknown, prefix = ""): Record<string, string> {
 
 test("every_new_string_exists_in_six_locales", () => {
   const dicts = Object.fromEntries(
-    LOCALES.map((l) => [l, flat((JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${l}.json`, import.meta.url), "utf8")) as Dict).guests)]),
+    LOCALES.map((l) => [l, flat((JSON.parse(readFileSync(new URL(`../../../apps/web/lib/i18n/dictionaries/${l}.json`, import.meta.url), "utf8")) as Dict).guests)]),
   );
   const names = Object.keys(dicts.fr).map((k) => k.replace(/_(zero|one|two|few|many|other)$/, ""));
   assert.ok(Object.keys(dicts.fr).length > 10, "the guests namespace exists");
@@ -113,7 +114,7 @@ test("every_new_string_exists_in_six_locales", () => {
 });
 
 test("a_hand_picked_day_must_be_valid_before_it_can_be_sent", async () => {
-  const { choiceRefusal } = await import("./guestLogic.ts");
+  const { choiceRefusal } = await import("../src/permissionsLogic/guests.ts");
   const now = new Date("2026-11-15T09:00:00Z");
   assert.equal(choiceRefusal({ date: "" }, now, PARIS), "empty");
   assert.equal(choiceRefusal({ date: "2026-11-01" }, now, PARIS), "past");
