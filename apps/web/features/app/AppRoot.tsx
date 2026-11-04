@@ -206,7 +206,7 @@ import { oneLine } from "./preview";
 import { PreviewBanner } from "./PreviewBanner";
 import type { Place } from "../settings/usedInLogic.ts";
 import { PlaceNavContext } from "./placeNav";
-import { previewGone, previewToast, previewToastDue, shouldShowToast } from "./previewLogic.ts";
+import { previewGone, previewToast, shouldShowToast } from "./previewLogic.ts";
 import { BottomTabs } from "./BottomTabs";
 import { UploadPanel } from "@/features/files/UploadPanel";
 import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchField, QuickLinks, SpaceMark } from "./mobile/MobileScreens";
@@ -1209,6 +1209,8 @@ function AppShell() {
   const notifyRef = useRef<((toast: Toast) => void) | null>(null);
   /** When a write was last refused because the space is looked at as a role. */
   const previewRefusedAt = useRef<number | undefined>(undefined);
+  /** Whether a preview is on: the client skips background writes meanwhile. */
+  const previewActiveRef = useRef(false);
   // The spaces whose end of access was already announced: the notice shows once.
   const endedToldRef = useRef(new Set<string>());
   // `switchWorkspace`, for the notice handler declared before it.
@@ -2311,23 +2313,24 @@ function AppShell() {
   // A write refused because the space is looked at as a role: said once, wherever it came from, and
   // the text typed stays where it is (the screens keep their own "not sent").
   useEffect(() => {
-    let last: { at: number; send: boolean } | undefined;
     configureClient({
+      // While a space is looked at as a role, what the app writes on its own is not sent at all.
+      previewActive: () => previewActiveRef.current,
       onPreviewReadOnly: (request) => {
-        const now = Date.now();
-        previewRefusedAt.current = now;
-        if (!previewToastDue(last, now, request)) return;
+        previewRefusedAt.current = Date.now();
         const toast = previewToast(request);
-        last = { at: now, send: toast.bodyKey === "preview.readOnlyBodySend" };
         notifyRef.current?.({ tone: toast.tone, title: tRef.current(toast.titleKey), description: tRef.current(toast.bodyKey) });
       },
     });
-    return () => configureClient({ onPreviewReadOnly: undefined });
+    return () => configureClient({ onPreviewReadOnly: undefined, previewActive: undefined });
   }, []);
 
   // The server refuses the real-time connection of a previewing session: the screens do not move on
   // their own until the preview ends. Said once when it starts.
   const previewedRole = workspaces.find((w) => w.id === ws)?.preview?.roleId;
+  useEffect(() => {
+    previewActiveRef.current = previewedRole !== undefined;
+  }, [previewedRole]);
   // The server ends a preview after 30 idle minutes: while one is shown, ask again on focus and every
   // minute, and read the screen again as the person when it is gone.
   useEffect(() => {

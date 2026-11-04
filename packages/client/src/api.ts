@@ -312,6 +312,8 @@ function toUsedIn(dto: UsedInDto): UsedIn {
   };
 }
 
+export { isBackgroundWrite } from "./background.ts";
+
 const REFUSAL_CODES = new Set([
   "cannot_grant", "target_above_you", "reservation_admins_only", "guest_ceiling", "audience_files_only",
   "base_role_not_previewable", "base_role_levels_only", "permission_in_both", "unknown_permission", "wrong_family", "group_has_rules",

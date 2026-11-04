@@ -39,6 +39,8 @@ export type ClientOptions = {
    * Called when a write is refused because the session is looking at the space as a role (`403
    * preview_read_only`), before the error is thrown: the app says so once, wherever the write came from.
    */
+  /** Whether the session is looking at a space as a role: background writes are then not sent. */
+  previewActive?: () => boolean;
   onPreviewReadOnly?: (request: { method: string; path: string }) => void;
   /**
    * Send every multipart upload as one in-memory `ArrayBuffer` (with its own `Content-Type`) instead
