@@ -319,3 +319,99 @@ async fn the_card_counts_active_people_only() {
         "the owner, the running guest and the newcomer; not the ended one: {space}"
     );
 }
+
+#[tokio::test]
+async fn a_dead_guest_invitation_reads_expired_in_the_list() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    invite(
+        &app,
+        &fx,
+        json!({ "role": "guest", "guest_expires_at": rfc3339(in_days(2)) }),
+    )
+    .await;
+    exec(
+        &app.db,
+        "UPDATE space_invitations SET guest_expires_at = now() - interval '1 second' \
+         WHERE space_id = $1",
+        vec![fx.space.into()],
+    )
+    .await
+    .expect("move the end into the past");
+    let listed: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/invitations", fx.space),
+            &fx.owner_cookie,
+        )
+        .send()
+        .await
+        .expect("list")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(listed[0]["usable"], false);
+    assert_eq!(listed[0]["status"], "expired");
+}
+
+#[tokio::test]
+async fn a_dead_addressed_guest_invitation_no_longer_skips_email_verification() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let address = format!("late-{}@example.test", Uuid::new_v4().simple());
+    let (_, created) = invite(
+        &app,
+        &fx,
+        json!({
+            "role": "guest",
+            "email": address,
+            "guest_expires_at": rfc3339(in_days(2)),
+        }),
+    )
+    .await;
+    let token = token_of(created["url"].as_str().expect("url"));
+    exec(
+        &app.db,
+        "UPDATE space_invitations SET guest_expires_at = now() - interval '1 second' \
+         WHERE space_id = $1",
+        vec![fx.space.into()],
+    )
+    .await
+    .expect("move the end into the past");
+    let registered = app
+        .http
+        .post(format!("{}/api/v1/auth/register", app.base))
+        .json(&json!({
+            "email": address,
+            "display_name": "Late",
+            "password": "Correct-Horse-42!",
+            "invitation_token": token,
+        }))
+        .send()
+        .await
+        .expect("register");
+    assert_eq!(registered.status(), 201);
+    let account: Value = registered.json().await.expect("json");
+    assert_eq!(account["active"], false, "a dead invitation proves nothing");
+}
+
+#[tokio::test]
+async fn an_offset_end_date_is_stored_as_the_instant_it_names() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let end = in_days(10);
+    let offset = time::UtcOffset::from_hms(2, 0, 0).expect("offset");
+    let (status, created) = invite(
+        &app,
+        &fx,
+        json!({ "role": "guest", "guest_expires_at": rfc3339(end.to_offset(offset)) }),
+    )
+    .await;
+    assert_eq!(status, 201, "{created}");
+    let token = token_of(created["url"].as_str().expect("url"));
+    let newcomer = make_user(&app.db, "offset").await;
+    let (status, _) = accept(&app, &token, &app.cookie_for(newcomer).await).await;
+    assert_eq!(status, 200);
+    let stored = expires_of(&app, fx.space, newcomer).await.expect("an end");
+    assert!((stored - end).whole_seconds().abs() <= 1);
+}

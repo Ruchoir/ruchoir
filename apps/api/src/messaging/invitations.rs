@@ -57,7 +57,7 @@ const MAX_TTL_HOURS: i64 = 24 * 30;
 const TOKEN_LEN: usize = 64;
 
 /// How far ahead a guest's end date may lie.
-const MAX_GUEST_YEARS: i64 = 5;
+const MAX_GUEST_YEARS: i32 = 5;
 
 /// The `system_event` discriminator written into the channel when someone joins. The client turns it
 /// into a sentence; the database never stores one.
@@ -124,7 +124,11 @@ pub async fn create_invitation(
             return Err(ApiError::ForbiddenBecause("role_above_you"));
         }
     }
-    let guest_expires_at = guest_end(body.guest_expires_at.as_deref(), role)?;
+    let guest_expires_at = guest_end(
+        body.guest_expires_at.as_deref(),
+        role,
+        OffsetDateTime::now_utc(),
+    )?;
     if super::edition_view::takes_a_seat(role) {
         super::edition_view::ensure_a_seat(&state, space_id).await?;
     }
@@ -165,7 +169,11 @@ pub async fn create_invitation(
 /// must lie ahead, and no further than [`MAX_GUEST_YEARS`] years (a date beyond is a typo or an
 /// access that is not temporary). It only restricts the access, so it needs no right beyond
 /// inviting.
-fn guest_end(raw: Option<&str>, role: &str) -> Result<Option<OffsetDateTime>, ApiError> {
+fn guest_end(
+    raw: Option<&str>,
+    role: &str,
+    now: OffsetDateTime,
+) -> Result<Option<OffsetDateTime>, ApiError> {
     let Some(raw) = raw else { return Ok(None) };
     if role != "guest" {
         return Err(ApiError::BadRequestCode {
@@ -179,8 +187,11 @@ fn guest_end(raw: Option<&str>, role: &str) -> Result<Option<OffsetDateTime>, Ap
     };
     let end = OffsetDateTime::parse(raw.trim(), &time::format_description::well_known::Rfc3339)
         .map_err(|_| bad())?;
-    let now = OffsetDateTime::now_utc();
-    if end <= now || end > now + Duration::days(365 * MAX_GUEST_YEARS) {
+    // Five calendar years; from 29 February, where that year has no such day, 1826 days.
+    let furthest = now
+        .replace_year(now.year() + MAX_GUEST_YEARS)
+        .unwrap_or(now + Duration::days(1826));
+    if end <= now || end > furthest {
         return Err(bad());
     }
     Ok(Some(end))
@@ -759,7 +770,7 @@ async fn usable_invitation(
 }
 
 /// Whether an invitation would be accepted at `now`: not revoked, not expired, uses left.
-fn is_usable(record: &space_invitations::Model, now: OffsetDateTime) -> bool {
+pub(crate) fn is_usable(record: &space_invitations::Model, now: OffsetDateTime) -> bool {
     record.revoked_at.is_none()
         && record.expires_at.is_none_or(|expiry| expiry > now)
         && record.guest_expires_at.is_none_or(|end| end > now)
@@ -899,9 +910,72 @@ fn status_of(record: &space_invitations::Model, now: OffsetDateTime) -> &'static
         "accepted"
     } else if record.revoked_at.is_some() {
         "revoked"
-    } else if record.expires_at.is_some_and(|expiry| expiry <= now) {
+    } else if record.expires_at.is_some_and(|expiry| expiry <= now)
+        || record.guest_expires_at.is_some_and(|end| end <= now)
+    {
         "expired"
     } else {
         "active"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::macros::datetime;
+
+    fn record() -> space_invitations::Model {
+        let now = datetime!(2026-11-04 12:00 UTC);
+        space_invitations::Model {
+            id: Uuid::nil(),
+            space_id: Uuid::nil(),
+            token_hash: String::new(),
+            email: None,
+            role: "guest".to_owned(),
+            created_by: None,
+            max_uses: None,
+            uses: 0,
+            expires_at: Some(now + Duration::days(7)),
+            revoked_at: None,
+            created_at: now,
+            channel_id: None,
+            guest_expires_at: None,
+        }
+    }
+
+    #[test]
+    fn an_end_equal_to_now_is_refused_and_unusable() {
+        let now = datetime!(2026-11-04 12:00 UTC);
+        assert!(guest_end(Some("2026-11-04T12:00:00Z"), "guest", now).is_err());
+        assert!(guest_end(Some("2026-11-04T12:00:01Z"), "guest", now).is_ok());
+        let mut r = record();
+        r.guest_expires_at = Some(now);
+        assert!(!is_usable(&r, now));
+        assert_eq!(status_of(&r, now), "expired");
+        r.guest_expires_at = Some(now + Duration::seconds(1));
+        assert!(is_usable(&r, now));
+        assert_eq!(status_of(&r, now), "active");
+    }
+
+    #[test]
+    fn the_cap_is_five_calendar_years() {
+        let now = datetime!(2026-11-04 12:00 UTC);
+        assert!(guest_end(Some("2031-11-04T12:00:00Z"), "guest", now).is_ok());
+        assert!(guest_end(Some("2031-11-04T12:00:01Z"), "guest", now).is_err());
+        // From a leap day the same year has no such date: the fallback still bounds it.
+        let leap = datetime!(2028-02-29 12:00 UTC);
+        assert!(guest_end(Some("2033-02-28T12:00:00Z"), "guest", leap).is_ok());
+        assert!(guest_end(Some("2033-03-05T12:00:00Z"), "guest", leap).is_err());
+    }
+
+    #[test]
+    fn an_offset_input_is_compared_as_the_instant_it_names() {
+        let now = datetime!(2026-11-04 12:00 UTC);
+        // 13:30 at +02:00 is 11:30 UTC: already past.
+        assert!(guest_end(Some("2026-11-04T13:30:00+02:00"), "guest", now).is_err());
+        let end = guest_end(Some("2026-11-04T15:00:00+02:00"), "guest", now)
+            .expect("13:00 UTC is ahead")
+            .expect("a date");
+        assert_eq!(end, datetime!(2026-11-04 13:00 UTC));
     }
 }

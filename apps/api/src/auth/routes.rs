@@ -484,11 +484,7 @@ async fn invitation_proves(state: &AppState, token: Option<&str>, email: &str) -
     else {
         return false;
     };
-    let usable = invitation.revoked_at.is_none()
-        && invitation
-            .expires_at
-            .is_none_or(|expiry| expiry > OffsetDateTime::now_utc())
-        && invitation.max_uses.is_none_or(|max| invitation.uses < max);
+    let usable = crate::messaging::invitations::is_usable(&invitation, OffsetDateTime::now_utc());
 
     usable
         && invitation
