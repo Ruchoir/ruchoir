@@ -12182,6 +12182,10 @@ mod guest_expiry_tests;
 #[cfg(test)]
 mod expired_guest_tests;
 
+/// The sweep that reminds, closes and purges guests' access.
+#[cfg(test)]
+mod guest_sweep_tests;
+
 /// An invitation carrying the guest's end date.
 #[cfg(test)]
 mod guest_invitation_tests;

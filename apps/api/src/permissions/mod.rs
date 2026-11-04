@@ -11,6 +11,7 @@ pub mod delegation;
 pub mod engine;
 pub mod group_routes;
 pub mod groups;
+pub mod guest_expiry;
 pub mod levels;
 pub mod load;
 pub mod membership;

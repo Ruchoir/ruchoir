@@ -640,6 +640,122 @@ pub fn notice(locale: Locale, notice: &Notice<'_>, instance: &str) -> Email {
     )
 }
 
+/// What a guest-expiry reminder says, for [`guest_expiry_reminder`].
+#[derive(Debug, Clone, Copy)]
+pub struct GuestExpiryWords<'a> {
+    pub guest: &'a str,
+    pub space: &'a str,
+    /// The end date as a reader writes it ("20 novembre 2026").
+    pub ends: &'a str,
+    /// Days left when it was written: `7` or `1`.
+    pub days: i32,
+    pub link: &'a str,
+}
+
+/// The mail sent to the people who manage a guest, some days before the guest's access ends.
+pub fn guest_expiry_reminder(
+    locale: Locale,
+    words: &GuestExpiryWords<'_>,
+    instance: &str,
+) -> Email {
+    let (guest, space, ends) = (words.guest, words.space, words.ends);
+    let many = words.days > 1;
+    let days = words.days;
+    let (subject, paragraph, button, note) = match locale {
+        Locale::Fr => (
+            if many {
+                format!("L'accès de {guest} à {space} se termine dans {days} jours")
+            } else {
+                format!("L'accès de {guest} à {space} se termine demain")
+            },
+            format!(
+                "L'accès de {guest} à l'espace {space} se termine le {ends}{}. Vous recevez ce message parce que vous gérez les invités de cet espace. Si son travail avec vous continue, prolongez son accès. Sinon, vous n'avez rien à faire : ses messages et ses fichiers resteront, et vous pourrez le réactiver pendant 90 jours.",
+                if many { format!(", dans {days} jours") } else { ", demain".to_owned() }
+            ),
+            "Prolonger son accès",
+            "Vous recevrez un dernier rappel la veille. Pour ne plus recevoir ces messages, retirez-vous des personnes qui gèrent les invités.",
+        ),
+        Locale::En => (
+            if many {
+                format!("{guest}'s access to {space} ends in {days} days")
+            } else {
+                format!("{guest}'s access to {space} ends tomorrow")
+            },
+            format!(
+                "{guest}'s access to the {space} space ends on {ends}{}. You receive this because you manage the guests of this space. If their work with you goes on, extend their access. Otherwise there is nothing to do: their messages and files stay, and you can reactivate them for 90 days.",
+                if many { format!(", in {days} days") } else { ", tomorrow".to_owned() }
+            ),
+            "Extend their access",
+            "A last reminder comes the day before. To stop receiving these messages, step down from managing guests.",
+        ),
+        Locale::Es => (
+            if many {
+                format!("El acceso de {guest} a {space} termina en {days} días")
+            } else {
+                format!("El acceso de {guest} a {space} termina mañana")
+            },
+            format!(
+                "El acceso de {guest} al espacio {space} termina el {ends}{}. Recibes este mensaje porque gestionas a los invitados de este espacio. Si su trabajo contigo continúa, prolonga su acceso. Si no, no tienes nada que hacer: sus mensajes y archivos se quedan y podrás reactivarlo durante 90 días.",
+                if many { format!(", dentro de {days} días") } else { ", mañana".to_owned() }
+            ),
+            "Prolongar su acceso",
+            "Recibirás un último recordatorio la víspera. Para dejar de recibir estos mensajes, deja de gestionar a los invitados.",
+        ),
+        Locale::De => (
+            if many {
+                format!("Der Zugang von {guest} zu {space} endet in {days} Tagen")
+            } else {
+                format!("Der Zugang von {guest} zu {space} endet morgen")
+            },
+            format!(
+                "Der Zugang von {guest} zum Bereich {space} endet am {ends}{}. Sie erhalten diese Nachricht, weil Sie die Gäste dieses Bereichs verwalten. Wenn die Zusammenarbeit weitergeht, verlängern Sie den Zugang. Andernfalls müssen Sie nichts tun: Nachrichten und Dateien bleiben erhalten, und Sie können den Zugang 90 Tage lang reaktivieren.",
+                if many { format!(", in {days} Tagen") } else { ", morgen".to_owned() }
+            ),
+            "Zugang verlängern",
+            "Am Vortag folgt eine letzte Erinnerung. Um diese Nachrichten nicht mehr zu erhalten, geben Sie die Verwaltung der Gäste ab.",
+        ),
+        Locale::It => (
+            if many {
+                format!("L'accesso di {guest} a {space} termina tra {days} giorni")
+            } else {
+                format!("L'accesso di {guest} a {space} termina domani")
+            },
+            format!(
+                "L'accesso di {guest} allo spazio {space} termina il {ends}{}. Ricevi questo messaggio perché gestisci gli ospiti di questo spazio. Se il lavoro con te continua, prolunga il suo accesso. Altrimenti non devi fare nulla: messaggi e file restano e potrai riattivarlo per 90 giorni.",
+                if many { format!(", tra {days} giorni") } else { ", domani".to_owned() }
+            ),
+            "Prolunga l'accesso",
+            "Riceverai un ultimo promemoria il giorno prima. Per non ricevere più questi messaggi, smetti di gestire gli ospiti.",
+        ),
+        Locale::Pl => (
+            if many {
+                format!("Dostęp użytkownika {guest} do {space} kończy się za {days} dni")
+            } else {
+                format!("Dostęp użytkownika {guest} do {space} kończy się jutro")
+            },
+            format!(
+                "Dostęp użytkownika {guest} do przestrzeni {space} kończy się {ends}{}. Dostajesz tę wiadomość, bo zarządzasz gośćmi tej przestrzeni. Jeśli współpraca trwa, przedłuż dostęp. W przeciwnym razie nic nie musisz robić: wiadomości i pliki zostają, a dostęp możesz przywrócić w ciągu 90 dni.",
+                if many { format!(", za {days} dni") } else { ", jutro".to_owned() }
+            ),
+            "Przedłuż dostęp",
+            "Ostatnie przypomnienie przyjdzie dzień wcześniej. Aby nie dostawać tych wiadomości, przestań zarządzać gośćmi.",
+        ),
+    };
+    notice(
+        locale,
+        &Notice {
+            subject: &subject,
+            preheader: &subject,
+            heading: &subject,
+            paragraph: &paragraph,
+            button,
+            link: words.link,
+            note,
+        },
+        instance,
+    )
+}
+
 /// Escape text for HTML: names and topics are somebody's text, never markup.
 fn esc(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
@@ -1298,6 +1414,43 @@ mod tests {
         assert!(!email.html.contains("<Atelier>"));
         assert!(email.html.contains("Ouvrir la licence"));
         assert!(email.html.contains("Rien ne sera retiré."));
+    }
+
+    #[test]
+    fn a_guest_expiry_reminder_speaks_every_language_and_says_vous() {
+        let words = GuestExpiryWords {
+            guest: "Inès Garnier",
+            space: "Atelier Dupont",
+            ends: "20 novembre 2026",
+            days: 7,
+            link: "https://app.example.test",
+        };
+        let fr = guest_expiry_reminder(Locale::Fr, &words, "app.example.test");
+        assert_eq!(
+            fr.subject,
+            "L'accès de Inès Garnier à Atelier Dupont se termine dans 7 jours"
+        );
+        assert!(fr.text.contains("Vous recevez"), "{}", fr.text);
+        assert!(fr.text.contains("https://app.example.test"));
+        let eve = GuestExpiryWords { days: 1, ..words };
+        assert!(guest_expiry_reminder(Locale::Fr, &eve, "x")
+            .subject
+            .ends_with("se termine demain"));
+        let mut subjects = std::collections::HashSet::new();
+        for locale in [
+            Locale::Fr,
+            Locale::En,
+            Locale::Es,
+            Locale::De,
+            Locale::It,
+            Locale::Pl,
+        ] {
+            let mail = guest_expiry_reminder(locale, &words, "x");
+            assert!(mail.text.contains("Inès Garnier"), "{locale}");
+            assert!(mail.html.contains("Atelier Dupont"), "{locale}");
+            subjects.insert(mail.subject);
+        }
+        assert_eq!(subjects.len(), 6, "one text per language");
     }
 
     #[test]

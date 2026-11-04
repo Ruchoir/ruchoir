@@ -476,6 +476,10 @@ fn no_bare_space_members_reads() {
         ("messaging/spaces.rs", "update_member_role"),
         ("messaging/spaces.rs", "remove_member"),
         ("messaging/spaces.rs", "leave_space"),
+        // the sweep that closes and removes ended guests
+        ("permissions/guest_expiry.rs", "remind"),
+        ("permissions/guest_expiry.rs", "expire"),
+        ("permissions/guest_expiry.rs", "purge"),
         ("permissions/delegation.rs", "rank_of"),
         ("calendar/authz.rs", "create_space_default"),
         // the edition's seat count: guests are not counted

@@ -554,7 +554,8 @@ pub struct NotificationDto {
     pub id: Uuid,
     /// `mention`, `broadcast`, `reply`, `dm`, `message`, `reaction`, `edited`, `calendar_reminder`,
     /// or an invitation kind: `calendar_invitation`, `calendar_update`, `calendar_cancel`,
-    /// `calendar_declined`.
+    /// `calendar_declined`; or a guest notice, `guest_expiry_soon` and `guest_access_ending`, which
+    /// the feed carries only when asked for with `guest_notices=true`.
     pub kind: String,
     /// The conversation a message notification is about; absent for a reminder.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -613,6 +614,13 @@ pub struct NotificationDto {
     /// The emoji someone reacted with, for a `reaction`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub emoji: Option<String>,
+    /// When a guest's access ends (RFC 3339 in UTC), for `guest_expiry_soon` and
+    /// `guest_access_ending`. The guest is named by `actor_id` and `actor_name` for the first.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ends_at: Option<String>,
+    /// How many days were left when the notice was written (`7` or `1`), for the same two kinds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub days_left: Option<i32>,
 }
 
 /// A page of notifications, newest first, with the caller's total unread count.

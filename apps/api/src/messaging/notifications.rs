@@ -326,6 +326,9 @@ pub async fn hydrate<C: ConnectionTrait>(
         .partition(|r| crate::notify::prefs::is_invitation_kind(&r.kind));
     let (shared_rows, rows): (Vec<_>, Vec<_>) =
         rows.into_iter().partition(|r| r.kind == "calendar_shared");
+    let (guest_rows, rows): (Vec<_>, Vec<_>) = rows
+        .into_iter()
+        .partition(|r| crate::permissions::guest_expiry::is_guest_notice(&r.kind));
     let mut drawn = crate::calendar::reminders::hydrate(db, reminder_rows)
         .await
         .map_err(|_| ApiError::Internal)?;
@@ -336,6 +339,11 @@ pub async fn hydrate<C: ConnectionTrait>(
     );
     drawn.extend(
         crate::calendar::shares::hydrate(db, shared_rows)
+            .await
+            .map_err(|_| ApiError::Internal)?,
+    );
+    drawn.extend(
+        crate::permissions::guest_expiry::hydrate(db, guest_rows)
             .await
             .map_err(|_| ApiError::Internal)?,
     );
@@ -411,6 +419,8 @@ pub async fn hydrate<C: ConnectionTrait>(
             calendar_name: None,
             event_changes: None,
             event_my_status: None,
+            ends_at: None,
+            days_left: None,
             emoji: r
                 .payload
                 .as_ref()
@@ -438,6 +448,10 @@ pub struct FeedQuery {
     pub limit: Option<u64>,
     /// Return notifications older than this one (keyset pagination).
     pub before: Option<Uuid>,
+    /// Also return the guest notices (`guest_expiry_soon`, `guest_access_ending`). An app that
+    /// does not know them does not ask, and neither sees them nor has them counted as unread.
+    #[serde(default)]
+    pub guest_notices: bool,
 }
 
 /// `GET /api/v1/notifications`: the caller's notifications, newest first, with the unread count.
@@ -448,7 +462,8 @@ pub struct FeedQuery {
     params(
         ("unread" = Option<bool>, Query, description = "Only unread notifications"),
         ("limit" = Option<u64>, Query, description = "Page size (max 100)"),
-        ("before" = Option<Uuid>, Query, description = "Return notifications older than this id")
+        ("before" = Option<Uuid>, Query, description = "Return notifications older than this id"),
+        ("guest_notices" = Option<bool>, Query, description = "Also return the guest access notices")
     ),
     responses((status = 200, description = "Notification feed", body = NotificationPage))
 )]
@@ -461,6 +476,18 @@ pub async fn list_notifications(
 
     let mut select =
         notifications::Entity::find().filter(notifications::Column::UserId.eq(session.user_id));
+    // A client that was not told about the guest notices is not shown them, nor counts them.
+    let known = |select: sea_orm::Select<notifications::Entity>| {
+        if query.guest_notices {
+            select
+        } else {
+            select.filter(notifications::Column::Kind.is_not_in([
+                crate::permissions::guest_expiry::KIND_SOON,
+                crate::permissions::guest_expiry::KIND_ENDING,
+            ]))
+        }
+    };
+    select = known(select);
     if query.unread {
         select = select.filter(notifications::Column::ReadAt.is_null());
     }
@@ -489,11 +516,12 @@ pub async fn list_notifications(
         None
     };
 
-    let unread_count = notifications::Entity::find()
-        .filter(notifications::Column::UserId.eq(session.user_id))
-        .filter(notifications::Column::ReadAt.is_null())
-        .count(&state.db)
-        .await? as i64;
+    let unread_count = known(
+        notifications::Entity::find().filter(notifications::Column::UserId.eq(session.user_id)),
+    )
+    .filter(notifications::Column::ReadAt.is_null())
+    .count(&state.db)
+    .await? as i64;
 
     let notifications = hydrate(&state.db, rows).await?;
     Ok(Json(NotificationPage {

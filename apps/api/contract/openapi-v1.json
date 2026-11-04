@@ -3592,8 +3592,23 @@
           "created_at": {
             "type": "string"
           },
+          "days_left": {
+            "description": "How many days were left when the notice was written (`7` or `1`), for the same two kinds.",
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "emoji": {
             "description": "The emoji someone reacted with, for a `reaction`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ends_at": {
+            "description": "When a guest's access ends (RFC 3339 in UTC), for `guest_expiry_soon` and\n`guest_access_ending`. The guest is named by `actor_id` and `actor_name` for the first.",
             "type": [
               "string",
               "null"
@@ -3653,7 +3668,7 @@
             "type": "string"
           },
           "kind": {
-            "description": "`mention`, `broadcast`, `reply`, `dm`, `message`, `reaction`, `edited`, `calendar_reminder`,\nor an invitation kind: `calendar_invitation`, `calendar_update`, `calendar_cancel`,\n`calendar_declined`.",
+            "description": "`mention`, `broadcast`, `reply`, `dm`, `message`, `reaction`, `edited`, `calendar_reminder`,\nor an invitation kind: `calendar_invitation`, `calendar_update`, `calendar_cancel`,\n`calendar_declined`; or a guest notice, `guest_expiry_soon` and `guest_access_ending`, which\nthe feed carries only when asked for with `guest_notices=true`.",
             "type": "string"
           },
           "message_id": {
@@ -11133,6 +11148,15 @@
             "schema": {
               "format": "uuid",
               "type": "string"
+            }
+          },
+          {
+            "description": "Also return the guest access notices",
+            "in": "query",
+            "name": "guest_notices",
+            "required": false,
+            "schema": {
+              "type": "boolean"
             }
           }
         ],

@@ -664,6 +664,8 @@ pub async fn hydrate<C: ConnectionTrait>(
                 calendar_name: calendar.map(|c| c.name.clone()),
                 event_changes: None,
                 event_my_status: None,
+                ends_at: None,
+                days_left: None,
                 emoji: None,
             })
         })
@@ -775,6 +777,8 @@ mod tests {
             calendar_name: None,
             event_changes: None,
             event_my_status: None,
+            ends_at: None,
+            days_left: None,
             emoji: None,
         };
         // Due ten minutes before; the sweep runs 30 seconds after that.

@@ -727,6 +727,8 @@ pub async fn hydrate<C: ConnectionTrait>(
                 calendar_name: Some(snap.calendar_name.clone()),
                 event_changes: (row.kind == "calendar_update").then(|| snap.changes.clone()),
                 event_my_status: my_status,
+                ends_at: None,
+                days_left: None,
                 emoji: None,
             })
         })
