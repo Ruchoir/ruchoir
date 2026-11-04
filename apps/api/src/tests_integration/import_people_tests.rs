@@ -1327,6 +1327,67 @@ async fn an_adopted_channel_takes_new_moderators_only() {
 }
 
 #[tokio::test]
+async fn the_plan_counts_the_moderators_the_run_writes() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (old_email, guest_email, listed_email, new_email) = (
+        address("old"),
+        address("existing-guest"),
+        address("listed-guest"),
+        address("new"),
+    );
+    let old = make_user_with(&app, &old_email).await;
+    let (name, space) = space_with_general(&app, fx.alice, old).await;
+    // Somebody who is a guest of the space already, whatever the archive lists them as.
+    let existing_guest = make_user_with(&app, &guest_email).await;
+    space_members::ActiveModel {
+        space_id: Set(space),
+        user_id: Set(existing_guest),
+        role: Set("guest".to_owned()),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("guest row");
+    let dir = people_archive_with(
+        2,
+        &name,
+        &[
+            ("old", &old_email),
+            ("eg", &guest_email),
+            ("lg", &listed_email),
+            ("new", &new_email),
+        ],
+        &[
+            ("old", "member", &[]),
+            ("eg", "member", &[]),
+            ("lg", "guest", &[]),
+            ("new", "member", &[]),
+        ],
+        &[(
+            "general",
+            &["old", "eg", "lg", "new"],
+            &["old", "eg", "lg", "new"],
+        )],
+    );
+    let edition: Arc<dyn Edition> = Arc::new(CommunityEdition);
+    let (index, _) = crate::importer::check::check(&dir, None).expect("check");
+    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref())
+        .await
+        .expect("existing");
+    let plan = crate::importer::plan::build(&index, &existing);
+    let planned = crate::importer::plan::people_plan(&index, &plan, &existing).moderators;
+
+    let (_, outcome) = run_people(&app, fx.alice, &dir, edition).await;
+    let written = outcome.expect("the run completes").written.moderators;
+    // `old` is in the adopted channel already, `eg` is a guest here, `lg` is listed a guest: only
+    // `new` is written a moderator.
+    assert_eq!(written, 1);
+    assert_eq!(planned, written, "the plan counts what the run writes");
+}
+
+#[tokio::test]
 async fn a_channel_only_person_still_arrives_member_and_takes_a_seat_check() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;

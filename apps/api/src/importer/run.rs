@@ -862,9 +862,12 @@ pub async fn import_conversations(
                 // A moderator of the source administers the channel here, unless they are a guest
                 // of the space (a guest never moderates). Only on a row written now: somebody who
                 // is in an adopted channel already keeps the place they have.
-                let moderator = channel.moderators.contains(source_id)
-                    && super::people::standing_of(db, space_id, *user_id).await?
-                        != Some("guest".to_owned());
+                let moderator = super::people::writes_moderator(
+                    channel.moderators.contains(source_id),
+                    super::people::standing_of(db, space_id, *user_id).await?
+                        == Some("guest".to_owned()),
+                    false,
+                );
                 if moderator {
                     written.moderators += 1;
                     match written
