@@ -298,6 +298,9 @@ pub async fn import_people(
             written.fallbacks.len(),
         );
         let mut seat_takers = 0;
+        // People an earlier attempt of this job added: in the job's totals, not in this attempt's
+        // journal line.
+        let mut earlier = (0usize, 0usize);
         let outcome: Result<()> = async {
             for (user, role) in order {
                 let Some(user_id) = mapper.resolve(db, KIND_USER, user, None).await? else {
@@ -337,7 +340,14 @@ pub async fn import_people(
                 match admitted {
                     Admitted::Added | Admitted::Earlier => {
                         written.added += 1;
-                        if role != "guest" {
+                        if admitted == Admitted::Earlier {
+                            match role {
+                                "admin" => earlier.0 += 1,
+                                "guest" => earlier.1 += 1,
+                                _ => {}
+                            }
+                        }
+                        if role != "guest" && admitted == Admitted::Added {
                             seat_takers += 1;
                         }
                         match role {
@@ -354,8 +364,8 @@ pub async fn import_people(
         .await;
         // The space's own counts, kept also when the run stops in the middle of it.
         let (administrators, guests, roles, fallbacks) = (
-            written.administrators - before.0,
-            written.guests - before.1,
+            written.administrators - before.0 - earlier.0,
+            written.guests - before.1 - earlier.1,
             written.custom_roles - before.2,
             written.fallbacks.len() - before.3,
         );
@@ -510,9 +520,9 @@ pub async fn import_groups(
                         row.imported_from.as_deref() == Some(imported_from.as_str())
                     });
                 if ours {
+                    // Made by an earlier attempt of this job: in the job's totals, and refilled
+                    // now, but this attempt's journal line does not claim it.
                     written.groups += 1;
-                    let space_name = space_name_of(index, &group.space);
-                    written.space(space_id, &space_name).groups += 1;
                     written.group_names.push(group.name.clone());
                 } else {
                     written.groups_filled += 1;

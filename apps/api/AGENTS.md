@@ -531,4 +531,5 @@ with the community `ring` provider (never AWS `aws-lc-rs`), per the no-US-depend
 - Custom roles go through `Edition::import_custom_role` (the community edition answers `FallBack`) and are given to the people a job admits, in the same transaction as their member row (`admit_with_roles`): a person arrives with every role or not at all.
   Groups are recognised by their archive id (`KIND_GROUP`); only a resume of the same job fills them.
 - `importer/summary.rs` writes the job's `summary` and one `import.applied` journal line per touched
-  space (none for a space where nothing changed).
+  space and per attempt of the job (`import_jobs.attempt`, raised by each resume); a line says only
+  what its own attempt wrote, and none is written when that is nothing.

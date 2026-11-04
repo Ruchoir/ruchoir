@@ -59,13 +59,16 @@ pub struct PeopleSummary {
     pub seats: Vec<SeatsSummary>,
 }
 
-/// Writes the summary to the job and the journal line to each space that changed.
+/// Writes the summary to the job and, for each space this attempt changed, its journal line. The
+/// summary is the job's whole (a resume counts again the people an earlier attempt added); a line
+/// says only what its own `attempt` wrote, so the lines of a job add up to its summary.
 pub async fn save(
     db: &DatabaseConnection,
     edition: &dyn Edition,
     job_id: Uuid,
     importer: Uuid,
     source: &str,
+    attempt: i32,
     people: &PeopleWritten,
 ) -> Result<()> {
     let mut seats = Vec::new();
@@ -120,7 +123,8 @@ pub async fn save(
 
     for counts in people.spaces.iter().filter(|c| !c.is_empty()) {
         // One line per job and space: a retry of the save (or a resume that saves again) adds none.
-        let already = crate::audit::import_line_exists(db, counts.space_id, job_id).await?;
+        let already =
+            crate::audit::import_line_exists(db, counts.space_id, job_id, attempt).await?;
         if already {
             continue;
         }
@@ -133,6 +137,7 @@ pub async fn save(
             serde_json::json!({
                 "source": source,
                 "job_id": job_id,
+                "attempt": attempt,
                 "administrators": counts.administrators,
                 "guests": counts.guests,
                 "groups": counts.groups,

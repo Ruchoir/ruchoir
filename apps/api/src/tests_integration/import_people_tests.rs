@@ -2492,9 +2492,72 @@ async fn saving_twice_writes_one_journal_line_per_job_and_space() {
         job,
         fx.alice,
         "mattermost",
+        1,
         &people,
     )
     .await
-    .expect("a retry");
+    .expect("a retry of the same attempt");
     assert_eq!(journal(&app, space).await.len(), 1);
+}
+
+#[tokio::test]
+async fn a_resumed_run_journals_what_it_added() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let name = unique_space();
+    let (space, _) = crate::messaging::spaces::create_owned_space(&app.db, &name, fx.alice)
+        .await
+        .expect("space");
+    let squatter = make_user_with(&app, &address("sq")).await;
+    space_members::ActiveModel {
+        space_id: Set(space),
+        user_id: Set(squatter),
+        role: Set("member".to_owned()),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("member");
+    let (a, b) = (address("a"), address("b"));
+    let dir = people_archive(
+        2,
+        &name,
+        &[("a", &a), ("b", &b)],
+        &[("a", "admin", &[]), ("b", "admin", &[])],
+        &[],
+    );
+    // Owner and squatter use two of three seats: the first administrator fits, the second does not.
+    let (job, first) = run_people(&app, fx.alice, &dir, Arc::new(Seats(3))).await;
+    assert!(matches!(first, Err(RunError::SeatsFull { .. })));
+    space_members::Entity::delete_by_id((space, squatter))
+        .exec(&app.db)
+        .await
+        .expect("free a seat");
+    execute_into(
+        &app.db,
+        Some(&MemorySink::default()),
+        &dir,
+        None,
+        fx.alice,
+        job,
+        settings(Arc::new(Seats(3))),
+    )
+    .await
+    .expect("the resume completes");
+
+    let lines = journal(&app, space).await;
+    assert_eq!(lines.len(), 2, "one line per attempt: {lines:?}");
+    let in_lines: i64 = lines
+        .iter()
+        .map(|(_, _, details)| details["administrators"].as_i64().expect("count"))
+        .sum();
+    let stored = crate::entities::import_jobs::Entity::find_by_id(job)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("job");
+    let summary = stored.summary.expect("summary");
+    assert_eq!(in_lines, summary["administrators"].as_i64().expect("count"));
+    assert_eq!(in_lines, 2);
 }

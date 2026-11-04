@@ -222,6 +222,8 @@ async fn run_passes<S: BlobSink>(
         .and_then(|manifest| serde_json::to_string(&manifest.limits).ok()));
     totals.update(db).await?;
 
+    // Which time this job runs: a resume is the next attempt, with its own journal lines.
+    let attempt = begin_attempt(db, job_id).await?;
     let mut written = Written::default();
 
     let accounts = run::import_accounts(db, &mapper, &plan).await?;
@@ -248,7 +250,10 @@ async fn run_passes<S: BlobSink>(
     .await;
     written.memberships += written.people.added;
     if let Err(error) = stopped {
-        return stop(db, job_id, &settings, admin, &source, &written, error).await;
+        return stop(
+            db, job_id, &settings, admin, &source, attempt, &written, error,
+        )
+        .await;
     }
 
     let conversations = match run::import_conversations(
@@ -263,7 +268,10 @@ async fn run_passes<S: BlobSink>(
     {
         Ok(conversations) => conversations,
         Err(error) => {
-            return stop(db, job_id, &settings, admin, &source, &written, error).await;
+            return stop(
+                db, job_id, &settings, admin, &source, attempt, &written, error,
+            )
+            .await;
         }
     };
     written.conversations_created = conversations.conversations_created;
@@ -282,7 +290,10 @@ async fn run_passes<S: BlobSink>(
         match super::people::import_groups(db, &mapper, &index, &resolved, admin, &source).await {
             Ok(groups) => groups,
             Err(error) => {
-                return stop(db, job_id, &settings, admin, &source, &written, error).await;
+                return stop(
+                    db, job_id, &settings, admin, &source, attempt, &written, error,
+                )
+                .await;
             }
         };
     written.people.groups = groups.groups;
@@ -316,6 +327,7 @@ async fn run_passes<S: BlobSink>(
             job_id,
             admin,
             &source,
+            attempt,
             &written.people,
         )
         .await?;
@@ -355,6 +367,7 @@ async fn run_passes<S: BlobSink>(
                 job_id,
                 admin,
                 &source,
+                attempt,
                 &written.people,
             )
             .await?;
@@ -406,6 +419,7 @@ async fn run_passes<S: BlobSink>(
         job_id,
         admin,
         &source,
+        attempt,
         &written.people,
     )
     .await?;
@@ -417,6 +431,22 @@ async fn run_passes<S: BlobSink>(
     })
 }
 
+/// Raises the job's attempt counter and returns the new value (1 for the first run).
+async fn begin_attempt(db: &DatabaseConnection, job_id: Uuid) -> Result<i32, RunError> {
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+    let row = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE import_jobs SET attempt = attempt + 1 WHERE id = $1 RETURNING attempt",
+            [job_id.into()],
+        ))
+        .await?;
+    Ok(match row {
+        Some(row) => row.try_get("", "attempt")?,
+        None => 1,
+    })
+}
+
 /// A run that stops on an error keeps what it did: the summary and the journal lines for what was
 /// written so far, then the error (a seats refusal also closes the job with its sentence).
 async fn stop(
@@ -425,6 +455,7 @@ async fn stop(
     settings: &RunSettings,
     admin: Uuid,
     source: &str,
+    attempt: i32,
     written: &Written,
     error: RunError,
 ) -> Result<Outcome, RunError> {
@@ -434,6 +465,7 @@ async fn stop(
         job_id,
         admin,
         source,
+        attempt,
         &written.people,
     )
     .await

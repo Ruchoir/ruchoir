@@ -362,7 +362,7 @@ async fn the_import_people_migration_round_trips() {
     let columns = "SELECT count(*) AS n FROM information_schema.columns \
          WHERE (table_name = 'space_members' AND column_name = 'imported_from') \
             OR (table_name = 'space_groups' AND column_name = 'imported_from') \
-            OR (table_name = 'import_jobs' AND column_name = 'summary')";
+            OR (table_name = 'import_jobs' AND column_name IN ('summary', 'attempt'))";
     let count = |sql: &'static str| {
         let db = &db;
         async move {
@@ -374,7 +374,7 @@ async fn the_import_people_migration_round_trips() {
             row.try_get::<i64>("", "n").expect("n")
         }
     };
-    assert_eq!(count(columns).await, 3);
+    assert_eq!(count(columns).await, 4);
 
     let steps = Migrator::get_applied_migrations(&db)
         .await
@@ -385,8 +385,8 @@ async fn the_import_people_migration_round_trips() {
         .count()
         + 1;
     Migrator::down(&db, Some(steps as u32)).await.expect("down");
-    assert_eq!(count(columns).await, 0, "the three columns are gone");
+    assert_eq!(count(columns).await, 0, "the four columns are gone");
 
     Migrator::up(&db, None).await.expect("up again");
-    assert_eq!(count(columns).await, 3);
+    assert_eq!(count(columns).await, 4);
 }
