@@ -28,12 +28,25 @@ pub struct Outcome {
 }
 
 /// What a run needs from the instance besides its database and its object store.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct RunSettings {
     /// The longest side of a generated thumbnail: an imported image gets what an uploaded one gets.
     pub thumbnail_max_px: u32,
     /// The server's key, which seals the token of someone invited by address to an imported event.
     pub secret_key: [u8; 32],
+    /// The edition the server runs as: it decides whether one more person fits in a space.
+    pub edition: std::sync::Arc<dyn crate::edition::Edition>,
+}
+
+impl RunSettings {
+    /// Settings for the community edition, which refuses nobody a seat.
+    pub fn community(thumbnail_max_px: u32, secret_key: [u8; 32]) -> Self {
+        Self {
+            thumbnail_max_px,
+            secret_key,
+            edition: std::sync::Arc::new(crate::edition::CommunityEdition),
+        }
+    }
 }
 
 /// Runs every pass against an archive, from an empty instance or on top of an earlier attempt.
@@ -79,7 +92,7 @@ pub async fn execute<S: BlobSink>(
         )));
     }
 
-    let existing = existing_for(db, admin, &crate::edition::CommunityEdition).await?;
+    let existing = existing_for(db, admin, settings.edition.as_ref()).await?;
     let plan: Plan = plan::build(&index, &existing);
 
     let job_id = run::start_job(db, &source, admin, None, "{}").await?;
@@ -135,7 +148,7 @@ async fn run_into<S: BlobSink>(
         finish(db, job_id, "failed", &reason).await?;
         return Err(RunError::Ambiguous(reason));
     }
-    let existing = existing_for(db, admin, &crate::edition::CommunityEdition).await?;
+    let existing = existing_for(db, admin, settings.edition.as_ref()).await?;
     let plan = plan::build(&index, &existing);
     run_passes(
         db, storage, archive, passphrase, admin, job_id, index, plan, settings,
@@ -168,7 +181,7 @@ async fn run_passes<S: BlobSink>(
         .and_then(|job| serde_json::from_str::<serde_json::Value>(&job.options).ok())
         .and_then(|options| serde_json::from_value(options.get("people")?.clone()).ok())
         .unwrap_or_default();
-    let existing = existing_for(db, admin, &crate::edition::CommunityEdition).await?;
+    let existing = existing_for(db, admin, settings.edition.as_ref()).await?;
     if !choices.is_empty() {
         plan::apply_choices(&mut plan, &choices, &existing);
     }
@@ -221,6 +234,28 @@ async fn run_passes<S: BlobSink>(
     written.spaces_created = spaces.spaces_created;
     written.spaces_filled = spaces.spaces_filled;
     written.memberships += spaces.memberships;
+
+    let people = match super::people::import_people(
+        db,
+        &mapper,
+        &index,
+        &resolved,
+        settings.edition.as_ref(),
+        &source,
+    )
+    .await
+    {
+        Ok(people) => people,
+        Err(error @ RunError::SeatsFull { .. }) => {
+            // Said in words the administrator can act on; everything already written stays, and
+            // the same archive run again picks up where this stopped.
+            finish(db, job_id, "failed", &error.to_string()).await?;
+            return Err(error);
+        }
+        Err(error) => return Err(error),
+    };
+    written.memberships += people.added;
+    written.people = people;
 
     let conversations = run::import_conversations(db, &mapper, &index, &resolved, admin).await?;
     written.conversations_created = conversations.conversations_created;

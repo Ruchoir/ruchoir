@@ -430,6 +430,7 @@ pub async fn start(
     let settings = super::job::RunSettings {
         thumbnail_max_px: state.config.thumbnail_max_px,
         secret_key: *state.secret_key,
+        edition: state.edition.clone(),
     };
 
     // The job row has to exist before the response, or the screen has nothing to watch.

@@ -490,6 +490,10 @@ fn no_bare_space_members_reads() {
         // writes and the import (a row there already blocks the insert)
         ("importer/routes.rs", "invite_one"),
         ("importer/run.rs", "import_conversations"),
+        // the people pass: a row there, ended or not, blocks the insert
+        ("importer/people.rs", "admit"),
+        // the plan's count of who is in each space already
+        ("importer/job.rs", "space_people"),
     ];
     const CHANNEL_MEMBERS: &[(&str, &str)] = &[
         // the editor's own channel role, read only after `editor_of` found them in the space

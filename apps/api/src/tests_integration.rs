@@ -6120,10 +6120,7 @@ async fn an_import_that_was_stopped_still_leaves_the_reading_positions() {
         None,
         fx.alice,
         job,
-        crate::importer::job::RunSettings {
-            thumbnail_max_px: THUMBNAIL_MAX_PX,
-            secret_key: [7; 32],
-        },
+        crate::importer::job::RunSettings::community(THUMBNAIL_MAX_PX, [7; 32]),
     )
     .await
     .expect("the run leaves cleanly");

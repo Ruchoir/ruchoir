@@ -45,7 +45,7 @@ pub const KIND_CHANNEL: &str = "channel";
 pub const KIND_MESSAGE: &str = "message";
 pub const KIND_FILE: &str = "file";
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Written {
     pub accounts_created: usize,
     pub accounts_matched: usize,
@@ -59,6 +59,8 @@ pub struct Written {
     pub messages_created: usize,
     pub read_positions: usize,
     pub files_created: usize,
+    /// What the people pass did.
+    pub people: super::people::PeopleWritten,
     /// What each pass went through, whether it wrote it or found it already here. This is what the
     /// screen shows as progress. Counting only what was created made a resumed run look frozen:
     /// it walks past thousands of messages an earlier run brought over, and every counter stood at
@@ -85,6 +87,12 @@ pub enum RunError {
     /// The instance cannot tell which row the archive means. Refusing is the only safe answer: the
     /// alternative is pouring someone's history into the wrong place.
     Ambiguous(String),
+    /// A space has no seat left for the next person, found under the seat lock: the plan said it
+    /// would fit, and somebody took the seat since.
+    SeatsFull {
+        space: String,
+        seats: u32,
+    },
 }
 
 impl std::fmt::Display for RunError {
@@ -94,6 +102,11 @@ impl std::fmt::Display for RunError {
             RunError::Storage(message) => {
                 write!(f, "the object store could not take the file: {message}")
             }
+            RunError::SeatsFull { space, seats } => write!(
+                f,
+                "the space {space} has no seat left for the next person ({seats} seats): free some \
+                 and run the same archive again to resume"
+            ),
         }
     }
 }
