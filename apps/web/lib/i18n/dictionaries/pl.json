@@ -2883,9 +2883,12 @@
         "removed": "{{role}} odbiera: {{permission}}."
       },
       "rule": {
-        "granted": "reguła daje poziom {{level}} dla {{target}}. {{person}} do nich należy: {{permission}} nadane.",
         "grantedNoLevel": "reguła nadaje {{target}}: {{permission}}, do czego należy {{person}}.",
-        "removed": "reguła odbiera {{target}}: {{permission}}, do czego należy {{person}}."
+        "removed": "reguła odbiera {{target}}: {{permission}}, do czego należy {{person}}.",
+        "granted_one": "reguła daje poziom {{level}} dla {{target}}. {{person}} do nich należy: {{permission}} jest nadane.",
+        "granted_other": "reguła daje poziom {{level}} dla {{target}}. {{person}} do nich należy: {{permission}} są nadane.",
+        "granted_many": "reguła daje poziom {{level}} dla {{target}}. {{person}} do nich należy: {{permission}} są nadane.",
+        "granted_few": "reguła daje poziom {{level}} dla {{target}}. {{person}} do nich należy: {{permission}} są nadane."
       },
       "level": {
         "none": "brak reguły dla {{person}}, grup lub ról. Nadal obowiązuje reguła wyżej."

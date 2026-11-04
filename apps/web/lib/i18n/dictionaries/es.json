@@ -2784,9 +2784,12 @@
         "removed": "{{role}} quita: {{permission}}."
       },
       "rule": {
-        "granted": "una regla da {{level}} a {{target}}. {{person}} forma parte: {{permission}} concedido.",
         "grantedNoLevel": "una regla concede {{permission}} a {{target}}, del que forma parte {{person}}.",
-        "removed": "una regla quita {{permission}} a {{target}}, del que forma parte {{person}}."
+        "removed": "una regla quita {{permission}} a {{target}}, del que forma parte {{person}}.",
+        "granted_one": "una regla da {{level}} a {{target}}. {{person}} forma parte: {{permission}} se le concede.",
+        "granted_other": "una regla da {{level}} a {{target}}. {{person}} forma parte: {{permission}} se le conceden.",
+        "granted_many": "una regla da {{level}} a {{target}}. {{person}} forma parte: {{permission}} se le conceden.",
+        "granted_few": "una regla da {{level}} a {{target}}. {{person}} forma parte: {{permission}} se le conceden."
       },
       "level": {
         "none": "ninguna regla para {{person}}, sus grupos o sus roles. Sigue aplicándose la regla de arriba."

@@ -206,7 +206,7 @@ import { oneLine } from "./preview";
 import { PreviewBanner } from "./PreviewBanner";
 import type { Place } from "../settings/usedInLogic.ts";
 import { PlaceNavContext } from "./placeNav";
-import { previewGone, previewToast, shouldShowToast } from "./previewLogic.ts";
+import { previewGone, previewToast, previewToastDue, shouldShowToast } from "./previewLogic.ts";
 import { BottomTabs } from "./BottomTabs";
 import { UploadPanel } from "@/features/files/UploadPanel";
 import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchField, QuickLinks, SpaceMark } from "./mobile/MobileScreens";
@@ -2311,14 +2311,14 @@ function AppShell() {
   // A write refused because the space is looked at as a role: said once, wherever it came from, and
   // the text typed stays where it is (the screens keep their own "not sent").
   useEffect(() => {
-    let last = 0;
+    let last: { at: number; send: boolean } | undefined;
     configureClient({
       onPreviewReadOnly: (request) => {
         const now = Date.now();
         previewRefusedAt.current = now;
-        if (now - last < 2000) return;
-        last = now;
+        if (!previewToastDue(last, now, request)) return;
         const toast = previewToast(request);
+        last = { at: now, send: toast.bodyKey === "preview.readOnlyBodySend" };
         notifyRef.current?.({ tone: toast.tone, title: tRef.current(toast.titleKey), description: tRef.current(toast.bodyKey) });
       },
     });

@@ -10,9 +10,10 @@ import { key, useTranslation } from "@/lib/i18n";
 import { PERMISSION_TEXT } from "../settings/permissionText";
 import { RoleChip } from "../settings/roleChips";
 import { tk } from "./EntryRow";
+import { currentLocale } from "@/lib/i18n/current";
 import { formatList } from "@/lib/i18n/format";
 import { levelLabelKey } from "./accessLogic.ts";
-import { type ChainLevel, cardsOf, groupSteps, labelOf, outline, reasonKey, roleSentence, stepSentence } from "./whyLogic.ts";
+import { type ChainLevel, joinSentences, levelWordKey, cardsOf, groupSteps, labelOf, outline, reasonKey, roleSentence, stepSentence } from "./whyLogic.ts";
 
 
 /**
@@ -28,6 +29,7 @@ export function WhyDialog({
   members,
   roles,
   chain,
+  isFolder = false,
   viewerId,
   onClose,
 }: {
@@ -39,6 +41,8 @@ export function WhyDialog({
   roles: Role[];
   /** The levels the access passes through: the folders from the top, then the item. */
   chain: ChainLevel[];
+  /** The item explained is a folder (both are `file` on the wire). */
+  isFolder?: boolean;
   viewerId: string | undefined;
   onClose: () => void;
 }) {
@@ -89,7 +93,6 @@ export function WhyDialog({
     };
   };
 
-  const kindWord = kind === "channel" ? t("calendar.channel") : kind === "calendar" ? t("calendar.title") : t("message.file");
   const sep = t("why.sep");
   /** "Label : body" with the label in bold. */
   const labelled = (label: string, body: string) => (
@@ -136,7 +139,8 @@ export function WhyDialog({
         return labelled(t("why.label.space"), t(para.effect === "removed" ? key("why.para.space.removed") : key("why.para.space.granted"), { role: name, permission: list(para.permissions) }));
       }
       case "level": {
-        const word = para.hidden ? "" : para.item ? kindWord : t("files.typeFolder");
+        const wordKey = levelWordKey(para, kind, isFolder);
+        const word = wordKey ? t(tk(wordKey)) : "";
         const label = para.hidden ? t("why.label.hiddenPlace") : `${word} ${kind === "channel" && para.item ? "#" : ""}${para.name ?? ""}`;
         if (para.rules.length === 0) return labelled(label, t("why.para.level.none", { person: personName }));
         const body = para.rules
@@ -146,10 +150,9 @@ export function WhyDialog({
             if (g.effect === "removed") return t("why.para.rule.removed", { permission, target, person: personName });
             if (!g.ruleLevel) return t("why.para.rule.grantedNoLevel", { permission, target, person: personName });
             const levelKind = g.level?.kind === "channel" || g.level?.kind === "calendar" ? g.level.kind : "file";
-            return t("why.para.rule.granted", { level: t(tk(levelLabelKey(levelKind, g.ruleLevel))), target, person: personName, permission });
-          })
-          .join(" ");
-        return labelled(label, body);
+            return t("why.para.rule.granted", { level: t(tk(levelLabelKey(levelKind, g.ruleLevel))), target, person: personName, permission, count: g.permissions.length });
+          });
+        return labelled(label, joinSentences(body, currentLocale()));
       }
       case "locks":
         return para.groups.map((g, n) => <span key={n}>{n > 0 ? " " : ""}{boldLead(t(tk(fill(g).key), fill(g).values))}</span>);

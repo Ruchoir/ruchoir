@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { bannerOf, shouldShowToast, previewGone, previewToast, shouldToastRefusal, viewAsState } from "./previewLogic.ts";
+import { previewToastDue, bannerOf, shouldShowToast, previewGone, previewToast, shouldToastRefusal, viewAsState } from "./previewLogic.ts";
 
 const role = (over: Partial<{ systemKey: "administrator" | "members" | "guests"; manageable: boolean }> = {}) => ({ manageable: true, ...over });
 
@@ -81,4 +81,18 @@ test("the_preview_toast_names_the_refused_action", () => {
   assert.equal(previewToast({ method: "POST", path: "/spaces/s1/roles" }).bodyKey, "preview.readOnlyBody");
   assert.equal(previewToast().bodyKey, "preview.readOnlyBody");
   assert.equal(previewToast({ method: "POST", path: "/channels/c1/messages" }).titleKey, "preview.readOnlyTitle");
+});
+
+test("a_send_is_not_hidden_by_an_earlier_refusal", () => {
+  const send = { method: "POST", path: "/conversations/6a1d9cab-2e3f-4a4b-8c5d-7e8f9a0b1c2d/messages" };
+  const other = { method: "PUT", path: "/spaces/s1/read-marker" };
+  // The first refusal always speaks.
+  assert.equal(previewToastDue(undefined, 1000, other), true);
+  // A second one right after is the same refusal: quiet...
+  assert.equal(previewToastDue({ at: 1000, send: false }, 1500, other), false);
+  // ...unless it is the send, which must be told apart from the generic one that came first.
+  assert.equal(previewToastDue({ at: 1000, send: false }, 1500, send), true);
+  // A send already told is not told twice.
+  assert.equal(previewToastDue({ at: 1000, send: true }, 1500, send), false);
+  assert.equal(previewToastDue({ at: 1000, send: true }, 3500, other), true);
 });

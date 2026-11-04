@@ -251,3 +251,21 @@ export function outline(steps: StepLike[], chain: ChainLevel[], held: RoleLike[]
   if (locks.length === 0) out.push({ type: "quiet" });
   return out;
 }
+
+/**
+ * The dictionary key of the word naming a level of the chain ("Dossier", "Fichier", "Canal",
+ * "Agenda"). Folders and files are both `file` on the wire, so the item takes the word of what is
+ * being explained, and every level above it is a folder. Nothing for a hidden place.
+ */
+export function levelWordKey(level: { item: boolean; hidden: boolean }, kind: ResourceKind, isFolder: boolean): string | undefined {
+  if (level.hidden) return undefined;
+  if (!level.item) return "files.typeFolder";
+  if (kind === "channel") return "calendar.channel";
+  if (kind === "calendar") return "calendar.title";
+  return isFolder ? "files.typeFolder" : "message.file";
+}
+
+/** Sentences one after the other: each after the first starts with a capital, in the reader's language. */
+export function joinSentences(sentences: string[], locale?: string): string {
+  return sentences.map((s, i) => (i === 0 || s.length === 0 ? s : s.charAt(0).toLocaleUpperCase(locale) + s.slice(1))).join(" ");
+}

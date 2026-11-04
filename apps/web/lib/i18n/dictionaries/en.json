@@ -2685,9 +2685,12 @@
         "removed": "{{role}} takes away: {{permission}}."
       },
       "rule": {
-        "granted": "a rule gives {{level}} to {{target}}. {{person}} is part of it: {{permission}} granted.",
         "grantedNoLevel": "a rule gives {{permission}} to {{target}}, which {{person}} is part of.",
-        "removed": "a rule takes {{permission}} from {{target}}, which {{person}} is part of."
+        "removed": "a rule takes {{permission}} from {{target}}, which {{person}} is part of.",
+        "granted_one": "a rule gives {{level}} to {{target}}. {{person}} is part of it: {{permission}} is granted.",
+        "granted_other": "a rule gives {{level}} to {{target}}. {{person}} is part of it: {{permission}} are granted.",
+        "granted_many": "a rule gives {{level}} to {{target}}. {{person}} is part of it: {{permission}} are granted.",
+        "granted_few": "a rule gives {{level}} to {{target}}. {{person}} is part of it: {{permission}} are granted."
       },
       "level": {
         "none": "no rule for {{person}}, their groups or their roles. The rule above keeps applying."

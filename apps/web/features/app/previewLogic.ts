@@ -72,3 +72,18 @@ export function shouldShowToast(
   if (previewRefusedAt === undefined || toast.tone === "success" || toast.isPreviewToast) return true;
   return now - previewRefusedAt > 1500;
 }
+
+/**
+ * Whether a refusal gets its toast. One is told per moment (many writes can be refused together:
+ * read markers, presence), but a refused send is told apart from the generic one that came first:
+ * its sentence is the one the person needs.
+ */
+export function previewToastDue(
+  last: { at: number; send: boolean } | undefined,
+  now: number,
+  request?: { method: string; path: string },
+): boolean {
+  if (!last || now - last.at >= 2000) return true;
+  const sending = previewToast(request).bodyKey === "preview.readOnlyBodySend";
+  return sending && !last.send;
+}

@@ -471,7 +471,7 @@ export function AccessPanel({
       ) : null}
 
       {explaining ? (
-        <WhyDialog spaceId={spaceId} kind={kind} resourceId={resourceId} resourceName={kind === "channel" ? channelName : resourceName} members={members} roles={roles} chain={firstParent ? chain : [{ id: resourceId, name: resourceName, item: true }]} viewerId={viewerId} onClose={() => setExplaining(false)} />
+        <WhyDialog spaceId={spaceId} kind={kind} resourceId={resourceId} resourceName={kind === "channel" ? channelName : resourceName} members={members} roles={roles} isFolder={isFolder} chain={firstParent ? chain : [{ id: resourceId, name: resourceName, item: true }]} viewerId={viewerId} onClose={() => setExplaining(false)} />
       ) : null}
 
       {folder ? (

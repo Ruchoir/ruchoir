@@ -2685,9 +2685,12 @@
         "removed": "{{role}} nimmt weg: {{permission}}."
       },
       "rule": {
-        "granted": "eine Regel gibt {{target}} die Stufe {{level}}. {{person}} gehört dazu: {{permission}} gewährt.",
         "grantedNoLevel": "eine Regel gewährt {{target}} {{permission}}, wozu {{person}} gehört.",
-        "removed": "eine Regel nimmt {{target}} {{permission}}, wozu {{person}} gehört."
+        "removed": "eine Regel nimmt {{target}} {{permission}}, wozu {{person}} gehört.",
+        "granted_one": "eine Regel gibt {{target}} die Stufe {{level}}. {{person}} gehört dazu: {{permission}} wird gewährt.",
+        "granted_other": "eine Regel gibt {{target}} die Stufe {{level}}. {{person}} gehört dazu: {{permission}} werden gewährt.",
+        "granted_many": "eine Regel gibt {{target}} die Stufe {{level}}. {{person}} gehört dazu: {{permission}} werden gewährt.",
+        "granted_few": "eine Regel gibt {{target}} die Stufe {{level}}. {{person}} gehört dazu: {{permission}} werden gewährt."
       },
       "level": {
         "none": "keine Regel für {{person}}, ihre Gruppen oder Rollen. Die Regel darüber gilt weiter."

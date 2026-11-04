@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { cardsOf, outline, locksQuiet, groupSteps, labelOf, alreadyVia, cardOf, reasonKey, roleSentence, STEP_KINDS, stepSentence, type StepLike } from "./whyLogic.ts";
+import { joinSentences, levelWordKey, cardsOf, outline, locksQuiet, groupSteps, labelOf, alreadyVia, cardOf, reasonKey, roleSentence, STEP_KINDS, stepSentence, type StepLike } from "./whyLogic.ts";
 
 const step = (over: Partial<StepLike> = {}): StepLike => ({ n: 1, kind: "base", permission: "files.view", effect: "granted", ...over });
 
@@ -220,4 +220,42 @@ test("why_reads_as_the_chain_of_levels", () => {
   assert.equal(hidden.filter((p) => p.type === "level").length, 4);
   // Other kinds of step (a message the file was shared in...) stay plain sentences.
   assert.equal(outline([step({ kind: "message", permission: "files.view" })], chain).some((p) => p.type === "other"), true);
+});
+
+test("a_folder_item_is_called_a_folder", () => {
+  // Folders and files are both `file` on the wire: the word follows what is being explained.
+  assert.equal(levelWordKey({ item: true, hidden: false }, "file", true), "files.typeFolder");
+  assert.equal(levelWordKey({ item: true, hidden: false }, "file", false), "message.file");
+  assert.equal(levelWordKey({ item: true, hidden: false }, "channel", false), "calendar.channel");
+  assert.equal(levelWordKey({ item: true, hidden: false }, "calendar", false), "calendar.title");
+  // Every level above the item is a folder, whatever the item is.
+  assert.equal(levelWordKey({ item: false, hidden: false }, "file", false), "files.typeFolder");
+  assert.equal(levelWordKey({ item: false, hidden: true }, "file", false), undefined);
+});
+
+test("joined_rule_sentences_start_with_a_capital", () => {
+  assert.equal(joinSentences(["une règle donne A. Hugo en fait partie.", "une règle retire B."]), "une règle donne A. Hugo en fait partie. Une règle retire B.");
+  assert.equal(joinSentences(["only one"]), "only one");
+  assert.equal(joinSentences([]), "");
+  // Locales with their own capital rules: the first letter only, in the reader's language.
+  assert.equal(joinSentences(["a", "ärger"], "de"), "a Ärger");
+  assert.equal(joinSentences(["a", "ilk"], "tr"), "a İlk");
+});
+
+test("a_granted_rule_agrees_with_the_number_of_permissions", () => {
+  const plural = (locale: string, key: string, count: number) => {
+    const dict = JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
+    const lookup = (k: string) => k.split(".").reduce<unknown>((at, p) => (at as Record<string, unknown> | undefined)?.[p], dict) as string | undefined;
+    const form = new Intl.PluralRules(locale).select(count);
+    return lookup(`${key}_${form}`) ?? lookup(`${key}_other`);
+  };
+  const frOne = plural("fr", "why.para.rule.granted", 1);
+  const frTwo = plural("fr", "why.para.rule.granted", 2);
+  assert.ok(frOne?.includes("lui est accordé"), frOne);
+  assert.ok(frTwo?.includes("lui sont accordés"), frTwo);
+  for (const locale of ["en", "de", "es", "it", "pl"]) {
+    const one = plural(locale, "why.para.rule.granted", 1);
+    const two = plural(locale, "why.para.rule.granted", 2);
+    assert.ok(one && two && one !== two, `${locale}: one and several differ`);
+  }
 });
