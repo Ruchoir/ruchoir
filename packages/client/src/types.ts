@@ -200,7 +200,16 @@ export type Refusal =
     };
 
 /** A place that names a group or a role in a rule; `hidden` when the caller cannot open it (no id, no name). */
-export type UsedIn = { kind: "channel" | "file" | "calendar"; id?: string; name?: string; hidden: boolean };
+export type UsedIn = {
+  kind: "channel" | "file" | "calendar";
+  id?: string;
+  name?: string;
+  hidden: boolean;
+  /** The level the rule gives there; absent for a hidden place. */
+  level?: AccessLevel;
+  /** The folder a file or folder sits in, when it sits in one. */
+  parentId?: string;
+};
 
 // --- Access to a channel, a file or a calendar (permissions lot 4) ---
 
@@ -258,6 +267,8 @@ export type AccessView = {
     fine: boolean;
     /** The levels the caller may give here (`none` only to those who may reserve). */
     manageTargetLevels: AccessLevel[];
+    /** The resource-level permissions of the family the caller holds here (`[]` for a non-editor). */
+    held: string[];
     /** Why `edit` is false: `licence_required`, `licence_frozen` or `not_allowed`. */
     reason?: string;
   };
@@ -277,6 +288,8 @@ export type WhyStep = {
   target?: AccessTarget;
   /** The folder, channel or calendar the rule sits on. */
   level?: NamedRef;
+  /** For a `rule` step: the level of the rule behind it, as the access dialog reads it. */
+  ruleLevel?: AccessLevel;
 };
 
 /** "Pourquoi ?": why a person has, or lacks, each permission of a resource. */

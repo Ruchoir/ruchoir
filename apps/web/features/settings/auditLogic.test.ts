@@ -203,7 +203,7 @@ test("every_rule_action_has_a_sentence", () => {
   // Updated between two levels: the level before and after as two chips.
   const changed = auditLine(rule("rule.updated", { target_kind: "user", target_id: "u1", before: "read", after: "contribute" }, { kind: "calendar", id: "k", label: "Chantiers" }), (id) => (id === "u1" ? "Nadia" : undefined), refs);
   assert.equal(changed.sentence, "ruleUpdated");
-  assert.deepEqual(changed.slots.target, { kind: "people", names: ["Nadia"] });
+  assert.deepEqual(changed.slots.target, { kind: "person", name: "Nadia" });
   assert.deepEqual(changed.diff, { kind: "level", added: ["contribute"], removed: ["read"] });
   assert.equal(changed.values.resourceKind, "calendar");
   // Updated to a rule that matches no preset: the permissions added and denied.
@@ -226,10 +226,35 @@ test("every_rule_action_has_a_sentence", () => {
   assert.equal(auditLine(rule("rule.created", {}), () => undefined, refs).sentence, "ruleCreated");
 });
 
-test("a_preview_is_a_line_of_the_journal", () => {
-  const line = auditLine(entry("role.previewed", { target: { kind: "role", id: "r1", label: "Comptable" }, details: { role_name: "Comptable", seconds: 360 } }));
-  assert.equal(line.sentence, "rolePreviewed");
-  assert.deepEqual(line.slots.role, { kind: "role", name: "Comptable", colour: undefined });
-  assert.equal(line.values.minutes, 6);
-  assert.equal(auditLine(entry("role.previewed", { target: { kind: "role", id: "r1", label: "Comptable" } })).values.minutes, undefined);
+test("preview_lines_say_started_and_ended", () => {
+  const at = (phase: string, over: Record<string, unknown> = {}) =>
+    auditLine(entry("role.previewed", { target: { kind: "role", id: "r1", label: "Comptable (label)" }, details: { role_id: "r1", role_name: "Comptable", phase, ...over } }));
+  const started = at("started");
+  assert.equal(started.sentence, "rolePreviewStarted");
+  assert.deepEqual(started.slots.role, { kind: "role", name: "Comptable", colour: undefined });
+  const ended = at("ended");
+  assert.equal(ended.sentence, "rolePreviewEnded");
+  // A line from before the phase existed was a start; the role's name falls back to the target's label.
+  assert.equal(auditLine(entry("role.previewed", { target: { kind: "role", id: "r1", label: "Comptable" } })).sentence, "rolePreviewStarted");
+  assert.equal(auditLine(entry("role.previewed", { target: { kind: "role", id: "r1", label: "Comptable" } })).slots.role.kind, "role");
+});
+
+test("rule_lines_use_the_snapshot_names", () => {
+  // The snapshot wins over today's lists: a renamed group still reads as it did that day.
+  const named = auditLine(rule("rule.created", { target_kind: "group", target_id: "g1", target_name: "Ancien nom", resource_name: "ancien-canal", before: null, after: "read" }), () => undefined, refs);
+  assert.deepEqual(named.slots.target, { kind: "group", name: "Ancien nom", id: "g1" });
+  assert.deepEqual(named.slots.resource, { kind: "resource", of: "channel", name: "ancien-canal" });
+  const person = auditLine(rule("rule.updated", { target_kind: "user", target_id: "u1", target_name: "Nadia (alors)", resource_name: null, before: "read", after: "manage" }), () => "Nadia (maintenant)", refs);
+  assert.deepEqual(person.slots.target, { kind: "person", name: "Nadia (alors)" });
+  // A null snapshot falls back to the current lists, then to nothing (the screen says "une personne").
+  assert.deepEqual(person.slots.resource, { kind: "resource", of: "channel", name: "compta" });
+  const fallback = auditLine(rule("rule.deleted", { target_kind: "user", target_id: "u1", target_name: null, resource_name: null, before: "read", after: null }, { kind: "channel", id: "c" }), (id) => (id === "u1" ? "Nadia" : undefined), refs);
+  assert.deepEqual(fallback.slots.target, { kind: "person", name: "Nadia" });
+  assert.deepEqual(fallback.slots.resource, { kind: "resource", of: "channel", name: "" });
+  const unknown = auditLine(rule("rule.deleted", { target_kind: "user", target_id: "u9", target_name: null, resource_name: null, before: "read", after: null }, { kind: "file", id: "f" }), () => undefined, refs);
+  assert.deepEqual(unknown.slots.target, { kind: "person", name: "" });
+  const role = auditLine(rule("rule.created", { target_kind: "role", target_id: "r9", target_name: "Ancien rôle", resource_name: "x", before: null, after: "read" }), () => undefined, refs);
+  assert.deepEqual(role.slots.target, { kind: "role", name: "Ancien rôle" });
+  // Everyone is a base role whatever its stored name.
+  assert.deepEqual(auditLine(rule("rule.created", { target_kind: "everyone", target_id: "r-guests", target_name: "Guests", resource_name: "x", before: null, after: "read" }), () => undefined, refs).slots.target, { kind: "everyone", guests: true });
 });

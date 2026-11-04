@@ -25,7 +25,7 @@ const accessDto = {
       summary: { nearest: "read", changes: [{ permission: "files.delete", state: "deny" }] },
     },
   ],
-  may: { edit: true, fine: false, manage_target_levels: ["read", "contribute"], reason: null },
+  may: { edit: true, fine: false, manage_target_levels: ["read", "contribute"], held: ["files.view", "files.edit"], reason: null },
 };
 
 test("access_maps_from_the_wire", async () => {
@@ -49,7 +49,7 @@ test("access_maps_from_the_wire", async () => {
         summary: { nearest: "read", changes: [{ permission: "files.delete", state: "deny" }] },
       },
     ],
-    may: { edit: true, fine: false, manageTargetLevels: ["read", "contribute"], reason: undefined },
+    may: { edit: true, fine: false, manageTargetLevels: ["read", "contribute"], held: ["files.view", "files.edit"], reason: undefined },
   });
 });
 
@@ -80,7 +80,7 @@ test("why_maps_from_the_wire", async () => {
         { n: 1, kind: "role", permission: "files.read", effect: "granted",
           role: { id: "r2", name: "Design", direct: false, via_groups: [{ id: "g1", name: "Studio" }] } },
         { n: 2, kind: "rule", permission: "files.write", effect: "removed",
-          target: { kind: "user", id: "u1", name: "Ana" }, level: { kind: "file", id: "d1", name: "Docs" } },
+          target: { kind: "user", id: "u1", name: "Ana" }, level: { kind: "file", id: "d1", name: "Docs" }, rule_level: "custom" },
       ],
       result: [{ permission: "files.read", granted: true, reason: { n: 1 } }, { permission: "files.write", granted: false }],
     },
@@ -92,6 +92,8 @@ test("why_maps_from_the_wire", async () => {
   assert.equal(why.steps[1].effect, "removed");
   assert.equal(why.steps[1].target?.name, "Ana");
   assert.equal(why.steps[1].level?.name, "Docs");
+  assert.equal(why.steps[1].ruleLevel, "custom");
+  assert.equal(why.steps[0].ruleLevel, undefined);
   assert.deepEqual(why.result, [
     { permission: "files.read", granted: true, reasonStep: 1 },
     { permission: "files.write", granted: false, reasonStep: undefined },
@@ -142,13 +144,14 @@ test("rule_refusals_name_where_a_group_or_role_is_used", () => {
   const refusal = (body: unknown) => refusalOf(new ApiError(409, "x", body));
   const used = refusal({
     error: "group_has_rules",
-    used_in: [{ kind: "channel", id: "c1", name: "General" }, { kind: "file", hidden: true }],
+    used_in: [{ kind: "channel", id: "c1", name: "General", level: "contribute" }, { kind: "file", id: "f1", name: "Plan", level: "custom", parent_id: "d1" }, { kind: "file", hidden: true }],
   });
   assert.deepEqual(used, {
     code: "group_has_rules",
     usedIn: [
-      { kind: "channel", id: "c1", name: "General", hidden: false },
-      { kind: "file", id: undefined, name: undefined, hidden: true },
+      { kind: "channel", id: "c1", name: "General", hidden: false, level: "contribute", parentId: undefined },
+      { kind: "file", id: "f1", name: "Plan", hidden: false, level: "custom", parentId: "d1" },
+      { kind: "file", id: undefined, name: undefined, hidden: true, level: undefined, parentId: undefined },
     ],
   });
   assert.deepEqual(refusal({ error: "role_has_rules" }), { code: "role_has_rules" });
@@ -175,4 +178,12 @@ test("the_fine_rule_refusals_are_named", () => {
   const refusal = (status: number, body: unknown) => refusalOf(new ApiError(status, "x", body));
   assert.deepEqual(refusal(400, { error: "base_role_levels_only" }), { code: "base_role_levels_only" });
   assert.deepEqual(refusal(400, { error: "permission_in_both" }), { code: "permission_in_both" });
+});
+
+test("the_dialog_carries_what_the_editor_holds", async () => {
+  fakeFetch({ body: accessDto }, { body: { ...accessDto, may: { edit: false, fine: false, manage_target_levels: [], reason: "not_allowed" } } });
+  const client = api();
+  assert.deepEqual((await client.getAccess("s1", "file", "f1")).may.held, ["files.view", "files.edit"]);
+  // An older server sends none: nothing is held.
+  assert.deepEqual((await client.getAccess("s1", "file", "f1")).may.held, []);
 });

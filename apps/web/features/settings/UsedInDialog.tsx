@@ -4,6 +4,7 @@ import { Button, Dialog, Icon } from "@/components/ds";
 import type { UsedIn } from "@/lib/data/types";
 import { key, useTranslation } from "@/lib/i18n";
 import { tk } from "../access/EntryRow";
+import { usePlaceNav } from "../app/placeNav";
 import { usedInRows } from "./usedInLogic.ts";
 
 const ICON = { channel: "hash", file: "file", calendar: "calendar" } as const;
@@ -16,6 +17,7 @@ const ICON = { channel: "hash", file: "file", calendar: "calendar" } as const;
 export function UsedInDialog({ of, name, usedIn, onClose }: { of: "group" | "role"; name: string; usedIn: UsedIn[]; onClose: () => void }) {
   const { t } = useTranslation();
   const rows = usedInRows(usedIn);
+  const go = usePlaceNav();
   return (
     <Dialog
       open
@@ -40,15 +42,34 @@ export function UsedInDialog({ of, name, usedIn, onClose }: { of: "group" | "rol
           </span>
         </p>
         <div style={{ border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-          <div style={{ padding: "8px 14px", background: "var(--surface-sunken)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("access.usedIn.where")}</div>
+          <div style={{ display: "flex", padding: "8px 14px", background: "var(--surface-sunken)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+            <span style={{ flex: 1 }}>{t("access.usedIn.where")}</span>
+            <span style={{ width: 130, flex: "none" }}>{t("access.colLevel")}</span>
+            <span style={{ width: 60, flex: "none" }} />
+          </div>
           {rows.map((row, i) => (
             <div key={`${row.kind}:${row.id ?? i}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderTop: "1px solid var(--border-subtle)" }}>
               <span aria-hidden style={{ width: 32, height: 32, flex: "none", borderRadius: "var(--radius-md)", background: "var(--surface-sunken)", border: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-body)" }}>
                 <Icon name={ICON[row.kind]} size={16} />
               </span>
-              <span>
+              <span style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{row.hidden ? t("access.usedIn.hidden") : row.label}</div>
                 <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t(tk(row.kindKey))}</div>
+              </span>
+              <span style={{ width: 130, flex: "none", fontSize: "var(--text-sm)", color: "var(--text-body)" }}>{row.levelKey ? t(tk(row.levelKey)) : null}</span>
+              <span style={{ width: 60, flex: "none", textAlign: "right" }}>
+                {row.open && go ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      go(row.open!);
+                      onClose();
+                    }}
+                    style={{ background: "none", border: 0, padding: 0, cursor: "pointer", font: "inherit", fontWeight: 600, color: "var(--text-strong)" }}
+                  >
+                    {t("files.openAction")}
+                  </button>
+                ) : null}
               </span>
             </div>
           ))}

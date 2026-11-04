@@ -78,18 +78,17 @@ export function changedCount(initial: { allow: string[]; deny: string[] }, draft
 const ORDER = ["read", "contribute", "manage"] as const;
 
 /**
- * Permissions the editor cannot set, with the reason. The API says which levels the editor may give
- * (`manageTargetLevels`), and a level is only given when all of its permissions are held; so a
- * permission first met in a level the editor cannot give is one they do not hold. A guest never
- * takes the manage permissions, whatever the editor holds.
+ * Permissions the editor cannot set, with the reason. The API says which permissions of the family
+ * the editor holds on the resource (`may.held`): exactly the others are locked (rule 2: nobody
+ * grants or denies what they do not have). A guest never takes the manage permissions, whatever the
+ * editor holds, and that reason wins.
  */
-export function locksOf(kind: Kind, givable: Level[], guest: boolean): Record<string, LockReason> {
+export function locksOf(kind: Kind, held: string[], guest: boolean): Record<string, LockReason> {
   const locks: Record<string, LockReason> = {};
   GROUPS[kind].forEach((g, i) => {
-    const level = ORDER[i];
     for (const permission of g.permissions) {
-      if (!givable.includes(level)) locks[permission] = "not_held";
-      else if (guest && level === "manage") locks[permission] = "guest";
+      if (guest && ORDER[i] === "manage") locks[permission] = "guest";
+      else if (!held.includes(permission)) locks[permission] = "not_held";
     }
   });
   return locks;

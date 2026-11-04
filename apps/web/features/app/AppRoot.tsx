@@ -204,6 +204,8 @@ import { useLayout, useTouch } from "./useLayout";
 import { configureClient } from "@ruchoir/client/config";
 import { oneLine } from "./preview";
 import { PreviewBanner } from "./PreviewBanner";
+import type { Place } from "../settings/usedInLogic.ts";
+import { PlaceNavContext } from "./placeNav";
 import { previewToast } from "./previewLogic.ts";
 import { BottomTabs } from "./BottomTabs";
 import { UploadPanel } from "@/features/files/UploadPanel";
@@ -2805,6 +2807,17 @@ function AppShell() {
     }
   };
 
+  /** Go to a place a settings dialog names: a channel, the files at a folder, or the calendar. */
+  const openPlace = (place: Place) => {
+    if (place.type === "channel") openChannel(place.id);
+    else if (place.type === "calendar") showCalendar();
+    else {
+      setFilesFolder(place.folderId);
+      setView("files");
+      if (compact) setMobileContent(true);
+    }
+  };
+
   /** Open an event in the calendar, from a channel's card or its upcoming events. */
   const openCalendarEvent = (event: { eventId: string; recurrenceId?: string; start: string; end: string; allDay: boolean }) => {
     setCalendarCompose(null);
@@ -4568,6 +4581,7 @@ function AppShell() {
         />
       ) : null}
       {contentView === "settings" ? (
+        <PlaceNavContext.Provider value={openPlace}>
         <WorkspaceSettings
           // Keyed by the space: the screen holds the name being edited in its own state, seeded once
           // from the space it was opened on. Without this, switching space left the previous name in
@@ -4622,6 +4636,7 @@ function AppShell() {
           onDelete={() => setModal("deleteSpace")}
           onLeave={() => setModal("leaveSpace")}
         />
+        </PlaceNavContext.Provider>
       ) : null}
       {contentView === "threads" ? <ActivityView kind="threads" items={threads} onOpen={openMessage} onBack={compact ? backToTabs : undefined} /> : null}
       {contentView === "mentions" ? <ActivityView kind="mentions" items={mentions} onOpen={openMessage} onBack={compact ? backToTabs : undefined} /> : null}

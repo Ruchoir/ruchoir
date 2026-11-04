@@ -57,7 +57,7 @@ export function CustomiseDialog({
   const { t } = useTranslation();
   const [draft, setDraft] = useState(() => draftOf(entry));
   const [busy, setBusy] = useState(false);
-  const locks = locksOf(kind, access.may.manageTargetLevels, entry.guest);
+  const locks = locksOf(kind, access.may.held, entry.guest);
   const changed = changedCount(entry, draft);
   const result = resultOf(kind, entry.summary?.nearest ?? entry.level, draft);
   const name = (permission: string) => {

@@ -48,7 +48,8 @@ const SENTENCE: Record<Sentence, TranslationKey> = {
   ruleCustomised: key("audit.ruleCustomised"),
   ruleDeleted: key("audit.ruleDeleted"),
   ruleReserved: key("audit.ruleReserved"),
-  rolePreviewed: key("audit.rolePreviewed"),
+  rolePreviewStarted: key("audit.rolePreviewStarted"),
+  rolePreviewEnded: key("audit.rolePreviewEnded"),
   licenceInstalled: key("audit.licenceInstalled"),
   licenceRemoved: key("audit.licenceRemoved"),
   guestExpiryFixed: key("audit.guestExpiryFixed"),
@@ -75,6 +76,9 @@ const CATEGORY: Record<string, TranslationKey> = {
   guests: key("guests.sectionTitle"),
   access: key("access.tab"),
 };
+
+/** What a rule is on when the log kept no name for it and no list knows it. */
+const RESOURCE_UNNAMED = { channel: key("audit.onUnnamedChannel"), file: key("audit.onUnnamedFile"), calendar: key("audit.onUnnamedCalendar") } as const;
 
 /** What a rule is on, said with its preposition: "sur le canal". */
 const RESOURCE_WORD = { channel: key("audit.onChannel"), file: key("audit.onFile"), calendar: key("audit.onCalendar") } as const;
@@ -160,20 +164,20 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
   const slot = (s: Slot): ReactNode => {
     switch (s.kind) {
       case "person":
-        return <b style={{ color: "var(--text-strong)" }}>{s.name}</b>;
+        return <b style={{ color: "var(--text-strong)" }}>{s.name || t("audit.somebody")}</b>;
       case "deleted":
         return <b style={{ color: "var(--text-strong)" }}>{t("audit.deletedAccount")}</b>;
       case "role":
         return (
           <span style={st.chip}>
             <RoleDot role={{ colour: s.colour ?? colourOf(s.name) }} />
-            {roleText(s.name)}
+            {s.name ? roleText(s.name) : t("audit.aRole")}
           </span>
         );
       case "group":
         return (
           <b style={{ color: "var(--text-strong)", display: "inline-flex", alignItems: "center", gap: 4, verticalAlign: "bottom" }}>
-            <Icon name="users" size={13} /> <span style={{ overflowWrap: "anywhere" }}>{s.name}</span>
+            <Icon name="users" size={13} /> <span style={{ overflowWrap: "anywhere" }}>{s.name || t("audit.aGroup")}</span>
           </b>
         );
       case "people": {
@@ -198,7 +202,13 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
       case "resource":
         return (
           <>
-            {t(RESOURCE_WORD[s.of])} <b style={{ color: "var(--text-strong)" }}>{s.of === "channel" ? `#${s.name}` : s.name}</b>
+            {s.name ? (
+              <>
+                {t(RESOURCE_WORD[s.of])} <b style={{ color: "var(--text-strong)" }}>{s.of === "channel" ? `#${s.name}` : s.name}</b>
+              </>
+            ) : (
+              <>{t(RESOURCE_UNNAMED[s.of])}</>
+            )}
           </>
         );
       case "legacy":
@@ -266,9 +276,6 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
               </span>
             ))}
           </span>
-        ) : null}
-        {typeof line.values.minutes === "number" ? (
-          <span style={{ display: "block", marginTop: 4, color: "var(--text-muted)" }}>{t("audit.previewLength", { minutes: line.values.minutes })}</span>
         ) : null}
       </>
     );

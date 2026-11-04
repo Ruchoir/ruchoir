@@ -2254,13 +2254,19 @@
     "ruleCustomised": "{{actor}} customised the access of {{target}} {{resource}}",
     "ruleDeleted": "{{actor}} removed the access of {{target}} {{resource}}",
     "ruleReserved": "{{actor}} reserved {{resource}}: the whole space no longer has access",
-    "rolePreviewed": "{{actor}} viewed the space as {{role}}",
-    "previewLength": "Read-only preview · {{minutes}} min",
     "onChannel": "on the channel",
     "onFile": "on the file or folder",
     "onCalendar": "on the calendar",
     "levelChip": "Level {{level}}",
-    "readersOfChannel": "the readers of a channel"
+    "readersOfChannel": "the readers of a channel",
+    "rolePreviewStarted": "{{actor}} viewed the space as {{role}}",
+    "rolePreviewEnded": "{{actor}} left the preview as {{role}}",
+    "somebody": "a person",
+    "aGroup": "a group",
+    "aRole": "a role",
+    "onUnnamedChannel": "on a channel",
+    "onUnnamedFile": "on a file or folder",
+    "onUnnamedCalendar": "on a calendar"
   },
   "guests": {
     "endTitle": "Access until",
@@ -2614,7 +2620,9 @@
       "conversation": "By a conversation",
       "message": "By a message",
       "event": "By an event",
-      "other": "By another step"
+      "other": "By another step",
+      "ruleOn": "By a rule on {{where}}, level {{level}}",
+      "ruleOnHidden": "By a rule on a hidden location, level {{level}}"
     }
   },
   "preview": {

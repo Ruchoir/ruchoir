@@ -71,7 +71,8 @@ export type Sentence =
   | "ruleCustomised"
   | "ruleDeleted"
   | "ruleReserved"
-  | "rolePreviewed"
+  | "rolePreviewStarted"
+  | "rolePreviewEnded"
   | "licenceInstalled"
   | "licenceRemoved"
   | "guestExpiryFixed"
@@ -129,16 +130,18 @@ function ruleLine(entry: EntryLike, nameOf: NameOf, refs: Refs | undefined, line
   const d = entry.details ?? {};
   const kind = entry.target.kind === "file" || entry.target.kind === "calendar" ? entry.target.kind : "channel";
   const id = str(d.target_id);
+  // The names the log kept that day win; a null one falls back to today's lists, then to nothing
+  // (the screen says "une personne", "un canal"...).
+  const snapshot = str(d.target_name);
   let target: Slot;
   let reserved = false;
   switch (str(d.target_kind)) {
     case "group":
-      target = { kind: "group", name: refs?.group(id) ?? "", id };
+      target = { kind: "group", name: snapshot || refs?.group(id) || "", id };
       break;
-    case "role": {
-      target = { kind: "role", name: refs?.role(id)?.name ?? "" };
+    case "role":
+      target = { kind: "role", name: snapshot || refs?.role(id)?.name || "" };
       break;
-    }
     case "everyone":
       target = { kind: "everyone", guests: refs?.role(id)?.systemKey === "guests" };
       reserved = true;
@@ -147,14 +150,14 @@ function ruleLine(entry: EntryLike, nameOf: NameOf, refs: Refs | undefined, line
       target = { kind: "audience" };
       break;
     default:
-      target = { kind: "people", names: [id ? (nameOf(id) ?? null) : null] };
+      target = { kind: "person", name: snapshot || (id ? nameOf(id) : undefined) || "" };
   }
   const before = d.before as Shown;
   const after = d.after as Shown;
   const level = (v: Shown): string[] => (typeof v === "string" ? [v] : []);
   const custom = (v: Shown): { allow: string[]; deny: string[] } | undefined =>
     v && typeof v === "object" ? { allow: strings(v.allow), deny: strings(v.deny) } : undefined;
-  const slots = { target, resource: { kind: "resource", of: kind, name: entry.target.label ?? "" } as Slot };
+  const slots = { target, resource: { kind: "resource", of: kind, name: str(d.resource_name) || entry.target.label || "" } as Slot };
   const values = { resourceKind: kind };
   const permissions = (v: { allow: string[]; deny: string[] }): AuditLine["diff"] => ({ kind: "permission", added: v.allow, removed: v.deny });
   const customAfter = custom(after);
@@ -285,11 +288,10 @@ export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined, re
     case "rule.updated":
     case "rule.deleted":
       return ruleLine(entry, nameOf, refs, line);
-    case "role.previewed":
-      return line("rolePreviewed", {
-        slots: { role: role(undefined) },
-        values: typeof d.seconds === "number" ? { minutes: Math.max(1, Math.round(d.seconds / 60)) } : {},
-      });
+    case "role.previewed": {
+      const named = str(d.role_name) || label;
+      return line(d.phase === "ended" ? "rolePreviewEnded" : "rolePreviewStarted", { slots: { role: { kind: "role", name: named, colour: undefined } } });
+    }
     case "licence.installed":
       return line("licenceInstalled", { values: { seats: typeof d.seats === "number" ? d.seats : 0, until: str(d.valid_until) } });
     case "licence.removed":

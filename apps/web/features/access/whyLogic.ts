@@ -4,6 +4,8 @@
  * here reads a translation.
  */
 
+import { levelLabelKey } from "./accessLogic.ts";
+
 type Ref = { kind: string; id?: string; name?: string; hidden: boolean };
 export type RoleLike = { id: string; name: string; direct: boolean; viaGroups: { id: string; name: string }[] };
 export type StepLike = {
@@ -14,6 +16,8 @@ export type StepLike = {
   role?: RoleLike;
   target?: Ref;
   level?: Ref;
+  /** For a rule step: the level of the rule behind it. */
+  ruleLevel?: "none" | "read" | "contribute" | "manage" | "custom";
 };
 export type ResultLike = { permission: string; granted: boolean; reasonStep?: number };
 
@@ -44,12 +48,29 @@ export function stepSentence(step: StepLike): Sentence {
 }
 
 /** A result card: the decision, and the step that decided it when the explanation holds it. */
+export type CardReason = {
+  n: number;
+  kind: string;
+  /** A rule's place by name; nothing when it is hidden from the viewer. */
+  where?: string;
+  hiddenPlace?: boolean;
+  /** A rule's level, as the dictionary key of the access dialog's words for that kind of resource. */
+  levelKey?: string;
+};
+
 export function cardOf(
   result: ResultLike,
-  steps: { n: number; kind: string }[],
-): { permission: string; granted: boolean; reason?: { n: number; kind: string } } {
+  steps: { n: number; kind: string; level?: Ref; ruleLevel?: StepLike["ruleLevel"] }[],
+): { permission: string; granted: boolean; reason?: CardReason } {
   const found = result.reasonStep === undefined ? undefined : steps.find((s) => s.n === result.reasonStep);
-  return { permission: result.permission, granted: result.granted, reason: found ? { n: found.n, kind: found.kind } : undefined };
+  let reason: CardReason | undefined = found ? { n: found.n, kind: found.kind } : undefined;
+  // A rule says where it sits and at what level: "par une regle sur Compta, niveau Modifier".
+  if (found && found.kind === "rule" && found.level && found.ruleLevel) {
+    const place = found.level;
+    const resource = place.kind === "channel" || place.kind === "calendar" ? place.kind : "file";
+    reason = { n: found.n, kind: "rule", where: place.hidden ? undefined : place.name, hiddenPlace: place.hidden, levelKey: levelLabelKey(resource, found.ruleLevel) };
+  }
+  return { permission: result.permission, granted: result.granted, reason };
 }
 
 /** The dictionary key of a card's reason, for a step kind (an unknown one reads as another step). */

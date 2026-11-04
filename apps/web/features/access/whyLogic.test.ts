@@ -72,3 +72,26 @@ test("already_has_access_names_where_it_comes_from", () => {
   const direct = [step({ n: 2, kind: "role", role: { id: "r", name: "Comptable", direct: true, viaGroups: [] } })];
   assert.equal(alreadyVia({ steps: direct, result: [{ permission: "files.view", granted: true, reasonStep: 2 }] }, "files.view"), "Comptable");
 });
+
+test("why_names_the_place_and_level_of_a_rule", () => {
+  const rule = (level: StepLike["level"], ruleLevel?: string) => [step({ n: 4, kind: "rule", permission: "files.edit", level, ruleLevel: ruleLevel as never, target: { kind: "group", id: "g", name: "Comptabilité", hidden: false } })];
+  const result = { permission: "files.edit", granted: true, reasonStep: 4 };
+  // A named place: its name, and the level in the words of that kind of resource.
+  assert.deepEqual(cardOf(result, rule({ kind: "file", id: "d", name: "Compta", hidden: false }, "contribute")).reason, {
+    n: 4, kind: "rule", where: "Compta", hiddenPlace: false, levelKey: "access.level.file.contribute",
+  });
+  assert.equal(cardOf(result, rule({ kind: "channel", id: "c", name: "compta", hidden: false }, "contribute")).reason?.levelKey, "access.level.channel.contribute");
+  assert.equal(cardOf(result, rule({ kind: "calendar", id: "k", name: "Congés", hidden: false }, "read")).reason?.levelKey, "access.level.read");
+  assert.equal(cardOf(result, rule({ kind: "file", id: "d", name: "Compta", hidden: false }, "custom")).reason?.levelKey, "access.level.custom");
+  // A hidden place is said to be hidden, and carries no name.
+  assert.deepEqual(cardOf(result, rule({ kind: "file", hidden: true }, "manage")).reason, { n: 4, kind: "rule", where: undefined, hiddenPlace: true, levelKey: "access.level.manage" });
+  // A rule step without a level (an older server) stays a plain "par une regle".
+  assert.deepEqual(cardOf(result, rule({ kind: "file", id: "d", name: "Compta", hidden: false })).reason, { n: 4, kind: "rule" });
+  // Other kinds keep their short reason.
+  for (const locale of ["fr", "en", "de", "es", "it", "pl"]) {
+    const dict = JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
+    for (const key of ["why.reason.ruleOn", "why.reason.ruleOnHidden", "access.level.custom", "access.level.none"]) {
+      assert.ok(key.split(".").reduce<unknown>((at, part) => (at as Record<string, unknown> | undefined)?.[part], dict) !== undefined, `${locale}: ${key}`);
+    }
+  }
+});

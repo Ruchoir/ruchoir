@@ -155,7 +155,15 @@ export function WhyDialog({
                         {permissionName(card.permission)}
                       </div>
                       <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
-                        {card.reason ? t(tk(reasonKey(card.reason.kind))) : card.granted ? t(key("why.reason.other")) : t("why.reason.none")}
+                        {card.reason?.levelKey
+                          ? card.reason.hiddenPlace
+                            ? t("why.reason.ruleOnHidden", { level: t(tk(card.reason.levelKey)) })
+                            : t("why.reason.ruleOn", { where: card.reason.where ?? "", level: t(tk(card.reason.levelKey)) })
+                          : card.reason
+                            ? t(tk(reasonKey(card.reason.kind)))
+                            : card.granted
+                              ? t(key("why.reason.other"))
+                              : t("why.reason.none")}
                       </div>
                     </div>
                   );

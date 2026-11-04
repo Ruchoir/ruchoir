@@ -2254,13 +2254,19 @@
     "ruleCustomised": "{{actor}} hat den Zugriff von {{target}} angepasst {{resource}}",
     "ruleDeleted": "{{actor}} hat den Zugriff von {{target}} entfernt {{resource}}",
     "ruleReserved": "{{actor}} hat {{resource}} reserviert: Der ganze Bereich hat keinen Zugriff mehr",
-    "rolePreviewed": "{{actor}} hat den Bereich als {{role}} angesehen",
-    "previewLength": "Schreibgeschützte Vorschau · {{minutes}} Min.",
     "onChannel": "im Kanal",
     "onFile": "bei der Datei oder dem Ordner",
     "onCalendar": "im Kalender",
     "levelChip": "Stufe {{level}}",
-    "readersOfChannel": "die Leser eines Kanals"
+    "readersOfChannel": "die Leser eines Kanals",
+    "rolePreviewStarted": "{{actor}} hat den Bereich als {{role}} angesehen",
+    "rolePreviewEnded": "{{actor}} hat die Vorschau als {{role}} beendet",
+    "somebody": "eine Person",
+    "aGroup": "eine Gruppe",
+    "aRole": "eine Rolle",
+    "onUnnamedChannel": "in einem Kanal",
+    "onUnnamedFile": "bei einer Datei oder einem Ordner",
+    "onUnnamedCalendar": "in einem Kalender"
   },
   "guests": {
     "endTitle": "Zugang bis",
@@ -2614,7 +2620,9 @@
       "conversation": "Durch eine Unterhaltung",
       "message": "Durch eine Nachricht",
       "event": "Durch einen Termin",
-      "other": "Durch einen anderen Schritt"
+      "other": "Durch einen anderen Schritt",
+      "ruleOn": "Durch eine Regel bei {{where}}, Stufe {{level}}",
+      "ruleOnHidden": "Durch eine Regel an einem verborgenen Ort, Stufe {{level}}"
     }
   },
   "preview": {

@@ -17,18 +17,20 @@ test("tristate_maps_to_allow_and_deny", () => {
   assert.equal(changedCount({ allow: [], deny: [] }, {}), 0);
 });
 
-test("locked_permissions_say_why", () => {
-  // A moderator may give Participer but not Gérer: the Gestion permissions are locked, not held.
-  const locks = locksOf("channel", ["read", "contribute"], false);
-  assert.equal(locks["message.send"], undefined);
+test("customise_locks_what_the_editor_does_not_hold", () => {
+  // A moderator holds the first two groups and two of the three management rights: exactly the
+  // rows outside `held` are locked, whatever levels the editor may hand out.
+  const held = ["channel.view", "message.react", "message.send", "message.attach", "message.pin", "message.mention_all", "message.manage", "channel.members.manage"];
+  const locks = locksOf("channel", held, false);
+  assert.deepEqual(Object.keys(locks), ["channel.manage"]);
   assert.equal(locks["channel.manage"], "not_held");
-  assert.equal(locks["message.manage"], "not_held");
-  // A guest never holds the manage level, even when the editor does.
-  const guest = locksOf("channel", ["read", "contribute", "manage"], true);
+  // A guest never holds the manage rights, even when the editor does.
+  const guest = locksOf("channel", [...held, "channel.manage"], true);
+  assert.deepEqual(Object.keys(guest).sort(), ["channel.manage", "channel.members.manage", "message.manage"]);
   assert.equal(guest["channel.manage"], "guest");
-  assert.equal(guest["message.send"], undefined);
-  assert.equal(Object.keys(locksOf("file", ["read", "contribute", "manage"], false)).length, 0);
-  assert.equal(locksOf("calendar", ["read"], false)["calendar.write"], "not_held");
+  // Holding nothing locks everything.
+  assert.equal(Object.keys(locksOf("calendar", [], false)).length, 3);
+  assert.equal(Object.keys(locksOf("file", ["files.view", "files.create", "files.edit", "files.manage", "files.public_link"], false)).length, 0);
 });
 
 test("groups_follow_the_family_of_the_resource", () => {

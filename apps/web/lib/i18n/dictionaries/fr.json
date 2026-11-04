@@ -2280,13 +2280,19 @@
     "ruleCustomised": "{{actor}} a personnalisé l'accès de {{target}} {{resource}}",
     "ruleDeleted": "{{actor}} a retiré l'accès de {{target}} {{resource}}",
     "ruleReserved": "{{actor}} a réservé {{resource}} : tout l'espace n'y a plus accès",
-    "rolePreviewed": "{{actor}} a regardé l'espace en tant que {{role}}",
-    "previewLength": "Aperçu en lecture seule · {{minutes}} min",
     "onChannel": "sur le canal",
     "onFile": "sur le fichier ou dossier",
     "onCalendar": "sur l'agenda",
     "levelChip": "Niveau {{level}}",
-    "readersOfChannel": "les lecteurs d'un canal"
+    "readersOfChannel": "les lecteurs d'un canal",
+    "rolePreviewStarted": "{{actor}} a regardé l'espace en tant que {{role}}",
+    "rolePreviewEnded": "{{actor}} a quitté l'aperçu en tant que {{role}}",
+    "somebody": "une personne",
+    "aGroup": "un groupe",
+    "aRole": "un rôle",
+    "onUnnamedChannel": "sur un canal",
+    "onUnnamedFile": "sur un fichier ou dossier",
+    "onUnnamedCalendar": "sur un agenda"
   },
   "guests": {
     "endTitle": "Accès jusqu'au",
@@ -2648,7 +2654,9 @@
       "conversation": "Par une conversation",
       "message": "Par un message",
       "event": "Par un événement",
-      "other": "Par une autre étape"
+      "other": "Par une autre étape",
+      "ruleOn": "Par une règle sur {{where}}, niveau {{level}}",
+      "ruleOnHidden": "Par une règle sur un emplacement masqué, niveau {{level}}"
     }
   },
   "preview": {

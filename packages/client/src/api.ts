@@ -189,7 +189,7 @@ function toLicenceView(dto: LicenceViewDto): LicenceView {
 }
 
 type NamedRefDto = { kind: string; id?: string | null; name?: string | null; hidden?: boolean | null };
-type UsedInDto = { kind: string; id?: string | null; name?: string | null; hidden?: boolean | null };
+type UsedInDto = { kind: string; id?: string | null; name?: string | null; hidden?: boolean | null; level?: string | null; parent_id?: string | null };
 type AccessEntryDto = {
   id?: string | null;
   target: NamedRefDto;
@@ -207,7 +207,7 @@ type AccessDto = {
   private: boolean;
   archived: boolean;
   entries: AccessEntryDto[];
-  may: { edit: boolean; fine: boolean; manage_target_levels: string[]; reason?: string | null };
+  may: { edit: boolean; fine: boolean; manage_target_levels: string[]; held?: string[]; reason?: string | null };
 };
 type WhyRoleDto = { id: string; name: string; direct: boolean; via_groups: { id: string; name: string }[] };
 type WhyDto = {
@@ -220,6 +220,7 @@ type WhyDto = {
     role?: WhyRoleDto | null;
     target?: NamedRefDto | null;
     level?: NamedRefDto | null;
+    rule_level?: string | null;
   }[];
   result: { permission: string; granted: boolean; reason?: { n: number } | null }[];
 };
@@ -268,6 +269,7 @@ function toAccessView(dto: AccessDto): AccessView {
       edit: dto.may.edit,
       fine: dto.may.fine,
       manageTargetLevels: dto.may.manage_target_levels.map(toAccessLevel),
+      held: dto.may.held ?? [],
       reason: dto.may.reason ?? undefined,
     },
   };
@@ -284,13 +286,21 @@ function toWhyView(dto: WhyDto): WhyView {
       role: s.role ? { id: s.role.id, name: s.role.name, direct: s.role.direct, viaGroups: s.role.via_groups } : undefined,
       target: s.target ? toAccessTarget(s.target) : undefined,
       level: s.level ? toNamedRef(s.level) : undefined,
+      ruleLevel: s.rule_level ? toAccessLevel(s.rule_level) : undefined,
     })),
     result: dto.result.map((r) => ({ permission: r.permission, granted: r.granted, reasonStep: r.reason?.n })),
   };
 }
 
 function toUsedIn(dto: UsedInDto): UsedIn {
-  return { kind: dto.kind as UsedIn["kind"], id: dto.id ?? undefined, name: dto.name ?? undefined, hidden: dto.hidden === true };
+  return {
+    kind: dto.kind as UsedIn["kind"],
+    id: dto.id ?? undefined,
+    name: dto.name ?? undefined,
+    hidden: dto.hidden === true,
+    level: dto.level ? toAccessLevel(dto.level) : undefined,
+    parentId: dto.parent_id ?? undefined,
+  };
 }
 
 const REFUSAL_CODES = new Set([
