@@ -2546,7 +2546,9 @@
     "delegationHead": "Sie haben die Stufe Verwalten für {{name}}.",
     "delegationBody": "Damit legen Sie den Zugriff anderer hier fest, ohne den ganzen Bereich zu reservieren oder Ihre eigene Zeile zu ändern.",
     "delegationFoot": "Sie vergeben nur Rechte, die Sie hier selbst haben. Alles wird unter Ihrem Namen im Journal festgehalten.",
-    "selectedRemove": "{{name}} aus der Auswahl entfernen"
+    "selectedRemove": "{{name}} aus der Auswahl entfernen",
+    "givenBy": "{{name}} hat es vergeben",
+    "addedByYou": "Von Ihnen hinzugefügt"
   },
   "customise": {
     "title": "Anpassen: {{name}}",

@@ -251,6 +251,9 @@ export type AccessEntry = {
   summary?: { nearest: AccessLevel; changes: AccessChange[] };
   /** The line is the legacy setting of the system role (`allowed_roles`, `write_access`). */
   viaLegacy: boolean;
+  /** Who wrote the rule, and when; only for a reader who may edit, and absent for older rules. */
+  setBy?: { id: string; name: string };
+  setAt?: string;
 };
 
 /** Who has what on a resource, and what the caller may do about it. */

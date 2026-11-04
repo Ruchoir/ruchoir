@@ -2546,7 +2546,9 @@
     "delegationHead": "You have the Manage level on {{name}}.",
     "delegationBody": "It lets you set other people's access here, without reserving the whole space or changing your own line.",
     "delegationFoot": "You only give rights you hold yourself here. Everything is written to the journal under your name.",
-    "selectedRemove": "Remove {{name}} from the selection"
+    "selectedRemove": "Remove {{name}} from the selection",
+    "givenBy": "{{name}} gave it to them",
+    "addedByYou": "Added by you"
   },
   "customise": {
     "title": "Customise: {{name}}",

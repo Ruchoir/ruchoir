@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { readFileSync } from "node:fs";
-import { delegationIntro, isYou, freeManage, askWho } from "./accessLogic.ts";
+import { authorNote, delegationIntro, isYou, freeManage, askWho } from "./accessLogic.ts";
 import { canCustomise } from "./customiseLogic.ts";
 import { everyoneLine, addLevelOptions, calendarLevelOf, canEdit, entryEditable, inheritedLink, withOverrides, entryNote, groupEntries, levelLabelKey, levelOptions, privateNote, readOnlyReason, removable, type EntryLike } from "./accessLogic.ts";
 
@@ -276,5 +276,29 @@ test("a_local_manager_is_told_what_they_may_do", () => {
     for (const key of ["access.delegation.folder", "access.delegation.file", "access.delegation.calendar", "access.delegation.channel", "access.delegationHead", "access.delegationBody", "access.delegationFoot", "access.you"]) {
       assert.ok(key.split(".").reduce<unknown>((at, p) => (at as Record<string, unknown> | undefined)?.[p], dict) !== undefined, `${locale}: ${key}`);
     }
+  }
+});
+
+const VIEWER = "9f1c6d2e-3b4f-4a5b-8c6d-7e8f9a0b1c2d";
+const KARIM = "4f506172-8394-4ea5-9fb6-d7e8f9a0b1c2";
+
+test("an_entry_names_who_gave_it", () => {
+  const given = entry({ kind: "user", setBy: { id: KARIM, name: "Karim Benali" } });
+  assert.deepEqual(authorNote(given, VIEWER), { type: "other", name: "Karim Benali" });
+});
+
+test("an_entry_the_viewer_added_says_so", () => {
+  const mine = entry({ kind: "user", setBy: { id: VIEWER, name: "Julie Moreau" } });
+  assert.deepEqual(authorNote(mine, VIEWER), { type: "you" });
+  // Without knowing who is looking, nobody is "you".
+  assert.deepEqual(authorNote(mine, undefined), { type: "other", name: "Julie Moreau" });
+});
+
+test("no_author_no_line", () => {
+  assert.equal(authorNote(entry({ kind: "user" }), VIEWER), undefined);
+  assert.equal(authorNote(entry({ kind: "user", setBy: undefined }), undefined), undefined);
+  for (const locale of ["fr", "en", "de", "es", "it", "pl"]) {
+    const dict = JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
+    for (const key of ["access.givenBy", "access.addedByYou"]) assert.ok(key.split(".").reduce<unknown>((at, p) => (at as Record<string, unknown> | undefined)?.[p], dict) !== undefined, `${locale}: ${key}`);
   }
 });

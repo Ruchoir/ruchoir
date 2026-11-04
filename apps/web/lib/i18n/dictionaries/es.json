@@ -2645,7 +2645,9 @@
     "delegationHead": "Tienes el nivel Gestionar en {{name}}.",
     "delegationBody": "Te permite ajustar el acceso de los demás aquí, sin reservar todo el espacio ni cambiar tu propia línea.",
     "delegationFoot": "Solo das permisos que tienes tú aquí. Todo queda en el diario, a tu nombre.",
-    "selectedRemove": "Quitar a {{name}} de la selección"
+    "selectedRemove": "Quitar a {{name}} de la selección",
+    "givenBy": "Lo dio {{name}}",
+    "addedByYou": "Añadida por ti"
   },
   "customise": {
     "title": "Personalizar: {{name}}",

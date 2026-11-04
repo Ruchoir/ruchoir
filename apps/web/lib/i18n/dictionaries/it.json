@@ -2645,7 +2645,9 @@
     "delegationHead": "Hai il livello Gestisci su {{name}}.",
     "delegationBody": "Ti permette di impostare l'accesso degli altri qui, senza riservare tutto lo spazio né cambiare la tua riga.",
     "delegationFoot": "Dai solo permessi che hai tu qui. Tutto viene scritto nel registro, a tuo nome.",
-    "selectedRemove": "Rimuovi {{name}} dalla selezione"
+    "selectedRemove": "Rimuovi {{name}} dalla selezione",
+    "givenBy": "Lo ha dato {{name}}",
+    "addedByYou": "Aggiunta da te"
   },
   "customise": {
     "title": "Personalizza: {{name}}",

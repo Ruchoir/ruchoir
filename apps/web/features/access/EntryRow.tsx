@@ -8,7 +8,7 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { GroupIcon } from "../groups/GroupIcon";
 import { roleColour } from "../settings/roleChips";
 import { canCustomise } from "./customiseLogic.ts";
-import { entryEditable, everyoneLine, isYou, entryNote, inheritedLink, levelLabelKey, levelOptions, removable, type OffReason, type Override } from "./accessLogic.ts";
+import { authorNote, entryEditable, everyoneLine, isYou, entryNote, inheritedLink, levelLabelKey, levelOptions, removable, type OffReason, type Override } from "./accessLogic.ts";
 
 /** A key built by the logic module, as the translator takes it (the keys exist: the tests name them). */
 export function tk(name: string): TranslationKey {
@@ -112,6 +112,8 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
     noteText = override.folder ? t("access.overrides", { level, folder: override.folder }) : t("access.overridesHidden", { level });
   }
 
+  const author = authorNote(entry, ctx.viewerId);
+  const givenBy = author?.type === "other" ? t("access.givenBy", { name: author.name }) : undefined;
   const selectable = editable && !ctx.busy;
   const canRemove = editable && removable(entry, ctx.viewerId);
   const fresh = ctx.justAdded.has(targetKey(target));
@@ -134,15 +136,15 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{name}</span>
           {entry.guest && target.kind !== "everyone" ? <Tag tone="warning">{t("role.guest")}</Tag> : null}
-          {fresh ? <Tag tone="info">{t("access.justAdded")}</Tag> : null}
+          {fresh ? <Tag tone="info">{t("access.justAdded")}</Tag> : author?.type === "you" ? <Tag tone="info">{t("access.addedByYou")}</Tag> : null}
           {override ? <Tag tone="info">{t("access.modifiedHere")}</Tag> : null}
           {noteTag}
         </div>
         <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-          {[sub, noteText].filter(Boolean).join(" · ")}
+          {[sub, givenBy, noteText].filter(Boolean).join(" · ")}
           {link ? (
             <>
-              {sub || noteText ? " · " : ""}
+              {sub || givenBy || noteText ? " · " : ""}
               {t("access.inheritedFromLabel")}{" "}
               <button type="button" onClick={() => ctx.onOpenFolder?.(link)} style={{ ...linkButton, display: "inline-flex", alignItems: "center", gap: 4, verticalAlign: "bottom" }}>
                 <Icon name="folder" size={12} />

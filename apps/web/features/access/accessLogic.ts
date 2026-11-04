@@ -21,6 +21,7 @@ export type EntryLike = {
   inheritedFrom?: { kind: string; id?: string; name?: string; hidden: boolean };
   summary?: { nearest: Level; changes: { permission: string; state: "allow" | "deny" | "unset" }[] };
   viaLegacy: boolean;
+  setBy?: { id: string; name: string };
 };
 
 export type MayLike = { edit: boolean; fine: boolean; manageTargetLevels: Level[]; reason?: string };
@@ -137,6 +138,13 @@ export function freeManage(
 export function askWho(members: { name: string; role: string; bot?: boolean }[]): string[] {
   const people = members.filter((m) => !m.bot);
   return [...people.filter((m) => m.role === "owner"), ...people.filter((m) => m.role === "admin")].slice(0, 3).map((m) => m.name);
+}
+
+/** Who wrote an entry's rule: the viewer ("Ajoutée par vous"), somebody else ("<Nom> le lui a donné"), or nobody known. */
+export function authorNote(entry: EntryLike, viewerId: string | undefined): { type: "you" } | { type: "other"; name: string } | undefined {
+  if (!entry.setBy) return undefined;
+  if (viewerId !== undefined && entry.setBy.id === viewerId) return { type: "you" };
+  return { type: "other", name: entry.setBy.name };
 }
 
 /** The viewer's own line, which the dialog tags "Vous". */

@@ -2580,7 +2580,9 @@
     "delegationHead": "Vous avez le niveau Gérer sur {{name}}.",
     "delegationBody": "Il vous permet de régler l'accès des autres ici, sans réserver tout l'espace ni changer votre propre ligne.",
     "delegationFoot": "Vous ne donnez que des droits que vous avez vous-même ici. Tout est écrit au journal, sous votre nom.",
-    "selectedRemove": "Retirer {{name}} de la sélection"
+    "selectedRemove": "Retirer {{name}} de la sélection",
+    "givenBy": "{{name}} le lui a donné",
+    "addedByYou": "Ajoutée par vous"
   },
   "customise": {
     "title": "Personnaliser : {{name}}",

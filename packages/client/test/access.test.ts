@@ -39,12 +39,12 @@ test("access_maps_from_the_wire", async () => {
     entries: [
       {
         id: "r1", target: { kind: "group", id: "g1", name: "Design", hidden: false }, level: "contribute",
-        allow: ["files.write"], deny: [], clamped: true, guest: false, viaLegacy: false,
+        allow: ["files.write"], deny: [], clamped: true, guest: false, viaLegacy: false, setBy: undefined, setAt: undefined,
         inheritedFrom: undefined, summary: undefined,
       },
       {
         id: undefined, target: { kind: "everyone", id: undefined, name: "Members", hidden: false }, level: "custom",
-        allow: [], deny: ["files.delete"], clamped: false, guest: false, viaLegacy: true,
+        allow: [], deny: ["files.delete"], clamped: false, guest: false, viaLegacy: true, setBy: undefined, setAt: undefined,
         inheritedFrom: { kind: "file", id: undefined, name: undefined, hidden: true },
         summary: { nearest: "read", changes: [{ permission: "files.delete", state: "deny" }] },
       },
@@ -186,4 +186,13 @@ test("the_dialog_carries_what_the_editor_holds", async () => {
   assert.deepEqual((await client.getAccess("s1", "file", "f1")).may.held, ["files.view", "files.edit"]);
   // An older server sends none: nothing is held.
   assert.deepEqual((await client.getAccess("s1", "file", "f1")).may.held, []);
+});
+
+test("an_entry_carries_who_set_it", async () => {
+  fakeFetch({ body: { ...accessDto, entries: [{ ...accessDto.entries[0], set_by: { id: "u2", name: "Karim" }, set_at: "2026-11-04T10:00:00Z" }, { ...accessDto.entries[1], set_by: null, set_at: null }] } });
+  const view = await api().getAccess("s1", "file", "f1");
+  assert.deepEqual(view.entries[0].setBy, { id: "u2", name: "Karim" });
+  assert.equal(view.entries[0].setAt, "2026-11-04T10:00:00Z");
+  assert.equal(view.entries[1].setBy, undefined);
+  assert.equal(view.entries[1].setAt, undefined);
 });

@@ -2744,7 +2744,9 @@
     "delegationHead": "Masz poziom Zarządzaj dla {{name}}.",
     "delegationBody": "Pozwala ustawiać tu dostęp innych, bez rezerwowania całej przestrzeni i bez zmiany własnej pozycji.",
     "delegationFoot": "Nadajesz tylko uprawnienia, które tu posiadasz. Wszystko trafia do dziennika pod Twoim nazwiskiem.",
-    "selectedRemove": "Usuń {{name}} z zaznaczenia"
+    "selectedRemove": "Usuń {{name}} z zaznaczenia",
+    "givenBy": "Nadano przez: {{name}}",
+    "addedByYou": "Dodane przez Ciebie"
   },
   "customise": {
     "title": "Dostosuj: {{name}}",

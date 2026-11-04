@@ -201,6 +201,8 @@ type AccessEntryDto = {
   inherited_from?: NamedRefDto | null;
   summary?: { nearest: string; changes: { permission: string; state: string }[] } | null;
   via_legacy: boolean;
+  set_by?: { id: string; name: string } | null;
+  set_at?: string | null;
 };
 type AccessDto = {
   resource: { kind: string; id: string; name: string; parent?: NamedRefDto | null };
@@ -264,6 +266,8 @@ function toAccessView(dto: AccessDto): AccessView {
           }
         : undefined,
       viaLegacy: e.via_legacy,
+      setBy: e.set_by ? { id: e.set_by.id, name: e.set_by.name } : undefined,
+      setAt: e.set_at ?? undefined,
     })),
     may: {
       edit: dto.may.edit,
