@@ -1435,7 +1435,19 @@
     "passerMembreTitle": "Passer {{name}} membre ?",
     "passerFailed": "Le changement n'a pas pu être fait.",
     "seatsFullRest": "Pour faire passer une personne au statut de membre, passez à une licence plus grande. {{name}} garde son statut d'invité et son accès, et personne ne perd le sien.",
-    "reactivateNote": "Son accès revient tel qu'il était : mêmes canaux, mêmes dossiers, mêmes groupes. Les rappels repartent pour la nouvelle date."
+    "reactivateNote": "Son accès revient tel qu'il était : mêmes canaux, mêmes dossiers, mêmes groupes. Les rappels repartent pour la nouvelle date.",
+    "endTitle": "Accès jusqu'au",
+    "optional": "Optionnel",
+    "endOfDay": "Fin de journée",
+    "reminders": "Vous recevez un rappel 7 jours puis 1 jour avant la fin. L'invité le reçoit la veille.",
+    "bannerUntil": "Invité dans {{space}} · jusqu'au {{date}}",
+    "noticeSoon": "L'accès de {{name}} se termine {{when}}",
+    "noticeEnding": "Votre accès à {{space}} se termine {{when}}",
+    "noticeSoonDetail": "{{title}}, jusqu'au {{date}}. Vous pouvez prolonger son accès.",
+    "noticeSoonDetailBare": "Jusqu'au {{date}}. Vous pouvez prolonger son accès.",
+    "noticeEndingDetail": "Après le {{date}}, vous ne pourrez plus ouvrir cet espace. Pour continuer, demandez à {{contact}} de prolonger votre accès.",
+    "noticeEndingDetailBare": "Après le {{date}}, vous ne pourrez plus ouvrir cet espace. Pour continuer, demandez à la personne qui gère les invités de prolonger votre accès.",
+    "dateLabel": "Date de fin d'accès"
   },
   "perm": {
     "spaceSettings": "Régler l'espace",

@@ -1435,7 +1435,19 @@
     "passerMembreTitle": "{{name}} zum Mitglied machen?",
     "passerFailed": "Die Änderung konnte nicht vorgenommen werden.",
     "seatsFullRest": "Um einen Gast zum Mitglied zu machen, wechseln Sie zu einer größeren Lizenz. {{name}} bleibt Gast und behält den Zugang, und niemand verliert den eigenen.",
-    "reactivateNote": "Der Zugang kommt zurück, wie er war: gleiche Kanäle, gleiche Ordner, gleiche Gruppen. Die Erinnerungen beginnen für das neue Datum neu."
+    "reactivateNote": "Der Zugang kommt zurück, wie er war: gleiche Kanäle, gleiche Ordner, gleiche Gruppen. Die Erinnerungen beginnen für das neue Datum neu.",
+    "endTitle": "Zugang bis",
+    "optional": "Nicht erforderlich",
+    "endOfDay": "Tagesende",
+    "reminders": "Sie werden 7 Tage und dann 1 Tag vor dem Ende benachrichtigt. Der Gast am Vortag.",
+    "bannerUntil": "Gast in {{space}} · bis {{date}}",
+    "noticeSoon": "Der Zugang von {{name}} endet {{when}}",
+    "noticeEnding": "Ihr Zugang zu {{space}} endet {{when}}",
+    "noticeSoonDetail": "{{title}}, bis {{date}}. Sie können den Zugang verlängern.",
+    "noticeSoonDetailBare": "Bis {{date}}. Sie können den Zugang verlängern.",
+    "noticeEndingDetail": "Nach dem {{date}} können Sie diesen Bereich nicht mehr öffnen. Um weiterzumachen, bitten Sie {{contact}}, Ihren Zugang zu verlängern.",
+    "noticeEndingDetailBare": "Nach dem {{date}} können Sie diesen Bereich nicht mehr öffnen. Um weiterzumachen, bitten Sie die Person, die die Gäste verwaltet, Ihren Zugang zu verlängern.",
+    "dateLabel": "Enddatum des Zugangs"
   },
   "perm": {
     "spaceSettings": "Bereich einrichten",

@@ -1496,7 +1496,19 @@
     "passerMembreTitle": "¿Hacer miembro a {{name}}?",
     "passerFailed": "No se pudo hacer el cambio.",
     "seatsFullRest": "Para hacer miembro a un invitado, pasa a una licencia más grande. {{name}} sigue siendo invitado y conserva su acceso, y nadie pierde el suyo.",
-    "reactivateNote": "Su acceso vuelve tal como estaba: mismos canales, mismas carpetas, mismos grupos. Los recordatorios vuelven a empezar para la nueva fecha."
+    "reactivateNote": "Su acceso vuelve tal como estaba: mismos canales, mismas carpetas, mismos grupos. Los recordatorios vuelven a empezar para la nueva fecha.",
+    "endTitle": "Acceso hasta",
+    "optional": "No obligatorio",
+    "endOfDay": "Fin del día",
+    "reminders": "Te avisamos 7 días y luego 1 día antes del final. Al invitado se le avisa la víspera.",
+    "bannerUntil": "Invitado en {{space}} · hasta el {{date}}",
+    "noticeSoon": "El acceso de {{name}} termina {{when}}",
+    "noticeEnding": "Tu acceso a {{space}} termina {{when}}",
+    "noticeSoonDetail": "{{title}}, hasta el {{date}}. Puedes prolongar su acceso.",
+    "noticeSoonDetailBare": "Hasta el {{date}}. Puedes prolongar su acceso.",
+    "noticeEndingDetail": "Después del {{date}}, ya no podrás abrir este espacio. Para continuar, pide a {{contact}} que prolongue tu acceso.",
+    "noticeEndingDetailBare": "Después del {{date}}, ya no podrás abrir este espacio. Para continuar, pide a quien gestiona a los invitados que prolongue tu acceso.",
+    "dateLabel": "Fecha de fin del acceso"
   },
   "perm": {
     "spaceSettings": "Configurar el espacio",

@@ -37,3 +37,17 @@ test("a_link_may_name_its_instance", () => {
   assert.equal(linkServer("ruchoir://conversation/c1?title=T&server=http%3A%2F%2Fplain.test"), undefined);
   assert.equal(linkServer("ruchoir://agenda"), undefined);
 });
+
+test("the_reminder_mails_prolong_link_opens_that_guest", () => {
+  const guest = "0b9f7a3e-1c2d-4e5f-8a9b-0c1d2e3f4a5b";
+  assert.deepEqual(linkTarget(`https://app.test/e/atelier?prolong=${guest}`), { screen: "prolong", spaceSlug: "atelier", userId: guest });
+  assert.deepEqual(linkTarget(`https://app.test/e/atelier/?prolong=${guest.toUpperCase()}`), { screen: "prolong", spaceSlug: "atelier", userId: guest });
+  assert.equal(linkTarget("https://app.test/e/atelier?prolong=not-an-id"), null);
+  assert.equal(linkTarget(`https://app.test/e/atelier/c/general?prolong=${guest}`), null);
+});
+
+test("the_prolong_link_names_its_instance_when_it_is_a_web_address", () => {
+  const guest = "0b9f7a3e-1c2d-4e5f-8a9b-0c1d2e3f4a5b";
+  assert.equal(linkServer(`https://App.Test/e/atelier?prolong=${guest}`), "https://app.test");
+  assert.equal(linkServer(`ruchoir://e/atelier?prolong=${guest}`), undefined);
+});

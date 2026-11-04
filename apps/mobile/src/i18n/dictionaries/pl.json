@@ -1557,7 +1557,19 @@
     "passerMembreTitle": "Zmienić {{name}} w członka?",
     "passerFailed": "Nie udało się wprowadzić zmiany.",
     "seatsFullRest": "Aby zmienić gościa w członka, przejdź na większą licencję. {{name}} pozostaje gościem i zachowuje dostęp, a nikt nie traci swojego.",
-    "reactivateNote": "Dostęp wraca taki, jaki był: te same kanały, te same foldery, te same grupy. Przypomnienia zaczynają się od nowa dla nowej daty."
+    "reactivateNote": "Dostęp wraca taki, jaki był: te same kanały, te same foldery, te same grupy. Przypomnienia zaczynają się od nowa dla nowej daty.",
+    "endTitle": "Dostęp do",
+    "optional": "Nieobowiązkowe",
+    "endOfDay": "Koniec dnia",
+    "reminders": "Dostajesz przypomnienie na 7 dni, a potem na 1 dzień przed końcem. Gość dostaje je dzień wcześniej.",
+    "bannerUntil": "Gość w {{space}} · do {{date}}",
+    "noticeSoon": "Dostęp {{name}} kończy się {{when}}",
+    "noticeEnding": "Twój dostęp do {{space}} kończy się {{when}}",
+    "noticeSoonDetail": "{{title}}, do {{date}}. Możesz przedłużyć dostęp.",
+    "noticeSoonDetailBare": "Do {{date}}. Możesz przedłużyć dostęp.",
+    "noticeEndingDetail": "Po {{date}} nie będzie można już otworzyć tej przestrzeni. Aby kontynuować, poproś {{contact}} o przedłużenie dostępu.",
+    "noticeEndingDetailBare": "Po {{date}} nie będzie można już otworzyć tej przestrzeni. Aby kontynuować, poproś osobę zarządzającą gośćmi o przedłużenie dostępu.",
+    "dateLabel": "Data końca dostępu"
   },
   "perm": {
     "spaceSettings": "Ustawiać przestrzeń",

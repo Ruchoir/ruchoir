@@ -1496,7 +1496,19 @@
     "passerMembreTitle": "Rendere membro {{name}}?",
     "passerFailed": "Non è stato possibile fare la modifica.",
     "seatsFullRest": "Per rendere membro un ospite, passa a una licenza più grande. {{name}} resta ospite e mantiene il suo accesso, e nessuno perde il proprio.",
-    "reactivateNote": "Il suo accesso torna com'era: stessi canali, stesse cartelle, stessi gruppi. I promemoria ripartono per la nuova data."
+    "reactivateNote": "Il suo accesso torna com'era: stessi canali, stesse cartelle, stessi gruppi. I promemoria ripartono per la nuova data.",
+    "endTitle": "Accesso fino al",
+    "optional": "Non obbligatorio",
+    "endOfDay": "Fine giornata",
+    "reminders": "Ricevi un avviso 7 giorni e poi 1 giorno prima della fine. L'ospite lo riceve il giorno prima.",
+    "bannerUntil": "Ospite in {{space}} · fino al {{date}}",
+    "noticeSoon": "L'accesso di {{name}} termina {{when}}",
+    "noticeEnding": "Il tuo accesso a {{space}} termina {{when}}",
+    "noticeSoonDetail": "{{title}}, fino al {{date}}. Puoi prolungare il suo accesso.",
+    "noticeSoonDetailBare": "Fino al {{date}}. Puoi prolungare il suo accesso.",
+    "noticeEndingDetail": "Dopo il {{date}} non potrai più aprire questo spazio. Per continuare, chiedi a {{contact}} di prolungare il tuo accesso.",
+    "noticeEndingDetailBare": "Dopo il {{date}} non potrai più aprire questo spazio. Per continuare, chiedi a chi gestisce gli ospiti di prolungare il tuo accesso.",
+    "dateLabel": "Data di fine dell'accesso"
   },
   "perm": {
     "spaceSettings": "Configurare lo spazio",

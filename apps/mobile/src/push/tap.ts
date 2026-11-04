@@ -4,6 +4,7 @@
  * keys under the notification's `body` (`targets/notifications`). Free of the native modules so Node
  * tests it.
  */
+import { noticeTarget } from "@ruchoir/client/permissionsLogic";
 
 /** One item of `GET /api/v1/push/pending`. */
 export type PendingItem = {
@@ -52,7 +53,12 @@ export type TapTarget =
       screen: "conversation";
       params: { conversationId: string; title: string; channelId?: string; kind: "channel" | "person" };
     }
-  | { spaceId?: string; screen: "agenda" };
+  | { spaceId?: string; screen: "agenda" }
+  /** A guest notice for whoever manages the guest: the member screen on its end date. */
+  | { spaceId?: string; screen: "member"; userId: string }
+  | { spaceId?: string; screen: "members" }
+  /** A guest notice for the guest: the space. */
+  | { spaceId?: string; screen: "space" };
 
 const text = (value: unknown) => (typeof value === "string" && value ? value : undefined);
 
@@ -61,6 +67,14 @@ export function tapTarget(data: Record<string, unknown> | undefined | null): Tap
   if (!data) return null;
   const spaceId = text(data.space_id);
   const conversationId = text(data.conversation_id);
+  const kind = text(data.kind);
+  if (kind) {
+    const notice = noticeTarget({ kind, spaceId: spaceId ?? "", actorId: text(data.actor_id) });
+    if (notice) {
+      if (notice.action === "prolong") return { spaceId, screen: "member", userId: notice.userId };
+      return { spaceId, screen: notice.action };
+    }
+  }
   if (conversationId) {
     const channel = text(data.channel_name);
     return {
