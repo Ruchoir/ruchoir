@@ -7,17 +7,19 @@ import { rightsOf, spaceGates } from "@ruchoir/client/permissionsLogic";
 import { useNavigation } from "@react-navigation/native";
 import { useEffect, useMemo } from "react";
 
-import { useSupports } from "../api/features";
+import { useFeature } from "../api/features";
+import { guardDecision } from "../logic/sectionGuard";
 import { sectionsFor, type SectionKey } from "../logic/spaceSections";
 import { useSpace } from "./SpaceProvider";
 
 export function useRights() {
-  const supported = useSupports("permissions");
+  const permissions = useFeature("permissions");
   const { current } = useSpace();
   return useMemo(() => {
     const rights = rightsOf(current ?? undefined);
-    return { supported, rights, gates: spaceGates(current?.role, rights) };
-  }, [supported, current]);
+    // `ready`: the instance has said what it offers; before that `supported` reads false and must not be acted on.
+    return { ready: permissions !== undefined, supported: permissions === true, rights, gates: spaceGates(current?.role, rights) };
+  }, [permissions, current]);
 }
 
 /**
@@ -27,15 +29,14 @@ export function useRights() {
 export function useSectionGuard(key: SectionKey): void {
   const navigation = useNavigation();
   const { current } = useSpace();
-  const { supported, gates } = useRights();
-  const licences = useSupports("licences");
+  const { ready, supported, gates } = useRights();
+  const licences = useFeature("licences");
   const allowed = sectionsFor(gates, supported, current, {
     ready: { roles: true, groups: true, audit: true, licence: true },
-    licences,
+    licences: licences === true,
   }).some((s) => s.key === key);
-  // While the space or the instance's features are still loading, stay: only a known answer sends back.
-  const known = current !== null;
+  const decision = guardDecision({ known: current !== null, ready: ready && licences !== undefined, allowed });
   useEffect(() => {
-    if (known && !allowed && navigation.canGoBack()) navigation.goBack();
-  }, [known, allowed, navigation]);
+    if (decision === "leave" && navigation.canGoBack()) navigation.goBack();
+  }, [decision, navigation]);
 }

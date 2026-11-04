@@ -14,11 +14,12 @@ import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
-import { grantableRoles, matchesMember, memberCounts } from "../../logic/spaceRoles";
+import { memberDoors } from "../../logic/sectionGuard";
+import { canAdminister, grantableRoles, matchesMember, memberCounts } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
 import { affects } from "../../realtime/events";
 import { useSession } from "../../session/SessionProvider";
-import { useSectionGuard } from "../../space/rights";
+import { useRights, useSectionGuard } from "../../space/rights";
 import { useSpace } from "../../space/SpaceProvider";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
@@ -50,6 +51,8 @@ function Members({ space }: { space: Workspace }) {
   const { c, s } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const session = useSession();
+  const { supported, gates } = useRights();
+  const doors = memberDoors(supported, gates, canAdminister(space.role));
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const members = useLoad(`members:${space.id}`, (signal) => getSpaceMembers(space.id, signal));
   const { reload } = members;
@@ -82,7 +85,7 @@ function Members({ space }: { space: Workspace }) {
         <View style={styles.head}>
           <Text tone="muted">{summary}</Text>
           <SearchField value={query} onChange={setQuery} placeholder={t("spaceAdmin.search")} />
-          <ActionRow icon={UserPlus} tint={c.pink} title={t("spaceAdmin.invite")} onPress={() => navigation.navigate("invite")} />
+          {doors.invite ? <ActionRow icon={UserPlus} tint={c.pink} title={t("spaceAdmin.invite")} onPress={() => navigation.navigate("invite")} /> : null}
         </View>
       }
       ListEmptyComponent={
@@ -93,7 +96,7 @@ function Members({ space }: { space: Workspace }) {
       renderItem={({ item: m }) => {
         const mine = m.userId === me;
         // A bot has no role; my own row and anyone not ranked below me are read only.
-        const reachable = !m.bot && !mine && grantableRoles(space.role, m.role).length > 0;
+        const reachable = doors.changeRole && !m.bot && !mine && grantableRoles(space.role, m.role).length > 0;
         const tag = m.bot ? t("spaceAdmin.bot") : t(ROLE_LABEL[m.role] ?? ROLE_LABEL.member);
         return (
           <ActionRow

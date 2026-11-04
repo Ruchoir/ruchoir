@@ -15,11 +15,12 @@ import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
+import { memberDoors } from "../../logic/sectionGuard";
 import { canAdminister, canDeleteSpace, canEditIdentity } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
 import { affects } from "../../realtime/events";
 import { useSession } from "../../session/SessionProvider";
-import { useSectionGuard } from "../../space/rights";
+import { useRights, useSectionGuard } from "../../space/rights";
 import { useSpace } from "../../space/SpaceProvider";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
@@ -59,10 +60,12 @@ function General({ space }: { space: Workspace }) {
   const { spaces } = useSpace();
   const leave = useLeaveSpace();
   const owner = canEditIdentity(space.role);
+  const { supported, gates } = useRights();
+  const canDefault = memberDoors(supported, gates, canAdminister(space.role)).defaultChannel;
   const [name, setName] = useState(space.name);
   const [saving, setSaving] = useState(false);
   const [iconBusy, setIconBusy] = useState(false);
-  const channels = useLoad(canAdminister(space.role) ? `channels:${space.id}` : null, (signal) => getChannels(space.id, signal));
+  const channels = useLoad(canDefault ? `channels:${space.id}` : null, (signal) => getChannels(space.id, signal));
   // The rights decide whether the arrival channel is read at all: read again when they change.
   useReloadOn((e) => affects.permissions(e, space.id), channels.reload, 300);
   const defaultChannel = channels.data?.find((ch) => ch.id === space.defaultChannelId);
@@ -146,7 +149,7 @@ function General({ space }: { space: Workspace }) {
 
       <Section label={t("spaceAdmin.serverAddress")}>
         <ActionRow icon={Server} title={server ?? ""} />
-        {canAdminister(space.role) ? (
+        {canDefault ? (
           <ActionRow
             icon={Hash}
             tint={c.sky}

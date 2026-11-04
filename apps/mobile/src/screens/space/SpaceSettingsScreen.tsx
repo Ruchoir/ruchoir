@@ -9,7 +9,7 @@ import { useEffect } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useSupports } from "../../api/features";
+import { useFeature } from "../../api/features";
 import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
@@ -60,19 +60,22 @@ export function SpaceSettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { getSpaceMembers } = useApi();
   const { current } = useSpace();
-  const { supported, gates } = useRights();
-  const licences = useSupports("licences");
+  const { ready: rightsReady, supported, gates } = useRights();
+  const licencesFeature = useFeature("licences");
+  const licences = licencesFeature === true;
+  // Until the instance has said what it offers, no list: the legacy two tabs must not flash, nor the screen go back.
+  const ready = rightsReady && licencesFeature !== undefined;
 
   // The members' figures for the line under Membres; the people list itself is its own screen's.
   const members = useLoad(current ? `members:${current.id}` : null, (signal) => getSpaceMembers(current!.id, signal));
   useReloadOn((e) => (current ? affects.members(e, current.id) || affects.permissions(e, current.id) : false), members.reload, 500);
   const counts = members.data ? memberCounts(members.data) : undefined;
 
-  const sections = sectionsFor(gates, supported, current, { counts: counts ? { people: counts.people, guests: counts.guests } : undefined, licences });
+  const sections = !ready ? [] : sectionsFor(gates, supported, current, { counts: counts ? { people: counts.people, guests: counts.guests } : undefined, licences });
   const tint: Record<SectionKey, string> = { general: c.sky, members: c.mint, roles: c.violet, groups: c.pink, audit: c.sun, licence: c.lime };
 
   // Nothing left to open (demoted, or their role edited, while here): back to where they came from.
-  const empty = current !== null && sections.length === 0;
+  const empty = ready && current !== null && sections.length === 0;
   useEffect(() => {
     if (empty && navigation.canGoBack()) navigation.goBack();
   }, [empty, navigation]);
