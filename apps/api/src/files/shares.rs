@@ -18,6 +18,8 @@ use crate::auth::extract::AuthSession;
 use crate::entities::{conversations, files, space_members};
 use crate::messaging::error::ApiError;
 use crate::permissions::catalogue::{Permission, PermissionSet};
+use crate::permissions::check::{self, Resource};
+use crate::permissions::engine::Standing;
 use crate::permissions::levels::{rule_sets, Kind, Level};
 use crate::permissions::rule_routes::{resolve, Pick};
 use crate::permissions::rules::{
@@ -55,6 +57,14 @@ fn to_dto(file_id: Uuid, row: &QueryResult) -> Result<ShareDto, sea_orm::DbErr> 
     })
 }
 
+/// The file as the lock leaves it: trashed since the first look, it is not shared any more.
+async fn still_there(txn: &impl ConnectionTrait, file_id: Uuid) -> Result<(), ApiError> {
+    match files::Entity::find_by_id(file_id).one(txn).await? {
+        Some(file) if file.deleted_at.is_none() => Ok(()),
+        _ => Err(ApiError::NotFound),
+    }
+}
+
 const SHARE_COLUMNS: &str = "id, user_id, audience_channel_id, allow, deny, created_by, created_at";
 
 /// `GET /api/v1/files/{file_id}/shares`: list a file's shares.
@@ -89,10 +99,34 @@ pub async fn list_shares(
             [file_id.into(), access.file.space_id.into()],
         ))
         .await?;
-    let shares = rows
-        .iter()
-        .map(|row| to_dto(file_id, row))
-        .collect::<Result<Vec<_>, _>>()?;
+    // The list shows what the Access dialog would show this reader: a guest only the rows that
+    // cover them, and nobody a channel (or its id) they cannot view. The old route has no
+    // "hidden" form, so such a row is left out.
+    let space_id = access.file.space_id;
+    let guest =
+        check::standing(&state.db, space_id, session.user_id).await? == Some(Standing::Guest);
+    let mut shares = Vec::with_capacity(rows.len());
+    for row in &rows {
+        let person: Option<Uuid> = row.try_get("", "user_id")?;
+        let channel: Option<Uuid> = row.try_get("", "audience_channel_id")?;
+        let shown = match (person, channel) {
+            (Some(person), _) => !guest || person == session.user_id,
+            (None, Some(channel)) => {
+                check::can(
+                    &state.db,
+                    space_id,
+                    session.user_id,
+                    Resource::Channel(channel),
+                    Permission::ChannelView,
+                )
+                .await?
+            }
+            (None, None) => false,
+        };
+        if shown {
+            shares.push(to_dto(file_id, row)?);
+        }
+    }
     Ok(Json(shares))
 }
 
@@ -173,6 +207,7 @@ pub async fn create_share(
     let editor = editor_of(&state, space_id, session.user_id, resource)
         .await?
         .ok_or(ApiError::Forbidden)?;
+    still_there(&txn, file_id).await?;
     let target = resolve(&state, &txn, space_id, session.user_id, pick).await?;
     let class = target.subject.class();
     let (allow, deny) = rule_sets(Kind::File, class, level).map_err(|_| ApiError::Internal)?;
@@ -279,6 +314,7 @@ pub async fn delete_share(
     let editor = editor_of(&state, space_id, session.user_id, resource)
         .await?
         .ok_or(ApiError::Forbidden)?;
+    still_there(&txn, file_id).await?;
     let row = txn
         .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,

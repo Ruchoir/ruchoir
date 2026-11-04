@@ -451,7 +451,8 @@ async fn the_share_routes_keep_their_shapes() {
     assert_eq!(status, 201, "{channel}");
     assert_eq!(channel["permission"], "edit");
 
-    let (status, listing) = shares_of(&app, fx.admin, file).await;
+    // The owner reads the private channel without joining, so both rows are theirs to see.
+    let (status, listing) = shares_of(&app, fx.owner, file).await;
     assert_eq!(status, 200);
     let items = listing.as_array().expect("array");
     assert_eq!(items.len(), 2);
@@ -648,4 +649,60 @@ async fn missing_and_trashed_files_answer_as_before() {
     let id = made["id"].as_str().expect("id").to_owned();
     assert_eq!(unshare(&app, fx.admin, file, &id).await.0, 404);
     assert_eq!(share(&app, fx.guest, file, body).await.0, 403);
+}
+
+#[tokio::test]
+async fn the_old_listing_shows_only_what_the_reader_may_see() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let file = make_file(&app.db, fx.space_id, fx.owner, "plan.txt").await;
+    let secret = make_channel(&app.db, fx.space_id, "secret", "private").await;
+    let open = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    for body in [
+        json!({ "target_channel_id": secret, "permission": "view" }),
+        json!({ "target_channel_id": open, "permission": "view" }),
+        json!({ "target_user_id": fx.guest, "permission": "view" }),
+        json!({ "target_user_id": fx.admin, "permission": "view" }),
+    ] {
+        let (status, answer) = share(&app, fx.owner, file, body).await;
+        assert_eq!(status, 201, "{answer}");
+    }
+
+    // The owner reads private channels without joining: everything is listed.
+    let (status, all) = shares_of(&app, fx.owner, file).await;
+    assert_eq!(status, 200);
+    assert_eq!(all.as_array().expect("shares").len(), 4, "{all}");
+    // A plain member does not see the private channel, nor its id.
+    let (status, listed) = shares_of(&app, fx.member, file).await;
+    assert_eq!(status, 200);
+    assert!(
+        !listed.to_string().contains(&secret.to_string()),
+        "{listed}"
+    );
+    assert_eq!(listed.as_array().expect("shares").len(), 3, "{listed}");
+    // A guest sees only the rows that cover them.
+    let (status, listed) = shares_of(&app, fx.guest, file).await;
+    assert_eq!(status, 200, "{listed}");
+    let rows = listed.as_array().expect("shares");
+    assert_eq!(rows.len(), 1, "{listed}");
+    assert_eq!(rows[0]["target_user_id"], fx.guest.to_string());
+}
+
+#[tokio::test]
+async fn an_author_shares_with_a_channel_they_read_on_the_old_route() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let mine = make_file(&app.db, fx.space_id, fx.member, "mine.txt").await;
+    let room = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let (status, body) = share(
+        &app,
+        fx.member,
+        mine,
+        json!({ "target_channel_id": room, "permission": "view" }),
+    )
+    .await;
+    assert_eq!(status, 201, "{body}");
+    assert_eq!(body["target_channel_id"], room.to_string());
+    let id = body["id"].as_str().expect("id").to_owned();
+    assert_eq!(unshare(&app, fx.member, mine, &id).await.0, 204);
 }
