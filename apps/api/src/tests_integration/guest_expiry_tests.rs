@@ -274,7 +274,7 @@ async fn ended_lists_only_expired_guests() {
 }
 
 #[tokio::test]
-async fn the_loader_still_reads_a_person_in_one_query() {
+async fn the_shared_definition_adds_no_loader_query() {
     let Some(app) = boot().await else { return };
     let owner = make_user(&app.db, "owner").await;
     let space = crate::testkit::make_space(&app.db, owner, "Count").await;
