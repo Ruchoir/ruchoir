@@ -36,3 +36,15 @@ pub async fn announce_to(state: &AppState, space_id: Uuid, extra: &[Uuid]) {
         .publish(audience, RealtimeEnvelope::permissions_changed(space_id))
         .await;
 }
+
+/// [`announce`] to exactly `users`, whoever else is in the space, and without reading the
+/// membership: for what concerns a few people alone (a person starting or leaving a preview).
+pub async fn announce_only(state: &AppState, space_id: Uuid, users: &[Uuid]) {
+    state
+        .hub
+        .publish(
+            users.to_vec(),
+            RealtimeEnvelope::permissions_changed(space_id),
+        )
+        .await;
+}

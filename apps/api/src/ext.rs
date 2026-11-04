@@ -26,7 +26,7 @@ pub use crate::messaging::error::ApiError;
 /// space-wide.
 pub use crate::permissions::catalogue::{Permission, PermissionSet};
 /// Tell a space's members that what they may do there changed, so their apps ask again.
-pub use crate::permissions::changed::announce;
+pub use crate::permissions::changed::{announce, announce_only};
 pub use crate::permissions::check::space_rights;
 /// The delegation rules every write of rights goes through: ranks, rule 1 ([`ensure_manages_role`]),
 /// rule 2 ([`ensure_composes`]), rule 3 ([`ensure_acts_on`]).

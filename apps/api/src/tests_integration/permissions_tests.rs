@@ -1402,3 +1402,14 @@ async fn a_listing_of_conversation_files_resolves_in_bulk() {
         assert!(issued <= 15, "the listing made {issued} permission queries");
     }
 }
+
+#[tokio::test]
+async fn announce_only_tells_the_chosen_people_alone() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let mut chosen = app.connect_ws(&app.cookie_for(fx.member).await).await;
+    let mut other = app.connect_ws(&app.cookie_for(fx.admin).await).await;
+    crate::permissions::changed::announce_only(&app.state, fx.space_id, &[fx.member]).await;
+    expect_permissions_changed(&mut chosen, fx.space_id).await;
+    super::group_routes_tests::expect_no_permissions_changed(&mut other).await;
+}
