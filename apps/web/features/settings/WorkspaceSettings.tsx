@@ -5,17 +5,18 @@ import { Avatar, Button, Field, Icon, type IconName, Input, Select } from "@/com
 import type { Toast } from "../app/types";
 import { clearSpaceIcon, renameSpace, setDefaultChannel, setSpaceIcon } from "@/lib/data/api";
 import type { Channel } from "@/lib/data";
-import type { Role, SpaceEdition, SpaceLicence } from "@/lib/data/types";
+import type { Group, Role, SpaceEdition, SpaceLicence } from "@/lib/data/types";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatUtcDate } from "@/lib/i18n/format";
 import { BackHeading } from "../app/BackHeading";
 import { MembersSettings, type SettingsMember } from "./MembersSettings";
 import { RolesSettings } from "./RolesSettings";
+import { GroupsSettings } from "./GroupsSettings";
 import { AuditSettings } from "./AuditSettings";
 import { LicenceSettings } from "./LicenceSettings";
 
-type NavKey = "general" | "members" | "roles" | "audit" | "licence";
+type NavKey = "general" | "members" | "roles" | "groups" | "audit" | "licence";
 
 /**
  * The sections, with the dictionary key of each label. The member list and the roles are
@@ -27,6 +28,7 @@ const NAV: [NavKey, TranslationKey, IconName][] = [
   ["general", key("space.general"), "settings"],
   ["members", key("conversation.members"), "users"],
   ["roles", key("roles.title"), "shield"],
+  ["groups", key("groups.title"), "users"],
   ["audit", key("audit.title"), "list"],
   ["licence", key("licence.title"), "key-round"],
 ];
@@ -160,6 +162,8 @@ export type WorkspaceSettingsProps = {
   ownerNames: string[];
   /** The space's roles, strongest first (empty from an instance without them). */
   roles: Role[];
+  /** The space's groups (empty when the caller cannot list them, a guest for one). */
+  groups: Group[];
   /** What the caller holds in the space, by permission name. */
   myRights: string[];
   /** The caller's id, to find their own membership. */
@@ -172,6 +176,8 @@ export type WorkspaceSettingsProps = {
   onSaveMemberRoles: (userId: string, roleIds: string[]) => Promise<boolean>;
   /** Whether the caller reads the space's audit log (`audit.view`). */
   canReadAudit: boolean;
+  /** Whether the caller manages the space's groups (`groups.manage`). */
+  canManageGroups: boolean;
   /** Whether the caller manages the space's licence: its owner, on an instance that has licences. */
   canManageLicence: boolean;
   /** The space's licence as its list says (owners only), for the days left. */
@@ -234,12 +240,14 @@ export function WorkspaceSettings({
   frozenSince,
   ownerNames,
   roles,
+  groups,
   myRights,
   myUserId,
   pricingUrl,
   onAccessChanged,
   onSaveMemberRoles,
   canReadAudit,
+  canManageGroups,
   canManageLicence,
   licence,
   onLicenceChanged,
@@ -262,8 +270,10 @@ export function WorkspaceSettings({
 }: WorkspaceSettingsProps) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<NavKey>("general");
+  // A group opened from elsewhere (a role's people): the Groupes tab shows it straight away.
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const sections = NAV.filter(([id]) =>
-    id === "audit" ? canReadAudit : id === "licence" ? canManageLicence : id === "general" || canManageMembers,
+    id === "audit" ? canReadAudit : id === "groups" ? canManageGroups : id === "licence" ? canManageLicence : id === "general" || canManageMembers,
   );
   const me = members.find((m) => m.userId === myUserId);
   // Counted rather than asserted: the line used to read "2 invités externes, 1 bot" whatever the
@@ -393,7 +403,10 @@ export function WorkspaceSettings({
           }
         >
           {sections.map(([v, l, i]) => (
-            <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
+            <button key={v} style={navItem(v === tab, compact)} onClick={() => {
+                setOpenGroup(null);
+                setTab(v);
+              }}>
               <Icon name={i} size={14} style={{ color: v === tab ? "var(--on-pastel)" : "var(--text-muted)" }} />
               {t(l)}
             </button>
@@ -518,6 +531,10 @@ export function WorkspaceSettings({
               myRole={myRole}
               myRights={myRights}
               roles={roles}
+              groups={groups}
+              spaceId={spaceId}
+              onGroupsChanged={onAccessChanged}
+              onNotify={onNotify}
               canInvite={canInvite}
               summary={memberSummary}
               onInvite={onInvite}
@@ -534,12 +551,37 @@ export function WorkspaceSettings({
               spaceName={workspaceName}
               edition={edition}
               roles={roles}
+              groups={groups}
               members={members}
               me={me}
               myRights={myRights}
               pricingUrl={pricingUrl}
               onChanged={onAccessChanged}
+              onOpenGroup={
+                canManageGroups
+                  ? (id) => {
+                      setOpenGroup(id);
+                      setTab("groups");
+                    }
+                  : undefined
+              }
               onSetMemberRoles={onSaveMemberRoles}
+              onNotify={onNotify}
+            />
+          ) : null}
+
+          {tab === "groups" && canManageGroups ? (
+            <GroupsSettings
+              spaceId={spaceId}
+              initialGroupId={openGroup}
+              spaceName={workspaceName}
+              edition={edition}
+              roles={roles}
+              members={members}
+              groups={groups}
+              me={me}
+              pricingUrl={pricingUrl}
+              onChanged={onAccessChanged}
               onNotify={onNotify}
             />
           ) : null}

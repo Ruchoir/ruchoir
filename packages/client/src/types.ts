@@ -78,6 +78,22 @@ export type SpaceLicence = {
   expiresInDays: number;
 };
 
+/** A group of a space: a named set of people, which may carry roles. */
+export type Group = {
+  id: string;
+  name: string;
+  description?: string;
+  /** `directory` for a group mirrored from a directory (read-only). */
+  source: "manual" | "directory";
+  /** Everyone in it, managers included. */
+  memberIds: string[];
+  managerIds: string[];
+  /** The roles it carries, strongest first. */
+  roleIds: string[];
+  /** What the caller may do to it. */
+  may: { edit: boolean; delete: boolean; changeMembers: boolean; changeRoles: boolean; appoint: boolean };
+};
+
 /** One role of a space, as `GET /spaces/{id}/roles` lists it (strongest first). */
 export type Role = {
   id: string;
@@ -149,7 +165,17 @@ export type Refusal =
         | "role_name_taken"
         | "role_has_rules"
         | "beyond_guest_ceiling"
-        | "make_them_a_member_first";
+        | "make_them_a_member_first"
+        | "no_self_role"
+        | "manager_protected"
+        | "group_from_directory"
+        | "group_name_taken"
+        | "group_name_reserved"
+        | "group_name_invalid"
+        | "manager_must_be_member"
+        | "base_role_not_allowed"
+        | "not_in_space"
+        | "too_many_people";
     };
 
 /**

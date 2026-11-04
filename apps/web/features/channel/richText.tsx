@@ -1,9 +1,10 @@
 import emojiRegex from "emoji-regex";
 import type { ReactNode } from "react";
-import { Checkbox, Tooltip } from "@/components/ds";
+import { Checkbox, Icon, Tooltip } from "@/components/ds";
 import { Emoji } from "../app/Emoji";
 import { replaceShortcodes, shortcodeOf } from "@/lib/shortcodes";
 import { CodeBlock } from "./CodeBlock";
+import { matchMention, matchMentionTarget } from "./mentionMatch.ts";
 
 /** Anchored emoji matcher (to test at a given position). */
 const EMOJI_RE = new RegExp(`^(?:${emojiRegex().source})`);
@@ -75,14 +76,8 @@ function emojiSizeFor(count: number): number {
  * than we offer costs nothing and is what every Markdown reader does.
  */
 
-function matchMention(text: string, from: number, names: string[]): string | null {
-  const rest = text.slice(from);
-  let best: string | null = null;
-  for (const n of names) {
-    if (rest.startsWith(n) && (!best || n.length > best.length)) best = n;
-  }
-  return best;
-}
+/** The groups a `@Name` can point at (matched whole, accents and case folded), and what following one does. */
+export type Groups = { names: string[]; onOpen?: (name: string) => void };
 
 /** The rooms a `#name` can point at, and what to do when a reader follows one. */
 export type Rooms = { names: string[]; onOpen?: (name: string) => void };
@@ -104,6 +99,7 @@ function renderInline(
   onMention?: MentionHandler,
   meName?: string,
   rooms?: Rooms,
+  groups?: Groups,
 ): ReactNode[] {
   const nodes: ReactNode[] = [];
   let buf = "";
@@ -141,7 +137,7 @@ function renderInline(
       const end = text.indexOf("**", i + 2);
       if (end > i + 1) {
         flush();
-        nodes.push(<strong key={`${keyBase}-b${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-b${k}`, emojiSize, onMention, meName, rooms)}</strong>);
+        nodes.push(<strong key={`${keyBase}-b${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-b${k}`, emojiSize, onMention, meName, rooms, groups)}</strong>);
         i = end + 2;
         continue;
       }
@@ -150,7 +146,7 @@ function renderInline(
       const end = text.indexOf("~~", i + 2);
       if (end > i + 1) {
         flush();
-        nodes.push(<s key={`${keyBase}-s${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-s${k}`, emojiSize, onMention, meName, rooms)}</s>);
+        nodes.push(<s key={`${keyBase}-s${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-s${k}`, emojiSize, onMention, meName, rooms, groups)}</s>);
         i = end + 2;
         continue;
       }
@@ -174,7 +170,36 @@ function renderInline(
       }
     }
     if (text[i] === "@") {
-      const name = matchMention(text, i + 1, names);
+      const target = matchMentionTarget(text, i + 1, names, groups?.names ?? []);
+      if (target?.kind === "group") {
+        flush();
+        const gkey = `${keyBase}-g${k++}`;
+        const inner = (
+          <>
+            <Icon name="users" size={12} aria-hidden />@{target.name}
+          </>
+        );
+        nodes.push(
+          groups?.onOpen ? (
+            <button
+              key={gkey}
+              type="button"
+              className="wc-mention wc-mention--group"
+              onClick={() => groups.onOpen?.(target.name)}
+              style={{ border: 0, padding: "0 3px", font: "inherit", cursor: "pointer" }}
+            >
+              {inner}
+            </button>
+          ) : (
+            <span key={gkey} className="wc-mention wc-mention--group">
+              {inner}
+            </span>
+          ),
+        );
+        i = i + 1 + target.name.length;
+        continue;
+      }
+      const name = target?.name ?? null;
       if (name) {
         flush();
         const mkey = `${keyBase}-m${k++}`;
@@ -315,6 +340,7 @@ function renderTextBlock(
   meName?: string,
   rooms?: Rooms,
   onToggleTask?: TaskToggle,
+  groups?: Groups,
   /** Line number this block starts on within the whole body, so a tick can name its line. */
   lineBase = 0,
 ): ReactNode[] {
@@ -377,7 +403,7 @@ function renderTextBlock(
   lines.forEach((line, idx) => {
     if (idx <= tableEnd) return;
     const inline = (from: string) =>
-      renderInline(from, names, `${keyBase}ln${idx}`, emojiSize, onMention, meName, rooms);
+      renderInline(from, names, `${keyBase}ln${idx}`, emojiSize, onMention, meName, rooms, groups);
     // A table: a header row, then the separator row that makes it one, then rows while they last.
     const aligns = line.includes("|") && idx + 1 < lines.length ? tableAlignments(lines[idx + 1]) : null;
     const header = aligns ? tableCells(line) : null;
@@ -404,7 +430,7 @@ function renderTextBlock(
               verticalAlign: "top",
             }}
           >
-            {renderInline(content, names, `${keyBase}-${row}c${col}`, emojiSize, onMention, meName, rooms)}
+            {renderInline(content, names, `${keyBase}-${row}c${col}`, emojiSize, onMention, meName, rooms, groups)}
           </Tag>
         );
       };
@@ -511,6 +537,7 @@ export function renderRichText(
   meName?: string,
   rooms?: Rooms,
   onToggleTask?: TaskToggle,
+  groups?: Groups,
 ): ReactNode {
   // Split on ``` fences: odd segments are fenced code blocks.
   const segments = text.split("```");
@@ -546,6 +573,7 @@ export function renderRichText(
           meName,
           rooms,
           onToggleTask,
+          groups,
           lineBase,
         ),
       );

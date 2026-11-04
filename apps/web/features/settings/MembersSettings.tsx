@@ -4,10 +4,13 @@ import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Card, Dialog, Icon, IconButton, Input, Select, Tag, Tooltip } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
-import type { Role, SpaceEdition } from "@/lib/data/types";
+import type { Group, Role, SpaceEdition } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
 import { key, useTranslation } from "@/lib/i18n";
-import { MemberManagement, RoleChip, roleLabel, ROLE_LABEL } from "./MemberAccess";
+import { MemberManagement } from "./MemberAccess";
+import { RoleChip, roleLabel, ROLE_LABEL } from "./roleChips";
+import type { Toast } from "../app/types";
+import { holdsRole, rolesViaGroups, sortGroups } from "./groupsLogic.ts";
 import { grantableRoles } from "./rolesLogic";
 
 export type SettingsMember = Member & { presence: Presence };
@@ -34,6 +37,12 @@ export type MembersSettingsProps = {
   myRights: string[];
   /** The space's roles, strongest first (empty from an instance without them). */
   roles: Role[];
+  /** The space's groups (empty when it lists none to the viewer). */
+  groups: Group[];
+  spaceId: string;
+  /** A group's members changed: read the people and groups again. */
+  onGroupsChanged: () => Promise<void>;
+  onNotify: (toast: Toast) => void;
   canInvite: boolean;
   summary: string;
   onInvite: () => void;
@@ -45,15 +54,17 @@ export type MembersSettingsProps = {
 
 /** The Members tab: who is here and, for those the viewer may manage, the way to their roles. */
 export function MembersSettings(props: MembersSettingsProps) {
-  const { members, edition, roles, me, myRole, compact } = props;
+  const { members, edition, roles, groups, me, myRole, compact } = props;
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [groupFilter, setGroupFilter] = useState("");
   const [managing, setManaging] = useState<string | null>(null);
   const licensed = edition !== "community";
   const ranked = roles.filter((r) => r.systemKey !== "members" && r.systemKey !== "guests");
   const shown = members.filter(
-    (m) => m.name.toLowerCase().includes(query.trim().toLowerCase()) && (!roleFilter || m.roleIds?.includes(roleFilter)),
+    (m) => m.name.toLowerCase().includes(query.trim().toLowerCase()) && (!roleFilter || holdsRole(m, roleFilter, groups)) &&
+      (!groupFilter || groups.find((g) => g.id === groupFilter)?.memberIds.includes(m.userId)),
   );
   const managed = managing ? members.find((m) => m.userId === managing) : undefined;
   const myTop = me?.roleIds?.[0] ? roles.find((r) => r.id === me.roleIds?.[0]) : undefined;
@@ -77,6 +88,17 @@ export function MembersSettings(props: MembersSettingsProps) {
             />
           </div>
         ) : null}
+        {licensed && groups.length > 0 ? (
+          <div style={{ width: 190 }}>
+            <Select
+              size="sm"
+              aria-label={t("groups.filter")}
+              value={groupFilter}
+              onChange={(e) => setGroupFilter(e.target.value)}
+              options={[{ value: "", label: t("groups.allGroups") }, ...sortGroups(groups).map((g) => ({ value: g.id, label: g.name }))]}
+            />
+          </div>
+        ) : null}
         <div style={{ flex: 1 }} />
         {props.canInvite ? (
           <Button size="sm" variant="primary" iconLeft="user-plus" onClick={props.onInvite}>
@@ -94,12 +116,18 @@ export function MembersSettings(props: MembersSettingsProps) {
         ) : null}
         {shown.map((m, i) =>
           licensed ? (
-            <LicensedRow key={m.userId} member={m} first={i === 0} me={me} roles={roles} compact={compact} onManage={() => setManaging(m.userId)} />
+            <LicensedRow key={m.userId} member={m} first={i === 0} me={me} roles={roles} groups={groups} compact={compact} onManage={() => setManaging(m.userId)} />
           ) : (
             <CommunityRow key={m.userId} member={m} first={i === 0} myRole={myRole} onChangeRole={props.onChangeRole} onRemoveMember={props.onRemoveMember} />
           ),
         )}
       </Card>
+      {licensed && groups.some((g) => g.roleIds.length > 0 && g.memberIds.length > 0) ? (
+        <p style={st.foot}>
+          <Icon name="users" size={12} />
+          {t("groups.viaFootnote")}
+        </p>
+      ) : null}
       {licensed && myTop && myRole !== "owner" ? (
         <p style={st.foot}>
           <Icon name="lock" size={12} />
@@ -122,6 +150,10 @@ export function MembersSettings(props: MembersSettingsProps) {
               myRights={props.myRights}
               edition={edition}
               roles={roles}
+              groups={groups}
+              spaceId={props.spaceId}
+              onGroupsChanged={props.onGroupsChanged}
+              onNotify={props.onNotify}
               onSaveRoles={(roleIds) => props.onSaveMemberRoles(managed.userId, roleIds)}
               onChangeRole={(role) => {
                 setManaging(null);
@@ -159,9 +191,11 @@ function Identity({ member }: { member: SettingsMember }) {
 }
 
 /** A licensed space: the person, their roles as pastilles, and the way in or the reason there is none. */
-function LicensedRow({ member, first, me, roles, compact, onManage }: { member: SettingsMember; first: boolean; me?: SettingsMember; roles: Role[]; compact?: boolean; onManage: () => void }) {
+function LicensedRow({ member, first, me, roles, groups, compact, onManage }: { member: SettingsMember; first: boolean; me?: SettingsMember; roles: Role[]; groups: Group[]; compact?: boolean; onManage: () => void }) {
   const { t } = useTranslation();
-  const held = roles.filter((r) => member.roleIds?.includes(r.id));
+  const via = rolesViaGroups(member, groups);
+  // Held directly or through a group: a role held both ways is a plain chip, it is held directly.
+  const held = roles.filter((r) => member.roleIds?.includes(r.id) || via.has(r.id));
   const self = member.userId === me?.userId;
   return (
     <div style={{ ...st.row, flexWrap: compact ? "wrap" : "nowrap", borderTop: first ? "none" : "1px solid var(--border-subtle)" }}>
@@ -170,7 +204,7 @@ function LicensedRow({ member, first, me, roles, compact, onManage }: { member: 
         {member.role === "owner" ? (
           <span style={st.title}>{t("roles.allRights")}</span>
         ) : held.length > 0 ? (
-          held.map((r) => <RoleChip key={r.id} role={r} />)
+          held.map((r) => <RoleChip key={r.id} role={r} via={member.roleIds?.includes(r.id) ? [] : via.get(r.id)} />)
         ) : (
           <span style={st.title}>{member.role === "guest" ? t("roles.guestCeiling") : t("roles.membersOnly")}</span>
         )}

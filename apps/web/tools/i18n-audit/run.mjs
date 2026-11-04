@@ -322,6 +322,10 @@ function findHardCoded(source, path) {
  * Each entry is that claim, made once, in writing.
  */
 const ALLOWED_DUPLICATES = new Set([
+  // The composer's group hint (a head count while the channel roster loads) and a reaction's
+  // reactors list read the same today; they are two screens, free to part ways in any language.
+  "composer.groupHeadCount_one",
+  "composer.groupHeadCount_other",
   // A permission's name says what one may do, a button what to do now: the same French word
   // ("Inviter des personnes", "Épingler", "Réagir", "Vider la corbeille"), but an infinitive in a
   // Polish list of rights and an imperative on a Polish button.
@@ -365,6 +369,9 @@ const ALLOWED_DUPLICATES = new Set([
   // "Ajouter" adds people to a channel and adds a second factor to an account. German says
   // "hinzufügen" for the first and "einrichten" for the second.
   "security.add",
+  // The add-people button of a group with nobody ticked yet: the bare verb, while the calendar's
+  // reminder button is a different action that polish and german word their own way.
+  "groups.addConfirmNone",
   // "Désactiver" turns a notification setting off and takes two-factor authentication off an
   // account. The second is a security decision and several languages mark it more strongly.
   "security.disable",

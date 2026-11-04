@@ -8,7 +8,7 @@ import { useTranslation } from "@/lib/i18n";
 import { formatDate, formatUtcDate } from "@/lib/i18n/format";
 import type { Toast } from "../app/types";
 import { daysLeftBanner } from "./auditLogic";
-import { refusalMessage } from "./MemberAccess";
+import { refusalMessage } from "./roleChips";
 
 const st: Record<string, CSSProperties> = {
   h: { fontSize: "clamp(28px, 3.4vw, 40px)", fontWeight: 700, letterSpacing: "var(--tracking-display)", lineHeight: 1.05, color: "var(--text-strong)", marginBottom: 10 },

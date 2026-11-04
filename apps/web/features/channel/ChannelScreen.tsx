@@ -2,7 +2,7 @@
 
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Icon, IconButton, Skeleton, SkeletonGroup, Tooltip } from "@/components/ds";
-import { getAvatar, getChannelMembers, getCurrentUser } from "@/lib/data";
+import { getAvatar, getChannelMembers, getCurrentUser, setMentionGroups } from "@/lib/data";
 import { getConversationFiles, getPinnedMessages, listChannelMembers } from "@/lib/data/api";
 import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
@@ -273,6 +273,12 @@ export type ChannelScreenProps = {
   rosterVersion?: number;
   /** What a profile shows of someone's place in the space, and its "Gestion" tab when there is one. */
   memberAccess?: (userId: string) => { summary?: ReactNode; manage?: ReactNode } | undefined;
+  /** An open group, drawn in the profile's slot: its id (for the dock's key) and the panel itself. */
+  openGroup?: { id: string; node: ReactNode } | null;
+  /** The viewer's space's groups, for the composer's suggestions and the message renderer. */
+  mentionGroups?: { id: string; name: string; source: "manual" | "directory"; memberIds: string[]; managerIds: string[]; roleIds: string[] }[];
+  /** A group mention (or chip) was followed. */
+  onOpenGroupByName?: (name: string) => void;
   channel: Channel;
   /** Set when the open conversation is a direct message rather than a channel. */
   dm?: DirectMessage | null;
@@ -304,6 +310,7 @@ export type ChannelScreenProps = {
   onPanel: (panel: ChannelPanel) => void;
   onCloseThread: () => void;
   onCloseProfile: () => void;
+  onCloseGroup?: () => void;
   onNotify: (toast: Toast) => void;
   onUpdateChannel: (patch: Partial<Channel>) => void;
   /** The caller's own space role, for the channel settings' role reservation. */
@@ -433,6 +440,9 @@ function useDayHeading(): (at: string) => string {
 export function ChannelScreen({
   rosterVersion = 0,
   memberAccess,
+  openGroup,
+  mentionGroups,
+  onOpenGroupByName,
   channel,
   dm,
   messages,
@@ -451,6 +461,7 @@ export function ChannelScreen({
   onPanel,
   onCloseThread,
   onCloseProfile,
+  onCloseGroup,
   onNotify,
   onUpdateChannel,
   myRole,
@@ -598,6 +609,21 @@ export function ChannelScreen({
   const memberList: ChannelMember[] = members
     .filter((m) => isDm || inChannel(m.userId))
     .map((m) => ({ id: m.userId, name: m.name, presence: m.presence, bot: m.bot, avatar: m.avatar }));
+  // The groups a `@Name` can point at and who reads this conversation, published for the composer
+  // and the message renderer (which read them through the data seam, like the roster).
+  // The audience is the conversation's own people: a direct message's participants, a channel's
+  // roster; null while that roster is not here, so the composer says no number rather than a wrong one.
+  const dmPeople = isDm ? [myUserId, ...(dm?.participantIds ?? (dm?.userId ? [dm.userId] : []))] : null;
+  const audienceKey = dmPeople ? dmPeople.join(",") : channelRoster ? channelRoster.join(",") : null;
+  useEffect(() => {
+    setMentionGroups({
+      groups: mentionGroups ?? [],
+      audience: audienceKey === null ? null : audienceKey ? audienceKey.split(",") : [],
+      dm: isDm,
+      viewerRole: myRole,
+    });
+  }, [mentionGroups, audienceKey, myRole, isDm]);
+  useEffect(() => () => setMentionGroups({ groups: [], audience: [] }), []);
   const presenceByName = new Map(members.map((m) => [m.name, m.presence] as const));
   // Uploaded avatars, by display name: a row only knows its author's name, and the roster is the one
   // place that holds the picture. Absent means the locally generated avatar, which is the default.
@@ -638,6 +664,7 @@ export function ChannelScreen({
     onEditMentionProfile: (name) => actions.editProfile(name),
     mentionUserId: (name) => userIdByName.get(name),
     onOpenRoom: (name) => actions.openRoom(name),
+    onOpenGroup: (name) => onOpenGroupByName?.(name),
     onToggleTask: (line, done) => actions.toggleTask(m.id, line, done),
     canVersionFiles: (!!m.authorId && m.authorId === myUserId) || myRole === "owner" || myRole === "admin",
   });
@@ -794,14 +821,16 @@ export function ChannelScreen({
     onPanel(null);
   };
 
-  const contentKey = profileName
+  const contentKey = openGroup
+    ? `group:${openGroup.id}`
+    : profileName
     ? `profile:${profileName}`
     : threadParent
       ? `thread:${threadParent.id}`
       : panel
         ? `panel:${panel}`
         : "";
-  const rightNode: ReactNode = profileName ? (
+  const rightNode: ReactNode = openGroup ? openGroup.node : profileName ? (
     <ProfilePanel
       name={profileName}
       userId={profileUserId}
@@ -1176,7 +1205,8 @@ export function ChannelScreen({
         contentKey={contentKey}
         mode={compact ? "page" : overlayPanels ? "overlay" : "column"}
         onDismiss={() => {
-          if (profileName) onCloseProfile();
+          if (openGroup) onCloseGroup?.();
+          else if (profileName) onCloseProfile();
           else if (threadParent) onCloseThread();
           else {
             setFromDetails(false);

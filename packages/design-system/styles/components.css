@@ -1059,6 +1059,9 @@
 }
 .wc-dlg__sub {
   margin-top: var(--space-1);
+  /* Nested in the title, so it must undo the title's display tracking and tight leading. */
+  letter-spacing: var(--tracking-normal);
+  line-height: var(--leading-snug);
   font-size: var(--text-sm);
   font-weight: var(--weight-regular);
   color: var(--text-muted);

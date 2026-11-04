@@ -4,11 +4,11 @@ import { type CSSProperties, useState } from "react";
 import { Button, Card, Dialog, Field, Icon, Input, Radio, Select, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
 import { createRole, orderRoles, refusalOf } from "@/lib/data/api";
-import type { Role, SpaceEdition } from "@/lib/data/types";
+import type { Group, Role, SpaceEdition } from "@/lib/data/types";
 import { useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
 import { useDragReorder } from "../app/useDragReorder";
-import { refusalMessage, RoleDot, roleLabel } from "./MemberAccess";
+import { refusalMessage, RoleDot, roleLabel } from "./roleChips";
 import { ColourPicker, RoleEditor } from "./RoleEditor";
 import { FAMILY_TEXT, PERMISSION_TEXT } from "./permissionText";
 import { FAMILIES, holdsEverything, orderAllowed, type RoleRowState, roleRowState } from "./rolesLogic";
@@ -48,6 +48,10 @@ export type RolesSettingsProps = {
   /** The space's roles, strongest first, base roles last. */
   roles: Role[];
   members: Member[];
+  /** The space's groups, for the people a role reaches through them. */
+  groups: Group[];
+  /** Opens a group in the Groupes tab; absent when the viewer does not manage groups. */
+  onOpenGroup?: (groupId: string) => void;
   me?: Member;
   /** What the viewer holds in the space. */
   myRights: string[];
@@ -71,6 +75,8 @@ export function RolesSettings(props: RolesSettingsProps) {
         role={role}
         roles={roles}
         members={props.members}
+        groups={props.groups}
+        onOpenGroup={props.onOpenGroup}
         myRights={props.myRights}
         frozen={edition === "frozen"}
         onBack={() => setEditing(null)}

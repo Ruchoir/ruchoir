@@ -111,3 +111,77 @@ test("the_licence_warns_in_its_last_month", () => {
   assert.equal(daysLeftBanner({ expiresInDays: 0 }, "frozen"), null);
   assert.equal(daysLeftBanner(undefined, "community"), null);
 });
+
+const group = { kind: "group", id: "g1", label: "Comptabilité" };
+const names: Record<string, string> = { u1: "Nadia Haddad", u2: "Paul Girard" };
+const nameOf = (id: string) => names[id];
+
+test("every_group_action_has_a_sentence", () => {
+  const cases: [string, Record<string, unknown>, string][] = [
+    ["group.created", { name: "Comptabilité", description: "" }, "groupCreated"],
+    ["group.updated", { before: { name: "Rennes", description: "" }, after: { name: "Chantier Rennes", description: "" } }, "groupRenamed"],
+    ["group.updated", { before: { name: "Rennes", description: "a" }, after: { name: "Rennes", description: "b" } }, "groupDescribed"],
+    ["group.deleted", { name: "Stagiaires 2025", members: 2, roles: ["Communication"] }, "groupDeleted"],
+    ["group.members_added", { user_ids: ["u1"], roles: ["Comptable"] }, "groupMembersAdded"],
+    ["group.members_removed", { user_ids: ["u2"], roles: ["Comptable"] }, "groupMembersRemoved"],
+    ["group.roles_changed", { before: [], after: ["Comptable"] }, "groupRolesChanged"],
+    ["group.managers_changed", { before: [], after: ["u1"] }, "groupManagersAdded"],
+    ["group.managers_changed", { before: ["u1"], after: [] }, "groupManagersRemoved"],
+  ];
+  for (const [action, details, sentence] of cases) {
+    assert.equal(auditLine(entry(action, { target: group, details }), nameOf).sentence, sentence, `${action} ${sentence}`);
+  }
+});
+
+test("group_roles_received_or_lost_show_as_chips_and_people_are_named", () => {
+  const added = auditLine(entry("group.members_added", { target: group, details: { user_ids: ["u1", "u2"], roles: ["Comptable"] } }), nameOf);
+  assert.deepEqual(added.slots.people, { kind: "people", names: ["Nadia Haddad", "Paul Girard"] });
+  assert.deepEqual(added.slots.group, { kind: "group", name: "Comptabilité", id: "g1" });
+  assert.deepEqual(added.diff, { kind: "role", added: ["Comptable"], removed: [], viaGroup: true });
+  assert.equal(added.values.count, 2);
+
+  const removed = auditLine(entry("group.members_removed", { target: group, details: { user_ids: ["u2"], roles: ["Comptable"] } }), nameOf);
+  assert.deepEqual(removed.diff, { kind: "role", added: [], removed: ["Comptable"], viaGroup: true });
+
+  const roles = auditLine(entry("group.roles_changed", { target: group, details: { before: ["Comptable"], after: ["Communication"] } }), nameOf);
+  assert.deepEqual(roles.diff, { kind: "role", added: ["Communication"], removed: ["Comptable"] });
+
+  const deleted = auditLine(entry("group.deleted", { target: group, details: { name: "Comptabilité", members: 3, roles: ["Communication"] } }), nameOf);
+  assert.deepEqual(deleted.diff, { kind: "role", added: [], removed: ["Communication"], viaGroup: true });
+  assert.equal(deleted.values.count, 3);
+});
+
+test("a_group_line_without_carried_roles_has_no_chips", () => {
+  const line = auditLine(entry("group.members_added", { target: group, details: { user_ids: ["u1"], roles: [] } }), nameOf);
+  assert.equal(line.diff, undefined);
+});
+
+test("a_group_deleted_without_a_head_count_omits_it", () => {
+  const line = auditLine(entry("group.deleted", { target: group, details: { name: "Comptabilité", roles: [] } }));
+  assert.equal(line.sentence, "groupDeletedBare");
+  assert.equal("count" in line.values, false);
+});
+
+test("a_person_who_left_is_not_called_a_deleted_account", () => {
+  const line = auditLine(entry("group.members_added", { target: group, details: { user_ids: ["u1", "gone"], roles: [] } }), nameOf);
+  assert.deepEqual(line.slots.people, { kind: "people", names: ["Nadia Haddad", null] });
+  const managers = auditLine(entry("group.managers_changed", { target: group, details: { before: ["gone"], after: [] } }));
+  assert.deepEqual(managers.slots.people, { kind: "people", names: [null] });
+});
+
+test("managers_changed_names_who_was_added_or_removed", () => {
+  const both = auditLine(entry("group.managers_changed", { target: group, details: { before: ["u1"], after: ["u2"] } }), nameOf);
+  assert.equal(both.sentence, "groupManagersChanged");
+  assert.deepEqual(both.slots.people, { kind: "people", names: ["Paul Girard"] });
+  assert.deepEqual(both.slots.removedPeople, { kind: "people", names: ["Nadia Haddad"] });
+  assert.equal(both.diff, undefined);
+});
+
+test("a_group_rename_and_an_empty_description_stay_readable", () => {
+  const renamed = auditLine(entry("group.updated", { target: { kind: "group", id: "g1", label: "Chantier Rennes" }, details: { before: { name: "Rennes", description: "" }, after: { name: "Chantier Rennes", description: "x" } } }));
+  assert.equal(renamed.sentence, "groupRenamed");
+  assert.deepEqual(renamed.slots.before, { kind: "group", name: "Rennes", id: "g1" });
+  assert.deepEqual(renamed.slots.group, { kind: "group", name: "Chantier Rennes", id: "g1" });
+  const created = auditLine(entry("group.created", { target: { kind: "group", id: "g1" }, details: { name: "Comptabilité" } }));
+  assert.deepEqual(created.slots.group, { kind: "group", name: "Comptabilité", id: "g1" });
+});

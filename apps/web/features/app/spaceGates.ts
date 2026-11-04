@@ -19,10 +19,11 @@ export function rightsOf(space: { role: string; myPermissions?: string[] } | und
 export function spaceGates(role: string | undefined, rights: string[]) {
   const has = (p: string) => rights.includes(p);
   return {
-    openSettings: role === "owner" || ["space.settings", "members.manage", "roles.manage", "audit.view"].some(has),
+    openSettings: role === "owner" || ["space.settings", "members.manage", "roles.manage", "groups.manage", "audit.view"].some(has),
     invite: has("members.invite"),
     managePeople: has("members.manage") || has("roles.manage"),
     readAudit: has("audit.view"),
+    manageGroups: has("groups.manage"),
     setDefaultChannel: has("space.settings"),
     reorderChannels: has("space.settings"),
     deleteChannels: has("channels.delete"),

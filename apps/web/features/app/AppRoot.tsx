@@ -81,11 +81,12 @@ import {
   verifyPasskey,
   verifyRecoveryCode,
   verifyTotp,
+  listGroups,
   listRoles,
   refusalOf,
   setMemberRoles as apiSetMemberRoles,
 } from "@/lib/data/api";
-import type { Role } from "@/lib/data/types";
+import type { Group, Role } from "@/lib/data/types";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { authMessage } from "@/features/auth/authMessage";
 import { forgetRecentReactions, noteReaction } from "@/lib/data/recentReactions";
@@ -133,7 +134,11 @@ import { InviteScreen, type InviteStatus } from "@/features/auth/InviteScreen";
 import { VerifyEmailScreen, type VerifyEmailStatus } from "@/features/auth/VerifyEmailScreen";
 import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
-import { MemberManagement, MemberRolesSummary, refusalMessage } from "@/features/settings/MemberAccess";
+import { foldName } from "@/features/settings/groupsLogic.ts";
+import { GroupPanel } from "@/features/channel/GroupPanel";
+import { MemberGroupsSummary } from "@/features/groups/MemberGroups";
+import { MemberManagement, MemberRolesSummary } from "@/features/settings/MemberAccess";
+import { refusalMessage } from "@/features/settings/roleChips";
 import { canGiveAdministrator, rightsOf, spaceGates } from "./spaceGates";
 import { ActivityView } from "./ActivityView";
 import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
@@ -533,6 +538,8 @@ function AppShell() {
   const [members, setMembers] = useState<Member[]>([]);
   /** The space's roles, strongest first: the settings and the profiles read them. */
   const [spaceRoles, setSpaceRoles] = useState<Role[]>([]);
+  /** The space's groups, read with its roles; empty when the caller may not list them (a guest). */
+  const [spaceGroups, setSpaceGroups] = useState<Group[]>([]);
   /** The latest {@link refreshAccess}, for the realtime handlers bound once. */
   const refreshAccessRef = useRef<() => Promise<void>>(async () => {});
   // The space's files (root folder), for the in-channel file panel and search. The full Files screen
@@ -623,7 +630,13 @@ function AppShell() {
   const [thread, setThread] = useState<string | null>(null);
   /** The thread whose replies are being fetched, so its panel can draw placeholders meanwhile. */
   const [threadLoading, setThreadLoading] = useState<string | null>(null);
-  const [profile, setProfile] = useState<string | null>(null);
+  const [profile, setProfileRaw] = useState<string | null>(null);
+  /** The group open in the profile's slot, by id; opening a profile closes it, and the reverse. */
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const setProfile = (name: string | null) => {
+    setProfileRaw(name);
+    if (name) setOpenGroupId(null);
+  };
   const [profileEdit, setProfileEdit] = useState(false);
   const [unreadMarker, setUnreadMarker] = useState<string | null>(null);
   const [focusMessageId, setFocusMessageId] = useState<string | null>(null);
@@ -807,6 +820,8 @@ function AppShell() {
     // entered, not even for the few hundred milliseconds the fetch takes.
     setMembers([]);
     setSpaceRoles([]);
+    setSpaceGroups([]);
+    setOpenGroupId(null);
     if (!activeWs) {
       setChannels([]);
       setDms([]);
@@ -847,6 +862,12 @@ function AppShell() {
     void listRoles(activeWs)
       .then((roles) => {
         if (loadingSpaceRef.current === activeWs) setSpaceRoles(roles);
+      })
+      .catch(() => {});
+    // The groups, the same way: a guest gets a 403 and keeps the empty list.
+    void listGroups(activeWs)
+      .then((groups) => {
+        if (loadingSpaceRef.current === activeWs) setSpaceGroups(groups);
       })
       .catch(() => {});
     setPresence(presenceMap);
@@ -2588,6 +2609,7 @@ function AppShell() {
     setPanel(layout !== "desktop" || panelDismissed ? null : defaultPanel);
     setThread(null);
     setProfile(null);
+    setOpenGroupId(null);
     setProfileEdit(false);
     setUnreadMarker(null);
     setFocusMessageId(null);
@@ -2606,6 +2628,7 @@ function AppShell() {
     setPanelDismissed(next === null);
     setThread(null);
     setProfile(null);
+    setOpenGroupId(null);
   };
 
   const updateMessage = (targetChannel: string, messageId: string, updater: (m: Message) => Message) => {
@@ -2841,8 +2864,10 @@ function AppShell() {
     openThread: (messageId: string) => {
       setThread(messageId);
       setProfile(null);
+      setOpenGroupId(null);
       loadThread(channelId, messageId);
     },
+    /** A group mention (or chip) followed: its panel opens where the profile does. */
     openProfile: (name: string) => {
       setProfile(name);
       setProfileEdit(false);
@@ -3302,6 +3327,41 @@ function AppShell() {
   /** Whether the caller administers people here: the member list, the roles, someone's "Gestion". */
   const managesPeople = gates.managePeople;
 
+  /** Open a group in the profile's slot (and close the profile and the thread, which share it). */
+  const openGroup = (groupId: string) => {
+    setProfile(null);
+    setProfileEdit(false);
+    setThread(null);
+    setOpenGroupId(groupId);
+  };
+  /** The same, for a group a message names: the server reads its name whole, accents and case folded. */
+  const openGroupByName = (name: string) => {
+    const wanted = foldName(name);
+    const group = spaceGroups.find((g) => foldName(g.name) === wanted);
+    if (group) openGroup(group.id);
+  };
+  /** The open group's panel, once the groups are loaded (a group deleted meanwhile just closes it). */
+  const openedGroup = openGroupId ? spaceGroups.find((g) => g.id === openGroupId) : undefined;
+  const openGroupNode =
+    openedGroup && currentWorkspace
+      ? {
+          id: openedGroup.id,
+          node: (
+            <GroupPanel
+              spaceId={ws}
+              group={openedGroup}
+              edition={currentWorkspace.edition}
+              roles={spaceRoles}
+              members={members}
+              viewerId={session?.id ?? ""}
+              onClose={() => setOpenGroupId(null)}
+              onChanged={() => refreshAccessRef.current()}
+              onNotify={showToast}
+            />
+          ),
+        }
+      : null;
+
   /**
    * What someone's profile says about them in this space (their roles), and the "Gestion" tab when
    * the caller may manage them: the Members tab's own component, so both offer the same things.
@@ -3313,8 +3373,13 @@ function AppShell() {
     const me = members.find((m) => m.userId === session?.id);
     return {
       summary:
-        spaceRoles.length > 0 ? (
-          <MemberRolesSummary member={member} roles={spaceRoles} spaceName={currentWorkspace.name} isSelf={self} viewerManages={managesPeople} />
+        spaceRoles.length > 0 || spaceGroups.length > 0 ? (
+          <>
+            {spaceRoles.length > 0 ? (
+              <MemberRolesSummary member={member} roles={spaceRoles} groups={spaceGroups} spaceName={currentWorkspace.name} isSelf={self} viewerManages={managesPeople} />
+            ) : null}
+            <MemberGroupsSummary member={member} groups={spaceGroups} onOpenGroup={openGroup} />
+          </>
         ) : undefined,
       manage:
         !self && managesPeople && member.manageable ? (
@@ -3326,6 +3391,10 @@ function AppShell() {
             myRights={myRights}
             edition={currentWorkspace.edition}
             roles={spaceRoles}
+            groups={spaceGroups}
+            spaceId={ws}
+            onGroupsChanged={() => refreshAccess()}
+            onNotify={showToast}
             onSaveRoles={(roleIds) => saveMemberRoles(userId, roleIds)}
             onChangeRole={(role) => void changeMemberRole({ userId, name: member.name }, role)}
             onRemove={() => setRemoving({ userId, name: member.name })}
@@ -3431,15 +3500,20 @@ function AppShell() {
    * Read the people and the roles of the open space again, after a change to either: a role's
    * holders, someone's roles, Administrator given through the legacy column all move both lists.
    */
+  const accessRequest = useRef(0);
   const refreshAccess = async () => {
     const space = ws;
-    const [fresh, roles] = await Promise.all([
+    // Only the newest read may write: a slow older answer never overwrites a newer one.
+    const mine = ++accessRequest.current;
+    const [fresh, roles, groups] = await Promise.all([
       getSpaceMembers(space).catch(() => null),
       listRoles(space).catch(() => null),
+      listGroups(space).catch(() => null),
     ]);
-    if (liveRef.current.ws !== space) return;
+    if (liveRef.current.ws !== space || mine !== accessRequest.current) return;
     if (fresh) setMembers(fresh);
     if (roles) setSpaceRoles(roles);
+    if (groups) setSpaceGroups(groups);
   };
   useEffect(() => {
     refreshAccessRef.current = refreshAccess;
@@ -4295,6 +4369,10 @@ function AppShell() {
           onSendReply={sendReply}
           canReplyToChannel={canReplyToChannel}
           profileName={profile}
+          openGroup={openGroupNode}
+          mentionGroups={spaceGroups}
+          onOpenGroupByName={openGroupByName}
+          onCloseGroup={() => setOpenGroupId(null)}
           profileEditing={profileEdit}
           unreadMarker={unreadMarker}
           focusMessageId={focusMessageId}
@@ -4404,12 +4482,14 @@ function AppShell() {
           frozenSince={currentWorkspace?.licence?.validUntil}
           ownerNames={members.filter((m) => m.role === "owner").map((m) => m.name)}
           roles={spaceRoles}
+          groups={spaceGroups}
           myRights={myRights}
           myUserId={session?.id}
           pricingUrl={pricingUrl}
           onAccessChanged={refreshAccess}
           onSaveMemberRoles={saveMemberRoles}
           canReadAudit={gates.readAudit}
+          canManageGroups={gates.manageGroups}
           canManageLicence={canLicences && currentWorkspace?.role === "owner"}
           licence={currentWorkspace?.licence}
           onLicenceChanged={refreshSpace}

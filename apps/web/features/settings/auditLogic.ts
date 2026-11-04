@@ -16,6 +16,10 @@ export type EntryLike = {
 export type Slot =
   | { kind: "person"; name: string }
   | { kind: "deleted" }
+  /** A group, drawn with the users icon. */
+  | { kind: "group"; name: string; id?: string }
+  /** People named by id; `null` is a person no longer in the space (the account may well exist). */
+  | { kind: "people"; names: (string | null)[] }
   | { kind: "role"; name: string; colour?: string }
   | { kind: "legacy"; roles: string[] };
 
@@ -36,6 +40,17 @@ export type Sentence =
   | "channelOpened"
   | "calendarWriteMembers"
   | "calendarWriteAdmins"
+  | "groupCreated"
+  | "groupRenamed"
+  | "groupDescribed"
+  | "groupDeleted"
+  | "groupDeletedBare"
+  | "groupMembersAdded"
+  | "groupMembersRemoved"
+  | "groupRolesChanged"
+  | "groupManagersAdded"
+  | "groupManagersRemoved"
+  | "groupManagersChanged"
   | "licenceInstalled"
   | "licenceRemoved"
   | "unknown";
@@ -46,7 +61,8 @@ export type AuditLine = {
   slots: Record<string, Slot>;
   /** Plain values: a channel's or calendar's name, seats, a date (ISO 8601), the action. */
   values: Record<string, string | number>;
-  diff?: { kind: "permission" | "role"; added: string[]; removed: string[] };
+  /** `viaGroup`: the roles come with a group, so each chip says "by the group". */
+  diff?: { kind: "permission" | "role"; added: string[]; removed: string[]; viaGroup?: boolean };
 };
 
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
@@ -64,7 +80,10 @@ function both(before: string[], after: string[]) {
   return { added: after.filter((x) => !before.includes(x)), removed: before.filter((x) => !after.includes(x)) };
 }
 
-export function auditLine(entry: EntryLike): AuditLine {
+/** Who the user ids of a group line are, as the members list knows them (undefined: gone). */
+export type NameOf = (userId: string) => string | undefined;
+
+export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined): AuditLine {
   const d = entry.details ?? {};
   const actor: Slot = entry.actor ? { kind: "person", name: entry.actor.name } : { kind: "deleted" };
   // Names are read now by the API; once the thing is gone, the name the log kept is the answer.
@@ -76,6 +95,10 @@ export function auditLine(entry: EntryLike): AuditLine {
     values: { action: entry.action, ...extra.values },
     diff: extra.diff,
   });
+  const group = (name: string): Slot => ({ kind: "group", name, id: entry.target.id });
+  const people = (ids: string[]): Slot => ({ kind: "people", names: ids.map((id) => nameOf(id) ?? null) });
+  const carried = (roles: string[], removed: boolean, viaGroup: boolean): AuditLine["diff"] =>
+    roles.length === 0 ? undefined : { kind: "role", added: removed ? [] : roles, removed: removed ? roles : [], ...(viaGroup ? { viaGroup } : {}) };
   const role = (colour: unknown): Slot => ({ kind: "role", name: label, colour: str(colour) || undefined });
 
   switch (entry.action) {
@@ -127,6 +150,52 @@ export function auditLine(entry: EntryLike): AuditLine {
     }
     case "calendar.write_access_changed":
       return line(d.after === "admins" ? "calendarWriteAdmins" : "calendarWriteMembers", { values: { calendar: label } });
+    case "group.created":
+      return line("groupCreated", { slots: { group: group(label) } });
+    case "group.updated": {
+      const before = (d.before ?? {}) as Record<string, unknown>;
+      const after = (d.after ?? {}) as Record<string, unknown>;
+      if (str(before.name) !== str(after.name)) {
+        return line("groupRenamed", { slots: { before: group(str(before.name)), group: group(str(after.name)) } });
+      }
+      return line("groupDescribed", { slots: { group: group(str(after.name) || label) } });
+    }
+    case "group.deleted":
+      return line(typeof d.members === "number" ? "groupDeleted" : "groupDeletedBare", {
+        slots: { group: group(label) },
+        values: typeof d.members === "number" ? { count: d.members } : {},
+        diff: carried(strings(d.roles), true, true),
+      });
+    case "group.members_added":
+    case "group.members_removed": {
+      const ids = strings(d.user_ids);
+      const gone = entry.action === "group.members_removed";
+      return line(gone ? "groupMembersRemoved" : "groupMembersAdded", {
+        slots: { people: people(ids), group: group(label) },
+        values: { count: ids.length },
+        diff: carried(strings(d.roles), gone, true),
+      });
+    }
+    case "group.roles_changed": {
+      const roles = both(strings(d.before), strings(d.after));
+      return line("groupRolesChanged", {
+        slots: { group: group(label) },
+        diff: roles.added.length + roles.removed.length === 0 ? undefined : { kind: "role", ...roles },
+      });
+    }
+    case "group.managers_changed": {
+      const managers = both(strings(d.before), strings(d.after));
+      const slots = { group: group(label) };
+      if (managers.added.length > 0 && managers.removed.length > 0) {
+        return line("groupManagersChanged", {
+          slots: { ...slots, people: people(managers.added), removedPeople: people(managers.removed) },
+          values: { count: managers.added.length },
+        });
+      }
+      const gone = managers.added.length === 0;
+      const ids = gone ? managers.removed : managers.added;
+      return line(gone ? "groupManagersRemoved" : "groupManagersAdded", { slots: { ...slots, people: people(ids) }, values: { count: ids.length } });
+    }
     case "licence.installed":
       return line("licenceInstalled", { values: { seats: typeof d.seats === "number" ? d.seats : 0, until: str(d.valid_until) } });
     case "licence.removed":

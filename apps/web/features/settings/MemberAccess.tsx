@@ -3,96 +3,16 @@
 import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Checkbox, Icon, Select, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
-import type { Refusal, Role, SpaceEdition } from "@/lib/data/types";
+import type { Group, Role, SpaceEdition } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
-import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
-import { formatDate } from "@/lib/i18n/format";
+import { key, useTranslation } from "@/lib/i18n";
+import { formatDate, formatList } from "@/lib/i18n/format";
+import type { Toast } from "../app/types";
+import { MemberGroups } from "../groups/MemberGroups";
+import { rolesViaGroups } from "./groupsLogic.ts";
 import { PERMISSION_TEXT } from "./permissionText";
-import { grantableRoles, memberAccessFor } from "./rolesLogic";
-
-type T = ReturnType<typeof useTranslation>["t"];
-
-/** The legacy roles, as dictionary keys. */
-export const ROLE_LABEL: Record<string, TranslationKey> = {
-  owner: key("role.owner"),
-  admin: key("role.admin"),
-  member: key("role.member"),
-  guest: key("role.guest"),
-};
-
-/** A role's colour: one of the design system's pastels, a neutral line for the base roles. */
-export function roleColour(role: Pick<Role, "colour" | "systemKey">): string {
-  if (role.systemKey === "administrator") return "var(--peach)";
-  return role.colour ? `var(--${role.colour})` : "var(--line-strong)";
-}
-
-/** A role's name as the reader says it: the system roles in their language, the others as named. */
-export function roleLabel(role: Pick<Role, "name" | "systemKey">, t: T): string {
-  if (role.systemKey === "administrator") return t("role.admin");
-  if (role.systemKey === "members") return t("roles.everyone");
-  if (role.systemKey === "guests") return t("roles.guests");
-  return role.name;
-}
-
-export function RoleDot({ role, size = 8 }: { role: Pick<Role, "colour" | "systemKey">; size?: number }) {
-  return (
-    <span
-      aria-hidden
-      style={{ width: size, height: size, flex: "none", borderRadius: "var(--radius-full)", background: roleColour(role), display: "inline-block" }}
-    />
-  );
-}
-
-/** A role as a pastille: its colour, its name. */
-export function RoleChip({ role }: { role: Role }) {
-  const { t } = useTranslation();
-  return (
-    <Tag>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-        <RoleDot role={role} />
-        {roleLabel(role, t)}
-      </span>
-    </Tag>
-  );
-}
-
-/** What a named refusal of the API means, in plain words; `fallback` for any other failure. */
-export function refusalMessage(refusal: Refusal | undefined, t: T, fallback: string): string {
-  switch (refusal?.code) {
-    case "seats_full":
-      return t("roles.refusal.seatsFull", { count: refusal.seats });
-    case "licence_required":
-      return t("roles.refusal.licenceRequired");
-    case "licence_frozen":
-      return t("roles.refusal.licenceFrozen");
-    case "licence_invalid":
-      return t("licence.refusal.invalid");
-    case "licence_other_space":
-      return refusal.organisation
-        ? t("licence.refusal.otherSpaceNamed", { organisation: refusal.organisation })
-        : t("licence.refusal.otherSpace");
-    case "licence_expired":
-      return t("licence.refusal.expired");
-    case "role_above_you":
-      return t("roles.refusal.roleAboveYou");
-    case "person_above_you":
-      return t("roles.refusal.personAboveYou");
-    case "permission_not_held":
-      return t("roles.refusal.permissionNotHeld");
-    case "role_name_reserved":
-      return t("roles.refusal.nameReserved");
-    case "role_name_taken":
-      return t("roles.refusal.nameTaken");
-    case "role_has_rules":
-      return t("roles.refusal.hasRules");
-    case "beyond_guest_ceiling":
-      return t("roles.refusal.beyondGuestCeiling");
-    case "make_them_a_member_first":
-      return t("roles.refusal.memberFirst");
-    default:
-      return fallback;
-  }
-}
+import { RoleChip, ROLE_LABEL } from "./roleChips";
+import { grantableRoles, memberAccessFor, roleIdsToSave, type RoleChoice } from "./rolesLogic";
 
 const s: Record<string, CSSProperties> = {
   section: { padding: "14px 16px", borderBottom: "1px solid var(--border-subtle)" },
@@ -102,10 +22,16 @@ const s: Record<string, CSSProperties> = {
   row: { display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderTop: "1px solid var(--border-subtle)" },
 };
 
-/** The roles someone holds, strongest first, as the space's role list orders them. */
-function heldRoles(member: Pick<Member, "roleIds">, roles: Role[]): Role[] {
-  const held = new Set(member.roleIds ?? []);
-  return roles.filter((r) => held.has(r.id));
+/**
+ * The roles someone holds, strongest first, as the space's role list orders them: those given to
+ * them and those their groups give. `via` is set only for a role received through a group alone.
+ */
+function heldRoles(member: Pick<Member, "roleIds" | "userId">, roles: Role[], groups: Group[] = []): { role: Role; via: string[] }[] {
+  const direct = new Set(member.roleIds ?? []);
+  const viaMap = rolesViaGroups(member, groups);
+  return roles
+    .filter((r) => direct.has(r.id) || viaMap.has(r.id))
+    .map((role) => ({ role, via: direct.has(role.id) ? [] : (viaMap.get(role.id) ?? []) }));
 }
 
 /**
@@ -115,26 +41,29 @@ function heldRoles(member: Pick<Member, "roleIds">, roles: Role[]): Role[] {
 export function MemberRolesSummary({
   member,
   roles,
+  groups,
   spaceName,
   isSelf,
   viewerManages,
 }: {
   member: Member;
   roles: Role[];
+  /** The space's groups: the roles they give are marked as received through a group. */
+  groups?: Group[];
   spaceName: string;
   isSelf: boolean;
   /** Whether the viewer manages people at all: only then is "above you" worth saying. */
   viewerManages: boolean;
 }) {
   const { t } = useTranslation();
-  const held = heldRoles(member, roles);
+  const held = heldRoles(member, roles, groups);
   return (
     <div style={s.section}>
       <div style={s.label}>{t("roles.inSpace", { space: spaceName })}</div>
       <div style={s.chips}>
         {member.role === "owner" ? <Tag tone="accent" icon="star">{t("role.owner")}</Tag> : null}
-        {held.map((role) => (
-          <RoleChip key={role.id} role={role} />
+        {held.map(({ role, via }) => (
+          <RoleChip key={role.id} role={role} via={via} />
         ))}
         {member.role !== "owner" && held.length === 0 ? (
           <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
@@ -164,6 +93,12 @@ export type MemberManagementProps = {
   roles: Role[];
   /** Draw the person's identity line first: the profile's tab has no title naming them. */
   identity?: boolean;
+  /** The space's groups: the roles they give are shown as such, and the person's groups are managed. */
+  groups?: Group[];
+  spaceId?: string;
+  /** A group's members changed: read the space's people and groups again. */
+  onGroupsChanged?: () => Promise<void>;
+  onNotify?: (toast: Toast) => void;
   /** Set their roles (strongest first); resolves to whether it was saved. */
   onSaveRoles: (roleIds: string[]) => Promise<boolean>;
   /** Change their legacy role or standing, handing the space over included (confirmed upstream). */
@@ -176,9 +111,10 @@ export type MemberManagementProps = {
  * tab's dialog and the profile's "Gestion" tab draw this same component, so both offer and refuse
  * the same things; the API is the judge either way.
  */
-export function MemberManagement({ member, me, myRole, myRights, edition, roles, identity = false, onSaveRoles, onChangeRole, onRemove }: MemberManagementProps) {
+export function MemberManagement({ member, me, myRole, myRights, edition, roles, identity = false, groups, spaceId, onGroupsChanged, onNotify, onSaveRoles, onChangeRole, onRemove }: MemberManagementProps) {
   const { t } = useTranslation();
-  const access = memberAccessFor({ member, me: me?.userId ?? "", edition, roles, rights: myRights });
+  const via = rolesViaGroups(member, groups ?? []);
+  const access = memberAccessFor({ member, me: me?.userId ?? "", edition, roles, rights: myRights, viaGroups: via });
   const managesPeople = myRights.includes("members.manage");
   const legacy = grantableRoles(myRole, member.role);
   const since = member.joinedAt ? formatDate(member.joinedAt) : "";
@@ -206,10 +142,10 @@ export function MemberManagement({ member, me, myRole, myRights, edition, roles,
         <div style={s.section}>
           <div style={s.label}>{t("roles.title")}</div>
           <div style={s.chips}>
-            {heldRoles(member, roles).map((role) => (
-              <RoleChip key={role.id} role={role} />
+            {heldRoles(member, roles, groups).map(({ role, via: from }) => (
+              <RoleChip key={role.id} role={role} via={from} />
             ))}
-            {heldRoles(member, roles).length === 0 ? (
+            {heldRoles(member, roles, groups).length === 0 ? (
               <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("roles.membersOnly")}</span>
             ) : null}
           </div>
@@ -219,8 +155,8 @@ export function MemberManagement({ member, me, myRole, myRights, edition, roles,
         <div style={s.section}>
           <div style={s.label}>{t("roles.title")}</div>
           <div style={s.chips}>
-            {heldRoles(member, roles).map((role) => (
-              <RoleChip key={role.id} role={role} />
+            {heldRoles(member, roles, groups).map(({ role, via: from }) => (
+              <RoleChip key={role.id} role={role} via={from} />
             ))}
           </div>
           <div style={s.note}>
@@ -246,6 +182,10 @@ export function MemberManagement({ member, me, myRole, myRights, edition, roles,
             <span style={{ fontSize: "var(--text-xs)", color: "var(--text-body)" }}>{t(ROLE_LABEL[member.role] ?? key("role.member"))}</span>
           )}
         </div>
+      ) : null}
+
+      {groups && spaceId && !member.bot ? (
+        <MemberGroups member={member} groups={groups} roles={roles} spaceId={spaceId} viewerId={me?.userId ?? ""} viewerIsOwner={myRole === "owner"} onChanged={onGroupsChanged} onNotify={onNotify} />
       ) : null}
 
       <div style={s.section}>
@@ -306,11 +246,12 @@ function RoleChecklist({
   member: Member;
   me?: Member;
   roles: Role[];
-  choices: { role: Role; checked: boolean; disabled: boolean }[];
+  choices: RoleChoice<Role>[];
   onSave: (roleIds: string[]) => Promise<boolean>;
 }) {
   const { t } = useTranslation();
-  const initial = choices.filter((c) => c.checked).map((c) => c.role.id);
+  // The draft is the person's direct roles only: what a group gives is shown ticked, never edited here.
+  const initial = choices.filter((c) => c.direct).map((c) => c.role.id);
   const [draft, setDraft] = useState<Set<string>>(() => new Set(initial));
   const [busy, setBusy] = useState(false);
   const dirty = initial.length !== draft.size || initial.some((id) => !draft.has(id));
@@ -336,7 +277,7 @@ function RoleChecklist({
   const save = async () => {
     setBusy(true);
     // Strongest first, as the space orders its roles: the order the route expects.
-    const ok = await onSave(roles.filter((r) => draft.has(r.id)).map((r) => r.id));
+    const ok = await onSave(roleIdsToSave(roles, choices, draft));
     setBusy(false);
     if (!ok) setDraft(new Set(initial));
   };
@@ -346,10 +287,20 @@ function RoleChecklist({
       <p style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", margin: "0 0 6px", lineHeight: "var(--leading-snug)" }}>
         {t("roles.additive", { name: member.name })}
       </p>
-      {choices.map(({ role, disabled }) => {
-        const on = draft.has(role.id);
+      {choices.map(({ role, disabled, direct, via }) => {
+        const groupOnly = !direct && via.length > 0;
+        const on = draft.has(role.id) || groupOnly;
         const was = initial.includes(role.id);
-        const why = disabled ? (role.id === myTop ? t("roles.yourTopRole") : t("roles.aboveYou")) : adds(role);
+        const names = formatList(via);
+        const why = groupOnly
+          ? t("groups.viaReason", { groups: names, count: via.length, name: member.name.split(" ")[0] })
+          : disabled
+            ? role.id === myTop
+              ? t("roles.yourTopRole")
+              : t("roles.aboveYou")
+            : via.length > 0
+              ? t("groups.alsoDirect", { groups: names, count: via.length })
+              : adds(role);
         return (
           <div key={role.id} style={{ ...s.row, opacity: disabled ? 0.7 : 1 }}>
             <span style={{ flex: 1, minWidth: 0 }}>
@@ -357,12 +308,16 @@ function RoleChecklist({
                 checked={on}
                 disabled={disabled || busy}
                 onChange={(e) => toggle(role.id, e.target.checked)}
-                label={<RoleChip role={role} />}
+                label={<RoleChip role={role} via={groupOnly ? via : []} />}
                 description={why || undefined}
               />
             </span>
-            {disabled ? <Icon name="lock" size={13} style={{ color: "var(--text-muted)", marginTop: 4 }} /> : null}
-            {!disabled && on !== was ? <Tag tone="accent">{on ? t("roles.added") : t("roles.removed")}</Tag> : null}
+            {groupOnly ? (
+              <Icon name="users" size={13} aria-hidden style={{ color: "var(--text-muted)", marginTop: 4 }} />
+            ) : disabled ? (
+              <Icon name="lock" size={13} style={{ color: "var(--text-muted)", marginTop: 4 }} />
+            ) : null}
+            {!disabled && draft.has(role.id) !== was ? <Tag tone="accent">{draft.has(role.id) ? t("roles.added") : t("roles.removed")}</Tag> : null}
           </div>
         );
       })}

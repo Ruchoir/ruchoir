@@ -81,7 +81,14 @@ export type MemberAccess<R extends RoleLike = RoleLike> =
   | { mode: "fixed" }
   /** Their roles read, not ticked: the viewer manages people, not roles. */
   | { mode: "held" }
-  | { mode: "roles"; choices: { role: R; checked: boolean; disabled: boolean }[] };
+  | { mode: "roles"; choices: RoleChoice<R>[] };
+
+/**
+ * One row of the roles checklist. `direct`: assigned to the person themselves. `via`: the names of
+ * the groups that give it to them. Ticked when either; locked when it only comes through a group
+ * (leaving the group is how it goes), or when the viewer may not give it.
+ */
+export type RoleChoice<R extends RoleLike = RoleLike> = { role: R; checked: boolean; disabled: boolean; direct: boolean; via: string[] };
 
 export function memberAccessFor<R extends RoleLike>(input: {
   member: { userId: string; roleIds?: string[]; manageable?: boolean };
@@ -90,6 +97,8 @@ export function memberAccessFor<R extends RoleLike>(input: {
   roles: R[];
   /** The viewer's rights in the space; absent reads as all of them (an older caller). */
   rights?: string[];
+  /** The roles the person receives through groups, with the group names (`rolesViaGroups`). */
+  viaGroups?: Map<string, string[]>;
 }): MemberAccess<R> {
   if (input.member.userId === input.me) return { mode: "none" };
   if (!input.member.manageable) return { mode: "above" };
@@ -101,8 +110,22 @@ export function memberAccessFor<R extends RoleLike>(input: {
     mode: "roles",
     choices: input.roles
       .filter((r) => r.systemKey !== "members" && r.systemKey !== "guests")
-      .map((role) => ({ role, checked: held.has(role.id), disabled: !role.manageable })),
+      .map((role) => {
+        const direct = held.has(role.id);
+        const via = input.viaGroups?.get(role.id) ?? [];
+        return { role, direct, via, checked: direct || via.length > 0, disabled: !role.manageable || (!direct && via.length > 0) };
+      }),
   };
+}
+
+/**
+ * The role ids a save sends (strongest first): the ticked ones the person holds directly or was
+ * given here. A role that only comes through a group is never among them, whatever the draft says,
+ * so saving cannot turn a group's role into a direct assignment.
+ */
+export function roleIdsToSave(roles: { id: string }[], choices: RoleChoice[], draft: Set<string>): string[] {
+  const groupOnly = new Set(choices.filter((c) => !c.direct && c.via.length > 0).map((c) => c.role.id));
+  return roles.filter((r) => draft.has(r.id) && !groupOnly.has(r.id)).map((r) => r.id);
 }
 
 /**

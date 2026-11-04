@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, Fragment, type ReactNode, useCallback, useEffect, useState } from "react";
-import { Avatar, Button, Card, Select, Tag } from "@/components/ds";
+import { Avatar, Button, Card, Icon, Select, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
 import { getAudit } from "@/lib/data/api";
 import type { AuditEntry, Role } from "@/lib/data/types";
@@ -9,7 +9,7 @@ import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatDayHeading, formatTime, formatUtcDate } from "@/lib/i18n/format";
 import { auditLine, dayKey, type Sentence, type Slot } from "./auditLogic";
-import { RoleDot, ROLE_LABEL } from "./MemberAccess";
+import { RoleDot, ROLE_LABEL, roleLabel } from "./roleChips";
 import { PERMISSION_TEXT } from "./permissionText";
 
 /** Each sentence's words, with `{{actor}}` and the other slots and values to fill. */
@@ -30,6 +30,17 @@ const SENTENCE: Record<Sentence, TranslationKey> = {
   channelOpened: key("audit.channelOpened"),
   calendarWriteMembers: key("audit.calendarWriteMembers"),
   calendarWriteAdmins: key("audit.calendarWriteAdmins"),
+  groupCreated: key("audit.groupCreated"),
+  groupRenamed: key("audit.groupRenamed"),
+  groupDescribed: key("audit.groupDescribed"),
+  groupDeleted: key("audit.groupDeleted"),
+  groupDeletedBare: key("audit.groupDeletedBare"),
+  groupMembersAdded: key("audit.groupMembersAdded"),
+  groupMembersRemoved: key("audit.groupMembersRemoved"),
+  groupRolesChanged: key("audit.groupRolesChanged"),
+  groupManagersAdded: key("audit.groupManagersAdded"),
+  groupManagersRemoved: key("audit.groupManagersRemoved"),
+  groupManagersChanged: key("audit.groupManagersChanged"),
   licenceInstalled: key("audit.licenceInstalled"),
   licenceRemoved: key("audit.licenceRemoved"),
   unknown: key("audit.unknown"),
@@ -39,10 +50,14 @@ const SENTENCE: Record<Sentence, TranslationKey> = {
 const CATEGORY: Record<string, TranslationKey> = {
   members: key("conversation.members"),
   roles: key("roles.title"),
+  groups: key("groups.title"),
   channels: key("tabs.channels"),
   calendars: key("calendar.calendars"),
   licence: key("licence.title"),
 };
+
+/** A line's tag says "Groupe", the filter lists "Groupes": every other family reads the same in both. */
+const TAG: Record<string, TranslationKey> = { ...CATEGORY, groups: key("groups.colGroup") };
 
 const PERIOD_DAYS: Record<string, number | undefined> = { "7": 7, "30": 30, "90": 90, all: undefined };
 
@@ -100,7 +115,13 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
     void load();
   }, [load]);
 
+  const nameById = new Map(members.map((m) => [m.userId, m.name]));
   const colourOf = (name: string) => roles.find((r) => r.name === name)?.colour;
+  // The log keeps a role's stored name ("Administrator"); a system role reads in the reader's language.
+  const roleText = (name: string) => {
+    const role = roles.find((r) => r.name === name && r.systemKey);
+    return role ? roleLabel(role, t) : name;
+  };
 
   const slot = (s: Slot): ReactNode => {
     switch (s.kind) {
@@ -112,16 +133,37 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
         return (
           <span style={st.chip}>
             <RoleDot role={{ colour: s.colour ?? colourOf(s.name) }} />
-            {s.name}
+            {roleText(s.name)}
           </span>
         );
+      case "group":
+        return (
+          <b style={{ color: "var(--text-strong)", display: "inline-flex", alignItems: "center", gap: 4, verticalAlign: "bottom" }}>
+            <Icon name="users" size={13} /> <span style={{ overflowWrap: "anywhere" }}>{s.name}</span>
+          </b>
+        );
+      case "people": {
+        const known = s.names.filter((name): name is string => name !== null);
+        const former = s.names.length - known.length;
+        const shown: string[] = [...known, ...(former > 0 ? [t("audit.formerMembers", { count: former })] : [])];
+        return (
+          <>
+            {shown.map((name, i) => (
+              <Fragment key={i}>
+                {i > 0 ? ", " : null}
+                <b style={{ color: "var(--text-strong)" }}>{name}</b>
+              </Fragment>
+            ))}
+          </>
+        );
+      }
       case "legacy":
         return <b style={{ color: "var(--text-strong)" }}>{s.roles.map((r) => t(ROLE_LABEL[r] ?? key("role.member"))).join(", ")}</b>;
     }
   };
 
   const sentence = (entry: AuditEntry): ReactNode => {
-    const line = auditLine(entry);
+    const line = auditLine(entry, (id) => nameById.get(id));
     const fill: Record<string, string | number> = {};
     for (const name of Object.keys(line.slots)) fill[name] = `${MARK}${name}${MARK}`;
     for (const [name, value] of Object.entries(line.values)) fill[name] = name === "until" && typeof value === "string" ? formatUtcDate(value) : value;
@@ -130,7 +172,11 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
     // Every odd piece is a slot's name: the sentence keeps its own word order in every language.
     const pieces = text.split(MARK).map((piece, i) => (i % 2 === 1 && line.slots[piece] ? <Fragment key={i}>{slot(line.slots[piece])}</Fragment> : piece));
     const diff = line.diff;
-    const label = (name: string) => (diff?.kind === "permission" ? (PERMISSION_TEXT[name] ? t(PERMISSION_TEXT[name].title) : name) : name);
+    const label = (name: string) => {
+      if (diff?.kind === "permission") return PERMISSION_TEXT[name] ? t(PERMISSION_TEXT[name].title) : name;
+      const text = roleText(name);
+      return diff?.viaGroup ? t("audit.viaGroup", { role: text }) : text;
+    };
     return (
       <>
         <span>{pieces}</span>
@@ -221,7 +267,7 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
                   <Avatar name="?" size={24} />
                 )}
                 <span style={st.text}>{sentence(entry)}</span>
-                {CATEGORY[entry.category] ? <Tag>{t(CATEGORY[entry.category])}</Tag> : null}
+                {TAG[entry.category] ? <Tag>{t(TAG[entry.category])}</Tag> : null}
               </div>
             ))}
           </Card>
