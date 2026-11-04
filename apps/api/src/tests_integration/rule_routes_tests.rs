@@ -2820,6 +2820,9 @@ async fn a_reader_who_cannot_edit_sees_no_author() {
     )
     .await;
     assert_eq!(status, 200);
+    // The rule does have an author: an editor reads it, the plain member does not.
+    let (_, body) = read(&app, fx.owner, fx.space_id, "channel", channel).await;
+    assert!(entry_of(&body, "group", group).expect("line")["set_by"].is_object());
     let (status, body) = read(&app, fx.member, fx.space_id, "channel", channel).await;
     assert_eq!(status, 200);
     assert_eq!(body["may"]["edit"], false);
@@ -2892,6 +2895,12 @@ async fn a_removed_author_reads_as_null() {
     )
     .await;
     assert_eq!(status, 200);
+    // While they are in the space, an editor reads their name.
+    let (_, body) = read(&app, fx.owner, fx.space_id, "channel", channel).await;
+    assert_eq!(
+        entry_of(&body, "group", group).expect("line")["set_by"]["name"],
+        "admin"
+    );
     // They leave the space: no stale name.
     exec(
         &app.db,
