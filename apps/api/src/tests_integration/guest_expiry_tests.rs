@@ -190,10 +190,17 @@ async fn active_matches_the_engine_at_the_boundary() {
     // Written before the read, so already behind the database's clock when it is compared.
     let now = guest_ending(&app.db, space, "0 seconds").await;
     let future = guest_ending(&app.db, space, "1 hour").await;
+    let just_ahead = guest_ending(&app.db, space, "1 second").await;
     let never = make_user(&app.db, "never").await;
     crate::testkit::add_member(&app.db, space, never, "guest").await;
 
-    for (user, expected) in [(past, false), (now, false), (future, true), (never, true)] {
+    for (user, expected) in [
+        (past, false),
+        (now, false),
+        (just_ahead, true),
+        (future, true),
+        (never, true),
+    ] {
         let by_membership = membership::active(&app.db, space, user)
             .await
             .expect("active")
