@@ -9722,6 +9722,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareDto"
+                }
+              }
+            },
+            "description": "The target already had a share: it now has the asked level"
+          },
           "201": {
             "content": {
               "application/json": {
@@ -9735,8 +9745,14 @@
           "400": {
             "description": "Invalid target or permission"
           },
+          "402": {
+            "description": "`licence_required`"
+          },
           "403": {
-            "description": "Not allowed to share this file"
+            "description": "Not allowed to share this file, or `cannot_grant`, `target_above_you`"
+          },
+          "409": {
+            "description": "`licence_frozen`"
           }
         },
         "summary": "`POST /api/v1/files/{file_id}/shares`: share a file with a user or a channel.",
@@ -9760,7 +9776,7 @@
             }
           },
           {
-            "description": "Share id",
+            "description": "Share id: the id of the rule it is",
             "in": "path",
             "name": "share_id",
             "required": true,
@@ -9775,10 +9791,13 @@
             "description": "Share removed"
           },
           "403": {
-            "description": "Not allowed to modify this file"
+            "description": "Not allowed to modify this file, or `target_above_you`"
           },
           "404": {
-            "description": "Share not found"
+            "description": "Share not found (a share of the old table is not one)"
+          },
+          "409": {
+            "description": "`licence_frozen`"
           }
         },
         "summary": "`DELETE /api/v1/files/{file_id}/shares/{share_id}`: remove a share.",

@@ -834,7 +834,7 @@ fn parse_level(word: &str) -> Result<Level, ApiError> {
 
 /// Whom a rule is aimed at, before it is looked up.
 #[derive(Debug, Clone, Copy)]
-enum Pick {
+pub(crate) enum Pick {
     Everyone(Option<Uuid>),
     Role(Uuid),
     Group(Uuid),
@@ -861,10 +861,10 @@ fn pick_of(target: &AccessTargetRequest) -> Result<Pick, ApiError> {
 }
 
 /// A target as the checks and the writes need it.
-struct Resolved {
-    subject: RuleSubject,
-    tref: TargetRef,
-    sys: Option<Sys>,
+pub(crate) struct Resolved {
+    pub(crate) subject: RuleSubject,
+    pub(crate) tref: TargetRef,
+    pub(crate) sys: Option<Sys>,
 }
 
 struct RoleFacts {
@@ -915,7 +915,7 @@ async fn exists(
 /// Look the target up in the space and gather what [`ensure_writable`] needs to know about it
 /// relative to the editor. A target that is not the space's is answered, not refused here: the
 /// decision refuses it in its own order.
-async fn resolve(
+pub(crate) async fn resolve(
     state: &AppState,
     txn: &impl ConnectionTrait,
     space_id: Uuid,

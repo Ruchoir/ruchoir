@@ -12683,3 +12683,6 @@ mod rule_routes_tests;
 
 /// "Pourquoi ?": the steps that lead to a person's access on a resource.
 mod why_tests;
+
+/// The share routes of a file, now backed by rules: a share really grants access.
+mod file_share_tests;
