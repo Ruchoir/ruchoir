@@ -606,7 +606,7 @@
     "member": "Mitglied",
     "owner": "Eigentümer",
     "admin": "Administrator",
-    "guest": "Externer Gast"
+    "guest": "Gast"
   },
   "onboarding": {
     "enter": "Ruchoir betreten",
@@ -970,8 +970,8 @@
     "cropIcon": "Symbol zuschneiden",
     "members_one": "{{count}} Mitglied",
     "members_other": "{{count}} Mitglieder",
-    "guests_one": "{{count}} externer Gast",
-    "guests_other": "{{count}} externe Gäste",
+    "guests_one": "{{count}} Gast",
+    "guests_other": "{{count}} Gäste",
     "bots_one": "{{count}} Bot",
     "bots_other": "{{count}} Bots",
     "changeIcon": "Symbol ändern",
@@ -2268,7 +2268,6 @@
     "sectionTitle": "Gäste",
     "sectionNote": "Gäste erreichen nur, was für sie freigegeben wird. Ein Gastzugang belegt keinen Platz in der Lizenz und kann an einem Datum enden.",
     "rights": "Gästerechte",
-    "guestTag": "Gast",
     "prolong": "Verlängern",
     "changeDate": "Datum ändern",
     "setDate": "Enddatum festlegen",

@@ -615,7 +615,7 @@
     "member": "Membro",
     "owner": "Proprietario",
     "admin": "Amministratore",
-    "guest": "Ospite esterno"
+    "guest": "Ospite"
   },
   "onboarding": {
     "enter": "Entra in Ruchoir",
@@ -999,9 +999,9 @@
     "members_one": "{{count}} membro",
     "members_many": "{{count}} membri",
     "members_other": "{{count}} membri",
-    "guests_one": "{{count}} ospite esterno",
+    "guests_one": "{{count}} ospite",
     "guests_many": "{{count}} ospiti esterni",
-    "guests_other": "{{count}} ospiti esterni",
+    "guests_other": "{{count}} ospiti",
     "bots_one": "{{count}} bot",
     "bots_many": "{{count}} bot",
     "bots_other": "{{count}} bot",
@@ -2359,7 +2359,6 @@
     "sectionTitle": "Ospiti",
     "sectionNote": "Un ospite accede solo a ciò che gli viene aperto. Non occupa un posto nella licenza e il suo accesso può terminare a una data.",
     "rights": "Diritti degli ospiti",
-    "guestTag": "Ospite",
     "prolong": "Prolunga",
     "changeDate": "Cambia la data",
     "setDate": "Imposta una data di fine",

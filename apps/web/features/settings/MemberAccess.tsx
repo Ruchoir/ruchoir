@@ -71,7 +71,7 @@ export function MemberRolesSummary({
         {held.map(({ role, via }) => (
           <RoleChip key={role.id} role={role} via={via} />
         ))}
-        {member.role === "guest" ? <Tag tone="warning">{t("guests.guestTag")}</Tag> : null}
+        {member.role === "guest" ? <Tag tone="warning">{t("role.guest")}</Tag> : null}
         {member.role !== "owner" && member.role !== "guest" && held.length === 0 ? (
           <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("roles.membersOnly")}</span>
         ) : null}

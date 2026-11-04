@@ -68,7 +68,7 @@ const CATEGORY: Record<string, TranslationKey> = {
 };
 
 /** A line's tag says "Groupe", the filter lists "Groupes": every other family reads the same in both. */
-const TAG: Record<string, TranslationKey> = { ...CATEGORY, groups: key("groups.colGroup"), guests: key("guests.guestTag") };
+const TAG: Record<string, TranslationKey> = { ...CATEGORY, groups: key("groups.colGroup"), guests: key("role.guest") };
 
 const PERIOD_DAYS: Record<string, number | undefined> = { "7": 7, "30": 30, "90": 90, all: undefined };
 
@@ -193,7 +193,7 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
     // The end of an access, before and after: the two chips of a date line.
     const dated = ["guestExpiryFixed", "guestExpiryMoved", "guestExpiryExtended", "guestExpiryAdvanced", "guestExpiryRemoved", "guestReactivated"].includes(line.sentence);
     const endChip = (iso: unknown) => (typeof iso === "string" && iso ? t("audit.accessUntil", { date: formatLongDate(iso) }) : t("guests.noEnd"));
-    const standingChip = (what: "member" | "guest") => (what === "member" ? t("role.member") : t("guests.guestTag"));
+    const standingChip = (what: "member" | "guest") => (what === "member" ? t("role.member") : t("role.guest"));
     return (
       <>
         <span>{pieces}</span>

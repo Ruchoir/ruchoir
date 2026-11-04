@@ -89,7 +89,7 @@ export function GuestsSection({
       <Card>
         {!compact ? (
           <div style={{ ...st.row, padding: "8px 14px", fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)" }}>
-            <span style={{ flex: 1 }}>{t("guests.guestTag")}</span>
+            <span style={{ flex: 1 }}>{t("role.guest")}</span>
             <span style={st.until}>{t("guests.endTitle")}</span>
             <span style={{ ...st.act, width: 128 }} />
           </div>
@@ -177,7 +177,7 @@ function GuestRow({
           <div style={st.name}>{guest.name}</div>
           {guest.title ? <div style={st.sub}>{guest.title}</div> : null}
         </span>
-        <Tag tone="warning">{t("guests.guestTag")}</Tag>
+        <Tag tone="warning">{t("role.guest")}</Tag>
       </span>
       <span style={compact ? { ...st.until, width: "100%", order: 3, paddingLeft: 40 } : st.until}>
         {row.end && row.days !== null ? (

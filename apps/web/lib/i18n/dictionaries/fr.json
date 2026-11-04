@@ -606,7 +606,7 @@
     "member": "Membre",
     "owner": "Propriétaire",
     "admin": "Administrateur",
-    "guest": "Invité externe"
+    "guest": "Invité"
   },
   "onboarding": {
     "enter": "Entrer dans Ruchoir",
@@ -970,8 +970,8 @@
     "cropIcon": "Cadrer l'icône",
     "members_one": "{{count}} membre",
     "members_other": "{{count}} membres",
-    "guests_one": "{{count}} invité externe",
-    "guests_other": "{{count}} invités externes",
+    "guests_one": "{{count}} invité",
+    "guests_other": "{{count}} invités",
     "bots_one": "{{count}} bot",
     "bots_other": "{{count}} bots",
     "changeIcon": "Changer l'icône",
@@ -2294,7 +2294,6 @@
     "sectionTitle": "Invités",
     "sectionNote": "Un invité n'a accès qu'à ce qu'on lui ouvre. Un accès invité ne prend pas de place dans la licence et peut s'arrêter à une date.",
     "rights": "Droits des invités",
-    "guestTag": "Invité",
     "prolong": "Prolonger",
     "changeDate": "Changer la date",
     "setDate": "Fixer une date de fin",

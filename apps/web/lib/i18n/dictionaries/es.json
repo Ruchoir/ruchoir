@@ -615,7 +615,7 @@
     "member": "Miembro",
     "owner": "Propietario",
     "admin": "Administrador",
-    "guest": "Invitado externo"
+    "guest": "Invitado"
   },
   "onboarding": {
     "enter": "Entrar en Ruchoir",
@@ -999,9 +999,9 @@
     "members_one": "{{count}} miembro",
     "members_many": "{{count}} miembros",
     "members_other": "{{count}} miembros",
-    "guests_one": "{{count}} invitado externo",
+    "guests_one": "{{count}} invitado",
     "guests_many": "{{count}} invitados externos",
-    "guests_other": "{{count}} invitados externos",
+    "guests_other": "{{count}} invitados",
     "bots_one": "{{count}} bot",
     "bots_many": "{{count}} bots",
     "bots_other": "{{count}} bots",
@@ -2359,7 +2359,6 @@
     "sectionTitle": "Invitados",
     "sectionNote": "Un invitado solo accede a lo que se le abre. No ocupa plaza en la licencia y su acceso puede terminar en una fecha.",
     "rights": "Derechos de los invitados",
-    "guestTag": "Invitado",
     "prolong": "Prolongar",
     "changeDate": "Cambiar la fecha",
     "setDate": "Fijar una fecha de fin",

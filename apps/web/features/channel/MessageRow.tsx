@@ -528,7 +528,7 @@ export function MessageRow({
           <button style={nameBtn} onClick={() => setProfileOpen(true)}>
             {m.author}
           </button>
-          {authorGuest && m.kind !== "system" ? <Tag tone="warning">{t("guests.guestTag")}</Tag> : null}
+          {authorGuest && m.kind !== "system" ? <Tag tone="warning">{t("role.guest")}</Tag> : null}
           <span style={styles.time}>{formatStamp(m.createdAt)}</span>
           {!deleted && m.imported ? (
             (() => {

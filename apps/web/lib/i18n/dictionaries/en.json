@@ -606,7 +606,7 @@
     "member": "Member",
     "owner": "Owner",
     "admin": "Administrator",
-    "guest": "External guest"
+    "guest": "Guest"
   },
   "onboarding": {
     "enter": "Enter Ruchoir",
@@ -970,8 +970,8 @@
     "cropIcon": "Frame the icon",
     "members_one": "{{count}} member",
     "members_other": "{{count}} members",
-    "guests_one": "{{count}} external guest",
-    "guests_other": "{{count}} external guests",
+    "guests_one": "{{count}} guest",
+    "guests_other": "{{count}} guests",
     "bots_one": "{{count}} bot",
     "bots_other": "{{count}} bots",
     "changeIcon": "Change the icon",
@@ -2268,7 +2268,6 @@
     "sectionTitle": "Guests",
     "sectionNote": "A guest only reaches what they are given. They do not take a seat in the licence, and their access can stop on a date.",
     "rights": "Guest rights",
-    "guestTag": "Guest",
     "prolong": "Extend",
     "changeDate": "Change the date",
     "setDate": "Set an end date",

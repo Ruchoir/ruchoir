@@ -624,7 +624,7 @@
     "member": "Członek",
     "owner": "Właściciel",
     "admin": "Administrator",
-    "guest": "Gość zewnętrzny"
+    "guest": "Gość"
   },
   "onboarding": {
     "enter": "Wejdź do Ruchoira",
@@ -1028,10 +1028,10 @@
     "members_few": "{{count}} członkowie",
     "members_many": "{{count}} członków",
     "members_other": "{{count}} członków",
-    "guests_one": "{{count}} gość zewnętrzny",
+    "guests_one": "{{count}} gość",
     "guests_few": "{{count}} gości zewnętrznych",
     "guests_many": "{{count}} gości zewnętrznych",
-    "guests_other": "{{count}} gości zewnętrznych",
+    "guests_other": "{{count}} gości",
     "bots_one": "{{count}} bot",
     "bots_few": "{{count}} boty",
     "bots_many": "{{count}} botów",
@@ -2450,7 +2450,6 @@
     "sectionTitle": "Goście",
     "sectionNote": "Gość ma dostęp tylko do tego, co mu się udostępni. Nie zajmuje miejsca w licencji, a dostęp może się kończyć w określonym dniu.",
     "rights": "Uprawnienia gości",
-    "guestTag": "Gość",
     "prolong": "Przedłuż",
     "changeDate": "Zmień datę",
     "setDate": "Ustaw datę końca",
