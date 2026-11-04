@@ -73,7 +73,7 @@ pub async fn list_shares(
     session: AuthSession,
     Path(file_id): Path<Uuid>,
 ) -> Result<Json<Vec<ShareDto>>, FileError> {
-    authz::ensure_readable(&state.db, file_id, session.user_id).await?;
+    let access = authz::ensure_readable(&state.db, file_id, session.user_id).await?;
 
     let rows = state
         .db
@@ -81,11 +81,12 @@ pub async fn list_shares(
             DbBackend::Postgres,
             format!(
                 "SELECT {SHARE_COLUMNS} FROM permission_overrides \
-                  WHERE file_id = $1 AND (user_id IS NOT NULL OR audience_channel_id IS NOT NULL) \
+                  WHERE space_id = $2 AND file_id = $1 \
+                    AND (user_id IS NOT NULL OR audience_channel_id IS NOT NULL) \
                     AND 'files.view' = ANY(allow) \
                   ORDER BY created_at, id"
             ),
-            [file_id.into()],
+            [file_id.into(), access.file.space_id.into()],
         ))
         .await?;
     let shares = rows
@@ -190,7 +191,11 @@ pub async fn create_share(
     )
     .map_err(|refusal| refusal.into_api(&state.config.pricing_url))?;
 
-    let changed = existing.is_none_or(|e| (e.allow, e.deny) != (allow, deny));
+    // The old route never lowers: a rule that already allows at least the asked level (and denies
+    // nothing) is left as it is, so an older app cannot demote a Gérer or custom rule it lists as
+    // "edit". Only a new rule or a raise is written.
+    let satisfied = existing.is_some_and(|e| e.deny.is_empty() && allow.minus(e.allow).is_empty());
+    let changed = !satisfied && existing.is_none_or(|e| (e.allow, e.deny) != (allow, deny));
     let written = if changed {
         write_rule(
             &txn,
@@ -225,7 +230,9 @@ pub async fn create_share(
     if changed {
         crate::permissions::changed::announce(&state, space_id).await;
     }
-    let status = if stored.is_some() {
+    // A stored rule that was not listed as a share (a pure deny, say) is a new share to the app.
+    let listed = stored.is_some_and(|r| r.allow.contains(Permission::FilesView));
+    let status = if listed {
         StatusCode::OK
     } else {
         StatusCode::CREATED
@@ -263,6 +270,9 @@ pub async fn delete_share(
     editor_of(&state, space_id, session.user_id, resource)
         .await?
         .ok_or(ApiError::Forbidden)?;
+    if file.deleted_at.is_some() {
+        return Err(ApiError::NotFound);
+    }
 
     let txn = state.db.begin().await?;
     lock_resource(&txn, space_id, resource).await?;

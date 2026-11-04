@@ -1136,7 +1136,7 @@ async fn write_legacy(
     })
 }
 
-/// Writing "everyone" below Gérer on a channel or a calendar keeps the Administrator at Gérer there:
+/// Writing "everyone" below Gérer on a channel, a calendar, a file or a folder keeps the Administrator at Gérer there:
 /// when no Administrator rule says otherwise, one is written at that level (its own log entry), so
 /// administrators keep moderating what they are no longer carried through by the base. Returns
 /// whether it wrote, and whether that moved the legacy view bit of a channel.
@@ -1147,9 +1147,6 @@ async fn keep_administrators(
     resource: ResourceRef,
 ) -> Result<Option<bool>, ApiError> {
     let kind = resource.kind();
-    if kind == Kind::File {
-        return Ok(None);
-    }
     let Some(admin) = role_facts(txn, space_id, None, Some("administrator")).await? else {
         return Ok(None);
     };

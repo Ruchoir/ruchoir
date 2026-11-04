@@ -320,7 +320,7 @@ async fn a_share_is_a_rule_and_is_logged() {
     assert_eq!(second["id"], first["id"]);
     assert_eq!(second["permission"], "edit");
     assert_eq!(rules(&app.db, file).await.len(), 1);
-    // And back down.
+    // The old route never lowers: asking for view on an edit share leaves it.
     let (status, third) = share(
         &app,
         fx.admin,
@@ -329,7 +329,7 @@ async fn a_share_is_a_rule_and_is_logged() {
     )
     .await;
     assert_eq!(status, 200);
-    assert_eq!(third["permission"], "view");
+    assert_eq!(third["permission"], "edit");
 
     let id = first["id"].as_str().expect("id").to_owned();
     assert_eq!(unshare(&app, fx.admin, file, &id).await.0, 204);
@@ -339,15 +339,7 @@ async fn a_share_is_a_rule_and_is_logged() {
 
     let log = audit(&app.db, fx.space_id).await;
     let actions: Vec<&str> = log.iter().map(|(a, _)| a.as_str()).collect();
-    assert_eq!(
-        actions,
-        [
-            "rule.created",
-            "rule.updated",
-            "rule.updated",
-            "rule.deleted"
-        ]
-    );
+    assert_eq!(actions, ["rule.created", "rule.updated", "rule.deleted"]);
     assert_eq!(log[0].1["target_kind"], "user");
     assert_eq!(log[0].1["after"], "read");
     assert_eq!(log[1].1["after"], "contribute");
@@ -534,4 +526,126 @@ async fn an_author_still_shares_their_file() {
     assert_eq!(status, 403);
     let id = body["id"].as_str().expect("id").to_owned();
     assert_eq!(unshare(&app, fx.member, mine, &id).await.0, 204);
+}
+
+async fn make_folder(db: &DatabaseConnection, space: Uuid, owner: Uuid, name: &str) -> Uuid {
+    let id = Uuid::new_v4();
+    exec(
+        db,
+        "INSERT INTO files (id, space_id, owner_id, name, kind) VALUES ($1, $2, $3, $4, 'folder')",
+        vec![id.into(), space.into(), owner.into(), name.into()],
+    )
+    .await;
+    id
+}
+
+#[tokio::test]
+async fn administrators_keep_managing_a_folder_hidden_from_members() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let folder = make_folder(&app.db, fx.space_id, fx.owner, "secret").await;
+    hide_from_members(&app, &fx, folder).await;
+    assert_eq!(shares_of(&app, fx.member, folder).await.0, 403);
+    assert_eq!(shares_of(&app, fx.admin, folder).await.0, 200);
+    assert!(can(&app, &fx, fx.admin, folder, Permission::FilesManage).await);
+}
+
+#[tokio::test]
+async fn the_old_route_never_lowers_a_rule() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let file = make_file(&app.db, fx.space_id, fx.owner, "plan.txt").await;
+    let (status, body) = call(
+        &app,
+        fx.admin,
+        reqwest::Method::PUT,
+        &format!("/api/v1/spaces/{}/access/file/{file}/entries", fx.space_id),
+        Some(json!({ "target": { "kind": "user", "id": fx.member }, "level": "manage" })),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    for word in ["edit", "view"] {
+        let (status, answer) = share(
+            &app,
+            fx.admin,
+            file,
+            json!({ "target_user_id": fx.member, "permission": word }),
+        )
+        .await;
+        assert_eq!(status, 200, "{answer}");
+        let rows = rules(&app.db, file).await;
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0].1.contains(&"files.manage".to_owned()), "{word}");
+    }
+    // An edit share is not lowered by a view share either.
+    let other = add_member(&app.db, fx.space_id, "other", "guest").await;
+    let (status, made) = share(
+        &app,
+        fx.admin,
+        file,
+        json!({ "target_user_id": other, "permission": "edit" }),
+    )
+    .await;
+    assert_eq!(status, 201);
+    let (status, again) = share(
+        &app,
+        fx.admin,
+        file,
+        json!({ "target_user_id": other, "permission": "view" }),
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(again["id"], made["id"]);
+    assert_eq!(again["permission"], "edit");
+}
+
+#[tokio::test]
+async fn a_stored_rule_that_was_not_a_share_is_a_new_share() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let file = make_file(&app.db, fx.space_id, fx.owner, "plan.txt").await;
+    exec(
+        &app.db,
+        "INSERT INTO permission_overrides (space_id, file_id, user_id, deny) \
+         VALUES ($1, $2, $3, ARRAY['files.view'])",
+        vec![fx.space_id.into(), file.into(), fx.member.into()],
+    )
+    .await;
+    let (status, body) = share(
+        &app,
+        fx.admin,
+        file,
+        json!({ "target_user_id": fx.member, "permission": "view" }),
+    )
+    .await;
+    assert_eq!(status, 201, "{body}");
+    assert_eq!(rules(&app.db, file).await.len(), 1);
+}
+
+#[tokio::test]
+async fn missing_and_trashed_files_answer_as_before() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let body = json!({ "target_user_id": fx.member });
+    let missing = Uuid::new_v4();
+    assert_eq!(share(&app, fx.admin, missing, body.clone()).await.0, 403);
+    assert_eq!(
+        unshare(&app, fx.admin, missing, &Uuid::new_v4().to_string())
+            .await
+            .0,
+        403
+    );
+
+    let file = make_file(&app.db, fx.space_id, fx.owner, "gone.txt").await;
+    let (_, made) = share(&app, fx.admin, file, body.clone()).await;
+    exec(
+        &app.db,
+        "UPDATE files SET deleted_at = now() WHERE id = $1",
+        vec![file.into()],
+    )
+    .await;
+    assert_eq!(share(&app, fx.admin, file, body.clone()).await.0, 404);
+    let id = made["id"].as_str().expect("id").to_owned();
+    assert_eq!(unshare(&app, fx.admin, file, &id).await.0, 404);
+    assert_eq!(share(&app, fx.guest, file, body).await.0, 403);
 }
