@@ -1275,7 +1275,7 @@
     "etaSeconds": "less than a minute",
     "etaUnknown": "working out how long",
     "close": "Close this screen",
-    "peopleTitle": "The people",
+    "peopleTitle": "Roles and groups",
     "peopleIntro": "Correct an address or leave somebody out. Nothing is sent at this stage.",
     "peopleSearch": "Search for a person",
     "peopleAll": "All",
@@ -1388,7 +1388,63 @@
     "interrupted": "Interrupted",
     "spaceChannelsFilled_one": "{{count}} channel is already here: it will take the archive's history.",
     "spaceChannelsFilled_other": "{{count}} channels are already here: they will take the archive's history.",
-    "events": "Events"
+    "events": "Events",
+    "peopleSub": "What the archive says about people",
+    "peopleAdminsTitle_one": "{{count}} administrator",
+    "peopleAdminsTitle_other": "{{count}} administrators",
+    "peopleAdminsSlack": "Slack's owners and administrators arrive with the Administrator role.",
+    "peopleAdminsTeams": "Teams owners arrive with the Administrator role.",
+    "peopleAdminsMattermost": "Mattermost team administrators arrive with the Administrator role.",
+    "peopleAdminsOther": "{{source}} administrators arrive with the Administrator role.",
+    "peopleOwnerNamed": "{{name}} stays the owner of the space: nobody becomes one through the import.",
+    "peopleOwnerNobody": "Nobody becomes an owner through the import.",
+    "peopleGuestsBody": "The guest accounts of {{source}} arrive as guests, with no end date and without taking a seat. You can set one afterwards.",
+    "peopleModsTitle_one": "{{count}} channel moderator",
+    "peopleModsTitle_other": "{{count}} channel moderators",
+    "peopleModsBody": "Channel administrators become moderators of the channels concerned.",
+    "peopleGroupsTitle_one": "{{count}} group",
+    "peopleGroupsTitle_other": "{{count}} groups",
+    "peopleGroupsBody": "Created as they are, with their members and no particular rights. A group that was already imported is never created twice.",
+    "peopleKeptTitle_one": "{{count}} person already here, role kept",
+    "peopleKeptTitle_other": "{{count}} people already here, role kept",
+    "peopleKeptBody": "The import adds people with their role, but never changes the role of anyone already in the space, neither up nor down.",
+    "peopleFallbacksMember_one": "{{count}} custom role brought down to Member",
+    "peopleFallbacksMember_other": "{{count}} custom roles brought down to Member",
+    "peopleFallbacksAdmin_one": "{{count}} custom role brought down to Administrator",
+    "peopleFallbacksAdmin_other": "{{count}} custom roles brought down to Administrator",
+    "peopleFallbacksMixed_one": "{{count}} custom role brought down to a fixed role",
+    "peopleFallbacksMixed_other": "{{count}} custom roles brought down to a fixed role",
+    "peopleFallbacksBody": "The community edition has no custom roles: the people concerned arrive with the fixed role shown.",
+    "peopleFallbacksPricing": "Custom roles exist in the Enterprise edition.",
+    "fallbackMember_one": "Role “{{role}}” brought down to Member (community edition), {{count}} person",
+    "fallbackMember_other": "Role “{{role}}” brought down to Member (community edition), {{count}} people",
+    "fallbackMemberIn_one": "Role “{{role}}” brought down to Member in {{space}} (community edition), {{count}} person",
+    "fallbackMemberIn_other": "Role “{{role}}” brought down to Member in {{space}} (community edition), {{count}} people",
+    "fallbackAdmin_one": "Role “{{role}}” brought down to Administrator (community edition), {{count}} person",
+    "fallbackAdmin_other": "Role “{{role}}” brought down to Administrator (community edition), {{count}} people",
+    "fallbackAdminIn_one": "Role “{{role}}” brought down to Administrator in {{space}} (community edition), {{count}} person",
+    "fallbackAdminIn_other": "Role “{{role}}” brought down to Administrator in {{space}} (community edition), {{count}} people",
+    "seatsUsed_one": "{{count}} seat used out of {{total}} after the import",
+    "seatsUsed_other": "{{count}} seats used out of {{total}} after the import",
+    "seatsFree_one": "{{count}} left free",
+    "seatsFree_other": "{{count}} left free",
+    "seatsTaken_one": "{{count}} already taken",
+    "seatsTaken_other": "{{count}} already taken",
+    "seatsAdded_one": "{{count}} brought by the import",
+    "seatsAdded_other": "{{count}} brought by the import",
+    "seatsGuestsFree": "Guests do not take a seat",
+    "seatsOverTitle_one": "{{count}} person would take a seat, {{left}} left",
+    "seatsOverTitle_other": "{{count}} people would take a seat, {{left}} left",
+    "seatsOverTotal": "{{total}} seats in all, {{used}} already taken",
+    "seatsOverLegend_one": "{{count}} free for {{incoming}} people to welcome: {{missing}}",
+    "seatsOverLegend_other": "{{count}} free for {{incoming}} people to welcome: {{missing}}",
+    "seatsMissingInline_one": "{{count}} seat short",
+    "seatsMissingInline_other": "{{count}} seats short",
+    "seatsMissing_one": "{{count}} seat short",
+    "seatsMissing_other": "{{count}} seats short",
+    "seatsOverText": "Only the members and administrators to add count: guests do not take a seat, and people already in the space keep theirs. The import cannot start until everyone can be welcomed: nothing has been written. Free some seats, or move to a plan with more, then come back to this screen.",
+    "seatsRefused": "The server refused to start the import: not enough seats.",
+    "doneLimitsKept": "A reminder of what was not exported"
   },
   "externalLink": {
     "title": "Careful, you are leaving Ruchoir",
@@ -2147,7 +2203,8 @@
     "you": "you",
     "manageNote": "You add and remove people in this group. Its roles and managers are set in the space settings.",
     "leave": "Leave the group",
-    "left": "You left the group"
+    "left": "You left the group",
+    "importedFrom": "Imported from {{source}}."
   },
   "licence": {
     "refusal": {
@@ -2268,7 +2325,11 @@
     "onUnnamedFile": "on a file or folder",
     "onUnnamedCalendar": "on a calendar",
     "theChannel": "the channel",
-    "aChannel": "a channel"
+    "aChannel": "a channel",
+    "importApplied": "{{actor}} imported the space from {{source}}",
+    "importChip": "+ {{what}}",
+    "importNote": "One line per import, so the log is not buried under a line for every person imported. The detail, person by person, stays in the import report.",
+    "importReport": "Open the report"
   },
   "guests": {
     "endTitle": "Access until",
@@ -2377,7 +2438,8 @@
     "refusalGuestOnly": "Only a guest can have an end date: this person is a member.",
     "refusalAccessEnded": "This access has already ended: reactivate it to give it a new date.",
     "refusalNotEnded": "This access has not ended: there is nothing to reactivate.",
-    "leftNotice": "You are no longer part of {{space}}"
+    "leftNotice": "You are no longer part of {{space}}",
+    "createdByImport": "Created by the import"
   },
   "access": {
     "title": "Access to {{name}}",
@@ -2718,5 +2780,16 @@
       "unavailable": "The preview is unavailable right now."
     },
     "readOnlyBodySend": "Your message was not sent. Click Quit at the top to take control again."
+  },
+  "members": {
+    "importWhenToday": "today",
+    "importWhenYesterday": "yesterday",
+    "importWhenDays_one": "{{count}} day ago",
+    "importWhenDays_other": "{{count}} days ago",
+    "importBannerTitle": "Import from {{source}} finished {{when}}.",
+    "importBannerText": "{{figures}} were taken over from {{source}} with their rights.",
+    "importBannerLink": "See in the log",
+    "importRoles_one": "{{count}} custom role",
+    "importRoles_other": "{{count}} custom roles"
   }
 }
