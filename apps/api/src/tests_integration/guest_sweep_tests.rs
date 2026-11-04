@@ -630,3 +630,36 @@ async fn marking_all_read_leaves_the_guest_notices_to_clients_that_know_them() {
     );
     assert_eq!(unread(&app, &ids).await, 0);
 }
+
+#[tokio::test]
+async fn a_read_by_a_client_that_knows_the_guest_notices_announces_its_own_count() {
+    let Some(app) = boot().await else { return };
+    let (_fx, cookie, ids) = owner_with_two_notices(&app).await;
+    let mut ws = app.connect_ws(&cookie).await;
+    let status = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/notifications/{}/read?guest_notices=true", ids[0]),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("read")
+        .status();
+    assert_eq!(status, 204);
+    let announced = read_count(&mut ws).await;
+    let feed: Value = app
+        .req(
+            reqwest::Method::GET,
+            "/api/v1/notifications?guest_notices=true",
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("feed")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(feed["unread_count"], 1, "{feed}");
+    assert_eq!(announced, Some(1), "the event agrees with the feed");
+}

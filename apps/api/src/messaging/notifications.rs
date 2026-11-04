@@ -547,7 +547,10 @@ pub async fn list_notifications(
     put,
     path = "/api/v1/notifications/{id}/read",
     tag = "messaging",
-    params(("id" = Uuid, Path, description = "Notification id")),
+    params(
+        ("id" = Uuid, Path, description = "Notification id"),
+        ("guest_notices" = Option<bool>, Query, description = "Count the guest access notices in the announced unread count")
+    ),
     responses(
         (status = 204, description = "Marked read"),
         (status = 404, description = "No such notification for the caller")
@@ -557,6 +560,7 @@ pub async fn mark_read(
     State(state): State<AppState>,
     session: AuthSession,
     Path(id): Path<Uuid>,
+    Query(query): Query<ReadAllQuery>,
 ) -> Result<StatusCode, ApiError> {
     let row = notifications::Entity::find_by_id(id)
         .one(&state.db)
@@ -570,7 +574,14 @@ pub async fn mark_read(
         let mut active = row.into_active_model();
         active.read_at = Set(Some(OffsetDateTime::now_utc()));
         active.update(&state.db).await?;
-        announce_read(&state, session.user_id, vec![id], false).await;
+        announce_read(
+            &state,
+            session.user_id,
+            vec![id],
+            false,
+            query.guest_notices,
+        )
+        .await;
     }
     Ok(StatusCode::NO_CONTENT)
 }
@@ -601,7 +612,14 @@ pub async fn mark_all_read(
     }
     let marked = update.exec(&state.db).await?;
     if marked.rows_affected > 0 {
-        announce_read(&state, session.user_id, Vec::new(), true).await;
+        announce_read(
+            &state,
+            session.user_id,
+            Vec::new(),
+            true,
+            query.guest_notices,
+        )
+        .await;
     }
     Ok(StatusCode::NO_CONTENT)
 }
@@ -621,16 +639,24 @@ struct ReadPayload {
 /// phones, silently, so the icon's count and the notifications on screen follow even with the app
 /// closed (ADR 0006, the sync push). Called only when something actually changed, after it was
 /// saved: it never fails the request, which has done what it was asked.
-async fn announce_read(state: &AppState, user_id: Uuid, ids: Vec<Uuid>, all: bool) {
-    // Counted as a client that has not opted into the guest notices counts: a badge that an older
-    // app could never clear would be worse than a notice that waits for the next fetch.
-    let unread_count = match notifications::Entity::find()
+///
+/// `guest_notices` is the reader's own: a client that asked for the guest notices has them counted,
+/// exactly as its feed counts them; any other is announced the count without them, since a badge an
+/// older app could never clear would be worse than a notice that waits for the next fetch.
+async fn announce_read(
+    state: &AppState,
+    user_id: Uuid,
+    ids: Vec<Uuid>,
+    all: bool,
+    guest_notices: bool,
+) {
+    let mut unread = notifications::Entity::find()
         .filter(notifications::Column::UserId.eq(user_id))
-        .filter(notifications::Column::ReadAt.is_null())
-        .filter(notifications::Column::Kind.is_not_in(GUEST_KINDS))
-        .count(&state.db)
-        .await
-    {
+        .filter(notifications::Column::ReadAt.is_null());
+    if !guest_notices {
+        unread = unread.filter(notifications::Column::Kind.is_not_in(GUEST_KINDS));
+    }
+    let unread_count = match unread.count(&state.db).await {
         Ok(count) => count as i64,
         Err(error) => {
             tracing::warn!(%error, "could not count the unread notifications to announce a read");
