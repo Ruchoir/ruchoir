@@ -753,7 +753,7 @@ class Converter:
         )
         self._write_jsonl("users.jsonl", self.users)
         self._write_jsonl("channels.jsonl", self.channels)
-        self._write_jsonl("members.jsonl", self.memberships)
+        self._write_jsonl("members.jsonl", sorted(self.memberships, key=lambda m: (m["space"], m["user"])))
         known = set(self.files)
         for message in self.messages:
             if "files" in message:

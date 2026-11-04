@@ -479,6 +479,16 @@ class ConverterCase(unittest.TestCase):
         report = validator.validate(out)
         self.assertEqual((report.errors, report.warnings), ([], []))
 
+    def test_a_channel_admin_who_is_a_team_guest_is_a_guest_not_a_moderator(self) -> None:
+        carol = user("carol", channels=[{"name": "general", "roles": "channel_user channel_admin"}])
+        carol["user"]["teams"][0]["roles"] = "team_guest"
+        out = self.convert([team("atelier"), channel("general"), carol,
+                            user("dave", channels=[{"name": "general"}])])
+        self.assertEqual(self.members(out)[("atelier", "carol")]["role"], "guest")
+        self.assertNotIn("moderators", by_id(out, "channels.jsonl")["atelier/general"])
+        report = validator.validate(out)
+        self.assertEqual((report.errors, report.warnings), ([], []))
+
     def test_the_manifest_is_format_2_with_counts(self) -> None:
         out = self.convert(self.with_roles(user("alice"), user("bob", teams=("atelier", "direction"))))
         manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
@@ -491,7 +501,6 @@ class ConverterCase(unittest.TestCase):
         out = self.convert(self.base())
         limits = json.loads((out / "manifest.json").read_text(encoding="utf-8"))["limits"]
         self.assertTrue(any("user groups are not exported" in line for line in limits))
-        self.assertTrue(any("groupes d'utilisateurs de Mattermost ne sont pas exportés" in line for line in limits))
         self.assertFalse((out / "groups.jsonl").exists())
 
     # -- the whole thing ---------------------------------------------------------------------------

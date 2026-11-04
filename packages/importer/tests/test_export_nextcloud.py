@@ -333,7 +333,8 @@ class ExportNextcloudCase(unittest.TestCase):
         self.assertEqual(design["space"], "nextcloud")
         self.assertEqual(design["name"], "Équipe design")
         self.assertEqual(design["description"], "")
-        self.assertEqual(sorted(design["members"]), ["alice", "bob", "emma"])
+        # Inserted in reverse: the order on disk is the export's, not the table's.
+        self.assertEqual(design["members"], ["alice", "bob", "emma"])
         # No display name: the gid names the group. A membership row of a deleted account is dropped.
         self.assertEqual(self.groups()["compta"]["name"], "compta")
         self.assertEqual(self.groups()["compta"]["members"], ["carol"])

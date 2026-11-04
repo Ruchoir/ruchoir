@@ -124,7 +124,7 @@ INSERT INTO oc_preferences (userid, appid, configkey, configvalue) VALUES
 INSERT INTO oc_groups (gid, displayname) VALUES
   ('admin', 'admin'), ('design', 'Équipe design'), ('compta', ''), ('vide', 'Vide');
 INSERT INTO oc_group_user (gid, uid) VALUES
-  ('admin', 'alice'), ('design', 'alice'), ('design', 'bob'), ('design', 'emma'),
+  ('admin', 'alice'), ('design', 'emma'), ('design', 'bob'), ('design', 'alice'),
   ('compta', 'carol'), ('compta', 'ghost');
 
 -- Conversations. Types: 1 one-to-one, 2 group, 3 public, 4 changelog, 6 note to self. The last

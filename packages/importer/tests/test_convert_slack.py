@@ -534,6 +534,11 @@ class ConverterCase(unittest.TestCase):
         out = self.convert(users=[user("U1", "alice", is_admin=True, is_restricted=True)])
         self.assertEqual(self.roles(out), {"U1": "guest"})
 
+    def test_members_are_written_sorted_by_user(self) -> None:
+        people = [user("U3", "carol"), user("U1", "alice"), user("U2", "bob")]
+        out = self.convert(users=people, channels=[channel("C1", "general", ["U1"])])
+        self.assertEqual([m["user"] for m in read_jsonl(out, "members.jsonl")], ["U1", "U2", "U3"])
+
     def test_bots_get_no_line(self) -> None:
         people = [user("U1", "alice"), dict(user("B1", "robot"), is_bot=True, is_admin=True)]
         self.assertEqual(self.roles(self.convert(users=people)), {"U1": "member"})

@@ -560,6 +560,13 @@ class Tenant(unittest.TestCase):
         self.assertFalse(any("no roles" in line for line in limits))
         self.assertTrue(any("Channel owners" in line and "moderators" in line for line in limits))
 
+    def test_members_are_written_sorted_by_space_and_user(self) -> None:
+        self.members((DAN, []), (BOB, []), (ALICE, ["owner"]))
+        archive = self.convert()
+        keys = [(m["space"], m["user"]) for m in read_jsonl(archive, "members.jsonl")]
+        self.assertEqual(keys, sorted(keys))
+        self.assertEqual(len(keys), 3)
+
     def test_the_manifest_is_format_2_with_counts(self) -> None:
         archive = self.convert()
         manifest = json.loads((archive / "manifest.json").read_text(encoding="utf-8"))

@@ -171,7 +171,7 @@ SELECT JSON_OBJECT(
   'name', COALESCE(NULLIF(TRIM(g.displayname), ''), g.gid),
   'description', '',
   'members', COALESCE((
-    SELECT JSON_ARRAYAGG(gu.uid)
+    SELECT JSON_ARRAYAGG(gu.uid ORDER BY gu.uid)
     FROM ${PREFIX}group_user gu
     JOIN ${PREFIX}users u ON u.uid = gu.uid
     WHERE gu.gid = g.gid

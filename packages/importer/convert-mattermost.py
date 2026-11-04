@@ -495,7 +495,6 @@ class Converter:
             "Channel notification preferences are not carried over: what someone chose to be notified about in another product is not worth moving.",
             "Bots are not imported as accounts: their posts arrive attributed to an absent author.",
             "Mattermost user groups are not exported: a bulk export carries none. Team administrators arrive as administrators, guest accounts as guests and channel administrators as moderators of their channel.",
-            "Les groupes d'utilisateurs de Mattermost ne sont pas exportés : un export en masse n'en contient pas. Les administrateurs d'équipe arrivent administrateurs, les comptes invités invités et les administrateurs de canal modérateurs de leur canal.",
         ]
         if self.dropped_system:
             limits.append(

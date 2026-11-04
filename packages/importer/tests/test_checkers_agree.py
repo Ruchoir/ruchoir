@@ -528,7 +528,11 @@ class ProducersAgree(unittest.TestCase):
         self.assertTrue(py_ok, py_said)
         self.assertTrue(rs_ok, rs_said)
         self.assertEqual(validator.validate(archive).warnings, [])
-        self.assertNotIn("warning", rs_said.lower())
+        # The checker prints each warning on a line of its own that starts with "warning: " (a
+        # limit that merely mentions the word is indented), and ends on one exact line when sound.
+        lines = rs_said.splitlines()
+        self.assertEqual([l for l in lines if l.startswith("warning:")], [], rs_said)
+        self.assertIn("this archive holds together and would be accepted", lines)
 
     def test_the_generators_write_archives_both_accept(self) -> None:
         demo = self.root / "demo"

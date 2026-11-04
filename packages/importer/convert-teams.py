@@ -1685,7 +1685,7 @@ class Converter:
         self._write_jsonl("spaces.jsonl", self.spaces)
         self._write_jsonl("users.jsonl", list(self.people.values()))
         self._write_jsonl("channels.jsonl", self.channels)
-        self._write_jsonl("members.jsonl", self.memberships)
+        self._write_jsonl("members.jsonl", sorted(self.memberships, key=lambda m: (m["space"], m["user"])))
         self._write_jsonl("files.jsonl", list(self.files.values()))
         self._write_jsonl("calendars.jsonl", self.calendar_rows)
         self._write_jsonl("events.jsonl", self.event_rows)
