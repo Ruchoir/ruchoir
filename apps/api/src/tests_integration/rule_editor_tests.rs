@@ -7,7 +7,9 @@ use crate::audit::{record, Action, Target};
 use crate::edition::{Edition, Entitlement, SeatCheck};
 use crate::permissions::catalogue::Permission;
 use crate::permissions::groups::Paid;
-use crate::permissions::rules::{editor_of, uses_of, EditorKind, Named, ResourceRef, UsedIn};
+use crate::permissions::rules::{
+    editor_of, hide_unopened, uses_of, EditorKind, Named, ResourceRef, UsedIn,
+};
 
 use super::delegation_tests::{assign, make_role};
 use super::groups_tests::{make_group, put_in_group};
@@ -353,11 +355,11 @@ async fn uses_of_lists_where_a_group_or_a_role_is_named() {
     let used = uses_of(&app.db, fx.space_id, Named::Group(group))
         .await
         .expect("uses");
-    let want = |kind: &'static str, id: Uuid, name: &str| UsedIn {
-        kind,
-        id: Some(id),
-        name: Some(name.to_owned()),
-        hidden: false,
+    let want = |kind: &'static str, id: Uuid, name: &str| (kind, Some(id), Some(name.to_owned()));
+    let plain = |used: &[UsedIn]| -> Vec<(&'static str, Option<Uuid>, Option<String>)> {
+        used.iter()
+            .map(|u| (u.kind, u.id, u.name.clone()))
+            .collect()
     };
     assert_eq!(used.len(), 3, "{used:?}");
     for expected in [
@@ -365,16 +367,18 @@ async fn uses_of_lists_where_a_group_or_a_role_is_named() {
         want("file", file, "Budget"),
         want("calendar", calendar, "Planning"),
     ] {
-        assert!(used.contains(&expected), "{expected:?} in {used:?}");
+        assert!(plain(&used).contains(&expected), "{expected:?} in {used:?}");
     }
     assert!(uses_of(&app.db, fx.space_id, Named::Group(unused))
         .await
         .expect("uses")
         .is_empty());
     assert_eq!(
-        uses_of(&app.db, fx.space_id, Named::Role(role))
-            .await
-            .expect("uses"),
+        plain(
+            &uses_of(&app.db, fx.space_id, Named::Role(role))
+                .await
+                .expect("uses")
+        ),
         vec![want("file", file, "Budget")]
     );
     // Another space asking sees nothing of ours.
@@ -532,4 +536,66 @@ async fn a_space_editor_holds_the_family_at_space_level_whatever_the_resource_le
         !editor.rights.contains(Permission::ChannelView),
         "the family only"
     );
+}
+
+#[tokio::test]
+async fn a_place_naming_a_group_says_the_level_of_its_rule() {
+    use crate::permissions::levels::{rule_sets, Kind, Level, Target};
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let parent = Uuid::new_v4();
+    let folder = Uuid::new_v4();
+    for (id, kind, parent_id) in [(parent, "folder", None), (folder, "folder", Some(parent))] {
+        app.db
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "INSERT INTO files (id, space_id, owner_id, name, kind, parent_folder_id) \
+                 VALUES ($1, $2, $3, $4, $5, $6)",
+                [
+                    id.into(),
+                    fx.space_id.into(),
+                    fx.owner.into(),
+                    format!("dossier-{id}").into(),
+                    kind.into(),
+                    parent_id.into(),
+                ],
+            ))
+            .await
+            .expect("folder");
+    }
+    let (allow, deny) = rule_sets(Kind::File, Target::Group, Level::Read).expect("read");
+    let allow = allow.to_names();
+    let deny = deny.to_names();
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO permission_overrides (space_id, file_id, group_id, allow, deny) \
+             VALUES ($1, $2, $3, $4, $5)",
+            [
+                fx.space_id.into(),
+                folder.into(),
+                group.into(),
+                allow.into(),
+                deny.into(),
+            ],
+        ))
+        .await
+        .expect("rule");
+    let used = uses_of(&app.db, fx.space_id, Named::Group(group))
+        .await
+        .expect("uses");
+    assert_eq!(used.len(), 1);
+    assert_eq!(used[0].level, Some("read"));
+    assert_eq!(used[0].parent_id, Some(parent));
+    let json = serde_json::to_value(&used[0]).expect("json");
+    assert_eq!(json["level"], "read");
+    assert_eq!(json["parent_id"], parent.to_string());
+    // A hidden place shows neither.
+    let hidden = hide_unopened(&app.db, fx.space_id, fx.guest, used)
+        .await
+        .expect("hide");
+    let json = serde_json::to_value(&hidden[0]).expect("json");
+    assert_eq!(json["hidden"], true);
+    assert!(json.get("level").is_none() && json.get("parent_id").is_none());
 }

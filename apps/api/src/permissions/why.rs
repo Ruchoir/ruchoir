@@ -25,8 +25,9 @@ use uuid::Uuid;
 use super::catalogue::{Family, Permission, PermissionSet};
 use super::check::{self, Resource};
 use super::engine::{Effect, LevelKind, Opener, Source, Standing, Step};
+use super::levels::{Kind, Target};
 use super::rule_routes::{can_open, header, resource_of, AccessTargetDto, NamedRefDto};
-use super::rules::{editor_of, ResourceRef};
+use super::rules::{editor_of, rule_level_word, ResourceRef};
 use crate::auth::extract::AuthSession;
 use crate::messaging::error::ApiError;
 use crate::state::AppState;
@@ -84,6 +85,10 @@ pub struct StepDto {
     /// The role (`kind: role`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role: Option<WhyRoleDto>,
+    /// The level of the rule behind a `rule` step (`none`, `read`, `contribute`, `manage` or
+    /// `custom`), read like the access dialog reads it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rule_level: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -275,6 +280,65 @@ impl Names<'_> {
         }))
     }
 
+    /// The level of the rule a step comes from, read like the access dialog reads it. Absent for
+    /// a source that is no stored rule of a role, group, person or audience.
+    async fn rule_level(
+        &mut self,
+        source: Source,
+        kind: LevelKind,
+        id: Uuid,
+    ) -> Result<Option<&'static str>, ApiError> {
+        let (subject, class, key) = match source {
+            Source::Role(role) => {
+                let system = self
+                    .state
+                    .db
+                    .query_one_raw(Statement::from_sql_and_values(
+                        DbBackend::Postgres,
+                        "SELECT system_key IS NOT NULL AS system FROM space_roles WHERE id = $1",
+                        [role.into()],
+                    ))
+                    .await?
+                    .map(|row| row.try_get::<bool>("", "system"))
+                    .transpose()?
+                    .unwrap_or(false);
+                (role, Target::Role { system }, "role_id")
+            }
+            Source::Group(group) => (group, Target::Group, "group_id"),
+            Source::User => (self.person.id, Target::User, "user_id"),
+            Source::Audience(channel) => (channel, Target::Audience, "audience_channel_id"),
+            _ => return Ok(None),
+        };
+        let (resource, level_kind) = match kind {
+            LevelKind::Channel => ("channel_id", Kind::Channel),
+            LevelKind::Calendar => ("calendar_id", Kind::Calendar),
+            LevelKind::Folder | LevelKind::File => ("file_id", Kind::File),
+        };
+        let Some(row) = self
+            .state
+            .db
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                format!(
+                    "SELECT allow, deny FROM permission_overrides \
+                      WHERE space_id = $1 AND {resource} = $2 AND {key} = $3"
+                ),
+                [self.space_id.into(), id.into(), subject.into()],
+            ))
+            .await?
+        else {
+            return Ok(None);
+        };
+        let allow: Vec<String> = row.try_get("", "allow")?;
+        let deny: Vec<String> = row.try_get("", "deny")?;
+        Ok(Some(rule_level_word(
+            level_kind,
+            class,
+            PermissionSet::from_names(&allow),
+            PermissionSet::from_names(&deny),
+        )))
+    }
+
     async fn step(
         &mut self,
         n: u32,
@@ -326,6 +390,12 @@ impl Names<'_> {
             Some((kind, id)) => Some(self.level(kind, id).await?),
             None => None,
         };
+        let rule_level = match (kind, step.level) {
+            ("rule", Some((level_kind, level_id))) => {
+                self.rule_level(step.source, level_kind, level_id).await?
+            }
+            _ => None,
+        };
         Ok(StepDto {
             n,
             kind,
@@ -337,6 +407,7 @@ impl Names<'_> {
             level,
             target,
             role,
+            rule_level,
         })
     }
 }

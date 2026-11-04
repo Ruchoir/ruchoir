@@ -161,6 +161,9 @@ pub struct AccessMayDto {
     pub reason: Option<&'static str>,
     /// The levels the caller may give here (`none` only to those who may reserve).
     pub manage_target_levels: Vec<&'static str>,
+    /// The resource-level permissions of this resource's family the viewer holds here: what
+    /// Personnaliser may let them set (rule 2). Empty for somebody who edits nothing here.
+    pub held: Vec<&'static str>,
 }
 
 /// Who has what on a channel, a file or folder, or a calendar.
@@ -567,6 +570,7 @@ fn may_of(editor: Option<&Editor>, resource: ResourceRef) -> AccessMayDto {
             fine: false,
             reason: Some("not_allowed"),
             manage_target_levels: Vec::new(),
+            held: Vec::new(),
         };
     };
     let reason = match (editor.kind, editor.paid) {
@@ -580,6 +584,7 @@ fn may_of(editor: Option<&Editor>, resource: ResourceRef) -> AccessMayDto {
             fine: false,
             reason,
             manage_target_levels: Vec::new(),
+            held: Vec::new(),
         };
     }
     let strong = matches!(editor.kind, EditorKind::Owner | EditorKind::Space);
@@ -598,6 +603,12 @@ fn may_of(editor: Option<&Editor>, resource: ResourceRef) -> AccessMayDto {
         fine: editor.paid == Paid::Enterprise,
         reason: None,
         manage_target_levels: levels,
+        held: PermissionSet::of_family(super::levels::family_of(kind))
+            .intersect(editor.rights)
+            .iter()
+            .filter(|p| p.resource_level())
+            .map(Permission::name)
+            .collect(),
     }
 }
 

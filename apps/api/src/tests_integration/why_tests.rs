@@ -635,3 +635,35 @@ async fn why_says_whether_a_role_is_direct_and_every_group_carrying_it() {
     assert_eq!(role["direct"], false, "{role}");
     assert_eq!(names(&role), ["alpha", "Beta", "Zeta"]);
 }
+
+#[tokio::test]
+async fn a_rule_step_says_where_the_rule_sits_and_its_level() {
+    use crate::permissions::levels::{rule_sets, Kind, Level, Target};
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let top = make_node(&app.db, fx.space_id, fx.owner, "Compta", "folder", None).await;
+    let year = make_node(&app.db, fx.space_id, fx.owner, "2026", "folder", Some(top)).await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    put_in_group(&app.db, group, fx.space_id, fx.member, false).await;
+    let (allow, deny) = rule_sets(Kind::File, Target::Group, Level::Manage).expect("manage");
+    let (allow, deny) = (allow.to_names(), deny.to_names());
+    stored(
+        &app.db,
+        fx.space_id,
+        ("file_id", top),
+        ("group_id", group),
+        &allow.iter().map(String::as_str).collect::<Vec<_>>(),
+        &deny.iter().map(String::as_str).collect::<Vec<_>>(),
+    )
+    .await;
+    let (status, body) = why(&app, fx.admin, fx.space_id, "file", year, fx.member).await;
+    assert_eq!(status, 200, "{body}");
+    let rule = steps(&body)
+        .iter()
+        .find(|s| s["kind"] == "rule")
+        .unwrap_or_else(|| panic!("a rule step in {body}"));
+    assert_eq!(rule["level"]["name"], "Compta");
+    assert_eq!(rule["level"]["kind"], "file");
+    assert_eq!(rule["target"]["kind"], "group");
+    assert_eq!(rule["rule_level"], "manage");
+}

@@ -34,7 +34,8 @@ pub enum Action {
     RoleUpdated,
     RoleDeleted,
     RolesReordered,
-    /// Somebody started, or left, the read only view of the space as a role.
+    /// Somebody started, or left, the read only view of the space as a role. Written by the
+    /// edition, with the payload `{ "role_id": uuid, "role_name": string, "phase": "started" | "ended" }`.
     RolePreviewed,
     /// A channel's reservation to some roles changed.
     ChannelReserved,

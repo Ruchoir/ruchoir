@@ -66,6 +66,9 @@ context and takes precedence here.
   resource row (`FOR UPDATE`), reads the stored rule, decides, writes (`write_rule`/`delete_rule`,
   upsert on the unique index, `created_by` kept) with its `rule.*` audit entry in the same transaction
   and announces after commit; a request that changes nothing writes and announces nothing.
+  The `rule.created|updated|deleted` payload is `{ target_kind, target_id, resource_name, target_name,
+  before, after }` (the names are snapshots taken at write time). `role.previewed`, written by the
+  edition only, is `{ role_id, role_name, phase: "started" | "ended" }`.
   **The system roles' view of a channel and write bit of a calendar belong to the legacy settings**
   (`channel_role_access`, `calendars.write_access`, which database triggers turn into rules): the
   routes write those two bits through `channels::set_role_admitted` and

@@ -184,6 +184,13 @@ fn everyone_entry(body: &Value) -> &Value {
         .expect("the members line")
 }
 
+/// Whether `used_in` names this place (its `level` and `parent_id` are checked elsewhere).
+fn names_place(used: &[Value], kind: &str, id: Uuid, name: &str) -> bool {
+    used.iter().any(|u| {
+        u["kind"] == kind && u["id"] == id.to_string() && u["name"] == name && u["hidden"].is_null()
+    })
+}
+
 async fn rules_on(
     db: &DatabaseConnection,
     column: &str,
@@ -998,8 +1005,8 @@ async fn a_group_named_by_a_rule_is_not_deleted() {
     assert_eq!(body["error"], "group_has_rules");
     let used = body["used_in"].as_array().expect("used_in");
     assert_eq!(used.len(), 2, "{body}");
-    assert!(used.contains(&json!({ "kind": "channel", "id": channel, "name": "salon" })));
-    assert!(used.contains(&json!({ "kind": "file", "id": file, "name": "plan.txt" })));
+    assert!(names_place(used, "channel", channel, "salon"));
+    assert!(names_place(used, "file", file, "plan.txt"));
 
     // Nothing was removed; once the rules go the group goes.
     assert_eq!(
@@ -2398,7 +2405,7 @@ async fn a_group_in_use_names_only_what_the_caller_can_open() {
     assert_eq!(status, 409, "{body}");
     let used = body["used_in"].as_array().expect("used_in");
     assert_eq!(used.len(), 2, "{body}");
-    assert!(used.contains(&json!({ "kind": "channel", "id": open, "name": "salon" })));
+    assert!(names_place(used, "channel", open, "salon"));
     assert!(
         used.contains(&json!({ "kind": "channel", "hidden": true })),
         "the private channel the administrator never joined is not named: {body}"
@@ -2408,10 +2415,12 @@ async fn a_group_in_use_names_only_what_the_caller_can_open() {
     // The owner reads private channels without joining.
     let (status, body) = call(&app, fx.owner, reqwest::Method::DELETE, &url, None).await;
     assert_eq!(status, 409, "{body}");
-    assert!(body["used_in"]
-        .as_array()
-        .expect("used_in")
-        .contains(&json!({ "kind": "channel", "id": secret, "name": "secret" })));
+    assert!(names_place(
+        body["used_in"].as_array().expect("used_in"),
+        "channel",
+        secret,
+        "secret"
+    ));
 }
 
 #[tokio::test]
@@ -2662,4 +2671,75 @@ async fn empty_sets_are_a_deletion() {
         .map(|(a, _)| a)
         .collect();
     assert_eq!(actions.last().map(String::as_str), Some("rule.deleted"));
+}
+
+#[tokio::test]
+async fn the_dialog_says_what_the_viewer_holds_here() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    join_as(&app.db, channel, fx.member, "admin").await;
+    let (status, body) = read(&app, fx.member, fx.space_id, "channel", channel).await;
+    assert_eq!(status, 200, "{body}");
+    let held: Vec<String> = body["may"]["held"]
+        .as_array()
+        .unwrap_or_else(|| panic!("held in {body}"))
+        .iter()
+        .map(|p| p.as_str().expect("name").to_owned())
+        .collect();
+    assert!(!held.is_empty());
+    for permission in Permission::ALL {
+        let family_here = permission.family() == crate::permissions::catalogue::Family::Channel
+            && permission.resource_level();
+        let expected =
+            family_here && can(&app, &fx, fx.member, Resource::Channel(channel), permission).await;
+        assert_eq!(
+            held.iter().any(|h| h == permission.name()),
+            expected,
+            "{}",
+            permission.name()
+        );
+    }
+    // Somebody who edits nothing here holds nothing to show.
+    let other = make_channel(&app.db, fx.space_id, "autre", "public").await;
+    let (status, body) = read(&app, fx.member, fx.space_id, "channel", other).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["may"]["held"], json!([]));
+}
+
+#[tokio::test]
+async fn rule_log_lines_carry_the_names_at_write_time() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let (status, body) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        group_target(group),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200);
+    let rule: Uuid = entry_of(&body, "group", group).expect("line")["id"]
+        .as_str()
+        .expect("id")
+        .parse()
+        .expect("uuid");
+    let (status, _) = remove(&app, fx.admin, fx.space_id, "channel", channel, rule).await;
+    assert_eq!(status, 204);
+    let lines = audit_rows(&app.db, fx.space_id).await;
+    let ours: Vec<&Value> = lines
+        .iter()
+        .filter(|(_, d)| d["target_id"] == group.to_string())
+        .map(|(_, d)| d)
+        .collect();
+    assert_eq!(ours.len(), 2, "{lines:?}");
+    for details in ours {
+        assert_eq!(details["resource_name"], "salon");
+        assert_eq!(details["target_name"], "Compta");
+    }
 }
