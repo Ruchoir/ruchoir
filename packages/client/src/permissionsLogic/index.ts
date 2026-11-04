@@ -9,6 +9,7 @@ export {
   spaceGates,
   canGiveAdministrator,
 } from "./spaceGates.ts";
+export { channelGates, createGates } from "./channelGates.ts";
 export {
   type RoleLike,
   FAMILIES,
