@@ -2277,7 +2277,7 @@
   "guests": {
     "endTitle": "Accès jusqu'au",
     "optional": "Optionnel",
-    "endNote": "À cette date, la personne n'a plus accès à l'espace. Ses messages et ses fichiers restent, et vous pourrez la réactiver.",
+    "endNote": "À cette date, la personne n'a plus accès à l'espace. Ses messages et ses fichiers restent, et vous pourrez réactiver son accès.",
     "presetNone": "Aucune date",
     "presetWeek": "Une semaine",
     "presetMonth": "Un mois",
