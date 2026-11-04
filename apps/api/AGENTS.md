@@ -54,6 +54,25 @@ context and takes precedence here.
   write locks the group row (`FOR UPDATE`), re-reads it, decides, writes its audit entry in the same
   transaction and announces after commit; a request that changes nothing writes and announces
   nothing. The enterprise edition re-uses `decide`, `actor` and `group_dto` through `ext`.
+- `src/permissions/levels.rs`, `rules.rs` and `rule_routes.rs` - the access of a channel, a file or
+  folder, or a calendar by preset level (`/api/v1/spaces/{space_id}/access/{kind}/{resource_id}`,
+  free in every edition; the pure level table is `levels`). **One decision function,
+  `rules::ensure_writable`, answers every rule write**: the routes ask it, and so does the `may` block
+  of `AccessDto`. Who edits is `rules::editor_of` (ruling 4: Owner, space-level manage permission,
+  channel owner or moderator, a file's author, and in a licensed space whoever holds the manage
+  permission on the resource). Rule 2 (hold what you grant), rule 3 (nothing aimed at yourself, a
+  group or role of yours, or anyone above you) and the reservation (`Aucun accès` for everyone is for
+  Owner and Space editors) live in it; fine rules and custom roles are paid. Every write locks the
+  resource row (`FOR UPDATE`), reads the stored rule, decides, writes (`write_rule`/`delete_rule`,
+  upsert on the unique index, `created_by` kept) with its `rule.*` audit entry in the same transaction
+  and announces after commit; a request that changes nothing writes and announces nothing.
+  **The system roles' view of a channel and write bit of a calendar belong to the legacy settings**
+  (`channel_role_access`, `calendars.write_access`, which database triggers turn into rules): the
+  routes write those two bits through `channels::set_role_admitted` and
+  `calendars::set_members_write` and store only the rest of the level, and `levels::level_of` masks
+  the bit when it reads. Never write them as rules by hand, or the next sync erases them. A group
+  named by a rule is never deleted (`409 group_has_rules` with `used_in`, via `rules::uses_of`; the
+  roles route of the enterprise edition answers `role_has_rules` the same way).
 - **Paid writes** go through `messaging::edition_view::ensure_paid` (re-exported by `ext`):
   `402 licence_required` without a licence, `409 licence_frozen` once it expired. Reads are never
   gated.

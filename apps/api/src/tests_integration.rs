@@ -12677,3 +12677,6 @@ async fn the_space_keeps_no_duplicate_file() {
 
 /// Who edits a resource's access, and what a group or role is used in.
 mod rule_editor_tests;
+
+/// The rule routes of the Access and Share dialogs.
+mod rule_routes_tests;

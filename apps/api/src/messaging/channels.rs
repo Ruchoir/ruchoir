@@ -101,6 +101,70 @@ async fn set_allowed_roles<C: sea_orm::ConnectionTrait>(
     Ok(())
 }
 
+/// Let one legacy role (`owner`, `admin`, `member` or `guest`) reach the channel, or keep it out:
+/// what the access dialog's "Tout l'espace" and Administrator lines write for the view of a channel
+/// (the rules of the system roles are derived from `channel_role_access`, never written beside it).
+/// A channel nobody reserved admits every role, so keeping one out lists the others. A list is never
+/// left empty (an empty list reads "no restriction"): the space's owner always remains. Returns
+/// whether the list changed. The rules derived from it are brought up to date either way.
+pub(crate) async fn set_role_admitted<C: sea_orm::ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    channel_id: Uuid,
+    role: &str,
+    admitted: bool,
+) -> Result<bool, ApiError> {
+    let before = super::authz::channel_allowed_roles(db, channel_id).await?;
+    let after: Option<std::collections::BTreeSet<String>> = match (&before, admitted) {
+        (None, true) => None,
+        (None, false) => Some(
+            super::authz::SPACE_ROLES
+                .iter()
+                .filter(|r| **r != role)
+                .map(|r| (*r).to_owned())
+                .collect(),
+        ),
+        (Some(roles), true) => {
+            let mut roles = roles.clone();
+            roles.insert(role.to_owned());
+            Some(roles)
+        }
+        (Some(roles), false) => {
+            let mut roles = roles.clone();
+            roles.remove(role);
+            if roles.is_empty() {
+                roles.insert("owner".to_owned());
+            }
+            Some(roles)
+        }
+    };
+    let changed = after != before;
+    if changed {
+        let default_channel = spaces::Entity::find_by_id(space_id)
+            .one(db)
+            .await?
+            .and_then(|space| space.default_channel_id);
+        if after.is_some() && default_channel == Some(channel_id) {
+            return Err(ApiError::Conflict(
+                "choose another default channel before restricting this channel",
+            ));
+        }
+        set_allowed_roles(
+            db,
+            channel_id,
+            after.map(|roles| roles.into_iter().collect()),
+        )
+        .await?;
+    }
+    db.execute_raw(sea_orm::Statement::from_sql_and_values(
+        sea_orm::DbBackend::Postgres,
+        "SELECT permissions_sync_reservation($1::uuid)",
+        [channel_id.into()],
+    ))
+    .await?;
+    Ok(changed)
+}
+
 /// The `system_event` discriminators written into a channel's own history. The client turns each
 /// into a sentence; the database stores the event and never the words, like everywhere else.
 ///

@@ -45,6 +45,13 @@ pub enum ApiError {
         code: &'static str,
         message: &'static str,
     },
+    /// A `409` that also names where the thing is still used (`group_has_rules`: the channels,
+    /// files and calendars whose rules name the group), so the client can send the person there.
+    ConflictUsedIn {
+        code: &'static str,
+        message: &'static str,
+        used_in: serde_json::Value,
+    },
     /// No valid session. Mirrors the auth guard's 401 so the client reacts identically.
     Unauthorized,
     /// Every one of the space's `seats` is taken, so no owner or member can be added: `402`, with
@@ -102,6 +109,18 @@ impl IntoResponse for ApiError {
             )
                 .into_response();
         }
+        if let ApiError::ConflictUsedIn {
+            code,
+            message,
+            used_in,
+        } = &self
+        {
+            return (
+                StatusCode::CONFLICT,
+                Json(serde_json::json!({ "error": code, "message": message, "used_in": used_in })),
+            )
+                .into_response();
+        }
         if let ApiError::LicenceRequired { pricing_url } = &self {
             return (
                 StatusCode::PAYMENT_REQUIRED,
@@ -152,6 +171,7 @@ impl IntoResponse for ApiError {
             | ApiError::ForbiddenBecause(_)
             | ApiError::BadRequestCode { .. }
             | ApiError::ConflictCode { .. }
+            | ApiError::ConflictUsedIn { .. }
             | ApiError::LicenceRequired { .. } => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal_error",

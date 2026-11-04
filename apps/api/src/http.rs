@@ -349,6 +349,8 @@ pub fn router(state: AppState) -> Router {
         .merge(crate::permissions::roles::router())
         // A space's groups: their people, free in every edition.
         .merge(crate::permissions::group_routes::router())
+        // Who has what on a channel, a file or a calendar: the Access and Share dialogs.
+        .merge(crate::permissions::rule_routes::router())
         // What the edition adds (nothing for the community build), guarded per request like the
         // rest.
         .merge(state.edition.routes());

@@ -6,8 +6,6 @@
 //! and the rule they want to write, so the route, the dialog's `may` block and the tests cannot
 //! disagree. The refusals come in a fixed order ([`RuleRefusal`]).
 
-#![allow(dead_code)] // Read by the rule routes (permissions lot 4, task 4 part B).
-
 use sea_orm::{ConnectionTrait, DbBackend, DbErr, Statement};
 use uuid::Uuid;
 
@@ -18,6 +16,7 @@ use super::engine::Standing;
 use super::groups::Paid;
 use super::levels::{level_of, Kind, Level, LevelRead, Target};
 use super::system_roles::GUEST_CEILING;
+use crate::audit::{record, Action, Target as AuditTarget};
 use crate::messaging::error::ApiError;
 use crate::state::AppState;
 
@@ -54,8 +53,17 @@ impl ResourceRef {
         }
     }
 
+    /// The column of `permission_overrides` that names this kind of resource.
+    pub fn column(self) -> &'static str {
+        match self {
+            ResourceRef::Channel(_) => "channel_id",
+            ResourceRef::File(_) => "file_id",
+            ResourceRef::Calendar(_) => "calendar_id",
+        }
+    }
+
     /// The permission that opens the resource.
-    fn view(self) -> Permission {
+    pub fn view(self) -> Permission {
         match self {
             ResourceRef::Channel(_) => Permission::ChannelView,
             ResourceRef::File(_) => Permission::FilesView,
@@ -63,7 +71,7 @@ impl ResourceRef {
         }
     }
 
-    fn engine(self) -> Resource {
+    pub fn engine(self) -> Resource {
         match self {
             ResourceRef::Channel(id) => Resource::Channel(id),
             ResourceRef::File(id) => Resource::File(id),
@@ -365,7 +373,14 @@ pub fn ensure_writable(
     }
     // Fine rules: a custom role as a target, or sets that are no preset level.
     let custom_role = matches!(target.aim, Aim::Role { system: false, .. });
-    let fine = level_of(resource.kind(), target.level_target(), allow, deny) == LevelRead::Custom;
+    let class = target.level_target();
+    let custom = |allow, deny| level_of(resource.kind(), class, allow, deny) == LevelRead::Custom;
+    // Writing nothing is removing the rule: that is as free as the rule it removes.
+    let fine = if allow.is_empty() && deny.is_empty() {
+        existing.is_some_and(|e| custom(e.allow, e.deny))
+    } else {
+        custom(allow, deny)
+    };
     if custom_role || fine {
         match editor.paid {
             Paid::Enterprise => {}
@@ -416,7 +431,7 @@ fn aimed_at_or_above(editor: &Editor, target: &TargetRef) -> bool {
 }
 
 /// A place that names a group or a role in a rule.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, utoipa::ToSchema)]
 pub struct UsedIn {
     /// `channel`, `file` or `calendar`.
     pub kind: &'static str,
@@ -475,6 +490,286 @@ pub async fn uses_of(
         });
     }
     Ok(used)
+}
+
+/// Whom a stored rule is aimed at: which column names them, and how the levels read them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuleSubject {
+    /// `@members` or `@guests`: the base role of a standing.
+    Everyone {
+        role: Uuid,
+    },
+    /// A role: the Administrator (`system`) or a custom one.
+    Role {
+        id: Uuid,
+        system: bool,
+    },
+    User(Uuid),
+    Group(Uuid),
+    /// The readers of a channel (files only).
+    Audience(Uuid),
+}
+
+impl RuleSubject {
+    pub fn column(self) -> &'static str {
+        match self {
+            RuleSubject::Everyone { .. } | RuleSubject::Role { .. } => "role_id",
+            RuleSubject::User(_) => "user_id",
+            RuleSubject::Group(_) => "group_id",
+            RuleSubject::Audience(_) => "audience_channel_id",
+        }
+    }
+
+    pub fn id(self) -> Uuid {
+        match self {
+            RuleSubject::Everyone { role: id }
+            | RuleSubject::Role { id, .. }
+            | RuleSubject::User(id)
+            | RuleSubject::Group(id)
+            | RuleSubject::Audience(id) => id,
+        }
+    }
+
+    /// The word the log and the wire use for this kind of target.
+    pub fn kind_name(self) -> &'static str {
+        match self {
+            RuleSubject::Everyone { .. } => "everyone",
+            RuleSubject::Role { .. } => "role",
+            RuleSubject::User(_) => "user",
+            RuleSubject::Group(_) => "group",
+            RuleSubject::Audience(_) => "audience",
+        }
+    }
+
+    /// How [`level_of`] and [`super::levels::rule_sets`] treat this target.
+    pub fn class(self) -> Target {
+        match self {
+            RuleSubject::Everyone { .. } => Target::Everyone,
+            RuleSubject::Role { system, .. } => Target::Role { system },
+            RuleSubject::User(_) => Target::User,
+            RuleSubject::Group(_) => Target::Group,
+            RuleSubject::Audience(_) => Target::Audience,
+        }
+    }
+}
+
+/// A rule as it is stored.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RuleRow {
+    pub id: Uuid,
+    pub allow: PermissionSet,
+    pub deny: PermissionSet,
+}
+
+/// What the log says a write changed, as the dialog reads it: a level name, a pair of permission
+/// lists for a custom rule, or null for no rule. The caller words it, because for the system roles
+/// the level is not only what the row stores (the legacy bit lives elsewhere).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Shown {
+    pub before: serde_json::Value,
+    pub after: serde_json::Value,
+}
+
+/// A stored rule as the log words it: its level name, or its permissions when it is custom.
+pub fn describe(
+    kind: Kind,
+    class: Target,
+    allow: PermissionSet,
+    deny: PermissionSet,
+) -> serde_json::Value {
+    match level_of(kind, class, allow, deny) {
+        LevelRead::Level(level) => serde_json::Value::from(level_name(level)),
+        LevelRead::NoRule => serde_json::Value::Null,
+        LevelRead::Custom => {
+            serde_json::json!({ "allow": allow.to_names(), "deny": deny.to_names() })
+        }
+    }
+}
+
+/// The wire name of a level.
+pub fn level_name(level: Level) -> &'static str {
+    match level {
+        Level::None => "none",
+        Level::Read => "read",
+        Level::Contribute => "contribute",
+        Level::Manage => "manage",
+    }
+}
+
+/// Lock the resource's own row, so that every write to its rules is one at a time and decides on
+/// what it read. `404` when it is not the space's (or has just been deleted).
+pub async fn lock_resource(
+    txn: &impl ConnectionTrait,
+    space_id: Uuid,
+    resource: ResourceRef,
+) -> Result<(), ApiError> {
+    let table = match resource {
+        ResourceRef::Channel(_) => "channels",
+        ResourceRef::File(_) => "files",
+        ResourceRef::Calendar(_) => "calendars",
+    };
+    let locked = txn
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            format!("SELECT id FROM {table} WHERE id = $1 AND space_id = $2 FOR UPDATE"),
+            [resource.id().into(), space_id.into()],
+        ))
+        .await?;
+    if locked.is_none() {
+        return Err(ApiError::NotFound);
+    }
+    Ok(())
+}
+
+fn row_of(row: &sea_orm::QueryResult) -> Result<RuleRow, DbErr> {
+    let allow: Vec<String> = row.try_get("", "allow")?;
+    let deny: Vec<String> = row.try_get("", "deny")?;
+    Ok(RuleRow {
+        id: row.try_get("", "id")?,
+        allow: PermissionSet::from_names(&allow),
+        deny: PermissionSet::from_names(&deny),
+    })
+}
+
+/// The rule stored on `resource` for `subject`, if any.
+pub async fn current_rule(
+    txn: &impl ConnectionTrait,
+    space_id: Uuid,
+    resource: ResourceRef,
+    subject: RuleSubject,
+) -> Result<Option<RuleRow>, DbErr> {
+    let row = txn
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            format!(
+                "SELECT id, allow, deny FROM permission_overrides \
+                  WHERE space_id = $1 AND {} = $2 AND {} = $3",
+                resource.column(),
+                subject.column()
+            ),
+            [space_id.into(), resource.id().into(), subject.id().into()],
+        ))
+        .await?;
+    row.as_ref().map(row_of).transpose()
+}
+
+/// Write the rule `allow`/`deny` for `subject` on `resource`: the resource's row is locked, the
+/// rule is created or replaced on its unique index (whoever made it first stays its `created_by`),
+/// and the entry goes into the log in the same transaction. The caller has decided
+/// ([`ensure_writable`]) and tells the space after the commit
+/// ([`super::changed::announce`]).
+#[allow(clippy::too_many_arguments)]
+pub async fn write_rule(
+    txn: &impl ConnectionTrait,
+    space_id: Uuid,
+    actor: Uuid,
+    resource: ResourceRef,
+    subject: RuleSubject,
+    allow: PermissionSet,
+    deny: PermissionSet,
+    shown: Shown,
+) -> Result<RuleRow, ApiError> {
+    lock_resource(txn, space_id, resource).await?;
+    let (resource_column, subject_column) = (resource.column(), subject.column());
+    let row = txn
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            format!(
+                "INSERT INTO permission_overrides (space_id, {resource_column}, {subject_column}, \
+                                                   allow, deny, created_by) \
+                 VALUES ($1, $2, $3, $4, $5, $6) \
+                 ON CONFLICT ({resource_column}, {subject_column}) \
+                     WHERE {resource_column} IS NOT NULL AND {subject_column} IS NOT NULL \
+                 DO UPDATE SET allow = EXCLUDED.allow, deny = EXCLUDED.deny, updated_at = now() \
+                 RETURNING id, allow, deny"
+            ),
+            [
+                space_id.into(),
+                resource.id().into(),
+                subject.id().into(),
+                allow.to_names().into(),
+                deny.to_names().into(),
+                actor.into(),
+            ],
+        ))
+        .await?
+        .ok_or(ApiError::Internal)?;
+    let written = row_of(&row)?;
+    let action = if shown.before.is_null() {
+        Action::RuleCreated
+    } else {
+        Action::RuleUpdated
+    };
+    record_rule(txn, space_id, actor, action, resource, subject, shown).await?;
+    Ok(written)
+}
+
+/// Remove the rule `rule_id` of `resource` (`404` when it is not one of its rules), and log it.
+pub async fn delete_rule(
+    txn: &impl ConnectionTrait,
+    space_id: Uuid,
+    actor: Uuid,
+    resource: ResourceRef,
+    subject: RuleSubject,
+    rule_id: Uuid,
+    shown: Shown,
+) -> Result<(), ApiError> {
+    lock_resource(txn, space_id, resource).await?;
+    let gone = txn
+        .execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            format!(
+                "DELETE FROM permission_overrides WHERE id = $1 AND space_id = $2 AND {} = $3",
+                resource.column()
+            ),
+            [rule_id.into(), space_id.into(), resource.id().into()],
+        ))
+        .await?
+        .rows_affected();
+    if gone == 0 {
+        return Err(ApiError::NotFound);
+    }
+    record_rule(
+        txn,
+        space_id,
+        actor,
+        Action::RuleDeleted,
+        resource,
+        subject,
+        shown,
+    )
+    .await?;
+    Ok(())
+}
+
+async fn record_rule(
+    txn: &impl ConnectionTrait,
+    space_id: Uuid,
+    actor: Uuid,
+    action: Action,
+    resource: ResourceRef,
+    subject: RuleSubject,
+    shown: Shown,
+) -> Result<(), DbErr> {
+    let target = match resource {
+        ResourceRef::Channel(id) => AuditTarget::Channel(id),
+        ResourceRef::File(id) => AuditTarget::File(id),
+        ResourceRef::Calendar(id) => AuditTarget::Calendar(id),
+    };
+    record(
+        txn,
+        space_id,
+        Some(actor),
+        action,
+        target,
+        serde_json::json!({
+            "target_kind": subject.kind_name(),
+            "target_id": subject.id(),
+            "before": shown.before,
+            "after": shown.after,
+        }),
+    )
+    .await
 }
 
 #[cfg(test)]
@@ -1278,6 +1573,56 @@ mod tests {
                 None
             ),
             Ok(())
+        );
+    }
+
+    #[test]
+    fn removing_a_rule_is_as_free_as_the_rule_it_removes() {
+        let preset = Existing {
+            allow: read(FILE),
+            deny: PermissionSet::EMPTY,
+        };
+        let fine = Existing {
+            allow: PermissionSet::EMPTY,
+            deny: set(&[P::FilesView]),
+        };
+        let space = admin_like();
+        // A preset level goes without a licence (writing nothing over it).
+        assert_eq!(
+            write(
+                &space,
+                FILE,
+                group(),
+                PermissionSet::EMPTY,
+                PermissionSet::EMPTY,
+                Some(preset)
+            ),
+            Ok(())
+        );
+        // A fine rule keeps asking for one, and for a thawed one.
+        assert_eq!(
+            write(
+                &space,
+                FILE,
+                group(),
+                PermissionSet::EMPTY,
+                PermissionSet::EMPTY,
+                Some(fine)
+            ),
+            Err(RuleRefusal::LicenceRequired)
+        );
+        let mut frozen = admin_like();
+        frozen.paid = Paid::Frozen;
+        assert_eq!(
+            write(
+                &frozen,
+                FILE,
+                group(),
+                PermissionSet::EMPTY,
+                PermissionSet::EMPTY,
+                Some(fine)
+            ),
+            Err(RuleRefusal::LicenceFrozen)
         );
     }
 

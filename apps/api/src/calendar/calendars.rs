@@ -330,6 +330,37 @@ pub async fn update_calendar(
     Ok(Json(one_dto(&state, session.user_id, calendar_id).await?))
 }
 
+/// Let members write in a space calendar (`write_access = 'members'`) or keep it to administrators:
+/// what the access dialog's "Tout l'espace" line writes for the write bit of a calendar (the rules
+/// of the system roles are derived from `write_access`, never written beside it). Returns whether
+/// the setting changed. The rules derived from it are brought up to date either way.
+pub(crate) async fn set_members_write<C: sea_orm::ConnectionTrait>(
+    db: &C,
+    calendar_id: Uuid,
+    members: bool,
+) -> Result<bool, sea_orm::DbErr> {
+    let changed = db
+        .execute_raw(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            "UPDATE calendars SET write_access = $2, updated_at = now() \
+              WHERE id = $1 AND space_id IS NOT NULL AND write_access <> $2",
+            [
+                calendar_id.into(),
+                (if members { "members" } else { "admins" }).into(),
+            ],
+        ))
+        .await?
+        .rows_affected()
+        > 0;
+    db.execute_raw(sea_orm::Statement::from_sql_and_values(
+        sea_orm::DbBackend::Postgres,
+        "SELECT permissions_sync_calendar($1::uuid)",
+        [calendar_id.into()],
+    ))
+    .await?;
+    Ok(changed)
+}
+
 /// `DELETE /api/v1/calendars/{calendar_id}`: delete a calendar and its events, naming it.
 #[utoipa::path(
     delete,
