@@ -758,3 +758,29 @@ async fn the_expiry_lines_of_the_journal_have_no_author() {
     assert_eq!(expired.len(), 1, "{page}");
     assert!(expired[0].get("actor").is_none_or(Value::is_null), "{page}");
 }
+
+#[tokio::test]
+async fn the_expired_line_keeps_the_date_that_was_reached() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let guest = guest_ending(&app.db, fx.space, "-1 hour").await;
+    sweep(&app, fx.space, OffsetDateTime::now_utc()).await;
+    let row = app
+        .db
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT l.details->>'expires_at' AS reached, \
+                    to_char(m.expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI') AS ends \
+               FROM space_audit_log l, space_members m \
+              WHERE l.space_id = $1 AND l.action = 'member.expired' \
+                AND m.space_id = $1 AND m.user_id = $2",
+            vec![fx.space.into(), guest.into()],
+        ))
+        .await
+        .expect("read")
+        .expect("row");
+    let reached: Option<String> = row.try_get("", "reached").expect("reached");
+    let ends: String = row.try_get("", "ends").expect("ends");
+    let reached = reached.expect("the details carry the date");
+    assert!(reached.starts_with(&ends), "{reached} vs {ends}");
+}

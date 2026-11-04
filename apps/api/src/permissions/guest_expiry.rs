@@ -377,7 +377,7 @@ async fn expire(state: &AppState, space: Option<Uuid>, report: &mut Report) -> R
                  ORDER BY space_id, user_id FOR UPDATE) \
              UPDATE space_members m SET expiry_stage = 0 \
                FROM picked p WHERE m.space_id = p.space_id AND m.user_id = p.user_id \
-             RETURNING m.space_id, m.user_id, m.role",
+             RETURNING m.space_id, m.user_id, m.role, m.expires_at",
             [space.into()],
         ))
         .await?;
@@ -386,13 +386,16 @@ async fn expire(state: &AppState, space: Option<Uuid>, report: &mut Report) -> R
         let space_id: Uuid = row.try_get("", "space_id")?;
         let user_id: Uuid = row.try_get("", "user_id")?;
         let role: String = row.try_get("", "role")?;
+        let reached: OffsetDateTime = row.try_get("", "expires_at")?;
+        // Written by the sweep, not a person (no actor); the date it reached is kept so the line can
+        // say it even if the sweep ran late.
         audit::record(
             &txn,
             space_id,
             None,
             Action::MemberExpired,
             Target::Member(user_id),
-            serde_json::json!({ "role": role }),
+            serde_json::json!({ "role": role, "expires_at": rfc3339(reached) }),
         )
         .await?;
         closed.push((space_id, user_id));
