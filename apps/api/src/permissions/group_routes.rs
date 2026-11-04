@@ -23,6 +23,7 @@ use super::groups::{
     actor, decide, group, groups_of, name_taken, validate_group_name, GroupAct, GroupActor,
     GroupRow, GroupSource,
 };
+use super::membership::active_sql;
 use super::rules::{hide_unopened, uses_of, Named};
 use crate::audit::{record, Action, Target};
 use crate::auth::extract::AuthSession;
@@ -494,8 +495,11 @@ pub async fn add_group_members(
     let known = txn
         .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
-            "SELECT count(*)::bigint AS n FROM space_members \
-              WHERE space_id = $1 AND user_id = ANY($2)",
+            concat!(
+                "SELECT count(*)::bigint AS n FROM space_members m \
+              WHERE m.space_id = $1 AND m.user_id = ANY($2) AND ",
+                active_sql!()
+            ),
             [space_id.into(), fresh.clone().into()],
         ))
         .await?

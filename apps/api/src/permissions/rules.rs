@@ -199,6 +199,10 @@ pub async fn editor_of(
     user_id: Uuid,
     resource: ResourceRef,
 ) -> Result<Option<Editor>, ApiError> {
+    // Out of the space (an ended guest included) means no editor, whatever a channel row says.
+    let Some(standing) = standing(&state.db, space_id, user_id).await? else {
+        return Ok(None);
+    };
     let Some(rank) = rank_of(&state.db, space_id, user_id).await? else {
         return Ok(None);
     };
@@ -207,7 +211,7 @@ pub async fn editor_of(
     };
     // A guest's channel role and authorship are no standing: only a rule can make them an editor,
     // and the guest ceiling keeps the manage permission from them.
-    let guest = standing(&state.db, space_id, user_id).await? == Some(Standing::Guest);
+    let guest = standing == Standing::Guest;
     let on_resource = effective(&state.db, space_id, user_id, resource.engine()).await?;
     let at_space = space_rights(&state.db, space_id, user_id).await?;
     // Only the Owner reads a private channel without joining it: an administrator who cannot view

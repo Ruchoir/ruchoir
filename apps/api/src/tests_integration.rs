@@ -12176,6 +12176,28 @@ mod rules_tests;
 /// The preferences that follow an account, and hidden direct conversations, in their own file.
 mod preferences_tests;
 
+/// Guests' end dates and the one definition of an active membership, in their own file.
+mod guest_expiry_tests;
+
+#[cfg(test)]
+mod expired_guest_tests;
+
+/// The sweep that reminds, closes and purges guests' access.
+#[cfg(test)]
+mod guest_sweep_tests;
+
+/// An invitation carrying the guest's end date.
+#[cfg(test)]
+mod guest_invitation_tests;
+
+/// Setting, moving and removing a guest's end date, the ended list, reactivation.
+#[cfg(test)]
+mod guest_expiry_routes_tests;
+
+/// A guest becomes a member and a member a guest.
+#[cfg(test)]
+mod guest_standing_tests;
+
 // --- The six-digit code sent next to the verification link ---
 
 /// A fresh pending account, as registration leaves it: its id and address.

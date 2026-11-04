@@ -625,3 +625,59 @@ async fn the_log_never_shows_another_space() {
         "{body}"
     );
 }
+
+#[tokio::test]
+async fn the_guest_actions_have_their_own_category() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Audit").await;
+    let guest = Target::Member(Uuid::new_v4());
+    let guest_actions = [
+        Action::MemberExpirySet,
+        Action::MemberExpired,
+        Action::MemberReactivated,
+        Action::MemberStandingChanged,
+        Action::MemberPurged,
+    ];
+    for action in guest_actions {
+        record(&app.db, space, Some(owner), action, guest, json!({}))
+            .await
+            .expect("record");
+    }
+    record(
+        &app.db,
+        space,
+        Some(owner),
+        Action::MemberRemoved,
+        guest,
+        json!({}),
+    )
+    .await
+    .expect("record");
+    let cookie = app.cookie_for(owner).await;
+    let names = |body: &Value| -> std::collections::BTreeSet<String> {
+        body["entries"]
+            .as_array()
+            .expect("entries")
+            .iter()
+            .map(|e| e["action"].as_str().expect("action").to_owned())
+            .collect()
+    };
+    let (status, body) = read_log(&app, &cookie, space, "?category=guests").await;
+    assert_eq!(status, 200);
+    let expected: std::collections::BTreeSet<String> = guest_actions
+        .iter()
+        .map(|action| action.as_str().to_owned())
+        .collect();
+    assert_eq!(names(&body), expected);
+    assert!(body["entries"]
+        .as_array()
+        .expect("entries")
+        .iter()
+        .all(|entry| entry["category"] == "guests"));
+    let (_, body) = read_log(&app, &cookie, space, "?category=members").await;
+    assert_eq!(
+        names(&body),
+        ["member.removed".to_owned()].into_iter().collect()
+    );
+}

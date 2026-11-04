@@ -36,6 +36,7 @@ use super::levels::{
     LevelRead, SystemRole as Sys, Target, TriState,
 };
 use super::load;
+use super::membership::active_sql;
 use super::rules::{
     current_rule, delete_rule, describe, editor_of, ensure_writable, level_name, lock_resource,
     log_rule, rank_above, write_rule, Aim, Editor, EditorKind, Existing, ResourceRef, RuleSubject,
@@ -243,6 +244,8 @@ async fn rows_on(
     resource: ResourceRef,
     nodes: &[Uuid],
 ) -> Result<Vec<StoredRow>, DbErr> {
+    // `m` is read unfiltered on purpose: a rule kept for a guest whose access ended still shows
+    // them as a guest (display of a kept rule). It grants nothing; the engine decides that.
     let sql = format!(
         "SELECT o.id, o.{col} AS node, o.role_id, o.user_id, o.group_id, \
                 o.audience_channel_id, o.allow, o.deny, \
@@ -251,7 +254,8 @@ async fn rows_on(
                 c.name::text AS channel_name, \
                 EXISTS (SELECT 1 FROM space_group_members gm \
                           JOIN space_members sm ON sm.space_id = gm.space_id AND sm.user_id = gm.user_id \
-                         WHERE gm.group_id = o.group_id AND sm.standing = 'guest') AS group_has_guests \
+                         WHERE gm.group_id = o.group_id AND sm.standing = 'guest' \
+                           AND {active_sm}) AS group_has_guests \
            FROM permission_overrides o \
            LEFT JOIN space_roles r ON r.id = o.role_id \
            LEFT JOIN space_groups g ON g.id = o.group_id \
@@ -260,7 +264,8 @@ async fn rows_on(
            LEFT JOIN channels c ON c.id = o.audience_channel_id \
           WHERE o.space_id = $1 AND o.{col} = ANY($2) \
           ORDER BY o.created_at, o.id",
-        col = resource.column()
+        col = resource.column(),
+        active_sm = active_sql!("sm"),
     );
     let mut rows = Vec::new();
     for row in db
@@ -1096,6 +1101,7 @@ pub(crate) async fn resolve(
             let people = txn
                 .query_one_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
+                    concat!(
                     "SELECT coalesce(bool_or(m.standing = 'owner'), false) AS owner, \
                             max(CASE WHEN m.standing = 'guest' THEN NULL ELSE \
                                 (SELECT max(r.position) FROM space_role_holdings h \
@@ -1103,7 +1109,9 @@ pub(crate) async fn resolve(
                                   WHERE h.space_id = m.space_id AND h.user_id = m.user_id) END) AS top \
                        FROM space_group_members gm \
                        JOIN space_members m ON m.space_id = gm.space_id AND m.user_id = gm.user_id \
-                      WHERE gm.group_id = $1",
+                      WHERE gm.group_id = $1 AND ",
+                    active_sql!("m")
+                ),
                     [id.into()],
                 ))
                 .await?;
@@ -1134,7 +1142,10 @@ pub(crate) async fn resolve(
             let standing: Option<String> = txn
                 .query_one_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
-                    "SELECT standing FROM space_members WHERE space_id = $1 AND user_id = $2",
+                    concat!(
+                        "SELECT standing FROM space_members m WHERE m.space_id = $1 AND m.user_id = $2 AND ",
+                        active_sql!("m")
+                    ),
                     [space_id.into(), id.into()],
                 ))
                 .await?

@@ -142,6 +142,9 @@ pub struct Config {
     /// How long, in seconds, an unread notification waits before the email fallback considers it.
     /// `0` turns the fallback off.
     pub notify_email_delay_secs: i64,
+    /// How often, in seconds, the sweep that reminds, closes and purges guests' access runs
+    /// (`RUCHOIR_GUEST_EXPIRY_SWEEP_SECS`). `0` turns it off.
+    pub guest_expiry_sweep_secs: u64,
     /// Whether the server reads the first link of a message to show a preview.
     pub unfurl_enabled: bool,
     /// Hosts whose links are never read for a preview (each also covers its subdomains). By default
@@ -403,6 +406,9 @@ impl Config {
         let notify_email_delay_secs: i64 = env_or("RUCHOIR_NOTIFY_EMAIL_DELAY_SECS", "900")
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_NOTIFY_EMAIL_DELAY_SECS"))?;
+        let guest_expiry_sweep_secs: u64 = env_or("RUCHOIR_GUEST_EXPIRY_SWEEP_SECS", "60")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_GUEST_EXPIRY_SWEEP_SECS"))?;
         let unfurl_enabled: bool = env_or("RUCHOIR_UNFURL_ENABLED", "true")
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_UNFURL_ENABLED"))?;
@@ -495,6 +501,7 @@ impl Config {
             push_relay_url,
             pricing_url,
             notify_email_delay_secs,
+            guest_expiry_sweep_secs,
             unfurl_enabled,
             unfurl_deny_hosts,
             office_url,

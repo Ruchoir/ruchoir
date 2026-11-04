@@ -162,3 +162,125 @@ async fn existing_spaces_receive_a_default_calendar() {
         ]
     );
 }
+
+/// The guests' end-date migration steps back and forward with data in place: the columns, checks
+/// and indexes come and go, the two notice kinds are cleared on the way down (nothing else is), and
+/// the standing trigger forgets and learns `expiry_stage`.
+#[tokio::test]
+async fn the_migration_round_trips() {
+    use sea_orm::ConnectionTrait;
+    let _turn = ONE_AT_A_TIME.lock().await;
+    let Ok(url) = std::env::var("RUCHOIR_TEST_DATABASE_URL") else {
+        eprintln!("skipping the_migration_round_trips: RUCHOIR_TEST_DATABASE_URL not set");
+        return;
+    };
+    let db = Database::connect(url)
+        .await
+        .expect("connect to the test database");
+    Migrator::fresh(&db).await.expect("fresh apply");
+
+    let count = |sql: &'static str| {
+        let db = &db;
+        async move {
+            db.query_one_raw(sea_orm::Statement::from_string(
+                sea_orm::DbBackend::Postgres,
+                sql,
+            ))
+            .await
+            .expect("query")
+            .expect("row")
+            .try_get::<i64>("", "n")
+            .expect("n")
+        }
+    };
+    let columns = "SELECT count(*) AS n FROM information_schema.columns \
+                   WHERE (table_name = 'space_members' AND column_name = 'expiry_stage') \
+                      OR (table_name = 'space_invitations' AND column_name = 'guest_expires_at')";
+    let checks = "SELECT count(*) AS n FROM pg_constraint WHERE conname IN \
+                  ('space_members_expiry_stage_check', 'space_members_expiry_stage_guest_check', \
+                   'space_invitations_guest_expires_check')";
+    let index = "SELECT count(*) AS n FROM pg_indexes WHERE indexname = 'space_members_expires_at'";
+    let wide_kind = "SELECT count(*) AS n FROM pg_constraint \
+                     WHERE conname = 'notifications_kind_check' \
+                       AND pg_get_constraintdef(oid) LIKE '%guest_expiry_soon%'";
+    assert_eq!(count(columns).await, 2);
+    assert_eq!(count(checks).await, 3);
+    assert_eq!(count(index).await, 1);
+    assert_eq!(count(wide_kind).await, 1);
+
+    db.execute_unprepared(
+        "INSERT INTO users (id, email, display_name, status, mfa_enforced, is_instance_admin, \
+                            is_bot, created_at, updated_at) \
+         VALUES ('00000000-0000-0000-0000-0000000000c1', 'c1@example.test', 'C', 'active', false, \
+                 false, false, now(), now()); \
+         INSERT INTO notifications (id, user_id, kind, payload) \
+         VALUES (gen_random_uuid(), '00000000-0000-0000-0000-0000000000c1', 'guest_access_ending', \
+                 '{}'::jsonb);",
+    )
+    .await
+    .expect("seed a guest notice");
+
+    // A guest in a space, to watch the standing trigger from both sides of the migration.
+    db.execute_unprepared(
+        "INSERT INTO users (id, email, display_name, status, mfa_enforced, is_instance_admin, \
+                            is_bot, created_at, updated_at) \
+         VALUES ('00000000-0000-0000-0000-0000000000c2', 'c2@example.test', 'G', 'active', false, \
+                 false, false, now(), now()); \
+         INSERT INTO spaces (id, name, slug, created_at, updated_at) \
+         VALUES ('00000000-0000-0000-0000-0000000000d1', 'Trigger', 'trigger', now(), now()); \
+         INSERT INTO space_members (space_id, user_id, role, joined_at) \
+         VALUES ('00000000-0000-0000-0000-0000000000d1', \
+                 '00000000-0000-0000-0000-0000000000c2', 'guest', now());",
+    )
+    .await
+    .expect("seed a guest");
+    let make_guest_again = "UPDATE space_members SET role = 'guest' \
+        WHERE user_id = '00000000-0000-0000-0000-0000000000c2'";
+    let make_member = "UPDATE space_members SET role = 'member' \
+        WHERE user_id = '00000000-0000-0000-0000-0000000000c2'";
+    let stage_left = "SELECT count(*) AS n FROM space_members \
+        WHERE user_id = '00000000-0000-0000-0000-0000000000c2' AND expiry_stage IS NOT NULL";
+
+    // Back to just before this migration, whatever is added after it.
+    let steps = Migrator::get_applied_migrations(&db)
+        .await
+        .expect("applied")
+        .iter()
+        .rev()
+        .take_while(|m| m.name() != "m20261108_000001_guest_expiry")
+        .count()
+        + 1;
+    Migrator::down(&db, Some(steps as u32)).await.expect("down");
+    assert_eq!(count(columns).await, 0);
+    assert_eq!(count(checks).await, 0);
+    assert_eq!(count(index).await, 0);
+    assert_eq!(count(wide_kind).await, 0);
+    assert_eq!(
+        count("SELECT count(*) AS n FROM notifications WHERE kind LIKE 'guest\\_%'").await,
+        0,
+        "the guest notices go with their kinds"
+    );
+    // The old trigger no longer touches the column that is gone: a role change still works.
+    db.execute_unprepared(make_member)
+        .await
+        .expect("the restored trigger does not name expiry_stage");
+    db.execute_unprepared(make_guest_again)
+        .await
+        .expect("guest");
+
+    Migrator::up(&db, None).await.expect("up again");
+    assert_eq!(count(columns).await, 2);
+    assert_eq!(count(checks).await, 3);
+    assert_eq!(count(index).await, 1);
+    assert_eq!(count(wide_kind).await, 1);
+    // The new trigger learns the column again: leaving guesthood clears the stage.
+    db.execute_unprepared(
+        "UPDATE space_members SET expiry_stage = 7 \
+         WHERE user_id = '00000000-0000-0000-0000-0000000000c2'",
+    )
+    .await
+    .expect("set a stage");
+    assert_eq!(count(stage_left).await, 1);
+    db.execute_unprepared(make_member).await.expect("promote");
+    assert_eq!(count(stage_left).await, 0, "the trigger clears the stage");
+}

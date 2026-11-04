@@ -17,7 +17,8 @@ use uuid::Uuid;
 
 use super::catalogue::{Permission, PermissionSet};
 use super::check::space_rights;
-use super::delegation::{rank_of, Rank, RoleRow};
+use super::delegation::{actor_rank, Rank, RoleRow};
+use super::membership::active_sql;
 use crate::edition::Entitlement;
 use crate::messaging::error::ApiError;
 use crate::messaging::mentions::fold_ascii;
@@ -101,11 +102,15 @@ async fn load<C: ConnectionTrait>(
     for row in db
         .query_all_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
-            "SELECT gm.group_id, gm.user_id, gm.is_manager, (sm.standing = 'guest') AS guest \
+            concat!(
+                "SELECT gm.group_id, gm.user_id, gm.is_manager, (sm.standing = 'guest') AS guest \
                FROM space_group_members gm \
                JOIN space_members sm ON sm.space_id = gm.space_id AND sm.user_id = gm.user_id \
               WHERE gm.space_id = $1 AND ($2::uuid IS NULL OR gm.group_id = $2) \
-              ORDER BY gm.user_id",
+                AND ",
+                active_sql!("sm"),
+                " ORDER BY gm.user_id"
+            ),
             [space_id.into(), filter.into()],
         ))
         .await?
@@ -183,7 +188,7 @@ pub async fn actor(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<Option<GroupActor>, ApiError> {
-    let Some(rank) = rank_of(&state.db, space_id, user_id).await? else {
+    let Some(rank) = actor_rank(&state.db, space_id, user_id).await? else {
         return Ok(None);
     };
     let rights = space_rights(&state.db, space_id, user_id).await?;

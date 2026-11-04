@@ -28,7 +28,7 @@ use sea_orm::{DatabaseConnection, EntityTrait};
 use uuid::Uuid;
 
 use super::error::FileError;
-use crate::entities::{files, space_members};
+use crate::entities::files;
 use crate::permissions::catalogue::Permission;
 use crate::permissions::check::{self, Resource};
 
@@ -92,8 +92,7 @@ pub async fn ensure_space_member(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<(), FileError> {
-    space_members::Entity::find_by_id((space_id, user_id))
-        .one(db)
+    crate::permissions::membership::active(db, space_id, user_id)
         .await?
         .map(|_| ())
         .ok_or(FileError::Forbidden)

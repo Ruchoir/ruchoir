@@ -23,6 +23,7 @@ use crate::auth::extract::AuthSession;
 use crate::auth::mail_text::Locale;
 use crate::entities::{calendar_shares, calendars, notifications};
 use crate::messaging::dto::NotificationDto;
+use crate::permissions::membership::active_sql;
 use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
 
@@ -253,13 +254,18 @@ pub async fn share_candidates(
         .db
         .query_all_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
-            "SELECT DISTINCT u.id, u.display_name FROM users u \
+            concat!(
+                "SELECT DISTINCT u.id, u.display_name FROM users u \
                JOIN space_members b ON b.user_id = u.id \
                JOIN space_members a ON a.space_id = b.space_id AND a.user_id = $1 \
-              WHERE u.id <> $1 AND u.status = 'active' AND NOT u.is_bot \
-                AND (ruchoir_unaccent(u.display_name) ILIKE '%' || ruchoir_unaccent($2) || '%' \
+              WHERE u.id <> $1 AND u.status = 'active' AND NOT u.is_bot AND ",
+                active_sql!("a"),
+                " AND ",
+                active_sql!("b"),
+                " AND (ruchoir_unaccent(u.display_name) ILIKE '%' || ruchoir_unaccent($2) || '%' \
                      OR u.email ILIKE '%' || $2 || '%') \
-              ORDER BY u.display_name LIMIT 20",
+              ORDER BY u.display_name LIMIT 20"
+            ),
             [session.user_id.into(), escaped.into()],
         ))
         .await?;
@@ -348,6 +354,10 @@ pub async fn hydrate<C: ConnectionTrait>(
                 calendar_name: Some(payload.calendar_name),
                 event_changes: None,
                 event_my_status: None,
+                ends_at: None,
+                days_left: None,
+                guest_title: None,
+                contact_name: None,
                 emoji: None,
             })
         })

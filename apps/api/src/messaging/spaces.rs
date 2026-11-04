@@ -152,6 +152,7 @@ pub async fn create_space(
             edition,
             licence,
             preview: None,
+            expires_at: None,
         }),
     ))
 }
@@ -196,6 +197,7 @@ pub(crate) async fn create_owned_space<C: ConnectionTrait>(
         role: Set("owner".to_owned()),
         invited_by: Set(None),
         joined_at: Set(now),
+        ..Default::default()
     }
     .insert(txn)
     .await?;
@@ -538,6 +540,7 @@ pub async fn resolve_space_slug(
         (status = 200, description = "Every membership this changed", body = Vec<MemberRoleChangedDto>),
         (status = 400, description = "Not a role this instance knows"),
         (status = 402, description = "A guest made a member, and every seat of the space's licence is taken"),
+        (status = 409, description = "The guest's access has ended: reactivate it first"),
         (status = 403, description = "Not allowed to give this role to this member"),
         (status = 404, description = "Not a member of this space")
     )
@@ -553,13 +556,14 @@ pub async fn update_member_role(
         return Err(ApiError::BadRequest("this instance has no such role"));
     }
 
-    let actor = space_members::Entity::find_by_id((space_id, session.user_id))
-        .one(&state.db)
+    // The actor must be in the space now: an ended guest is refused as a stranger would be.
+    let actor = crate::permissions::membership::active(&state.db, space_id, session.user_id)
         .await?
         .ok_or(ApiError::Forbidden)?;
-    let actor_rank = crate::permissions::delegation::rank_of(&state.db, space_id, session.user_id)
-        .await?
-        .ok_or(ApiError::Forbidden)?;
+    let actor_rank =
+        crate::permissions::delegation::actor_rank(&state.db, space_id, session.user_id)
+            .await?
+            .ok_or(ApiError::Forbidden)?;
     // Acting on one's own membership is caught by the rank rule below (nobody ranks below
     // themselves), but it is worth refusing by name: it is the one case a client could reach by
     // accident rather than by trying.
@@ -576,6 +580,7 @@ pub async fn update_member_role(
         return Err(ApiError::Forbidden);
     }
 
+    // management: sees ended guests.
     let target = space_members::Entity::find_by_id((space_id, user_id))
         .one(&state.db)
         .await?
@@ -589,7 +594,13 @@ pub async fn update_member_role(
     if !rights.contains(needed) {
         return Err(ApiError::Forbidden);
     }
-    if target.role == wanted {
+    if body.expires_at.is_some() && wanted != "guest" {
+        return Err(ApiError::BadRequestCode {
+            code: "guest_only",
+            message: "only a guest can have an end date",
+        });
+    }
+    if target.role == wanted && body.expires_at.is_none() {
         // Nothing to write, and nothing to announce. Answering `200` with an empty list keeps the
         // call idempotent instead of making a second press an error.
         return Ok(Json(Vec::new()));
@@ -615,32 +626,116 @@ pub async fn update_member_role(
     if !role_allowed {
         return Err(ApiError::ForbiddenBecause("role_above_you"));
     }
-    // A guest made a member (or an administrator, or an owner) takes a seat they did not hold.
-    if !super::edition_view::takes_a_seat(&target.role)
-        && super::edition_view::takes_a_seat(&wanted)
-    {
-        super::edition_view::ensure_a_seat(&state, space_id).await?;
+    // An ended guest is not in the space: they come back by reactivation, not by a promotion.
+    let role_changes = target.role != wanted;
+    let target_ended = target.role == "guest"
+        && crate::permissions::membership::any(&state.db, space_id, user_id)
+            .await?
+            .is_some_and(|m| m.ended);
+    if role_changes && target_ended {
+        return Err(ApiError::ConflictCode {
+            code: "access_ended",
+            message: "this access has ended: reactivate it before changing its role",
+        });
     }
+
+    // The end that goes with a guest standing, read in the actor's zone and checked before anything
+    // is written: a bad date changes nothing, not even the role.
+    let end_before = target.expires_at;
+    let new_end = match body.expires_at.as_deref() {
+        Some(raw) => {
+            if !role_changes && target_ended {
+                return Err(ApiError::ConflictCode {
+                    code: "access_ended",
+                    message: "this access has ended: reactivate it to give it a new end",
+                });
+            }
+            let zone =
+                crate::permissions::expiry_routes::zone_of(&state.db, session.user_id).await?;
+            Some(crate::permissions::expiry_routes::parse_end(
+                raw,
+                time::OffsetDateTime::now_utc(),
+                &zone,
+            )?)
+        }
+        None => None,
+    };
 
     let txn = state.db.begin().await?;
     let before = target.role.clone();
-    let mut promoted = target.into_active_model();
-    promoted.role = Set(wanted.clone());
-    promoted.update(&txn).await?;
-    crate::audit::record(
-        &txn,
-        space_id,
-        Some(session.user_id),
-        crate::audit::Action::MemberRoleChanged,
-        crate::audit::Target::Member(user_id),
-        serde_json::json!({ "before": before, "after": wanted }),
-    )
-    .await?;
-    let mut changes = vec![MemberRoleChangedDto {
-        space_id,
-        user_id,
-        role: wanted,
-    }];
+    let mut changes = Vec::new();
+    if role_changes {
+        // A guest made a member (or an administrator, or an owner) takes a seat they did not hold:
+        // asked here, under the space's seat lock, so two promotions cannot share the last one.
+        if !super::edition_view::takes_a_seat(&before) && super::edition_view::takes_a_seat(&wanted)
+        {
+            super::edition_view::ensure_a_seat_locked(&txn, &state, space_id).await?;
+        }
+        let mut promoted = target.into_active_model();
+        promoted.role = Set(wanted.clone());
+        promoted.update(&txn).await?;
+        crate::audit::record(
+            &txn,
+            space_id,
+            Some(session.user_id),
+            crate::audit::Action::MemberRoleChanged,
+            crate::audit::Target::Member(user_id),
+            serde_json::json!({ "before": before, "after": wanted }),
+        )
+        .await?;
+        changes.push(MemberRoleChangedDto {
+            space_id,
+            user_id,
+            role: wanted.clone(),
+        });
+        let (standing_before, standing_after) = (standing_of(&before), standing_of(&wanted));
+        // Only the line between guest and member is a standing change worth its own line; a
+        // transfer already has its own.
+        if (standing_before == "guest") != (standing_after == "guest") {
+            crate::audit::record(
+                &txn,
+                space_id,
+                Some(session.user_id),
+                crate::audit::Action::MemberStandingChanged,
+                crate::audit::Target::Member(user_id),
+                // The end that went with the standing and the one that comes with the new one
+                // (a guest made a member loses theirs; a member made a guest gets the given one).
+                serde_json::json!({
+                    "before": standing_before,
+                    "after": standing_after,
+                    "expires_at": {
+                        "before": end_before.map(crate::messaging::dto::rfc3339),
+                        "after": if standing_after == "guest" {
+                            new_end.map(crate::messaging::dto::rfc3339)
+                        } else {
+                            None
+                        },
+                    },
+                }),
+            )
+            .await?;
+        }
+    }
+    if let Some(end) = new_end {
+        // A member made a guest had no end; a guest keeps the one they had until it is replaced.
+        let end_before = if role_changes { None } else { end_before };
+        if !crate::permissions::expiry_routes::write_end(&txn, space_id, user_id, Some(end)).await?
+        {
+            return Err(ApiError::ConflictCode {
+                code: "access_ended",
+                message: "this access has ended: reactivate it to give it a new end",
+            });
+        }
+        crate::permissions::expiry_routes::audit_end(
+            &txn,
+            space_id,
+            session.user_id,
+            user_id,
+            end_before,
+            Some(end),
+        )
+        .await?;
+    }
     if transfer {
         let mut stepping_down = actor.into_active_model();
         stepping_down.role = Set("admin".to_owned());
@@ -688,6 +783,16 @@ pub async fn update_member_role(
     Ok(Json(changes))
 }
 
+/// Where a role stands: `owner`, `guest`, or `member` for an administrator and a member alike (what
+/// the database derives from the role).
+fn standing_of(role: &str) -> &'static str {
+    match role {
+        "owner" => "owner",
+        "guest" => "guest",
+        _ => "member",
+    }
+}
+
 /// `DELETE /api/v1/spaces/{space_id}/membership`: leave a space.
 ///
 /// Only the caller's own membership goes, here and in the channels of that space. What they wrote
@@ -715,12 +820,13 @@ pub async fn leave_space(
     session: AuthSession,
     Path(space_id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
-    let membership = space_members::Entity::find_by_id((space_id, session.user_id))
-        .one(&state.db)
+    // An ended guest is not in the space any more: nothing to leave.
+    let membership = crate::permissions::membership::active(&state.db, space_id, session.user_id)
         .await?
         .ok_or(ApiError::Forbidden)?;
 
     if membership.role == "owner" {
+        // management: sees ended guests (owners never expire).
         let owners = space_members::Entity::find()
             .filter(space_members::Column::SpaceId.eq(space_id))
             .filter(space_members::Column::Role.eq("owner"))
@@ -869,8 +975,7 @@ pub async fn remove_member(
     Path((space_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     // Not in the space: refused as anyone else would be.
-    space_members::Entity::find_by_id((space_id, session.user_id))
-        .one(&state.db)
+    crate::permissions::membership::active(&state.db, space_id, session.user_id)
         .await?
         .ok_or(ApiError::Forbidden)?;
     if user_id == session.user_id {
@@ -884,6 +989,7 @@ pub async fn remove_member(
         crate::permissions::catalogue::Permission::MembersManage,
     )
     .await?;
+    // management: sees ended guests.
     let target = space_members::Entity::find_by_id((space_id, user_id))
         .one(&state.db)
         .await?

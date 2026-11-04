@@ -274,7 +274,8 @@ struct PersonRow {
 
 /// One row per (person, role they hold or their standing implies). An expired guest is no longer
 /// in the space, and is not returned.
-const PEOPLE: &str = "\
+const PEOPLE: &str = concat!(
+    "\
 SELECT m.user_id, m.standing, r.id AS role_id, r.system_key, r.permissions, \
        (SELECT count(*) FROM space_roles s \
          WHERE s.space_id = m.space_id AND s.system_key IS NOT NULL) AS system_roles, \
@@ -288,7 +289,9 @@ SELECT m.user_id, m.standing, r.id AS role_id, r.system_key, r.permissions, \
         OR EXISTS (SELECT 1 FROM space_role_holdings h \
                     WHERE h.role_id = r.id AND h.user_id = m.user_id)) \
  WHERE m.space_id = $1 AND ($2::uuid[] IS NULL OR m.user_id = ANY($2)) \
-   AND (m.expires_at IS NULL OR m.expires_at > now())";
+   AND ",
+    super::membership::active_sql!()
+);
 
 /// The people of a space (or only `user`), keyed by id. Repairs a space whose system roles are
 /// missing, then reads again.

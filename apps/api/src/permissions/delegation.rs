@@ -58,6 +58,22 @@ pub struct RoleRow {
     pub permissions: PermissionSet,
 }
 
+/// The rank of someone who ACTS in `space_id`: `None` when they are not in it, which includes a
+/// guest whose access ended. [`rank_of`] also ranks them, for management screens that act on them.
+pub async fn actor_rank(
+    db: &impl ConnectionTrait,
+    space_id: Uuid,
+    actor: Uuid,
+) -> Result<Option<Rank>, DbErr> {
+    if super::membership::active(db, space_id, actor)
+        .await?
+        .is_none()
+    {
+        return Ok(None);
+    }
+    rank_of(db, space_id, actor).await
+}
+
 /// `user_id`'s rank in `space_id`, or `None` when they are not in it.
 pub async fn rank_of(
     db: &impl ConnectionTrait,
@@ -79,6 +95,7 @@ pub async fn rank_of(
                         CASE WHEN m.standing = 'guest' THEN -1 ELSE 0 END \
                     ) AS position \
                FROM space_members m WHERE m.space_id = $1 AND m.user_id = $2",
+            // management: sees ended guests.
             [space_id.into(), user_id.into()],
         ))
         .await?
@@ -164,7 +181,7 @@ pub async fn ensure_manages_role(
     let role = role(db, space_id, role_id)
         .await?
         .ok_or(ApiError::NotFound)?;
-    let rank = rank_of(db, space_id, actor)
+    let rank = actor_rank(db, space_id, actor)
         .await?
         .ok_or(ApiError::Forbidden)?;
     if !rank.outranks_position(role.position) {
@@ -195,7 +212,7 @@ pub async fn ensure_acts_on(
     actor: Uuid,
     target: Uuid,
 ) -> Result<(), ApiError> {
-    let actor_rank = rank_of(db, space_id, actor)
+    let actor_rank = actor_rank(db, space_id, actor)
         .await?
         .ok_or(ApiError::Forbidden)?;
     let target_rank = rank_of(db, space_id, target)

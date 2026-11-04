@@ -37,6 +37,7 @@ pub const API_VERSION: u32 = 1;
 pub const FEATURES: &[&str] = &[
     "account_preferences",
     "groups",
+    "guest_expiry",
     "native_sessions",
     "notification_read",
     "office_desktop_embed",

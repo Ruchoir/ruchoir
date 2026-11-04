@@ -21,7 +21,8 @@ use uuid::Uuid;
 
 use super::catalogue::{Permission, PermissionSet};
 use super::check::Resource;
-use super::delegation::{rank_of, Rank};
+use super::delegation::{actor_rank, Rank};
+use super::membership::active_sql;
 use crate::auth::extract::AuthSession;
 use crate::messaging::error::ApiError;
 use crate::state::AppState;
@@ -110,24 +111,30 @@ pub async fn roles_of(
     viewer: Uuid,
 ) -> Result<Vec<RoleDto>, ApiError> {
     let rights = super::check::space_rights(db, space_id, viewer).await?;
-    let rank = rank_of(db, space_id, viewer)
+    let rank = actor_rank(db, space_id, viewer)
         .await?
         .ok_or(ApiError::Forbidden)?;
     let manages = rights.contains(Permission::RolesManage);
     let rows = db
         .query_all_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
-            "SELECT r.id, r.system_key, r.name::text AS name, r.colour, r.position, r.permissions, \
+            concat!(
+                "SELECT r.id, r.system_key, r.name::text AS name, r.colour, r.position, r.permissions, \
                     (CASE r.system_key \
                         WHEN 'members' THEN (SELECT count(*) FROM space_members m \
                                               WHERE m.space_id = r.space_id \
-                                                AND m.standing IN ('owner', 'member')) \
+                                                AND m.standing IN ('owner', 'member') AND ",
+                active_sql!(),
+                ") \
                         WHEN 'guests' THEN (SELECT count(*) FROM space_members m \
-                                             WHERE m.space_id = r.space_id AND m.standing = 'guest') \
+                                             WHERE m.space_id = r.space_id AND m.standing = 'guest' AND ",
+                active_sql!(),
+                ") \
                         ELSE (SELECT count(DISTINCT h.user_id) FROM space_role_holdings h WHERE h.role_id = r.id) \
                      END)::bigint AS holders \
                FROM space_roles r WHERE r.space_id = $1 \
-              ORDER BY r.position DESC, r.name",
+              ORDER BY r.position DESC, r.name"
+            ),
             [space_id.into()],
         ))
         .await?;
@@ -245,7 +252,10 @@ impl MemberRoles {
         for row in db
             .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                "SELECT user_id, standing FROM space_members WHERE space_id = $1",
+                concat!(
+                    "SELECT m.user_id, m.standing FROM space_members m WHERE m.space_id = $1 AND ",
+                    active_sql!()
+                ),
                 [space_id.into()],
             ))
             .await?

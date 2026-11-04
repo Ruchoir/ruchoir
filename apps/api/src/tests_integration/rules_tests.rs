@@ -472,7 +472,17 @@ async fn the_rules_migration_round_trips() {
     .await
     .expect("file audit");
 
-    Migrator::down(db, Some(1)).await.expect("down");
+    // Back to just before the rules, whatever was added after them.
+    let after_rules = Migrator::get_applied_migrations(db)
+        .await
+        .expect("applied")
+        .iter()
+        .rev()
+        .take_while(|m| m.name() != "m20261106_000001_space_groups")
+        .count();
+    Migrator::down(db, Some(after_rules as u32))
+        .await
+        .expect("down");
     assert_eq!(count(db, columns, vec![]).await, 0);
     assert_eq!(
         count(

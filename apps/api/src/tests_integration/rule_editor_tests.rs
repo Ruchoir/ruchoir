@@ -89,7 +89,7 @@ impl Edition for Licensed {
 
     async fn seat_check(
         &self,
-        _db: &DatabaseConnection,
+        _db: &sea_orm::DatabaseTransaction,
         _space_id: Uuid,
     ) -> Result<SeatCheck, sea_orm::DbErr> {
         Ok(SeatCheck::Full { seats: 7 })

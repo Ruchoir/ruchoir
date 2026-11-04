@@ -1230,6 +1230,13 @@
               "null"
             ]
           },
+          "guest_expires_at": {
+            "description": "RFC 3339 end of the guest's access, applied when they join. Only with `role: \"guest\"`\n(`guest_only` otherwise); in the past or beyond five years is `bad_expiry`. Omit for no\nend date.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "max_uses": {
             "description": "Maximum acceptances. Defaults to 1 for an addressed invitation, unlimited for a link.",
             "format": "int32",
@@ -1584,6 +1591,40 @@
         },
         "required": [
           "erased"
+        ],
+        "type": "object"
+      },
+      "EndedDto": {
+        "description": "A guest whose access ended and whose row is still kept.",
+        "properties": {
+          "days_left_to_keep": {
+            "description": "Whole days left before the row is removed for good (the access can be reactivated until\nthen).",
+            "format": "int64",
+            "type": "integer"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "ended_at": {
+            "description": "When the access ended (RFC 3339).",
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "user_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "ended_at",
+          "days_left_to_keep"
         ],
         "type": "object"
       },
@@ -1957,6 +1998,19 @@
             },
             "type": [
               "array",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ExpiryRequest": {
+        "description": "The end of a guest's access: a date, an instant, or `null` for no end.",
+        "properties": {
+          "expires_at": {
+            "description": "`YYYY-MM-DD` (the end of that day in the time zone of whoever sets it) or an RFC 3339 instant; `null`\n(or absent) for no end.",
+            "type": [
+              "string",
               "null"
             ]
           }
@@ -2558,6 +2612,13 @@
               "null"
             ]
           },
+          "guest_expires_at": {
+            "description": "RFC 3339 end of access handed to the guest this invitation admits; absent for no end date\nand for every invitation that is not a guest's. Unrelated to the link's own `expires_at`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -3020,6 +3081,13 @@
           "display_name": {
             "type": "string"
           },
+          "expires_at": {
+            "description": "When a guest's access ends (RFC 3339); absent for no end, and for whoever may not see it\n(see `standing`).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "group_ids": {
             "description": "The groups they are in, sorted by group name. Only in the space's member list.",
             "items": {
@@ -3060,6 +3128,13 @@
             },
             "type": [
               "array",
+              "null"
+            ]
+          },
+          "standing": {
+            "description": "`owner`, `member` or `guest`. Only in the space's member list, and only for whoever may\nmanage people there and for the person themself: another guest learns neither this nor\n`expires_at`.",
+            "type": [
+              "string",
               "null"
             ]
           },
@@ -3567,6 +3642,13 @@
               "null"
             ]
           },
+          "contact_name": {
+            "description": "Who the guest should ask to extend their access, for `guest_access_ending`: whoever invited\nthem when that person may still manage them, otherwise one of the managers.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "conversation_id": {
             "description": "The conversation a message notification is about; absent for a reminder.",
             "format": "uuid",
@@ -3578,8 +3660,23 @@
           "created_at": {
             "type": "string"
           },
+          "days_left": {
+            "description": "How many days were left when the notice was written (`7` or `1`), for the same two kinds.",
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "emoji": {
             "description": "The emoji someone reacted with, for a `reaction`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ends_at": {
+            "description": "When a guest's access ends (RFC 3339 in UTC), for `guest_expiry_soon` and\n`guest_access_ending`. The guest is named by `actor_id` and `actor_name` for the first.",
             "type": [
               "string",
               "null"
@@ -3634,12 +3731,19 @@
               "null"
             ]
           },
+          "guest_title": {
+            "description": "The guest's profile title (\"Bureau d'etudes Garnier\"), for `guest_expiry_soon`; absent when\nthe guest has none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "format": "uuid",
             "type": "string"
           },
           "kind": {
-            "description": "`mention`, `broadcast`, `reply`, `dm`, `message`, `reaction`, `edited`, `calendar_reminder`,\nor an invitation kind: `calendar_invitation`, `calendar_update`, `calendar_cancel`,\n`calendar_declined`.",
+            "description": "`mention`, `broadcast`, `reply`, `dm`, `message`, `reaction`, `edited`, `calendar_reminder`,\nor an invitation kind: `calendar_invitation`, `calendar_update`, `calendar_cancel`,\n`calendar_declined`; or a guest notice, `guest_expiry_soon` and `guest_access_ending`, which\nthe feed carries only when asked for with `guest_notices=true`.",
             "type": "string"
           },
           "message_id": {
@@ -5103,6 +5207,13 @@
             "description": "The edition this space runs: `community`, `enterprise` (a valid licence) or `frozen` (its\nlicence expired: what it configured keeps applying, nothing paid can be changed). Always\n`community` on a community build, whatever the database holds.",
             "type": "string"
           },
+          "expires_at": {
+            "description": "When the caller's own access to this space ends (RFC 3339), for a guest given an end date;\nabsent otherwise.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "icon_url": {
             "description": "Same-origin URL of the uploaded icon; absent means the generated mark.",
             "type": [
@@ -5752,6 +5863,13 @@
       "UpdateMemberRoleRequest": {
         "description": "Change what a member is allowed to do in a space.\n\nOne of `owner`, `admin`, `member`, `guest`. Setting `owner` is a transfer rather than a\npromotion: a space has one owner, so the one who hands it over becomes an `admin` in the same\nwrite.",
         "properties": {
+          "expires_at": {
+            "description": "The end of a guest's access, applied with the role change: a date (`YYYY-MM-DD`, read as the\nend of that day in the caller's time zone) or an RFC 3339 instant. Only with `role: \"guest\"`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "role": {
             "type": "string"
           }
@@ -11120,6 +11238,15 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "description": "Also return the guest access notices",
+            "in": "query",
+            "name": "guest_notices",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -11143,6 +11270,17 @@
     "/api/v1/notifications/read": {
       "put": {
         "operationId": "mark_all_read",
+        "parameters": [
+          {
+            "description": "Also mark the guest access notices read",
+            "in": "query",
+            "name": "guest_notices",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "204": {
             "description": "All marked read"
@@ -11166,6 +11304,15 @@
             "schema": {
               "format": "uuid",
               "type": "string"
+            }
+          },
+          {
+            "description": "Count the guest access notices in the announced unread count",
+            "in": "query",
+            "name": "guest_notices",
+            "required": false,
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -12426,7 +12573,7 @@
             }
           },
           {
-            "description": "Only one family: `members`, `roles`, `groups`, `channels`, `calendars`, `licence` or `access`.",
+            "description": "Only one family: `members`, `guests`, `roles`, `groups`, `channels`, `calendars`, `licence` or `access`.",
             "in": "query",
             "name": "category",
             "required": false,
@@ -13798,6 +13945,45 @@
         ]
       }
     },
+    "/api/v1/spaces/{space_id}/members/ended": {
+      "get": {
+        "operationId": "list_ended",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EndedDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Ended accesses, soonest removal first"
+          },
+          "403": {
+            "description": "Not allowed to manage the space's people"
+          }
+        },
+        "summary": "`GET /api/v1/spaces/{space_id}/members/ended`: the guests whose access ended and who are still\nkept (ninety days), the ones that will be removed first at the top.",
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
     "/api/v1/spaces/{space_id}/members/{user_id}": {
       "delete": {
         "description": "The administrator's counterpart of [`leave_space`], and the same rank rule as a role change: you\nmay only act on someone ranked strictly below you. An owner can remove an admin, an admin cannot;\nnobody can remove the owner; and nobody removes themselves through here, which is what\n[`leave_space`] is for and what makes the difference between walking out and being shown the\ndoor legible in the history afterwards.\n\nWhat they wrote stays, exactly as when they leave: a conversation is not one member's to erase,\nand it is not an administrator's to erase on their behalf either. Coming back needs a new\ninvitation.",
@@ -13900,9 +14086,142 @@
           },
           "404": {
             "description": "Not a member of this space"
+          },
+          "409": {
+            "description": "The guest's access has ended: reactivate it first"
           }
         },
         "summary": "`PATCH /api/v1/spaces/{space_id}/members/{user_id}`: change what a member may do in a space.",
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/v1/spaces/{space_id}/members/{user_id}/expiry": {
+      "put": {
+        "operationId": "set_expiry",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The guest",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpiryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberDto"
+                }
+              }
+            },
+            "description": "The guest, with their new end"
+          },
+          "400": {
+            "description": "`bad_expiry`: not a date ahead within five years; `guest_only`: the person is not a guest"
+          },
+          "403": {
+            "description": "Not allowed to manage this person"
+          },
+          "404": {
+            "description": "Not in this space"
+          },
+          "409": {
+            "description": "`access_ended`: the access already ended, reactivate it instead"
+          }
+        },
+        "summary": "`PUT /api/v1/spaces/{space_id}/members/{user_id}/expiry`: set, move or remove a guest's end\ndate.",
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/v1/spaces/{space_id}/members/{user_id}/reactivate": {
+      "post": {
+        "operationId": "reactivate",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The guest whose access ended",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpiryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberDto"
+                }
+              }
+            },
+            "description": "The guest, back in the space"
+          },
+          "400": {
+            "description": "`bad_expiry`: not a date ahead within five years"
+          },
+          "403": {
+            "description": "Not allowed to manage this person"
+          },
+          "404": {
+            "description": "Not in this space"
+          },
+          "409": {
+            "description": "`not_ended`: the person is not a guest whose access ended; `access_ended_for_good`: it ended more than ninety days ago"
+          }
+        },
+        "summary": "`POST /api/v1/spaces/{space_id}/members/{user_id}/reactivate`: bring an ended guest back, with a\nnew end date or none. Their channels, groups and roles were never taken away.",
         "tags": [
           "messaging"
         ]

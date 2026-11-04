@@ -351,6 +351,8 @@ pub fn router(state: AppState) -> Router {
         .merge(crate::permissions::group_routes::router())
         // Who has what on a channel, a file or a calendar: the Access and Share dialogs.
         .merge(crate::permissions::rule_routes::router())
+        // A guest's end date, the ended accesses and their reactivation.
+        .merge(crate::permissions::expiry_routes::router())
         // What the edition adds (nothing for the community build), guarded per request like the
         // rest.
         .merge(state.edition.routes());

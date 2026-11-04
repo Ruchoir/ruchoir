@@ -108,10 +108,10 @@ pub async fn create_invitation(
     // holds `roles.manage` and ranks above it (rule 1). Without this, anyone who may invite could
     // hand out the role above their own, through a second account.
     if role == "admin" {
-        use crate::permissions::delegation::{fixed_role_position, rank_of};
+        use crate::permissions::delegation::{actor_rank, fixed_role_position};
         let rights =
             crate::permissions::check::space_rights(&state.db, space_id, session.user_id).await?;
-        let rank = rank_of(&state.db, space_id, session.user_id)
+        let rank = actor_rank(&state.db, space_id, session.user_id)
             .await?
             .ok_or(ApiError::Forbidden)?;
         let above = fixed_role_position(&state.db, space_id, "admin")
@@ -121,6 +121,13 @@ pub async fn create_invitation(
             return Err(ApiError::ForbiddenBecause("role_above_you"));
         }
     }
+    let guest_expires_at = guest_end(
+        body.guest_expires_at.as_deref(),
+        role,
+        OffsetDateTime::now_utc(),
+    )?;
+    // Only an early hint, so nobody shares a link that cannot work: nothing is taken here, and
+    // acceptance asks again under the seat lock.
     if super::edition_view::takes_a_seat(role) {
         super::edition_view::ensure_a_seat(&state, space_id).await?;
     }
@@ -149,11 +156,34 @@ pub async fn create_invitation(
             max_uses,
             ttl_hours,
             channel_id: None,
+            guest_expires_at,
             inviter: session.user_id,
         },
     )
     .await?;
     Ok((StatusCode::CREATED, Json(created)))
+}
+
+/// The end date an invitation hands its guest, checked: only a guest invitation carries one, it
+/// must lie ahead, and no further than five years (a date beyond is a typo or an
+/// access that is not temporary). It only restricts the access, so it needs no right beyond
+/// inviting.
+fn guest_end(
+    raw: Option<&str>,
+    role: &str,
+    now: OffsetDateTime,
+) -> Result<Option<OffsetDateTime>, ApiError> {
+    let Some(raw) = raw else { return Ok(None) };
+    if role != "guest" {
+        return Err(ApiError::BadRequestCode {
+            code: "guest_only",
+            message: "only a guest invitation can carry an end date",
+        });
+    }
+    let end = OffsetDateTime::parse(raw.trim(), &time::format_description::well_known::Rfc3339)
+        .map_err(|_| crate::permissions::expiry_routes::bad_expiry())?;
+    crate::permissions::expiry_routes::ensure_in_range(end, now)?;
+    Ok(Some(end))
 }
 
 /// `POST /api/v1/channels/{channel_id}/invitations`: bring someone from outside into one group.
@@ -207,6 +237,7 @@ pub async fn invite_to_channel(
             max_uses: Some(1),
             ttl_hours: DEFAULT_TTL_HOURS,
             channel_id: Some(channel_id),
+            guest_expires_at: None,
             inviter: session.user_id,
         },
     )
@@ -222,6 +253,7 @@ struct Issue {
     max_uses: Option<i32>,
     ttl_hours: i64,
     channel_id: Option<Uuid>,
+    guest_expires_at: Option<OffsetDateTime>,
     inviter: Uuid,
 }
 
@@ -242,6 +274,7 @@ async fn issue(state: &AppState, issue: Issue) -> Result<CreatedInvitationDto, A
         revoked_at: Set(None),
         created_at: Set(now),
         channel_id: Set(issue.channel_id),
+        guest_expires_at: Set(issue.guest_expires_at),
     }
     .insert(&state.db)
     .await?;
@@ -443,9 +476,15 @@ pub async fn accept_invitation(
         }
     }
 
-    let existing = space_members::Entity::find_by_id((record.space_id, session.user_id))
-        .one(&state.db)
-        .await?;
+    // A guest whose access ended is not "already a member", and a link does not bring them back:
+    // reactivation by a manager is the only way. Answered like an unknown link, nothing written.
+    let existing =
+        match crate::permissions::membership::any(&state.db, record.space_id, session.user_id)
+            .await?
+        {
+            Some(row) if row.ended => return Err(ApiError::NotFound),
+            other => other.map(|row| row.model),
+        };
     let already_member = existing.is_some();
     // The arrival notice written into the channel, when there was a real arrival and the space has a
     // public channel to write it in. Published after the commit, like every other message.
@@ -470,18 +509,25 @@ pub async fn accept_invitation(
             member.role
         }
         None => {
-            // Issued while there was room is not enough: the seat is taken now.
-            if super::edition_view::takes_a_seat(&record.role) {
-                super::edition_view::ensure_a_seat(&state, record.space_id).await?;
-            }
             let now = OffsetDateTime::now_utc();
+            // The end handed to the guest may have passed since the link was checked: then it is
+            // as unusable as any other, and nothing is written.
+            if record.guest_expires_at.is_some_and(|end| end <= now) {
+                return Err(ApiError::NotFound);
+            }
             let txn = state.db.begin().await?;
+            // Issued while there was room is not enough: the seat is taken now, under the lock.
+            if super::edition_view::takes_a_seat(&record.role) {
+                super::edition_view::ensure_a_seat_locked(&txn, &state, record.space_id).await?;
+            }
             space_members::ActiveModel {
                 space_id: Set(record.space_id),
                 user_id: Set(session.user_id),
                 role: Set(record.role.clone()),
                 invited_by: Set(record.created_by),
                 joined_at: Set(now),
+                expires_at: Set(record.guest_expires_at),
+                ..Default::default()
             }
             .insert(&txn)
             .await?;
@@ -495,7 +541,11 @@ pub async fn accept_invitation(
                 Some(session.user_id),
                 crate::audit::Action::MemberJoined,
                 crate::audit::Target::Member(session.user_id),
-                serde_json::json!({ "role": record.role, "invited_by": record.created_by }),
+                serde_json::json!({
+                    "role": record.role,
+                    "invited_by": record.created_by,
+                    "guest_expires_at": record.guest_expires_at.map(rfc3339),
+                }),
             )
             .await?;
 
@@ -545,10 +595,7 @@ pub async fn accept_invitation(
         .one(&state.db)
         .await?
         .ok_or(ApiError::NotFound)?;
-    let members = space_members::Entity::find()
-        .filter(space_members::Column::SpaceId.eq(space.id))
-        .count(&state.db)
-        .await? as i64;
+    let members = crate::permissions::membership::count_active(&state.db, space.id).await?;
 
     // Tell the space someone arrived, so the member list, the mention candidates and the
     // direct-message candidates gain them without a reload. Only on a real arrival: an existing
@@ -574,6 +621,8 @@ pub async fn accept_invitation(
                 group_ids: None,
                 manageable: None,
                 joined_at: None,
+                standing: None,
+                expires_at: None,
             },
         };
         state
@@ -641,6 +690,10 @@ pub async fn accept_invitation(
         edition,
         licence,
         preview: None,
+        expires_at: crate::permissions::membership::active(&state.db, space.id, session.user_id)
+            .await?
+            .and_then(|m| m.expires_at)
+            .map(rfc3339),
     }))
 }
 
@@ -671,10 +724,7 @@ pub(crate) async fn invitation_card(
     else {
         return Ok(None);
     };
-    let members = space_members::Entity::find()
-        .filter(space_members::Column::SpaceId.eq(space.id))
-        .count(&state.db)
-        .await?;
+    let members = crate::permissions::membership::count_active(&state.db, space.id).await? as u64;
     let channels = channels::Entity::find()
         .filter(channels::Column::SpaceId.eq(space.id))
         .filter(channels::Column::ChannelType.eq("public"))
@@ -715,9 +765,10 @@ async fn usable_invitation(
 }
 
 /// Whether an invitation would be accepted at `now`: not revoked, not expired, uses left.
-fn is_usable(record: &space_invitations::Model, now: OffsetDateTime) -> bool {
+pub(crate) fn is_usable(record: &space_invitations::Model, now: OffsetDateTime) -> bool {
     record.revoked_at.is_none()
         && record.expires_at.is_none_or(|expiry| expiry > now)
+        && record.guest_expires_at.is_none_or(|end| end > now)
         && record.max_uses.is_none_or(|max| record.uses < max)
 }
 
@@ -836,6 +887,7 @@ fn to_dto(
         uses: record.uses,
         max_uses: record.max_uses,
         expires_at: record.expires_at.map(rfc3339),
+        guest_expires_at: record.guest_expires_at.map(rfc3339),
         created_at: rfc3339(record.created_at),
         usable: is_usable(record, now),
         status: status_of(record, now).to_owned(),
@@ -853,9 +905,72 @@ fn status_of(record: &space_invitations::Model, now: OffsetDateTime) -> &'static
         "accepted"
     } else if record.revoked_at.is_some() {
         "revoked"
-    } else if record.expires_at.is_some_and(|expiry| expiry <= now) {
+    } else if record.expires_at.is_some_and(|expiry| expiry <= now)
+        || record.guest_expires_at.is_some_and(|end| end <= now)
+    {
         "expired"
     } else {
         "active"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::macros::datetime;
+
+    fn record() -> space_invitations::Model {
+        let now = datetime!(2026-11-04 12:00 UTC);
+        space_invitations::Model {
+            id: Uuid::nil(),
+            space_id: Uuid::nil(),
+            token_hash: String::new(),
+            email: None,
+            role: "guest".to_owned(),
+            created_by: None,
+            max_uses: None,
+            uses: 0,
+            expires_at: Some(now + Duration::days(7)),
+            revoked_at: None,
+            created_at: now,
+            channel_id: None,
+            guest_expires_at: None,
+        }
+    }
+
+    #[test]
+    fn an_end_equal_to_now_is_refused_and_unusable() {
+        let now = datetime!(2026-11-04 12:00 UTC);
+        assert!(guest_end(Some("2026-11-04T12:00:00Z"), "guest", now).is_err());
+        assert!(guest_end(Some("2026-11-04T12:00:01Z"), "guest", now).is_ok());
+        let mut r = record();
+        r.guest_expires_at = Some(now);
+        assert!(!is_usable(&r, now));
+        assert_eq!(status_of(&r, now), "expired");
+        r.guest_expires_at = Some(now + Duration::seconds(1));
+        assert!(is_usable(&r, now));
+        assert_eq!(status_of(&r, now), "active");
+    }
+
+    #[test]
+    fn the_cap_is_five_calendar_years() {
+        let now = datetime!(2026-11-04 12:00 UTC);
+        assert!(guest_end(Some("2031-11-04T12:00:00Z"), "guest", now).is_ok());
+        assert!(guest_end(Some("2031-11-04T12:00:01Z"), "guest", now).is_err());
+        // From a leap day the same year has no such date: the fallback still bounds it.
+        let leap = datetime!(2028-02-29 12:00 UTC);
+        assert!(guest_end(Some("2033-02-28T12:00:00Z"), "guest", leap).is_ok());
+        assert!(guest_end(Some("2033-03-05T12:00:00Z"), "guest", leap).is_err());
+    }
+
+    #[test]
+    fn an_offset_input_is_compared_as_the_instant_it_names() {
+        let now = datetime!(2026-11-04 12:00 UTC);
+        // 13:30 at +02:00 is 11:30 UTC: already past.
+        assert!(guest_end(Some("2026-11-04T13:30:00+02:00"), "guest", now).is_err());
+        let end = guest_end(Some("2026-11-04T15:00:00+02:00"), "guest", now)
+            .expect("13:00 UTC is ahead")
+            .expect("a date");
+        assert_eq!(end, datetime!(2026-11-04 13:00 UTC));
     }
 }

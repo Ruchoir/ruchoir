@@ -22,7 +22,7 @@ use uuid::Uuid;
 use crate::auth::extract::AuthSession;
 use crate::entities::{
     channel_members, channels, conversations, dm_conversations, dm_participants, messages,
-    read_cursors, space_members, spaces, users,
+    read_cursors, spaces, users,
 };
 use crate::state::AppState;
 
@@ -48,10 +48,8 @@ pub async fn list_my_spaces(
     State(state): State<AppState>,
     session: AuthSession,
 ) -> Result<Json<Vec<SpaceDto>>, ApiError> {
-    let memberships = space_members::Entity::find()
-        .filter(space_members::Column::UserId.eq(session.user_id))
-        .all(&state.db)
-        .await?;
+    let memberships =
+        crate::permissions::membership::active_of_user(&state.db, session.user_id).await?;
 
     // Both counters come from one grouped statement each, not from the per-conversation helper: the
     // sidebar can afford two queries per conversation for the one space on screen, the rail cannot
@@ -69,10 +67,7 @@ pub async fn list_my_spaces(
         else {
             continue;
         };
-        let members = space_members::Entity::find()
-            .filter(space_members::Column::SpaceId.eq(space.id))
-            .count(&state.db)
-            .await? as i64;
+        let members = crate::permissions::membership::count_active(&state.db, space.id).await?;
         let (edition, licence) = super::edition_view::describe(
             &state.db,
             state.edition.as_ref(),
@@ -111,6 +106,7 @@ pub async fn list_my_spaces(
             edition,
             licence,
             preview,
+            expires_at: membership.expires_at.map(super::dto::rfc3339),
         });
     }
     out.sort_by_key(|space| space.name.to_lowercase());
@@ -222,6 +218,9 @@ pub async fn list_channels(
         crate::permissions::check::effective_many(&state.db, space_id, session.user_id, &ids)
             .await?;
 
+    let counts =
+        crate::permissions::membership::channel_member_counts(&state.db, space_id, ids.clone())
+            .await?;
     let mut out = Vec::new();
     for channel in all {
         // Private channels are visible only to their members and to the space's owner; public and
@@ -237,7 +236,7 @@ pub async fn list_channels(
             .await?;
         let favorite = membership.as_ref().map(|m| m.favorite).unwrap_or(false);
         let unread = unread_count(&state.db, channel.id, session.user_id).await?;
-        let member_count = channel_member_count(&state.db, channel.id).await?;
+        let member_count = counts.get(&channel.id).copied().unwrap_or(0);
         let last_message = preview(&state.db, channel.id, session.user_id, true).await?;
         let allowed_roles = super::authz::channel_allowed_roles(&state.db, channel.id)
             .await?
@@ -286,11 +285,8 @@ pub async fn list_members(
     // Everyone, or for a guest only the people they share a conversation with: restricting what
     // someone reads while handing them the directory would defeat the point of the role.
     let visible = super::authz::visible_member_ids(&state.db, space_id, session.user_id).await?;
-    let memberships = space_members::Entity::find()
-        .filter(space_members::Column::SpaceId.eq(space_id))
-        .filter(space_members::Column::UserId.is_in(visible))
-        .all(&state.db)
-        .await?;
+    let memberships =
+        crate::permissions::membership::active_among(&state.db, space_id, visible).await?;
     let ids: Vec<Uuid> = memberships.iter().map(|m| m.user_id).collect();
     let by_id: HashMap<Uuid, users::Model> = users::Entity::find()
         .filter(users::Column::Id.is_in(ids))
@@ -303,9 +299,15 @@ pub async fn list_members(
     // Who holds which role, and whom the caller may manage: the whole space in a few queries.
     let roles =
         crate::permissions::roles::MemberRoles::load(&state.db, space_id, session.user_id).await?;
+    let manages_people =
+        crate::permissions::check::space_rights(&state.db, space_id, session.user_id)
+            .await?
+            .contains(crate::permissions::catalogue::Permission::MembersManage);
+    let sees_standing = |person: Uuid| manages_people || person == session.user_id;
     let mut out = Vec::with_capacity(memberships.len());
     for membership in memberships {
         if let Some(user) = by_id.get(&membership.user_id) {
+            let shown = sees_standing(user.id);
             out.push(MemberDto {
                 user_id: user.id,
                 display_name: user.display_name.clone(),
@@ -320,6 +322,12 @@ pub async fn list_members(
                 group_ids: Some(roles.group_ids(user.id)),
                 manageable: Some(roles.manageable(user.id)),
                 joined_at: Some(super::dto::rfc3339(membership.joined_at)),
+                // A guest's standing and end are for the people who manage them and for the
+                // guest; another guest, or a member who manages nobody, is not told.
+                standing: shown.then(|| membership.standing.clone()),
+                expires_at: shown
+                    .then(|| membership.expires_at.map(super::dto::rfc3339))
+                    .flatten(),
             });
         }
     }
@@ -469,10 +477,11 @@ pub(super) async fn channel_member_count(
     db: &DatabaseConnection,
     channel_id: Uuid,
 ) -> Result<u64, ApiError> {
-    Ok(channel_members::Entity::find()
-        .filter(channel_members::Column::ChannelId.eq(channel_id))
-        .count(db)
-        .await?)
+    Ok(
+        crate::permissions::membership::channel_members_active(db, channel_id)
+            .await?
+            .len() as u64,
+    )
 }
 
 /// `POST /api/v1/spaces/{space_id}/dm`: open (or fetch) a direct message with a set of users.

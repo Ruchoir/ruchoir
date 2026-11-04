@@ -36,8 +36,9 @@ use super::recurrence::RecurrenceId;
 use crate::auth::extract::AuthSession;
 use crate::entities::{
     calendar_attendee_overrides as overrides, calendar_event_attendees as attendees,
-    calendar_events, calendars, space_members, users,
+    calendar_events, calendars, users,
 };
+use crate::permissions::membership;
 use crate::state::AppState;
 
 /// The most attendees one event may have.
@@ -112,17 +113,6 @@ pub struct ResponseInput {
 
 // --- Who may be invited ---------------------------------------------------------------------------
 
-/// The spaces someone belongs to, whatever their role.
-async fn spaces_of<C: ConnectionTrait>(db: &C, user: Uuid) -> Result<Vec<Uuid>, CalendarError> {
-    Ok(space_members::Entity::find()
-        .filter(space_members::Column::UserId.eq(user))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|m| m.space_id)
-        .collect())
-}
-
 /// The members of a space who see one of its calendars (`calendar.view`).
 async fn see_the_calendar<C: ConnectionTrait>(
     db: &C,
@@ -163,14 +153,12 @@ pub async fn invitable<C: ConnectionTrait>(
         }
         None => {
             let owner = calendar.owner_user_id.unwrap_or(organizer);
-            space_members::Entity::find()
-                .filter(space_members::Column::UserId.is_in(candidates.iter().copied()))
-                .filter(space_members::Column::SpaceId.is_in(spaces_of(db, owner).await?))
-                .all(db)
-                .await?
-                .into_iter()
-                .map(|m| m.user_id)
-                .collect()
+            membership::active_users_in(
+                db,
+                membership::spaces_of(db, owner).await?,
+                Some(candidates.to_vec()),
+            )
+            .await?
         }
     };
     Ok(members.into_iter().filter(|u| *u != organizer).collect())
@@ -211,13 +199,12 @@ pub async fn search_invitees(
             .collect(),
         None => {
             let owner = calendar.owner_user_id.unwrap_or(session.user_id);
-            space_members::Entity::find()
-                .filter(space_members::Column::SpaceId.is_in(spaces_of(&state.db, owner).await?))
-                .all(&state.db)
-                .await?
-                .into_iter()
-                .map(|m| m.user_id)
-                .collect()
+            membership::active_users_in(
+                &state.db,
+                membership::spaces_of(&state.db, owner).await?,
+                None,
+            )
+            .await?
         }
     };
     let mut ids: HashSet<Uuid> = pool.into_iter().filter(|u| *u != session.user_id).collect();
@@ -715,7 +702,7 @@ pub async fn invited_events<C: ConnectionTrait>(
         .filter(|e| !seen.contains(&e.calendar_id))
         .collect();
     let calendar_ids: HashSet<Uuid> = events.iter().map(|e| e.calendar_id).collect();
-    let mine = spaces_of(db, user).await?;
+    let mine = membership::spaces_of(db, user).await?;
     let mut granted: HashMap<Uuid, CalendarAccess> = HashMap::new();
     for calendar in calendars::Entity::find()
         .filter(calendars::Column::Id.is_in(calendar_ids))
@@ -725,7 +712,7 @@ pub async fn invited_events<C: ConnectionTrait>(
         let Some(owner) = calendar.owner_user_id.filter(|o| *o != user) else {
             continue;
         };
-        let theirs = spaces_of(db, owner).await?;
+        let theirs = membership::spaces_of(db, owner).await?;
         if mine.iter().any(|s| theirs.contains(s)) {
             granted.insert(calendar.id, CalendarAccess::read_only(calendar));
         }

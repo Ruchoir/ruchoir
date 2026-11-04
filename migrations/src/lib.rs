@@ -53,6 +53,7 @@ mod m20261104_000002_space_licences;
 mod m20261105_000001_space_audit_log;
 mod m20261106_000001_space_groups;
 mod m20261107_000001_resource_rules;
+mod m20261108_000001_guest_expiry;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -108,6 +109,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261105_000001_space_audit_log::Migration),
             Box::new(m20261106_000001_space_groups::Migration),
             Box::new(m20261107_000001_resource_rules::Migration),
+            Box::new(m20261108_000001_guest_expiry::Migration),
         ]
     }
 }

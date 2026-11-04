@@ -15,7 +15,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
-use crate::entities::{conversations, files, space_members};
+use crate::entities::{conversations, files};
 use crate::messaging::error::ApiError;
 use crate::permissions::catalogue::{Permission, PermissionSet};
 use crate::permissions::check::{self, Resource};
@@ -184,8 +184,7 @@ pub async fn create_share(
     // Exactly one target: user XOR channel.
     let pick = match (body.target_user_id, body.target_channel_id) {
         (Some(user_id), None) => {
-            if space_members::Entity::find_by_id((space_id, user_id))
-                .one(&state.db)
+            if crate::permissions::membership::active(&state.db, space_id, user_id)
                 .await?
                 .is_none()
             {

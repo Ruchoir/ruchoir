@@ -290,6 +290,8 @@ async fn start(
     files::trash::spawn(state.clone());
     // Calendar reminders, every minute.
     calendar::reminders::spawn(state.clone());
+    // Guests' end dates: reminders, closing the access at the date, removing it after 90 days.
+    permissions::guest_expiry::spawn(state.clone());
     // Who is editing what: a tab that died without a goodbye leaves the file lists by itself.
     if state.office.is_some() {
         office::presence::spawn_sweep(state.clone());

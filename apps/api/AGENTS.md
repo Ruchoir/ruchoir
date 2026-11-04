@@ -269,7 +269,14 @@ context and takes precedence here.
   someone else to `owner` and becomes an `admin` in the same transaction, so a space always has
   exactly one owner. Invitations cannot grant `owner` either (the schema constrains them to
   `admin`/`member`/`guest`), which is what makes that invariant hold and what lets `leave_space`
-  treat "the last owner" as a fact rather than a question. A public channel is joinable by any
+  treat "the last owner" as a fact rather than a question.
+  **A guest's end date** lives in `permissions/expiry_routes.rs`: `PUT .../members/{id}/expiry`,
+  `GET .../members/ended`, `POST .../members/{id}/reactivate`, and `expires_at` on the role `PATCH`.
+  All need `members.manage` and rule 3; a member has no date (`400 guest_only`); a bare date means
+  the END of that day (23:59:59) in the actor's `users.timezone`, an RFC 3339 instant is kept as it
+  is. Every write goes through `write_end` (which restarts the reminders in the same transaction),
+  is audited with `before` and `after`, and announced after the commit. An ended access is only
+  reactivated, never edited (`409 access_ended` / `409 not_ended`). A public channel is joinable by any
   space member; a private one is joined by invitation only, so the join endpoint refuses it. `search` is
   native-Postgres full-text over messages and file names (a generated `tsvector` with a French
   accent-folding config, plus `pg_trgm` trigram indexes for partial/fuzzy matches), scoped by

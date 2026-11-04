@@ -26,6 +26,16 @@ pub enum Action {
     MemberRemoved,
     /// A person's fixed role changed (`owner`, `admin`, `member`, `guest`).
     MemberRoleChanged,
+    /// A guest's end date passed: they are no longer in the space (done by the sweep, no actor).
+    MemberExpired,
+    /// An ended guest's row was removed after ninety days (done by the sweep, no actor).
+    MemberPurged,
+    /// A guest's end date was set, moved or removed (`before`, `after`; `null` for no end).
+    MemberExpirySet,
+    /// An ended guest got their access back (`before`, `after`: the end that had passed, the new one).
+    MemberReactivated,
+    /// Someone became a guest, or stopped being one (`before`, `after`: `guest`, `member`, `owner`).
+    MemberStandingChanged,
     /// The space was handed over to another owner.
     OwnershipTransferred,
     /// A person's roles changed (custom roles, Administrator).
@@ -62,11 +72,16 @@ pub enum Action {
 
 impl Action {
     /// Every action, for the read filter and its tests.
-    pub const ALL: [Action; 25] = [
+    pub const ALL: [Action; 30] = [
         Action::MemberJoined,
         Action::MemberLeft,
         Action::MemberRemoved,
         Action::MemberRoleChanged,
+        Action::MemberExpired,
+        Action::MemberPurged,
+        Action::MemberExpirySet,
+        Action::MemberReactivated,
+        Action::MemberStandingChanged,
         Action::OwnershipTransferred,
         Action::MemberRolesChanged,
         Action::RoleCreated,
@@ -96,6 +111,11 @@ impl Action {
             Action::MemberLeft => "member.left",
             Action::MemberRemoved => "member.removed",
             Action::MemberRoleChanged => "member.role_changed",
+            Action::MemberExpired => "member.expired",
+            Action::MemberPurged => "member.purged",
+            Action::MemberExpirySet => "member.expiry_set",
+            Action::MemberReactivated => "member.reactivated",
+            Action::MemberStandingChanged => "member.standing_changed",
             Action::OwnershipTransferred => "space.ownership_transferred",
             Action::MemberRolesChanged => "member.roles_changed",
             Action::RoleCreated => "role.created",
@@ -120,7 +140,7 @@ impl Action {
         }
     }
 
-    /// The family the screen filters by: `members`, `roles`, `groups`, `channels`, `calendars`, `licence`, `access`.
+    /// The family the screen filters by: `members`, `guests`, `roles`, `groups`, `channels`, `calendars`, `licence`, `access`.
     pub fn category(self) -> &'static str {
         match self {
             Action::MemberJoined
@@ -129,6 +149,11 @@ impl Action {
             | Action::MemberRoleChanged
             | Action::OwnershipTransferred
             | Action::MemberRolesChanged => "members",
+            Action::MemberExpired
+            | Action::MemberPurged
+            | Action::MemberExpirySet
+            | Action::MemberReactivated
+            | Action::MemberStandingChanged => "guests",
             Action::RoleCreated
             | Action::RoleUpdated
             | Action::RoleDeleted

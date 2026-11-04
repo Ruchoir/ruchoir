@@ -26,8 +26,9 @@ use crate::state::AppState;
 
 const DEFAULT_LIMIT: u32 = 50;
 const MAX_LIMIT: u32 = 100;
-const CATEGORIES: [&str; 7] = [
+const CATEGORIES: [&str; 8] = [
     "members",
+    "guests",
     "roles",
     "groups",
     "channels",
@@ -45,7 +46,7 @@ pub fn router() -> Router<AppState> {
 pub struct AuditQuery {
     /// Only what this person did.
     actor: Option<Uuid>,
-    /// Only one family: `members`, `roles`, `groups`, `channels`, `calendars`, `licence` or `access`.
+    /// Only one family: `members`, `guests`, `roles`, `groups`, `channels`, `calendars`, `licence` or `access`.
     category: Option<String>,
     /// Only what happened at or after this instant (RFC 3339).
     since: Option<String>,

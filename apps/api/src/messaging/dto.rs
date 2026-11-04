@@ -180,6 +180,10 @@ pub struct SpaceDto {
     /// set the space is read only, `my_permissions` and every list are those of that role, and the
     /// realtime transports are closed to the session.
     pub preview: Option<crate::permissions::preview::PreviewDto>,
+    /// When the caller's own access to this space ends (RFC 3339), for a guest given an end date;
+    /// absent otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
 }
 
 /// What an owner reads of the space's licence.
@@ -423,6 +427,15 @@ pub struct MemberDto {
     /// space's member list.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub joined_at: Option<String>,
+    /// `owner`, `member` or `guest`. Only in the space's member list, and only for whoever may
+    /// manage people there and for the person themself: another guest learns neither this nor
+    /// `expires_at`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub standing: Option<String>,
+    /// When a guest's access ends (RFC 3339); absent for no end, and for whoever may not see it
+    /// (see `standing`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
 }
 
 /// A space's shared identity after it changed, pushed in real time.
@@ -485,6 +498,10 @@ pub struct MemberLeftDto {
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct UpdateMemberRoleRequest {
     pub role: String,
+    /// The end of a guest's access, applied with the role change: a date (`YYYY-MM-DD`, read as the
+    /// end of that day in the caller's time zone) or an RFC 3339 instant. Only with `role: "guest"`.
+    #[serde(default)]
+    pub expires_at: Option<String>,
 }
 
 /// A channel membership's role after a change.
@@ -554,7 +571,8 @@ pub struct NotificationDto {
     pub id: Uuid,
     /// `mention`, `broadcast`, `reply`, `dm`, `message`, `reaction`, `edited`, `calendar_reminder`,
     /// or an invitation kind: `calendar_invitation`, `calendar_update`, `calendar_cancel`,
-    /// `calendar_declined`.
+    /// `calendar_declined`; or a guest notice, `guest_expiry_soon` and `guest_access_ending`, which
+    /// the feed carries only when asked for with `guest_notices=true`.
     pub kind: String,
     /// The conversation a message notification is about; absent for a reminder.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -613,6 +631,21 @@ pub struct NotificationDto {
     /// The emoji someone reacted with, for a `reaction`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub emoji: Option<String>,
+    /// When a guest's access ends (RFC 3339 in UTC), for `guest_expiry_soon` and
+    /// `guest_access_ending`. The guest is named by `actor_id` and `actor_name` for the first.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ends_at: Option<String>,
+    /// How many days were left when the notice was written (`7` or `1`), for the same two kinds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub days_left: Option<i32>,
+    /// The guest's profile title ("Bureau d'etudes Garnier"), for `guest_expiry_soon`; absent when
+    /// the guest has none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guest_title: Option<String>,
+    /// Who the guest should ask to extend their access, for `guest_access_ending`: whoever invited
+    /// them when that person may still manage them, otherwise one of the managers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contact_name: Option<String>,
 }
 
 /// A page of notifications, newest first, with the caller's total unread count.
@@ -792,6 +825,10 @@ pub struct InvitationDto {
     /// RFC 3339 expiry, when it expires.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<String>,
+    /// RFC 3339 end of access handed to the guest this invitation admits; absent for no end date
+    /// and for every invitation that is not a guest's. Unrelated to the link's own `expires_at`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guest_expires_at: Option<String>,
     pub created_at: String,
     /// Whether it would be accepted right now: not revoked, not expired, uses left.
     pub usable: bool,
@@ -856,6 +893,11 @@ pub struct CreateInvitationRequest {
     /// Maximum acceptances. Defaults to 1 for an addressed invitation, unlimited for a link.
     #[serde(default)]
     pub max_uses: Option<i32>,
+    /// RFC 3339 end of the guest's access, applied when they join. Only with `role: "guest"`
+    /// (`guest_only` otherwise); in the past or beyond five years is `bad_expiry`. Omit for no
+    /// end date.
+    #[serde(default)]
+    pub guest_expires_at: Option<String>,
 }
 
 /// A new channel to create in a space.

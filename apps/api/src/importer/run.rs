@@ -631,6 +631,7 @@ async fn create_space<C: ConnectionTrait>(db: &C, name: &str, owner: Uuid) -> Re
         role: Set("owner".to_owned()),
         invited_by: Set(None),
         joined_at: Set(now),
+        ..Default::default()
     }
     .insert(db)
     .await?;
@@ -782,6 +783,7 @@ pub async fn import_conversations<C: ConnectionTrait>(
         for (source_id, user_id) in &members {
             // Being in a conversation means being in its space: an import that forgets this leaves
             // people in rooms of a workspace they are not part of.
+            // management: sees ended guests (a row there already blocks the insert below).
             if space_members::Entity::find_by_id((space_id, *user_id))
                 .one(db)
                 .await?
@@ -793,6 +795,7 @@ pub async fn import_conversations<C: ConnectionTrait>(
                     role: Set("member".to_owned()),
                     invited_by: Set(None),
                     joined_at: Set(now),
+                    ..Default::default()
                 }
                 .insert(db)
                 .await?;
