@@ -15,6 +15,7 @@ import { Text } from "./Text";
 export function BackHeader({
   title,
   subtitle,
+  subtitleLines = 1,
   leading,
   trailing,
   onPressTitle,
@@ -22,6 +23,8 @@ export function BackHeader({
 }: {
   title: string;
   subtitle?: string;
+  /** How many lines the subtitle may take before it is cut (one, unless the line is a sentence). */
+  subtitleLines?: number;
   leading?: ReactNode;
   trailing?: ReactNode;
   onPressTitle?: () => void;
@@ -49,7 +52,7 @@ export function BackHeader({
             {title}
           </Text>
           {subtitle ? (
-            <Text variant="tiny" tone="muted" numberOfLines={1}>
+            <Text variant="tiny" tone="muted" numberOfLines={subtitleLines}>
               {subtitle}
             </Text>
           ) : null}

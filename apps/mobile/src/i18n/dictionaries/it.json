@@ -1036,7 +1036,8 @@
     "photoFailed": "Foto non salvata",
     "saved": "Profilo salvato",
     "saveFailed": "Impossibile salvare il profilo. Riprovate.",
-    "tabManage": "Gestione"
+    "tabManage": "Gestione",
+    "tabProfile": "Profilo"
   },
   "security": {
     "changePassword": "Cambia la password",
@@ -1620,6 +1621,8 @@
     "deleted": "Gruppo eliminato",
     "carries": "porta {{roles}}",
     "personRemoved": "Persona rimossa dal gruppo",
+    "leaveNamed": "Togli {{name}} dal gruppo {{group}}",
+    "addToGroup": "Aggiungi a un gruppo",
     "membersReceive": "I suoi membri ricevono",
     "peopleHead": "Persone · {{count}}",
     "managersHead": "Responsabili",

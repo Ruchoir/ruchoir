@@ -987,7 +987,8 @@
     "photoFailed": "Photo not saved",
     "saved": "Profile saved",
     "saveFailed": "The profile could not be saved. Try again.",
-    "tabManage": "Manage"
+    "tabManage": "Manage",
+    "tabProfile": "Profile"
   },
   "security": {
     "changePassword": "Change the password",
@@ -1549,6 +1550,8 @@
     "deleted": "Group deleted",
     "carries": "carries {{roles}}",
     "personRemoved": "Person removed from the group",
+    "leaveNamed": "Take {{name}} out of the group {{group}}",
+    "addToGroup": "Add to a group",
     "membersReceive": "Its members receive",
     "peopleHead": "People · {{count}}",
     "managersHead": "Managers",

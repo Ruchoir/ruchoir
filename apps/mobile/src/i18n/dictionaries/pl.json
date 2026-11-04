@@ -1085,7 +1085,8 @@
     "photoFailed": "Zdjęcie nie zostało zapisane",
     "saved": "Profil zapisany",
     "saveFailed": "Nie udało się zapisać profilu. Spróbuj ponownie.",
-    "tabManage": "Zarządzanie"
+    "tabManage": "Zarządzanie",
+    "tabProfile": "Profil"
   },
   "security": {
     "changePassword": "Zmień hasło",
@@ -1691,6 +1692,8 @@
     "deleted": "Grupa usunięta",
     "carries": "ma rolę {{roles}}",
     "personRemoved": "Osoba usunięta z grupy",
+    "leaveNamed": "Usuń osobę {{name}} z grupy {{group}}",
+    "addToGroup": "Dodaj do grupy",
     "membersReceive": "Jej członkowie otrzymują",
     "peopleHead": "Osoby · {{count}}",
     "managersHead": "Opiekunowie",

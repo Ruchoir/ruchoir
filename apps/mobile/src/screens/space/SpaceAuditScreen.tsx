@@ -252,7 +252,7 @@ function Journal({ spaceId, spaceName, community }: { spaceId: string; spaceName
 
   return (
     <>
-      <BackHeader title={t("spaceSections.audit")} subtitle={t("audit.sub")} />
+      <BackHeader title={t("spaceSections.audit")} subtitle={t("audit.sub")} subtitleLines={3} />
       <Chips chips={chips} value={category} onChange={(next) => {
           // The other category starts clean: a failure of the last one is not its own.
           setFailed(false);
@@ -270,7 +270,7 @@ function Journal({ spaceId, spaceName, community }: { spaceId: string; spaceName
           ListHeaderComponent={
             <>
               {community ? (
-                <View style={[styles.note, { backgroundColor: s.selected, borderColor: c.lineStrong }]}>
+                <View style={[styles.note, { backgroundColor: `${c.sky}40`, borderColor: c.sky }]}>
                   <Info size={18} color={c.ink} style={styles.noteIcon} />
                   <Text variant="small" tone="body" style={styles.noteText}>
                     {t("audit.communityBanner")}

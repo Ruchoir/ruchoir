@@ -987,7 +987,8 @@
     "photoFailed": "Foto nicht gespeichert",
     "saved": "Profil gespeichert",
     "saveFailed": "Das Profil konnte nicht gespeichert werden. Versuchen Sie es erneut.",
-    "tabManage": "Verwaltung"
+    "tabManage": "Verwaltung",
+    "tabProfile": "Profil"
   },
   "security": {
     "changePassword": "Passwort ändern",
@@ -1549,6 +1550,8 @@
     "deleted": "Gruppe gelöscht",
     "carries": "trägt {{roles}}",
     "personRemoved": "Person aus der Gruppe entfernt",
+    "leaveNamed": "{{name}} aus der Gruppe {{group}} nehmen",
+    "addToGroup": "Zu einer Gruppe hinzufügen",
     "membersReceive": "Ihre Mitglieder erhalten",
     "peopleHead": "Personen · {{count}}",
     "managersHead": "Verantwortliche",

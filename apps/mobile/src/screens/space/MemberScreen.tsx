@@ -126,7 +126,7 @@ function Person({ space }: { space: Workspace }) {
           value={shown}
           onChange={setTab}
           options={[
-            { key: "profile", label: t("profile.title") },
+            { key: "profile", label: t("profile.tabProfile") },
             { key: "manage", label: t("profile.tabManage") },
           ]}
         />

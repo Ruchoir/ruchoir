@@ -99,7 +99,7 @@ function Editor({ spaceId }: { spaceId: string }) {
 function RoleBody({ spaceId, role, roles, members, groups, onChanged, leave }: { spaceId: string; role: Role; roles: Role[]; members: Member[]; groups: Group[]; onChanged: () => void; leave: () => void }) {
   const { updateRole, deleteRole, startPreview, setMemberRoles } = useApi();
   const { t } = useTranslation();
-  const { c } = useTheme();
+  const { c, s } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const toast = useToast();
@@ -347,7 +347,7 @@ function RoleBody({ spaceId, role, roles, members, groups, onChanged, leave }: {
           {access.canPreview || access.canDelete ? (
             <View style={styles.actions}>
               {access.canPreview ? <Button size="md" variant="secondary" label={t("preview.viewAs")} icon={<Eye size={16} color={c.ink} />} disabled={busy} onPress={askViewAs} style={styles.action} /> : null}
-              {access.canDelete ? <Button size="md" variant="danger" label={t("roles.delete")} icon={<Trash2 size={16} color={c.onInk} />} disabled={busy} onPress={askDelete} style={styles.action} /> : null}
+              {access.canDelete ? <Button size="md" variant="dangerSoft" label={t("roles.delete")} icon={<Trash2 size={16} color={s.danger} />} disabled={busy} onPress={askDelete} style={styles.action} /> : null}
             </View>
           ) : null}
         </View>
@@ -369,7 +369,8 @@ const makeStyles = styleCache((shape) =>
     footer: { borderTopWidth: shape.hairline, paddingHorizontal: 16, paddingTop: 12, gap: 10 },
     bar: { flexDirection: "row", alignItems: "center", gap: 12 },
     barText: { flex: 1 },
-    actions: { flexDirection: "row", gap: 10 },
-    action: { flex: 1 },
+    // Stacked, each as wide as the screen: side by side, "Voir en tant que" and "Supprimer le rôle" were cut.
+    actions: { gap: 10 },
+    action: { alignSelf: "stretch" },
   }),
 );

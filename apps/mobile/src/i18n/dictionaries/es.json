@@ -1036,7 +1036,8 @@
     "photoFailed": "Foto no guardada",
     "saved": "Perfil guardado",
     "saveFailed": "No se ha podido guardar el perfil. Vuelva a intentarlo.",
-    "tabManage": "Gestión"
+    "tabManage": "Gestión",
+    "tabProfile": "Perfil"
   },
   "security": {
     "changePassword": "Cambiar la contraseña",
@@ -1620,6 +1621,8 @@
     "deleted": "Grupo eliminado",
     "carries": "lleva {{roles}}",
     "personRemoved": "Persona retirada del grupo",
+    "leaveNamed": "Sacar a {{name}} del grupo {{group}}",
+    "addToGroup": "Añadir a un grupo",
     "membersReceive": "Sus miembros reciben",
     "peopleHead": "Personas · {{count}}",
     "managersHead": "Responsables",

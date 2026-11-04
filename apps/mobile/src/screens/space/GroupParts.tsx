@@ -2,7 +2,7 @@
  * The two small pieces the groups screens share: a group's square (a pastel that is always the same
  * for the same group, the people icon on it) and the dashed tag the lists wear (Annuaire, Responsable).
  */
-import { Users } from "lucide-react-native";
+import { Plus, Users, X } from "lucide-react-native";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
@@ -49,8 +49,11 @@ export function GroupTag({ label }: { label: string }) {
   );
 }
 
-/** A group as a pill (the member screen's list): it opens the group's editor when `onPress` is given. */
-export function GroupChip({ name, onPress }: { name: string; onPress?: () => void }) {
+/**
+ * A group as a pill (the member screen's list): it opens the group's editor when `onPress` is given,
+ * and carries a small cross to take the person out of it when `onRemove` is (`removeLabel` names it).
+ */
+export function GroupChip({ name, onPress, onRemove, removeLabel, disabled }: { name: string; onPress?: () => void; onRemove?: () => void; removeLabel?: string; disabled?: boolean }) {
   const { c } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const body = (
@@ -62,10 +65,34 @@ export function GroupChip({ name, onPress }: { name: string; onPress?: () => voi
     </>
   );
   const frame = [styles.chip, { borderColor: c.lineStrong, backgroundColor: c.surface }];
-  if (!onPress) return <View style={frame}>{body}</View>;
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={name} onPress={onPress} style={({ pressed }) => [...frame, pressed && { opacity: 0.6 }]}>
+  const label = onPress ? (
+    <Pressable accessibilityRole="button" accessibilityLabel={name} onPress={onPress} style={({ pressed }) => [styles.inner, pressed && { opacity: 0.6 }]}>
       {body}
+    </Pressable>
+  ) : (
+    <View style={styles.inner}>{body}</View>
+  );
+  if (!onRemove) return onPress ? <View style={frame}>{label}</View> : <View style={frame}>{body}</View>;
+  return (
+    <View style={frame}>
+      {label}
+      <Pressable accessibilityRole="button" accessibilityLabel={removeLabel ?? name} disabled={disabled} hitSlop={10} onPress={onRemove} style={({ pressed }) => pressed && { opacity: 0.6 }}>
+        <X size={12} color={c.muted} />
+      </Pressable>
+    </View>
+  );
+}
+
+/** The "+ Ajouter à un groupe" pill of the member screen. */
+export function AddToGroupChip({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+  const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.chip, { borderColor: s.link, backgroundColor: c.surface }, pressed && { opacity: 0.6 }]}>
+      <Plus size={12} color={s.link} />
+      <Text variant="smallStrong" numberOfLines={1} style={[styles.chipLabel, { color: s.link }]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -76,6 +103,7 @@ const makeStyles = styleCache((shape) =>
     medium: { borderRadius: shape.radius.m },
     small: { borderRadius: shape.radius.s },
     chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, height: 26, borderRadius: 13, borderWidth: shape.hairline, alignSelf: "flex-start", maxWidth: "100%" },
+    inner: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
     chipLabel: { flexShrink: 1 },
     tag: { borderWidth: shape.hairline, borderRadius: 9, paddingHorizontal: 6, paddingVertical: 1, alignSelf: "center" },
   }),
