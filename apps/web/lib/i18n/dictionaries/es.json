@@ -2191,7 +2191,7 @@
     "rolesIntro_other": "Los {{count}} miembros del grupo reciben los roles marcados, además de los suyos. Solo puedes asignar al grupo roles situados por debajo del tuyo.",
     "noSelfRole": "Nadie se da un rol a sí mismo, tampoco a través de un grupo: no puedes cambiar los roles de un grupo del que formas parte.",
     "noSelfJoin": "No puedes añadirte a ti mismo a un grupo que lleva roles.",
-    "guestCeiling": "Las personas invitadas se quedan bajo el límite de invitados: solo reciben lo que ese límite permite.",
+    "guestCeiling": "Quien tiene acceso de invitado se queda bajo el límite de invitados: solo recibe lo que ese límite permite.",
     "refusal": {
       "fromDirectory": "Este grupo viene del directorio: sus miembros y su nombre se cambian allí.",
       "nameTaken": "Otro grupo ya tiene este nombre.",
@@ -2342,7 +2342,7 @@
   "guests": {
     "endTitle": "Acceso hasta",
     "optional": "No obligatorio",
-    "endNote": "A partir de esa fecha, la persona ya no tiene acceso al espacio. Sus mensajes y archivos se quedan, y podrás reactivarla.",
+    "endNote": "A partir de esa fecha, la persona ya no tiene acceso al espacio. Sus mensajes y archivos se quedan, y podrás reactivar su acceso.",
     "presetNone": "Sin fecha",
     "presetWeek": "Una semana",
     "presetMonth": "Un mes",
@@ -2421,7 +2421,7 @@
     "rightsSub": "Lo que puede hacer un invitado en {{space}}.",
     "rightsFree": "Edición gratuita",
     "rightsOpens": "Solo accede a lo que se le abre",
-    "rightsOpensBody": "Un canal, una carpeta o un calendario se comparte con él uno por uno, desde «Acceso» o «Compartir».",
+    "rightsOpensBody": "Un canal, una carpeta o un calendario se comparte con esa persona uno por uno, desde «Acceso» o «Compartir».",
     "rightsCan": "Lo que puede hacer en lo que se le abre",
     "rightsCanBody": "Escribir y responder, reaccionar, adjuntar archivos, escribir mensajes directos.",
     "rightsEnterprise": "Enterprise",

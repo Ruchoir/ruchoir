@@ -164,3 +164,25 @@ test("the_expired_line_carries_the_date_that_was_reached", () => {
   // An entry written before the date was kept falls back on the day the sweep wrote it.
   assert.equal(auditLine(entry("member.expired", { role: "guest" })).values.date, "2026-11-03T14:32:00Z");
 });
+
+test("no_guest_wording_agrees_with_an_assumed_gender", () => {
+  // A guest is "cette personne", "son accès": never "elle", "il", "invitée" in any language.
+  const banned: Record<string, RegExp> = {
+    fr: /\b(elle|elles|il|invitée|invitées|prévenue)\b/i,
+    es: /\b(ella|él|invitada|invitadas)\b/i,
+    it: /\b(lei|lui|invitata|invitate)\b/i,
+    de: /\b(Gästin|Gästinnen)\b/,
+    en: /\b(he|she|his|hers)\b/i,
+  };
+  for (const [locale, pattern] of Object.entries(banned)) {
+    const dictionary = JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, Record<string, unknown>>;
+    for (const section of ["guests", "audit", "roles", "groups"]) {
+      for (const [name, text] of Object.entries(dictionary[section] ?? {})) {
+        if (typeof text !== "string") continue;
+        if (!/guest|Guest|invit|Gast|gast|ospit|Expiry|expired/i.test(name + text)) continue;
+        // `invitées` and `elles` as a plural of "personnes" are fine only where a noun is named.
+        assert.equal(pattern.test(text.replace(/ces personnes[^.]*\./gi, "")), false, `${locale} ${section}.${name}: ${text}`);
+      }
+    }
+  }
+});

@@ -191,12 +191,13 @@ export function NewMessageDialog({
 
 /**
  * Roles, in the order an administrator is likely to want them. Values are the API's, labels are
- * dictionary keys: the list is built at module load, where no language is in force yet.
+ * dictionary keys: the list is built at module load, where no language is in force yet. The guest
+ * reads "Invité" here (the mockup's word), not the legacy role name "Invité externe".
  */
 const INVITE_ROLES = [
   { value: "member", labelKey: key("role.member") },
   { value: "admin", labelKey: key("role.admin") },
-  { value: "guest", labelKey: key("role.guest") },
+  { value: "guest", labelKey: key("guests.guestTag") },
 ];
 
 const inviteStyles: Record<string, CSSProperties> = {
