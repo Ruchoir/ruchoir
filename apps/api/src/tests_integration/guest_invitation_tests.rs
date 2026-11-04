@@ -415,3 +415,90 @@ async fn an_offset_end_date_is_stored_as_the_instant_it_names() {
     let stored = expires_of(&app, fx.space, newcomer).await.expect("an end");
     assert!((stored - end).whole_seconds().abs() <= 1);
 }
+
+// --- Redemption re-checks who issued the link (permissions hardening) ---
+
+async fn members_of(app: &TestApp, space: Uuid) -> i64 {
+    super::groups_tests::count(
+        &app.db,
+        "SELECT count(*)::bigint AS n FROM space_members WHERE space_id = $1",
+        vec![space.into()],
+    )
+    .await
+}
+
+#[tokio::test]
+async fn an_admin_link_from_an_owner_who_was_demoted_mints_no_admin() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let (status, created) = invite(&app, &fx, json!({ "role": "admin" })).await;
+    assert_eq!(status, 201, "{created}");
+    let token = token_of(created["url"].as_str().expect("url"));
+    exec(
+        &app.db,
+        "UPDATE space_members SET role = 'admin' WHERE space_id = $1 AND role = 'owner'",
+        vec![fx.space.into()],
+    )
+    .await
+    .expect("demote");
+
+    let newcomer = make_user(&app.db, "newcomer").await;
+    let (status, _) = accept(&app, &token, &app.cookie_for(newcomer).await).await;
+    assert_eq!(status, 404);
+    assert_eq!(members_of(&app, fx.space).await, 1, "nobody joined");
+    assert_eq!(
+        invitation_of(&app, &token).await.uses,
+        0,
+        "no use was spent"
+    );
+}
+
+#[tokio::test]
+async fn a_link_from_someone_no_longer_in_the_space_stops_working() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let (status, created) = invite(&app, &fx, json!({ "role": "member" })).await;
+    assert_eq!(status, 201, "{created}");
+    let token = token_of(created["url"].as_str().expect("url"));
+    let inviter = invitation_of(&app, &token)
+        .await
+        .created_by
+        .expect("creator");
+    exec(
+        &app.db,
+        "DELETE FROM space_members WHERE space_id = $1 AND user_id = $2",
+        vec![fx.space.into(), inviter.into()],
+    )
+    .await
+    .expect("remove the creator");
+
+    let newcomer = make_user(&app.db, "newcomer").await;
+    let (status, _) = accept(&app, &token, &app.cookie_for(newcomer).await).await;
+    assert_eq!(status, 404);
+    assert_eq!(members_of(&app, fx.space).await, 0);
+}
+
+#[tokio::test]
+async fn two_people_racing_for_the_last_use_of_a_link_do_not_both_get_in() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let (status, created) = invite(&app, &fx, json!({ "role": "member", "max_uses": 1 })).await;
+    assert_eq!(status, 201, "{created}");
+    let token = token_of(created["url"].as_str().expect("url"));
+    let first = make_user(&app.db, "first").await;
+    let second = make_user(&app.db, "second").await;
+    let (cookie_a, cookie_b) = (app.cookie_for(first).await, app.cookie_for(second).await);
+    let ((a, _), (b, _)) = tokio::join!(
+        accept(&app, &token, &cookie_a),
+        accept(&app, &token, &cookie_b)
+    );
+    let mut codes = [a, b];
+    codes.sort_unstable();
+    assert_eq!(codes, [200, 404], "exactly one of them is admitted");
+    assert_eq!(
+        members_of(&app, fx.space).await,
+        2,
+        "the owner and one newcomer"
+    );
+    assert_eq!(invitation_of(&app, &token).await.uses, 1);
+}

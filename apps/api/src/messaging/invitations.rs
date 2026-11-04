@@ -22,8 +22,8 @@ use axum::http::StatusCode;
 use axum::Json;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
-    QueryOrder, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DbBackend, EntityTrait, IntoActiveModel,
+    PaginatorTrait, QueryFilter, QueryOrder, Statement, TransactionTrait,
 };
 use std::collections::HashMap;
 use time::{Duration, OffsetDateTime};
@@ -426,6 +426,9 @@ pub async fn preview_invitation(
     Path(token): Path<String>,
 ) -> Result<Json<InvitationPreviewDto>, ApiError> {
     let record = usable_invitation(&state, &token).await?;
+    if !issuer_still_entitled(&state.db, &record).await? {
+        return Err(ApiError::NotFound);
+    }
     let space = spaces::Entity::find_by_id(record.space_id)
         .one(&state.db)
         .await?
@@ -516,6 +519,27 @@ pub async fn accept_invitation(
                 return Err(ApiError::NotFound);
             }
             let txn = state.db.begin().await?;
+            // A link is only as good as the person who issued it: they must still be in the space
+            // and still outrank the role it hands out (an administrator link from an owner who was
+            // demoted mints no administrator; one from somebody removed mints nobody).
+            if !issuer_still_entitled(&txn, &record).await? {
+                return Err(ApiError::NotFound);
+            }
+            // The use is spent in one statement that re-checks the cap, so two people racing for
+            // the last use cannot both get in: the second waits for the first's commit, then
+            // finds no use left.
+            let spent = txn
+                .execute_raw(Statement::from_sql_and_values(
+                    DbBackend::Postgres,
+                    "UPDATE space_invitations SET uses = uses + 1 \
+                      WHERE id = $1 AND revoked_at IS NULL \
+                        AND (max_uses IS NULL OR uses < max_uses)",
+                    [record.id.into()],
+                ))
+                .await?;
+            if spent.rows_affected() != 1 {
+                return Err(ApiError::NotFound);
+            }
             // Issued while there was room is not enough: the seat is taken now, under the lock.
             if super::edition_view::takes_a_seat(&record.role) {
                 super::edition_view::ensure_a_seat_locked(&txn, &state, record.space_id).await?;
@@ -532,9 +556,6 @@ pub async fn accept_invitation(
             .insert(&txn)
             .await?;
 
-            let mut active = record.clone().into_active_model();
-            active.uses = Set(record.uses + 1);
-            active.update(&txn).await?;
             crate::audit::record(
                 &txn,
                 record.space_id,
@@ -763,6 +784,34 @@ async fn usable_invitation(
     } else {
         Err(ApiError::NotFound)
     }
+}
+
+/// Whether whoever issued `record` could still issue it: they are in the space, they outrank the
+/// role the link hands out, and (for a space-wide link) they still hold `members.invite`. A link
+/// whose issuer's account is gone has nobody to answer for it and is dead too.
+async fn issuer_still_entitled(
+    db: &impl ConnectionTrait,
+    record: &space_invitations::Model,
+) -> Result<bool, ApiError> {
+    use crate::permissions::{catalogue::Permission, check::space_rights, delegation};
+    let Some(issuer) = record.created_by else {
+        return Ok(false);
+    };
+    let Some(rank) = delegation::actor_rank(db, record.space_id, issuer).await? else {
+        return Ok(false);
+    };
+    let Some(position) = delegation::fixed_role_position(db, record.space_id, &record.role).await?
+    else {
+        return Ok(false);
+    };
+    if !rank.outranks_position(position) {
+        return Ok(false);
+    }
+    if record.channel_id.is_none() {
+        let rights = space_rights(db, record.space_id, issuer).await?;
+        return Ok(rights.contains(Permission::MembersInvite));
+    }
+    Ok(true)
 }
 
 /// Whether an invitation would be accepted at `now`: not revoked, not expired, uses left.
