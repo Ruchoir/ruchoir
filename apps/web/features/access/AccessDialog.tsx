@@ -8,6 +8,7 @@ import type { AccessEntry, AccessKind, AccessLevel, AccessView, Group, Role } fr
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { shouldToastRefusal } from "../app/previewLogic.ts";
 import { refusalMessage, roleLabel } from "../settings/roleChips";
+import { type ChainLevel } from "./whyLogic.ts";
 import { askWho, delegationIntro, fullPath, canEdit, everyoneLine, freeManage, groupEntries, levelDescKey, levelLabelKey, privateNote, readOnlyReason, withOverrides } from "./accessLogic.ts";
 import { AddTargetDialog } from "./AddTargetDialog";
 import { CustomiseDialog } from "./CustomiseDialog";
@@ -160,6 +161,7 @@ export function AccessPanel({
   useEffect(() => {
     pathRef.current = onPath;
   });
+  const [chain, setChain] = useState<ChainLevel[]>([]);
   const firstParent = kind === "file" && access?.resource.parent && !access.resource.parent.hidden ? access.resource.parent : undefined;
   useEffect(() => {
     if (!firstParent) {
@@ -169,15 +171,20 @@ export function AccessPanel({
     let active = true;
     void (async () => {
       const names: string[] = [firstParent.name ?? ""];
+      const levels: ChainLevel[] = [{ id: firstParent.id, name: firstParent.name ?? "", item: false }];
       let next: { id?: string; name?: string; hidden: boolean } | undefined = firstParent;
       for (let depth = 0; depth < 8 && next?.id; depth++) {
         const view: AccessView | undefined = await getAccess(spaceId, "file", next.id).catch(() => undefined);
         const up: { id?: string; name?: string; hidden: boolean } | undefined = view?.resource.parent;
         if (!up || up.hidden) break;
         names.unshift(up.name ?? "");
+        levels.unshift({ id: up.id, name: up.name ?? "", item: false });
         next = up;
       }
-      if (active) pathRef.current?.(fullPath(names.filter(Boolean)));
+      if (active) {
+        pathRef.current?.(fullPath(names.filter(Boolean)));
+        setChain([...levels, { id: resourceId, name: resourceName, item: true }]);
+      }
     })();
     return () => {
       active = false;
@@ -464,7 +471,7 @@ export function AccessPanel({
       ) : null}
 
       {explaining ? (
-        <WhyDialog spaceId={spaceId} kind={kind} resourceId={resourceId} resourceName={kind === "channel" ? channelName : resourceName} members={members} roles={roles} viewerId={viewerId} onClose={() => setExplaining(false)} />
+        <WhyDialog spaceId={spaceId} kind={kind} resourceId={resourceId} resourceName={kind === "channel" ? channelName : resourceName} members={members} roles={roles} chain={firstParent ? chain : [{ id: resourceId, name: resourceName, item: true }]} viewerId={viewerId} onClose={() => setExplaining(false)} />
       ) : null}
 
       {folder ? (

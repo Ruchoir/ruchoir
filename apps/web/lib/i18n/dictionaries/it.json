@@ -2760,9 +2760,42 @@
       "event": "Da un evento",
       "other": "Da un altro passaggio",
       "ruleOn": "Da una regola su {{where}}, livello {{level}}",
-      "ruleOnHidden": "Da una regola in una posizione nascosta, livello {{level}}"
+      "ruleOnHidden": "Da una regola in una posizione nascosta, livello {{level}}",
+      "askManage": "Richiede di gestire"
     },
-    "locksNone": "Blocchi: il blocco privato, il tetto degli ospiti e la proprietà non cambiano nulla qui."
+    "locksNone": "Blocchi: il blocco privato, il tetto degli ospiti e la proprietà non cambiano nulla qui.",
+    "sep": ": ",
+    "card": {
+      "view": "Vedere"
+    },
+    "label": {
+      "base": "Base",
+      "roles": "I suoi ruoli",
+      "space": "Nello spazio",
+      "hiddenPlace": "Posizione nascosta"
+    },
+    "para": {
+      "base": {
+        "granted": "il ruolo di base dello spazio dà {{permission}} a {{person}}.",
+        "removed": "il ruolo di base dello spazio toglie {{permission}} a {{person}}."
+      },
+      "roles": "{{list}}.",
+      "roleVia": "{{role}} ricevuto dal gruppo {{groups}}",
+      "roleDirect": "{{role}} assegnato direttamente",
+      "roleBoth": "{{role}} assegnato direttamente e ricevuto dal gruppo {{groups}}",
+      "space": {
+        "granted": "{{role}} consente: {{permission}}.",
+        "removed": "{{role}} toglie: {{permission}}."
+      },
+      "rule": {
+        "granted": "una regola dà {{level}} a {{target}}. {{person}} ne fa parte: {{permission}} concesso.",
+        "grantedNoLevel": "una regola concede {{permission}} a {{target}}, di cui fa parte {{person}}.",
+        "removed": "una regola toglie {{permission}} a {{target}}, di cui fa parte {{person}}."
+      },
+      "level": {
+        "none": "nessuna regola per {{person}}, i suoi gruppi o i suoi ruoli. Continua ad applicarsi la regola sopra."
+      }
+    }
   },
   "preview": {
     "viewAs": "Visualizza come",
@@ -2780,6 +2813,7 @@
     "refusal": {
       "baseRole": "I ruoli di base non si possono visualizzare in anteprima.",
       "unavailable": "L'anteprima non è disponibile al momento."
-    }
+    },
+    "readOnlyBodySend": "Il tuo messaggio non è stato inviato. Fai clic su Esci, in alto, per riprendere il controllo."
   }
 }

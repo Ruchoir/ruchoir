@@ -2661,9 +2661,42 @@
       "event": "Durch einen Termin",
       "other": "Durch einen anderen Schritt",
       "ruleOn": "Durch eine Regel bei {{where}}, Stufe {{level}}",
-      "ruleOnHidden": "Durch eine Regel an einem verborgenen Ort, Stufe {{level}}"
+      "ruleOnHidden": "Durch eine Regel an einem verborgenen Ort, Stufe {{level}}",
+      "askManage": "Setzt das Recht zum Verwalten voraus"
     },
-    "locksNone": "Sperren: Privatsperre, Gästegrenze und Inhaberstatus ändern hier nichts."
+    "locksNone": "Sperren: Privatsperre, Gästegrenze und Inhaberstatus ändern hier nichts.",
+    "sep": ": ",
+    "card": {
+      "view": "Ansehen"
+    },
+    "label": {
+      "base": "Basis",
+      "roles": "Rollen",
+      "space": "Im Bereich",
+      "hiddenPlace": "Verborgener Ort"
+    },
+    "para": {
+      "base": {
+        "granted": "die Basisrolle des Bereichs gibt {{person}} {{permission}}.",
+        "removed": "die Basisrolle des Bereichs nimmt {{person}} {{permission}}."
+      },
+      "roles": "{{list}}.",
+      "roleVia": "{{role}} über die Gruppe {{groups}}",
+      "roleDirect": "{{role}} direkt vergeben",
+      "roleBoth": "{{role}} direkt vergeben und über die Gruppe {{groups}}",
+      "space": {
+        "granted": "{{role}} erlaubt: {{permission}}.",
+        "removed": "{{role}} nimmt weg: {{permission}}."
+      },
+      "rule": {
+        "granted": "eine Regel gibt {{target}} die Stufe {{level}}. {{person}} gehört dazu: {{permission}} gewährt.",
+        "grantedNoLevel": "eine Regel gewährt {{target}} {{permission}}, wozu {{person}} gehört.",
+        "removed": "eine Regel nimmt {{target}} {{permission}}, wozu {{person}} gehört."
+      },
+      "level": {
+        "none": "keine Regel für {{person}}, ihre Gruppen oder Rollen. Die Regel darüber gilt weiter."
+      }
+    }
   },
   "preview": {
     "viewAs": "Ansehen als",
@@ -2681,6 +2714,7 @@
     "refusal": {
       "baseRole": "Die Basisrollen lassen sich nicht in der Vorschau ansehen.",
       "unavailable": "Die Vorschau ist im Moment nicht verfügbar."
-    }
+    },
+    "readOnlyBodySend": "Ihre Nachricht wurde nicht gesendet. Klicken Sie oben auf Beenden, um wieder die Kontrolle zu übernehmen."
   }
 }

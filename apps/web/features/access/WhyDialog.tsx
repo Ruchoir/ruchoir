@@ -10,7 +10,9 @@ import { key, useTranslation } from "@/lib/i18n";
 import { PERMISSION_TEXT } from "../settings/permissionText";
 import { tk } from "./EntryRow";
 import { formatList } from "@/lib/i18n/format";
-import { cardOf, groupSteps, locksQuiet, labelOf, reasonKey, roleSentence, stepSentence } from "./whyLogic.ts";
+import { levelLabelKey } from "./accessLogic.ts";
+import { type ChainLevel, cardsOf, groupSteps, labelOf, outline, reasonKey, roleSentence, stepSentence } from "./whyLogic.ts";
+
 
 /**
  * "Pourquoi ?" (frame 9): pick a person, read what the engine did step by step in the order it
@@ -24,6 +26,7 @@ export function WhyDialog({
   resourceName,
   members,
   roles,
+  chain,
   viewerId,
   onClose,
 }: {
@@ -33,6 +36,8 @@ export function WhyDialog({
   resourceName: string;
   members: Member[];
   roles: Role[];
+  /** The levels the access passes through: the folders from the top, then the item. */
+  chain: ChainLevel[];
   viewerId: string | undefined;
   onClose: () => void;
 }) {
@@ -83,6 +88,63 @@ export function WhyDialog({
     };
   };
 
+  const kindWord = kind === "channel" ? t("calendar.channel") : kind === "calendar" ? t("calendar.title") : t("message.file");
+  const sep = t("why.sep");
+  /** "Label : body" with the label in bold. */
+  const labelled = (label: string, body: string) => (
+    <>
+      <strong>{label}{sep}</strong>
+      {body}
+    </>
+  );
+  /** A ready sentence that opens with its own label ("Plafond des invités : ..."): the label in bold. */
+  const boldLead = (text: string) => {
+    const at = text.indexOf(":");
+    return at < 0 ? text : <><strong>{text.slice(0, at + 1)}</strong>{text.slice(at + 1)}</>;
+  };
+  const list = (permissions: string[]) => formatList(permissions.map(permissionName));
+  const paragraph = (para: ReturnType<typeof outline>[number]) => {
+    switch (para.type) {
+      case "base":
+        return labelled(t("why.label.base"), t(para.group.effect === "removed" ? key("why.para.base.removed") : key("why.para.base.granted"), { permission: list(para.group.permissions), person: personName }));
+      case "roles": {
+        const phrases = para.roles.map((role) => {
+          const name = named({ kind: "role", id: role.id, name: role.name, hidden: false }, role.name);
+          const groups = role.viaGroups.map((g) => g.name).join(", ");
+          if (role.viaGroups.length === 0) return t("why.para.roleDirect", { role: name });
+          return t(role.direct ? key("why.para.roleBoth") : key("why.para.roleVia"), { role: name, groups });
+        });
+        return labelled(t("why.label.roles"), t("why.para.roles", { list: formatList(phrases) }));
+      }
+      case "space": {
+        const name = named({ kind: "role", id: para.role.id, name: para.role.name, hidden: false }, para.role.name);
+        return labelled(t("why.label.space"), t(para.effect === "removed" ? key("why.para.space.removed") : key("why.para.space.granted"), { role: name, permission: list(para.permissions) }));
+      }
+      case "level": {
+        const word = para.hidden ? "" : para.item ? kindWord : t("files.typeFolder");
+        const label = para.hidden ? t("why.label.hiddenPlace") : `${word} ${kind === "channel" && para.item ? "#" : ""}${para.name ?? ""}`;
+        if (para.rules.length === 0) return labelled(label, t("why.para.level.none", { person: personName }));
+        const body = para.rules
+          .map((g) => {
+            const target = named(g.target, t("why.hiddenTarget"));
+            const permission = list(g.permissions);
+            if (g.effect === "removed") return t("why.para.rule.removed", { permission, target, person: personName });
+            if (!g.ruleLevel) return t("why.para.rule.grantedNoLevel", { permission, target, person: personName });
+            const levelKind = g.level?.kind === "channel" || g.level?.kind === "calendar" ? g.level.kind : "file";
+            return t("why.para.rule.granted", { level: t(tk(levelLabelKey(levelKind, g.ruleLevel))), target, person: personName, permission });
+          })
+          .join(" ");
+        return labelled(label, body);
+      }
+      case "locks":
+        return para.groups.map((g, n) => <span key={n}>{n > 0 ? " " : ""}{boldLead(t(tk(fill(g).key), fill(g).values))}</span>);
+      case "quiet":
+        return boldLead(t("why.locksNone"));
+      case "other":
+        return boldLead(t(tk(fill(para.group).key), fill(para.group).values));
+    }
+  };
+
   return (
     <Dialog
       open
@@ -120,73 +182,55 @@ export function WhyDialog({
 
         {why ? (
           <>
-            <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-              {why.steps.length > 0 && locksQuiet(why.steps) ? (
-                <li style={{ display: "flex", gap: 12, padding: "10px 14px", borderTop: "1px solid var(--border-subtle)", alignItems: "flex-start", order: 99 }}>
-                  <span aria-hidden style={{ width: 24, height: 24, flex: "none", borderRadius: "var(--radius-full)", background: "var(--surface-sunken)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-body)" }}>
-                    {groupSteps(why.steps).length + 1}
-                  </span>
-                  <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", lineHeight: 1.5 }}>{t("why.locksNone")}</span>
-                </li>
-              ) : null}
+            <ol style={{ listStyle: "none", margin: 0, padding: 0, border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
               {why.steps.length === 0 ? (
                 <li style={{ padding: "12px 14px", fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>{t("why.noSteps")}</li>
               ) : null}
-              {groupSteps(why.steps).map((step, i) => {
-                const sentence = fill(step);
-                const role = sentence.role;
-                return (
-                  <li key={step.n} style={{ display: "flex", gap: 12, padding: "10px 14px", borderTop: i === 0 ? 0 : "1px solid var(--border-subtle)", alignItems: "flex-start" }}>
-                    <span
-                      aria-hidden
-                      style={{ width: 24, height: 24, flex: "none", borderRadius: "var(--radius-full)", background: "var(--surface-sunken)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-body)" }}
-                    >
-                      {i + 1}
-                    </span>
-                    <span style={{ fontSize: "var(--text-sm)", color: step.effect === "removed" ? "var(--status-danger-fg)" : "var(--text-body)", lineHeight: 1.5 }}>
-                      {t(tk(sentence.key), sentence.values)}
-                      {role ? (
-                        <span style={{ display: "block", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t(tk(role.key), { ...role.values, person: personName })}</span>
-                      ) : null}
-                    </span>
-                  </li>
-                );
-              })}
+              {(why.steps.length === 0 ? [] : outline(why.steps, chain)).map((para, i) => (
+                <li key={i} style={{ display: "flex", gap: 12, padding: "10px 14px", borderTop: i === 0 ? 0 : "1px solid var(--border-subtle)", alignItems: "flex-start" }}>
+                  <span
+                    aria-hidden
+                    style={{ width: 24, height: 24, flex: "none", borderRadius: "var(--radius-full)", background: "var(--surface-sunken)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-body)" }}
+                  >
+                    {i + 1}
+                  </span>
+                  <span style={{ fontSize: "var(--text-sm)", color: "var(--text-body)", lineHeight: 1.5 }}>{paragraph(para)}</span>
+                </li>
+              ))}
             </ol>
 
             <div>
               <div style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", marginBottom: 8 }}>{t("why.resultFor", { name: personName })}</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-                {why.result.map((r) => {
-                  const card = cardOf(r, why.steps);
-                  return (
-                    <div
-                      key={card.permission}
-                      style={{
-                        padding: "10px 12px",
-                        borderRadius: "var(--radius-lg)",
-                        border: `1px solid ${card.granted ? "var(--status-success-border)" : "var(--border-subtle)"}`,
-                        background: card.granted ? "var(--status-success-bg)" : "var(--surface-sunken)",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>
-                        <Icon name={card.granted ? "check" : "x"} size={16} aria-hidden />
-                        {permissionName(card.permission)}
-                      </div>
-                      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
-                        {card.reason?.levelKey
-                          ? card.reason.hiddenPlace
-                            ? t("why.reason.ruleOnHidden", { level: t(tk(card.reason.levelKey)) })
-                            : t("why.reason.ruleOn", { where: card.reason.where ?? "", level: t(tk(card.reason.levelKey)) })
-                          : card.reason
-                            ? t(tk(reasonKey(card.reason.kind)))
-                            : card.granted
-                              ? t(key("why.reason.other"))
-                              : t("why.reason.none")}
-                      </div>
+                {cardsOf(kind, why.result, why.steps).map((card) => (
+                  <div
+                    key={card.id}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: "var(--radius-lg)",
+                      border: `1px solid ${card.granted ? "var(--status-success-border)" : "var(--border-subtle)"}`,
+                      background: card.granted ? "var(--status-success-bg)" : "var(--surface-sunken)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>
+                      <Icon name={card.granted ? "check" : "x"} size={16} aria-hidden />
+                      {t(tk(card.labelKey))}
                     </div>
-                  );
-                })}
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
+                      {card.reason?.levelKey
+                        ? card.reason.hiddenPlace
+                          ? t("why.reason.ruleOnHidden", { level: t(tk(card.reason.levelKey)) })
+                          : t("why.reason.ruleOn", { where: card.reason.where ?? "", level: t(tk(card.reason.levelKey)) })
+                        : card.reason
+                          ? t(tk(reasonKey(card.reason.kind)))
+                          : card.granted
+                            ? t("why.reason.other")
+                            : card.hint === "askManage"
+                              ? t("why.reason.askManage")
+                              : t("why.reason.none")}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </>

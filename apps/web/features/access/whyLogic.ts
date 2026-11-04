@@ -141,3 +141,111 @@ export function groupSteps(steps: StepLike[]): StepGroup[] {
 export function locksQuiet(steps: { kind: string }[]): boolean {
   return !steps.some((s) => ["private_lock", "guest_ceiling", "owner", "archived"].includes(s.kind));
 }
+
+type ResourceKind = "channel" | "file" | "calendar";
+
+/** The results as the mockup draws them, in the vocabulary of the levels: one card per level of rights. */
+export type Card = {
+  id: string;
+  labelKey: string;
+  granted: boolean;
+  reason?: CardReason;
+  /** `askManage`: a public link wants the right to manage first. */
+  hint?: "askManage";
+};
+
+const CARDS: Record<ResourceKind, { id: string; labelKey: string; permissions: string[] }[]> = {
+  file: [
+    { id: "view", labelKey: "why.card.view", permissions: ["files.view"] },
+    { id: "edit", labelKey: "access.level.file.contribute", permissions: ["files.create", "files.edit"] },
+    { id: "manage", labelKey: "access.level.manage", permissions: ["files.manage"] },
+    { id: "publicLink", labelKey: "access.publicLink", permissions: ["files.public_link"] },
+  ],
+  channel: [
+    { id: "view", labelKey: "why.card.view", permissions: ["channel.view"] },
+    { id: "participate", labelKey: "access.level.channel.contribute", permissions: ["message.send", "message.attach", "message.pin"] },
+    { id: "manage", labelKey: "access.level.manage", permissions: ["message.manage", "channel.members.manage", "channel.manage"] },
+  ],
+  calendar: [
+    { id: "view", labelKey: "why.card.view", permissions: ["calendar.view"] },
+    { id: "write", labelKey: "access.level.calendar.contribute", permissions: ["calendar.write"] },
+    { id: "manage", labelKey: "access.level.manage", permissions: ["calendar.manage"] },
+  ],
+};
+
+/**
+ * The cards of the result: a level is granted when every one of its permissions is ("Modifier" needs
+ * create and edit both), and its reason is the first step that granted one of them. A level none of
+ * whose permissions the explanation lists is left out.
+ */
+export function cardsOf(kind: ResourceKind, result: ResultLike[], steps: StepLike[]): Card[] {
+  const cards: Card[] = [];
+  for (const def of CARDS[kind]) {
+    const own = def.permissions.map((p) => result.find((r) => r.permission === p));
+    if (own.every((r) => r === undefined)) continue;
+    const granted = own.every((r) => r?.granted === true);
+    const decisive = own.find((r) => r?.granted && r.reasonStep !== undefined);
+    const card: Card = { id: def.id, labelKey: def.labelKey, granted };
+    if (granted && decisive) card.reason = cardOf(decisive, steps).reason;
+    if (!granted && def.id === "publicLink") card.hint = "askManage";
+    cards.push(card);
+  }
+  return cards;
+}
+
+/** A level of the chain the person's access passes through: the space's folders, then the item. */
+export type ChainLevel = { id?: string; name: string; item: boolean };
+
+export type Paragraph =
+  | { type: "base"; group: StepGroup }
+  | { type: "roles"; roles: RoleLike[] }
+  | { type: "space"; role: RoleLike; permissions: string[]; effect: "granted" | "removed" }
+  | { type: "level"; name: string | undefined; hidden: boolean; item: boolean; kind: string; rules: StepGroup[] }
+  | { type: "locks"; groups: StepGroup[] }
+  | { type: "quiet" }
+  | { type: "other"; group: StepGroup };
+
+const LOCKS = ["private_lock", "guest_ceiling", "owner", "archived"];
+
+/**
+ * The explanation as the mockup reads it, in the order the engine works: the base role, the roles the
+ * person holds and the groups carrying them, what those roles give in the space, then one line per
+ * level of the chain (each folder from the top, then the item) with its rules, then the locks.
+ * Every step the API gives appears once.
+ */
+export function outline(steps: StepLike[], chain: ChainLevel[]): Paragraph[] {
+  const groups = groupSteps(steps);
+  const out: Paragraph[] = [];
+  for (const g of groups.filter((g) => g.kind === "base")) out.push({ type: "base", group: g });
+
+  const roleSteps = groups.filter((g) => g.kind === "role" && g.role);
+  const roles: RoleLike[] = [];
+  for (const g of roleSteps) if (g.role && !roles.some((r) => r.id === g.role!.id)) roles.push(g.role);
+  if (roles.length > 0) out.push({ type: "roles", roles });
+  for (const g of roleSteps) if (g.role) out.push({ type: "space", role: g.role, permissions: g.permissions, effect: g.effect });
+
+  const rules = groups.filter((g) => g.kind === "rule");
+  const placed = new Set<StepGroup>();
+  const levelOf = (g: StepGroup) => chain.findIndex((c) => (c.id && g.level?.id === c.id) || (!c.id && !g.level?.hidden && g.level?.name === c.name));
+  for (const c of chain) {
+    const mine = rules.filter((g) => levelOf(g) === chain.indexOf(c));
+    mine.forEach((g) => placed.add(g));
+    out.push({ type: "level", name: c.name, hidden: false, item: c.item, kind: "file", rules: mine });
+  }
+  // Rules at a place the chain does not name (hidden from the viewer, or another place): their own line.
+  const strays = rules.filter((g) => !placed.has(g));
+  const seen: string[] = [];
+  for (const g of strays) {
+    const id = g.level?.hidden ? "hidden" : (g.level?.id ?? g.level?.name ?? "");
+    if (seen.includes(id)) continue;
+    seen.push(id);
+    const same = strays.filter((x) => (x.level?.hidden ? "hidden" : (x.level?.id ?? x.level?.name ?? "")) === id);
+    out.push({ type: "level", name: g.level?.hidden ? undefined : g.level?.name, hidden: g.level?.hidden === true, item: false, kind: g.level?.kind ?? "file", rules: same });
+  }
+
+  const locks = groups.filter((g) => LOCKS.includes(g.kind));
+  if (locks.length > 0) out.push({ type: "locks", groups: locks });
+  for (const g of groups.filter((g) => !["base", "role", "rule", ...LOCKS].includes(g.kind))) out.push({ type: "other", group: g });
+  if (locks.length === 0) out.push({ type: "quiet" });
+  return out;
+}

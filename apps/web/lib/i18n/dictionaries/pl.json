@@ -2859,9 +2859,42 @@
       "event": "Przez wydarzenie",
       "other": "Przez inny krok",
       "ruleOn": "Przez regułę dla {{where}}, poziom {{level}}",
-      "ruleOnHidden": "Przez regułę w ukrytej lokalizacji, poziom {{level}}"
+      "ruleOnHidden": "Przez regułę w ukrytej lokalizacji, poziom {{level}}",
+      "askManage": "Wymaga zarządzania"
     },
-    "locksNone": "Blokady: blokada prywatna, limit gości i własność nie zmieniają tu niczego."
+    "locksNone": "Blokady: blokada prywatna, limit gości i własność nie zmieniają tu niczego.",
+    "sep": ": ",
+    "card": {
+      "view": "Zobacz"
+    },
+    "label": {
+      "base": "Baza",
+      "roles": "Role",
+      "space": "W przestrzeni",
+      "hiddenPlace": "Ukryta lokalizacja"
+    },
+    "para": {
+      "base": {
+        "granted": "rola bazowa przestrzeni daje {{person}}: {{permission}}.",
+        "removed": "rola bazowa przestrzeni odbiera {{person}}: {{permission}}."
+      },
+      "roles": "{{list}}.",
+      "roleVia": "{{role}} przez grupę {{groups}}",
+      "roleDirect": "{{role}} nadana bezpośrednio",
+      "roleBoth": "{{role}} nadana bezpośrednio i przez grupę {{groups}}",
+      "space": {
+        "granted": "{{role}} pozwala: {{permission}}.",
+        "removed": "{{role}} odbiera: {{permission}}."
+      },
+      "rule": {
+        "granted": "reguła daje poziom {{level}} dla {{target}}. {{person}} do nich należy: {{permission}} nadane.",
+        "grantedNoLevel": "reguła nadaje {{target}}: {{permission}}, do czego należy {{person}}.",
+        "removed": "reguła odbiera {{target}}: {{permission}}, do czego należy {{person}}."
+      },
+      "level": {
+        "none": "brak reguły dla {{person}}, grup lub ról. Nadal obowiązuje reguła wyżej."
+      }
+    }
   },
   "preview": {
     "viewAs": "Zobacz jako",
@@ -2879,6 +2912,7 @@
     "refusal": {
       "baseRole": "Ról bazowych nie można podglądać.",
       "unavailable": "Podgląd jest chwilowo niedostępny."
-    }
+    },
+    "readOnlyBodySend": "Twoja wiadomość nie została wysłana. Kliknij Wyjdź na górze, aby odzyskać kontrolę."
   }
 }

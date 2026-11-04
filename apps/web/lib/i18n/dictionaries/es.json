@@ -2760,9 +2760,42 @@
       "event": "Por un evento",
       "other": "Por otro paso",
       "ruleOn": "Por una regla en {{where}}, nivel {{level}}",
-      "ruleOnHidden": "Por una regla en una ubicación oculta, nivel {{level}}"
+      "ruleOnHidden": "Por una regla en una ubicación oculta, nivel {{level}}",
+      "askManage": "Pide poder gestionar"
     },
-    "locksNone": "Cerrojos: el cerrojo privado, el techo de invitados y la propiedad no cambian nada aquí."
+    "locksNone": "Cerrojos: el cerrojo privado, el techo de invitados y la propiedad no cambian nada aquí.",
+    "sep": ": ",
+    "card": {
+      "view": "Ver"
+    },
+    "label": {
+      "base": "Base",
+      "roles": "Sus roles",
+      "space": "En el espacio",
+      "hiddenPlace": "Ubicación oculta"
+    },
+    "para": {
+      "base": {
+        "granted": "el rol base del espacio da {{permission}} a {{person}}.",
+        "removed": "el rol base del espacio quita {{permission}} a {{person}}."
+      },
+      "roles": "{{list}}.",
+      "roleVia": "{{role}} recibido por el grupo {{groups}}",
+      "roleDirect": "{{role}} asignado directamente",
+      "roleBoth": "{{role}} asignado directamente y recibido por el grupo {{groups}}",
+      "space": {
+        "granted": "{{role}} permite: {{permission}}.",
+        "removed": "{{role}} quita: {{permission}}."
+      },
+      "rule": {
+        "granted": "una regla da {{level}} a {{target}}. {{person}} forma parte: {{permission}} concedido.",
+        "grantedNoLevel": "una regla concede {{permission}} a {{target}}, del que forma parte {{person}}.",
+        "removed": "una regla quita {{permission}} a {{target}}, del que forma parte {{person}}."
+      },
+      "level": {
+        "none": "ninguna regla para {{person}}, sus grupos o sus roles. Sigue aplicándose la regla de arriba."
+      }
+    }
   },
   "preview": {
     "viewAs": "Ver como",
@@ -2780,6 +2813,7 @@
     "refusal": {
       "baseRole": "Los roles base no se pueden ver en vista previa.",
       "unavailable": "La vista previa no está disponible por ahora."
-    }
+    },
+    "readOnlyBodySend": "Tu mensaje no se envió. Haz clic en Salir, arriba, para recuperar el control."
   }
 }

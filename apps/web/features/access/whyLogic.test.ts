@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { locksQuiet, groupSteps, labelOf, alreadyVia, cardOf, reasonKey, roleSentence, STEP_KINDS, stepSentence, type StepLike } from "./whyLogic.ts";
+import { cardsOf, outline, locksQuiet, groupSteps, labelOf, alreadyVia, cardOf, reasonKey, roleSentence, STEP_KINDS, stepSentence, type StepLike } from "./whyLogic.ts";
 
 const step = (over: Partial<StepLike> = {}): StepLike => ({ n: 1, kind: "base", permission: "files.view", effect: "granted", ...over });
 
@@ -151,4 +151,63 @@ test("a_quiet_lock_line_closes_the_explanation", () => {
   assert.equal(locksQuiet([step({ kind: "base" }), step({ kind: "rule" })]), true);
   for (const kind of ["private_lock", "guest_ceiling", "owner", "archived"]) assert.equal(locksQuiet([step({ kind })]), false, kind);
   assert.equal(locksQuiet([]), true);
+});
+
+const R = (permission: string, granted: boolean, reasonStep?: number) => ({ permission, granted, reasonStep });
+
+test("results_read_in_levels", () => {
+  const steps: StepLike[] = [
+    step({ n: 1, kind: "base", permission: "files.view" }),
+    step({ n: 2, kind: "rule", permission: "files.create", target: { kind: "group", id: ID.custom, name: "Comptabilité", hidden: false }, level: { kind: "file", id: ID.admin, name: "Compta", hidden: false }, ruleLevel: "contribute" }),
+    step({ n: 3, kind: "rule", permission: "files.edit", target: { kind: "group", id: ID.custom, name: "Comptabilité", hidden: false }, level: { kind: "file", id: ID.admin, name: "Compta", hidden: false }, ruleLevel: "contribute" }),
+  ];
+  const files = cardsOf("file", [R("files.view", true, 1), R("files.create", true, 2), R("files.edit", true, 3), R("files.manage", false), R("files.public_link", false)], steps);
+  assert.deepEqual(files.map((c) => [c.labelKey, c.granted]), [
+    ["why.card.view", true], ["access.level.file.contribute", true], ["access.level.manage", false], ["access.publicLink", false],
+  ]);
+  assert.equal(files[0].reason?.kind, "base");
+  assert.equal(files[1].reason?.levelKey, "access.level.file.contribute");
+  // "Modifier" needs both create and edit; one alone is not the level.
+  const half = cardsOf("file", [R("files.view", true, 1), R("files.create", true, 2), R("files.edit", false), R("files.manage", false), R("files.public_link", false)], steps);
+  assert.equal(half[1].granted, false);
+  // Without the right to manage, the public link asks to be a manager; the others have no rule.
+  assert.equal(files[3].hint, "askManage");
+  assert.equal(files[2].hint, undefined);
+  // Channels and calendars: Voir, Participer or Écrire, Gérer.
+  const channel = cardsOf("channel", [R("channel.view", true, 1), R("message.send", true, 1), R("message.attach", true, 1), R("message.pin", true, 1), R("message.manage", false), R("channel.members.manage", false), R("channel.manage", false)], steps);
+  assert.deepEqual(channel.map((c) => [c.labelKey, c.granted]), [["why.card.view", true], ["access.level.channel.contribute", true], ["access.level.manage", false]]);
+  const calendar = cardsOf("calendar", [R("calendar.view", true, 1), R("calendar.write", false), R("calendar.manage", false)], steps);
+  assert.deepEqual(calendar.map((c) => c.labelKey), ["why.card.view", "access.level.calendar.contribute", "access.level.manage"]);
+  // A permission the explanation does not list leaves its level out.
+  assert.equal(cardsOf("calendar", [R("calendar.view", true, 1)], steps).length, 1);
+});
+
+test("why_reads_as_the_chain_of_levels", () => {
+  const group = { kind: "group", id: ID.custom, name: "Comptabilité", hidden: false };
+  const compta = { kind: "file", id: ID.admin, name: "Compta", hidden: false };
+  const steps: StepLike[] = [
+    step({ n: 1, kind: "base", permission: "files.view" }),
+    step({ n: 2, kind: "role", permission: "files.view", role: { id: ID.custom, name: "Comptable", direct: false, viaGroups: [{ id: ID.custom, name: "Comptabilité" }] } }),
+    step({ n: 3, kind: "rule", permission: "files.edit", target: group, level: compta, ruleLevel: "contribute" }),
+    step({ n: 4, kind: "rule", permission: "files.create", target: group, level: compta, ruleLevel: "contribute" }),
+  ];
+  const chain = [{ id: ID.admin, name: "Compta", item: false }, { id: ID.members, name: "2026", item: false }, { id: ID.guests, name: "Devis", item: true }];
+  const para = outline(steps, chain);
+  assert.deepEqual(para.map((p) => p.type), ["base", "roles", "space", "level", "level", "level", "quiet"]);
+  // The roles line comes from the role steps, with the groups that carry them.
+  const roles = para[1];
+  assert.equal(roles.type === "roles" && roles.roles[0].viaGroups[0].name, "Comptabilité");
+  // One line per level of the chain, outermost first; a rule's permissions are grouped in one sentence.
+  const levels = para.filter((p) => p.type === "level");
+  assert.deepEqual(levels.map((l) => l.type === "level" && [l.name, l.item, l.rules.length]), [["Compta", false, 1], ["2026", false, 0], ["Devis", true, 0]]);
+  assert.deepEqual(levels[0].type === "level" && levels[0].rules[0].permissions, ["files.edit", "files.create"]);
+  // A lock that acted replaces the quiet line.
+  const locked = outline([...steps, step({ n: 5, kind: "guest_ceiling", effect: "removed", permission: "files.manage" })], chain);
+  assert.equal(locked.at(-1)?.type, "locks");
+  assert.equal(locked.some((p) => p.type === "quiet"), false);
+  // A rule at a place the chain does not know (hidden) still appears, before the locks.
+  const hidden = outline([...steps, step({ n: 6, kind: "rule", permission: "files.view", target: group, level: { kind: "file", hidden: true }, ruleLevel: "read" })], chain);
+  assert.equal(hidden.filter((p) => p.type === "level").length, 4);
+  // Other kinds of step (a message the file was shared in...) stay plain sentences.
+  assert.equal(outline([step({ kind: "message", permission: "files.view" })], chain).some((p) => p.type === "other"), true);
 });

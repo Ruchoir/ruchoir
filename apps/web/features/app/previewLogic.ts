@@ -28,8 +28,14 @@ export function bannerOf(preview: { roleName: string; idleSeconds?: number }, sp
 }
 
 /** The toast of a write the server refused during a preview (frame 14); the keys are dictionary keys. */
-export function previewToast(): { tone: "danger"; titleKey: "preview.readOnlyTitle"; bodyKey: "preview.readOnlyBody" } {
-  return { tone: "danger", titleKey: "preview.readOnlyTitle", bodyKey: "preview.readOnlyBody" };
+export function previewToast(request?: { method: string; path: string }): {
+  tone: "danger";
+  titleKey: "preview.readOnlyTitle";
+  bodyKey: "preview.readOnlyBody" | "preview.readOnlyBodySend";
+} {
+  // A message posted to a channel, a thread or a conversation says "your message"; anything else is generic.
+  const sending = request?.method === "POST" && /\/messages$/.test(request.path);
+  return { tone: "danger", titleKey: "preview.readOnlyTitle", bodyKey: sending ? "preview.readOnlyBodySend" : "preview.readOnlyBody" };
 }
 
 /**

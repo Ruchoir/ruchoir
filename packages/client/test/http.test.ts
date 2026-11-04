@@ -54,8 +54,8 @@ test("a_401_tells_why", async () => {
 
 test("a_write_refused_by_a_preview_calls_onPreviewReadOnly", async () => {
   fakeFetch({ status: 403, body: { error: "preview_read_only" } }, { status: 403, body: { error: "forbidden", reason: "preview_read_only" } }, { status: 403, body: { error: "forbidden", reason: "cannot_grant" } });
-  let heard = 0;
-  configureClient({ baseUrl: "https://a.test", onPreviewReadOnly: () => heard++ });
+  const heard: string[] = [];
+  configureClient({ baseUrl: "https://a.test", onPreviewReadOnly: (request) => heard.push(`${request.method} ${request.path}`) });
   for (let i = 0; i < 3; i++) await apiRequest("PUT", "/x").catch(() => {});
-  assert.equal(heard, 2);
+  assert.deepEqual(heard, ["PUT /x", "PUT /x"]);
 });

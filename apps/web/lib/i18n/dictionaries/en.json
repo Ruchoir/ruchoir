@@ -2661,9 +2661,42 @@
       "event": "By an event",
       "other": "By another step",
       "ruleOn": "By a rule on {{where}}, level {{level}}",
-      "ruleOnHidden": "By a rule on a hidden location, level {{level}}"
+      "ruleOnHidden": "By a rule on a hidden location, level {{level}}",
+      "askManage": "Needs the right to manage"
     },
-    "locksNone": "Locks: the private lock, the guest ceiling and ownership change nothing here."
+    "locksNone": "Locks: the private lock, the guest ceiling and ownership change nothing here.",
+    "sep": ": ",
+    "card": {
+      "view": "View"
+    },
+    "label": {
+      "base": "Base",
+      "roles": "Their roles",
+      "space": "In the space",
+      "hiddenPlace": "Hidden location"
+    },
+    "para": {
+      "base": {
+        "granted": "the space's base role gives {{person}} {{permission}}.",
+        "removed": "the space's base role takes {{permission}} from {{person}}."
+      },
+      "roles": "{{list}}.",
+      "roleVia": "{{role}} received through the group {{groups}}",
+      "roleDirect": "{{role}} given directly",
+      "roleBoth": "{{role}} given directly and received through the group {{groups}}",
+      "space": {
+        "granted": "{{role}} allows: {{permission}}.",
+        "removed": "{{role}} takes away: {{permission}}."
+      },
+      "rule": {
+        "granted": "a rule gives {{level}} to {{target}}. {{person}} is part of it: {{permission}} granted.",
+        "grantedNoLevel": "a rule gives {{permission}} to {{target}}, which {{person}} is part of.",
+        "removed": "a rule takes {{permission}} from {{target}}, which {{person}} is part of."
+      },
+      "level": {
+        "none": "no rule for {{person}}, their groups or their roles. The rule above keeps applying."
+      }
+    }
   },
   "preview": {
     "viewAs": "View as",
@@ -2681,6 +2714,7 @@
     "refusal": {
       "baseRole": "The base roles cannot be previewed.",
       "unavailable": "The preview is unavailable right now."
-    }
+    },
+    "readOnlyBodySend": "Your message was not sent. Click Quit at the top to take control again."
   }
 }

@@ -2313,12 +2313,12 @@ function AppShell() {
   useEffect(() => {
     let last = 0;
     configureClient({
-      onPreviewReadOnly: () => {
+      onPreviewReadOnly: (request) => {
         const now = Date.now();
         previewRefusedAt.current = now;
         if (now - last < 2000) return;
         last = now;
-        const toast = previewToast();
+        const toast = previewToast(request);
         notifyRef.current?.({ tone: toast.tone, title: tRef.current(toast.titleKey), description: tRef.current(toast.bodyKey) });
       },
     });

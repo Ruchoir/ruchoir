@@ -2695,9 +2695,42 @@
       "event": "Par un événement",
       "other": "Par une autre étape",
       "ruleOn": "Par une règle sur {{where}}, niveau {{level}}",
-      "ruleOnHidden": "Par une règle sur un emplacement masqué, niveau {{level}}"
+      "ruleOnHidden": "Par une règle sur un emplacement masqué, niveau {{level}}",
+      "askManage": "Demande de gérer"
     },
-    "locksNone": "Verrous : le verrou privé, le plafond des invités et le statut de propriétaire ne changent rien ici."
+    "locksNone": "Verrous : le verrou privé, le plafond des invités et le statut de propriétaire ne changent rien ici.",
+    "sep": " : ",
+    "card": {
+      "view": "Voir"
+    },
+    "label": {
+      "base": "Base",
+      "roles": "Ses rôles",
+      "space": "Dans l'espace",
+      "hiddenPlace": "Emplacement masqué"
+    },
+    "para": {
+      "base": {
+        "granted": "le rôle de base de l'espace accorde {{permission}} à {{person}}.",
+        "removed": "le rôle de base de l'espace retire {{permission}} à {{person}}."
+      },
+      "roles": "{{list}}.",
+      "roleVia": "{{role}} reçu par le groupe {{groups}}",
+      "roleDirect": "{{role}} attribué directement",
+      "roleBoth": "{{role}} attribué directement et reçu par le groupe {{groups}}",
+      "space": {
+        "granted": "{{role}} permet : {{permission}}.",
+        "removed": "{{role}} retire : {{permission}}."
+      },
+      "rule": {
+        "granted": "une règle donne {{level}} à {{target}}. {{person}} en fait partie : {{permission}} accordé.",
+        "grantedNoLevel": "une règle accorde {{permission}} à {{target}}, dont fait partie {{person}}.",
+        "removed": "une règle retire {{permission}} à {{target}}, dont fait partie {{person}}."
+      },
+      "level": {
+        "none": "aucune règle pour {{person}}, ses groupes ou ses rôles. La règle du dessus continue de s'appliquer."
+      }
+    }
   },
   "preview": {
     "viewAs": "Voir en tant que",
@@ -2715,6 +2748,7 @@
     "refusal": {
       "baseRole": "Les rôles de base ne s'affichent pas en aperçu.",
       "unavailable": "L'aperçu est indisponible pour le moment."
-    }
+    },
+    "readOnlyBodySend": "Votre message n'a pas été envoyé. Cliquez sur Quitter, en haut, pour reprendre la main."
   }
 }

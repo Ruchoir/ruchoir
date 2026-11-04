@@ -71,3 +71,14 @@ test("a_failure_toast_never_hides_the_preview_refusal", () => {
   // No refusal yet: everything shows.
   assert.equal(shouldShowToast(undefined, 10_400, failure), true);
 });
+
+test("the_preview_toast_names_the_refused_action", () => {
+  // A message sent to a channel or a thread: the frame's sentence about the message.
+  assert.equal(previewToast({ method: "POST", path: "/channels/c1/messages" }).bodyKey, "preview.readOnlyBodySend");
+  assert.equal(previewToast({ method: "POST", path: "/dms/d1/messages" }).bodyKey, "preview.readOnlyBodySend");
+  // Any other write, or no request known: the generic sentence.
+  assert.equal(previewToast({ method: "PUT", path: "/channels/c1/messages/m1" }).bodyKey, "preview.readOnlyBody");
+  assert.equal(previewToast({ method: "POST", path: "/spaces/s1/roles" }).bodyKey, "preview.readOnlyBody");
+  assert.equal(previewToast().bodyKey, "preview.readOnlyBody");
+  assert.equal(previewToast({ method: "POST", path: "/channels/c1/messages" }).titleKey, "preview.readOnlyTitle");
+});
