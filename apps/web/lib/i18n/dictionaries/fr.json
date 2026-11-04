@@ -2477,7 +2477,7 @@
     "publicTitle": "Public",
     "publicBody": "Tout le monde dans l'espace le voit et le rejoint.",
     "privateTitle": "Privé",
-    "privateBody": "Seuls ceux listés ci-dessous le voient.",
+    "privateBody": "Seules les personnes listées ci-dessous le voient.",
     "colWho": "Qui a accès",
     "colLevel": "Niveau",
     "everyoneSub": "Tous les membres",

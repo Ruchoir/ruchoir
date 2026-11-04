@@ -1,9 +1,10 @@
 /**
  * The name and description of a group, in a sheet: a new group (which then opens its editor, to add
  * its people) or, with a `groupId`, the name of an existing one. The name is also what is mentioned.
- * Limits and refusals are the web's (60 and 300 characters, a name taken, reserved or invalid).
+ * Limits and refusals are the web's (60 and 280 characters, a name taken, reserved or invalid).
  */
 import { refusalOf, type Group } from "@ruchoir/client";
+import { GROUP_DESCRIPTION_MAX } from "@ruchoir/client/permissionsLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
@@ -25,7 +26,6 @@ import { TextField } from "../../ui/TextField";
 import { useToast } from "../../ui/Toast";
 
 const NAME_MAX = 60;
-const DESCRIPTION_MAX = 300;
 
 export function GroupFormScreen() {
   const { listGroups } = useApi();
@@ -107,7 +107,7 @@ function Form({ spaceId, group }: { spaceId: string; group?: Group }) {
             error={error}
             hint={trimmed ? t("groups.nameHint", { name: trimmed }) : undefined}
           />
-          <TextField label={t("groups.descOptional")} value={description} onChangeText={setDescription} maxLength={DESCRIPTION_MAX} />
+          <TextField label={t("groups.descOptional")} value={description} onChangeText={setDescription} maxLength={GROUP_DESCRIPTION_MAX} />
         </View>
       </KeyboardForm>
     </View>

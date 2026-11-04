@@ -11,7 +11,7 @@ import { useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
 import { GroupIcon } from "../groups/GroupIcon";
 import { GroupEditor } from "./GroupEditor";
-import { groupPeople, groupRow, foldName, sortGroups } from "./groupsLogic.ts";
+import { GROUP_DESCRIPTION_MAX, groupPeople, groupRow, foldName, sortGroups } from "./groupsLogic.ts";
 import { importedGroupSource } from "./importLogic.ts";
 import { refusalMessage, RoleChip, roleLabel } from "./roleChips";
 
@@ -309,7 +309,7 @@ function CreateGroupDialog({ spaceId, onClose, onCreated }: { spaceId: string; o
           <Input id="new-group-name" value={name} maxLength={60} autoFocus onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label={t("groups.descOptional")} htmlFor="new-group-desc">
-          <Input id="new-group-desc" value={description} maxLength={300} onChange={(e) => setDescription(e.target.value)} />
+          <Input id="new-group-desc" value={description} maxLength={GROUP_DESCRIPTION_MAX} onChange={(e) => setDescription(e.target.value)} />
         </Field>
       </div>
     </Dialog>

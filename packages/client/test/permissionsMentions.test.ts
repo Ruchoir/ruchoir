@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { matchGroupMention, matchMentionTarget } from "./mentionMatch.ts";
+import { foldMention, matchGroupMention, matchMentionTarget, prepareGroupNames } from "../src/permissionsLogic/index.ts";
 
 test("a_group_name_is_matched_before_a_shorter_person_name", () => {
   const people = ["Chantier", "Camille Martin", "canal"];
@@ -52,4 +52,44 @@ test("a_group_mention_follows_the_servers_rule", () => {
   assert.equal(matchGroupMention("@Chantier Rennes, ok", 1, ["Chantier Rennes"]), "Chantier Rennes");
   // After a space or at the start, the @ is a boundary.
   assert.equal(matchGroupMention("salut @Ops", 7, ["Ops"]), "Ops");
+});
+
+test("a_surrogate_pair_before_the_at_is_one_handle_character", () => {
+  // The server reads code points: "𝒜" (a letter outside the BMP) glued to the @ makes it an address.
+  assert.equal(matchGroupMention("\u{1D49C}@Ops", 3, ["Ops"]), null);
+  // An emoji is not a handle character: the @ after it is a boundary.
+  assert.equal(matchGroupMention("\u{1F600}@Ops", 3, ["Ops"]), "Ops");
+});
+
+test("names_with_symbols_and_digits_match_word_by_word", () => {
+  assert.equal(matchGroupMention("@R&D Paris ok", 1, ["R&D Paris"]), "R&D Paris");
+  assert.equal(matchGroupMention("@Ops (nord) ok", 1, ["Ops (nord)"]), "Ops (nord)");
+  assert.equal(matchGroupMention("@Compta 2024/25, merci", 1, ["Compta 2024/25"]), "Compta 2024/25");
+});
+
+test("prefix_related_names_pick_the_longest_that_fits", () => {
+  const names = ["Ops", "Ops Nord", "Ops Nord Est"];
+  assert.equal(matchGroupMention("@Ops Nord Est ok", 1, names), "Ops Nord Est");
+  assert.equal(matchGroupMention("@Ops Nord ok", 1, names), "Ops Nord");
+  assert.equal(matchGroupMention("@Ops Sud", 1, names), "Ops");
+  assert.equal(matchGroupMention("@Ops Nord. Suite", 1, names), "Ops Nord");
+});
+
+test("trailing_and_inner_punctuation", () => {
+  assert.equal(matchGroupMention("@Ops...", 1, ["Ops"]), "Ops");
+  assert.equal(matchGroupMention("@Ops?!", 1, ["Ops"]), "Ops");
+  // Inner punctuation belongs to the word: it must match the name's own.
+  assert.equal(matchGroupMention("@A.B ok", 1, ["A.B"]), "A.B");
+  assert.equal(matchGroupMention("@A,B ok", 1, ["A.B"]), null);
+});
+
+test("prepared_names_are_folded_once_and_reused", () => {
+  const names = ["Chantier Rennes", "Cœur"];
+  const prepared = prepareGroupNames(names);
+  assert.deepEqual(prepared.words, [["chantier", "rennes"], ["coeur"]]);
+  assert.equal(prepared.maxWords, 2);
+  // The same list gives the same structure: it is not recomputed for every message.
+  assert.equal(prepareGroupNames(names), prepared);
+  assert.equal(matchGroupMention("@coeur", 1, prepared), "coeur");
+  assert.equal(foldMention("Cœur"), "coeur");
 });

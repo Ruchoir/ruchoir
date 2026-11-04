@@ -33,6 +33,7 @@ export {
 export {
   type GroupLike,
   foldName,
+  GROUP_DESCRIPTION_MAX,
   sortGroups,
   rolesViaGroups,
   groupRow,
@@ -211,3 +212,11 @@ export {
   BANNER_DAYS,
   importBanner,
 } from "./imports.ts";
+export {
+  type PreparedGroupNames,
+  matchMention,
+  foldMention,
+  prepareGroupNames,
+  matchGroupMention,
+  matchMentionTarget,
+} from "./mentions.ts";

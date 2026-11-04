@@ -13,7 +13,7 @@ import { offersManagement, removalOf } from "../groups/groupPanelLogic.ts";
 import { GroupIcon } from "../groups/GroupIcon";
 import { DeleteGroupDialog } from "./GroupDialogs";
 import { GroupRolesTab } from "./GroupRolesTab";
-import { foldName, groupPeople, groupRow } from "./groupsLogic.ts";
+import { GROUP_DESCRIPTION_MAX, foldName, groupPeople, groupRow } from "./groupsLogic.ts";
 import { refusalMessage, roleLabel } from "./roleChips";
 
 const st: Record<string, CSSProperties> = {
@@ -238,7 +238,7 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
             <Input id="group-name" value={name} maxLength={60} disabled={!group.may.edit || busy} onChange={(e) => setName(e.target.value)} />
           </Field>
           <Field label={t("groups.descOptional")} htmlFor="group-desc">
-            <Input id="group-desc" value={description} maxLength={300} disabled={!group.may.edit || busy} onChange={(e) => setDescription(e.target.value)} />
+            <Input id="group-desc" value={description} maxLength={GROUP_DESCRIPTION_MAX} disabled={!group.may.edit || busy} onChange={(e) => setDescription(e.target.value)} />
           </Field>
           {group.may.edit ? (
             <div>
