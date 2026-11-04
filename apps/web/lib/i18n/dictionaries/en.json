@@ -2243,7 +2243,8 @@
     "guestToMember": "{{actor}} made {{target}} a member, from guest",
     "memberToGuest": "{{actor}} made {{target}} a guest, from member",
     "guestPurged": "{{target}}'s access was deleted after 90 days",
-    "accessUntil": "Access until {{date}}"
+    "accessUntil": "Access until {{date}}",
+    "accessTo": "Access to {{space}}"
   },
   "guests": {
     "endTitle": "Access until",
@@ -2336,6 +2337,11 @@
     "noticeSoon": "{{name}}'s access ends {{when}}",
     "noticeEnding": "Your access to {{space}} ends {{when}}",
     "endedNotice": "Your access to {{space}} has ended",
-    "endedNoticeBody": "Your messages and files stay in the space. Ask the people who manage it to get access back."
+    "endedNoticeBody": "Your messages and files stay in the space. Ask the people who manage it to get access back.",
+    "refusalBadExpiry": "The end date must be in the future, within the next five years.",
+    "refusalGuestOnly": "Only a guest can have an end date: this person is a member.",
+    "refusalAccessEnded": "This access has already ended: reactivate it to give it a new date.",
+    "refusalNotEnded": "This access has not ended: there is nothing to reactivate.",
+    "leftNotice": "You are no longer part of {{space}}"
   }
 }

@@ -2243,7 +2243,8 @@
     "guestToMember": "{{actor}} hat {{target}} vom Gast zum Mitglied gemacht",
     "memberToGuest": "{{actor}} hat {{target}} vom Mitglied zum Gast gemacht",
     "guestPurged": "Der Zugang von {{target}} wurde nach 90 Tagen gelöscht",
-    "accessUntil": "Zugang bis {{date}}"
+    "accessUntil": "Zugang bis {{date}}",
+    "accessTo": "Zugang zu {{space}}"
   },
   "guests": {
     "endTitle": "Zugang bis",
@@ -2336,6 +2337,11 @@
     "noticeSoon": "Der Zugang von {{name}} endet {{when}}",
     "noticeEnding": "Ihr Zugang zu {{space}} endet {{when}}",
     "endedNotice": "Ihr Zugang zu {{space}} ist beendet",
-    "endedNoticeBody": "Ihre Nachrichten und Dateien bleiben im Bereich. Wenden Sie sich an die Personen, die ihn verwalten, um wieder Zugang zu erhalten."
+    "endedNoticeBody": "Ihre Nachrichten und Dateien bleiben im Bereich. Wenden Sie sich an die Personen, die ihn verwalten, um wieder Zugang zu erhalten.",
+    "refusalBadExpiry": "Das Enddatum muss in der Zukunft liegen, innerhalb der nächsten fünf Jahre.",
+    "refusalGuestOnly": "Nur ein Gast kann ein Enddatum haben: Diese Person ist Mitglied.",
+    "refusalAccessEnded": "Dieser Zugang ist bereits beendet: Reaktivieren Sie ihn, um ein neues Datum zu setzen.",
+    "refusalNotEnded": "Dieser Zugang ist nicht beendet: Es gibt nichts zu reaktivieren.",
+    "leftNotice": "Sie gehören nicht mehr zu {{space}}"
   }
 }

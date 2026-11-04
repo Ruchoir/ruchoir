@@ -1,7 +1,7 @@
 // Run with `pnpm --filter @ruchoir/web test` (Node's own runner, types stripped by Node).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { endedSpaces, guestNoticeSummary, whenLabel } from "./guestNotices.ts";
+import { endedNoticeKeys, endedSpaces, guestNoticeSummary, whenLabel } from "./guestNotices.ts";
 
 const say = (which: "soon" | "ending", vars: Record<string, string>) => `${which}:${Object.values(vars).join("|")}`;
 
@@ -36,4 +36,13 @@ test("the_soon_notice_offers_prolong_for_that_guest", () => {
 test("the_guest_notice_opens_the_space", () => {
   assert.deepEqual(noticeTarget({ kind: "guest_access_ending", spaceId: "s1" }), { action: "space", spaceId: "s1" });
   assert.equal(noticeTarget({ kind: "mention", spaceId: "s1" }), null);
+});
+
+test("the_ended_toast_fits_the_standing", () => {
+  assert.deepEqual(endedNoticeKeys("guest"), { title: "guests.endedNotice", body: "guests.endedNoticeBody" });
+  assert.deepEqual(endedNoticeKeys("member"), { title: "guests.leftNotice" });
+  assert.deepEqual(endedNoticeKeys(undefined), { title: "guests.leftNotice" });
+  // The role travels with the vanished space.
+  const told = new Set<string>();
+  assert.deepEqual(endedSpaces([{ id: "a", name: "A", role: "guest" }], [], told), [{ id: "a", name: "A", role: "guest" }]);
 });

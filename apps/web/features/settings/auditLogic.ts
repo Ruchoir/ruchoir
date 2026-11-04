@@ -80,6 +80,8 @@ export type AuditLine = {
   values: Record<string, string | number>;
   /** `viaGroup`: the roles come with a group, so each chip says "by the group". */
   diff?: { kind: "permission" | "role"; added: string[]; removed: string[]; viaGroup?: boolean };
+  /** The pastilles of a guest line: the standing taken or left, the access ended, a date. */
+  chips?: { sign: "+" | "-"; what: "member" | "guest" | "until" | "space"; date?: string }[];
 };
 
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
@@ -111,6 +113,7 @@ export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined): A
     slots: { actor, ...extra.slots },
     values: { action: entry.action, ...extra.values },
     diff: extra.diff,
+    ...(extra.chips ? { chips: extra.chips } : {}),
   });
   const group = (name: string): Slot => ({ kind: "group", name, id: entry.target.id });
   const people = (ids: string[]): Slot => ({ kind: "people", names: ids.map((id) => nameOf(id) ?? null) });
@@ -223,13 +226,22 @@ export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined): A
       return line(!before ? "guestExpiryFixed" : !after ? "guestExpiryRemoved" : "guestExpiryMoved", { slots: { target }, values: { before, after } });
     }
     case "member.expired":
-      return line("guestExpired", { slots: { target } });
+      return line("guestExpired", { slots: { target }, chips: [{ sign: "-", what: "space" }] });
     case "member.reactivated":
       return line("guestReactivated", { slots: { target }, values: { before: str(d.before), after: str(d.after) } });
-    case "member.standing_changed":
-      return line(d.after === "guest" ? "memberToGuest" : "guestToMember", { slots: { target } });
+    case "member.standing_changed": {
+      // The date, when the payload carries one (`expires_at: { before, after }`): the end the guest had
+      // when they became a member, or the end given as a member became a guest.
+      const ends = (d.expires_at ?? {}) as Record<string, unknown>;
+      const toGuest = d.after === "guest";
+      const date = str(toGuest ? ends.after : ends.before);
+      const chips: NonNullable<AuditLine["chips"]> = toGuest
+        ? [{ sign: "+", what: "guest" }, { sign: "-", what: "member" }, ...(date ? [{ sign: "+" as const, what: "until" as const, date }] : [])]
+        : [{ sign: "+", what: "member" }, { sign: "-", what: "guest" }, ...(date ? [{ sign: "-" as const, what: "until" as const, date }] : [])];
+      return line(toGuest ? "memberToGuest" : "guestToMember", { slots: { target }, chips });
+    }
     case "member.purged":
-      return line("guestPurged", { slots: { target } });
+      return line("guestPurged", { slots: { target }, chips: [{ sign: "-", what: "space" }] });
     default:
       return line("unknown");
   }

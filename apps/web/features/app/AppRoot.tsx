@@ -1,6 +1,6 @@
 "use client";
 
-import { endedSpaces, noticeTarget } from "./guestNotices.ts";
+import { endedNoticeKeys, endedSpaces, noticeTarget } from "./guestNotices.ts";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAvatar, getPresence, setChannelMembers, setCurrentUser, setSpaceRooms, setUserPresence } from "@/lib/data";
 import { isDesktop } from "@/lib/desktop/runtime";
@@ -350,6 +350,13 @@ function applyChanges(map: MessageMap, changes: { conversationId: string; messag
 }
 
 /** A notification from the API, as the inbox holds it, labelled from the lists this client has. */
+/** The texts of the notice shown when a space leaves the list, by the keys `endedNoticeKeys` answers. */
+const ENDED_TEXT: Record<string, TranslationKey> = {
+  "guests.endedNotice": key("guests.endedNotice"),
+  "guests.endedNoticeBody": key("guests.endedNoticeBody"),
+  "guests.leftNotice": key("guests.leftNotice"),
+};
+
 function toAppNotification(
   n: ApiNotification,
   chans: Channel[],
@@ -947,7 +954,7 @@ function AppShell() {
         feed.notifications.map((n) => toAppNotification(n, chans, dmList, n.read || n.conversationId === opening)),
       );
       if (openedHere.length > 0) {
-        for (const n of openedHere) void markNotificationRead(n.id).catch(() => {});
+        for (const n of openedHere) void markNotificationRead(n.id, { guestNotices: true }).catch(() => {});
         refreshSpaceCounters();
       }
     })();
@@ -1531,8 +1538,16 @@ function AppShell() {
               // The space is gone from the list: a guest's access to it ended. Said once, whatever
               // frames follow, and the space leaves the rail.
               const gone = endedSpaces(liveRef.current.spaces, spaces, endedToldRef.current);
-              for (const space of gone) notifyRef.current?.({ tone: "warning", title: tRef.current("guests.endedNotice", { space: space.name }), description: tRef.current("guests.endedNoticeBody") });
-              if (gone.length > 0) setWorkspaces((prev) => prev.filter((w) => w.id !== spaceId));
+              for (const space of gone) {
+                const said = endedNoticeKeys(space.role);
+                notifyRef.current?.({
+                  tone: "warning",
+                  title: tRef.current(ENDED_TEXT[said.title], { space: space.name }),
+                  ...(said.body ? { description: tRef.current(ENDED_TEXT[said.body]) } : {}),
+                });
+              }
+              // Out of the rail, and off the screen if it was the open one: another space, or the empty shell.
+              dropSpaceRef.current(spaceId);
               return;
             }
             setWorkspaces((prev) =>
@@ -1609,7 +1624,7 @@ function AppShell() {
         };
         setNotifs((prev) => [notif, ...prev.filter((x) => x.id !== n.id)]);
         if (viewing) {
-          void markNotificationRead(n.id).catch(() => {});
+          void markNotificationRead(n.id, { guestNotices: true }).catch(() => {});
           return;
         }
         // Ensure the source conversation shows as unread. `Math.max` so this never double-counts with
@@ -2041,17 +2056,17 @@ function AppShell() {
     if (toMark.length === 0) return;
     const ids = new Set(toMark.map((n) => n.id));
     setNotifs((prev) => prev.map((n) => (ids.has(n.id) ? { ...n, read: true } : n)));
-    for (const n of toMark) void markNotificationRead(n.id).catch(() => {});
+    for (const n of toMark) void markNotificationRead(n.id, { guestNotices: true }).catch(() => {});
   };
 
   const setNotifRead = (id: string, read: boolean) => {
     setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read } : n)));
     // The API only marks a notification read (there is no "unread" inverse), so sync only that way.
-    if (read) void markNotificationRead(id).catch(() => {});
+    if (read) void markNotificationRead(id, { guestNotices: true }).catch(() => {});
   };
   const markAllNotifsRead = () => {
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
-    void markAllNotificationsRead().catch(() => {});
+    void markAllNotificationsRead({ guestNotices: true }).catch(() => {});
   };
   /**
    * What a conversation left on `default` currently gets: the space's level, else one's own
@@ -2094,7 +2109,7 @@ function AppShell() {
     // reading the channel directly (not via the notification center) empties its unread there.
     const toMark = notifs.filter((n) => n.channelId === id && !n.read);
     setNotifs((prev) => prev.map((n) => (n.channelId === id ? { ...n, read: true } : n)));
-    for (const n of toMark) void markNotificationRead(n.id).catch(() => {});
+    for (const n of toMark) void markNotificationRead(n.id, { guestNotices: true }).catch(() => {});
     // Advance the server-side read cursor to the latest acknowledged message. Best-effort: a failure
     // only means the badge reappears on reload, so it is not surfaced.
     const list = loaded ?? messages[id] ?? [];
@@ -2126,7 +2141,7 @@ function AppShell() {
       const waiting = notifs.filter((n) => n.channelId === conversationId && !n.read);
       if (waiting.length === 0) return;
       setNotifs((prev) => prev.map((n) => (n.channelId === conversationId ? { ...n, read: true } : n)));
-      for (const n of waiting) void markNotificationRead(n.id).catch(() => {});
+      for (const n of waiting) void markNotificationRead(n.id, { guestNotices: true }).catch(() => {});
       refreshSpaceCounters();
     };
   });

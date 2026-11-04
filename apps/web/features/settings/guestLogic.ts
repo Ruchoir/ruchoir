@@ -98,9 +98,14 @@ export function dateBounds(now: Date, zone: string): { min: string; max: string 
   return { min: text(today), max: text(addMonths(today, MAX_YEARS * 12)) };
 }
 
-/** Whole days left before `iso` (a started day counts), never below zero. */
-export function daysLeft(iso: string, now: Date): number {
-  return Math.max(0, Math.ceil((new Date(iso).getTime() - now.getTime()) / DAY_MS));
+/**
+ * Calendar days from today to the day `iso` falls on, both read in `zone`: the 20th seen from the
+ * 15th is 5, the last day is 0 ("today"), the day before it 1 ("tomorrow"). Never below zero.
+ */
+export function daysLeft(iso: string, now: Date, zone: string = browserZone()): number {
+  const end = dayIn(new Date(iso), zone);
+  const today = dayIn(now, zone);
+  return Math.max(0, Math.round((Date.UTC(end.y, end.m - 1, end.d) - Date.UTC(today.y, today.m - 1, today.d)) / DAY_MS));
 }
 
 export function expiryTone(days: number): "calm" | "soon" {
@@ -112,9 +117,14 @@ export function showsEndDate(role: string): boolean {
   return role === "guest";
 }
 
-/** "20 novembre 2026": the day the access ends, where the setter reads it. */
-export function endLabel(iso: string, locale: string, zone?: string): string {
-  return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: zone }).format(new Date(iso));
+/**
+ * "20 novembre 2026": the day the access ends, where the setter reads it. Given `now`, the year is
+ * left out when the day falls in the current one ("12 décembre"), for a date in the middle of a sentence.
+ */
+export function endLabel(iso: string, locale: string, zone?: string, now?: Date): string {
+  const at = new Date(iso);
+  const sameYear = now !== undefined && new Intl.DateTimeFormat(PARTS_LOCALE, { year: "numeric", timeZone: zone }).format(at) === new Intl.DateTimeFormat(PARTS_LOCALE, { year: "numeric", timeZone: zone }).format(now);
+  return new Intl.DateTimeFormat(locale, sameYear ? { day: "numeric", month: "long", timeZone: zone } : { dateStyle: "long", timeZone: zone }).format(at);
 }
 
 function capital(text: string, locale: string): string {
@@ -151,9 +161,9 @@ export function splitPeople<T extends Person>(people: T[]): { members: T[]; gues
 }
 
 /** How a guest's row reads: the end, how far it is, and whether it deserves the warning and Prolong. */
-export function guestRow(guest: { expiresAt?: string }, now: Date) {
+export function guestRow(guest: { expiresAt?: string }, now: Date, zone: string = browserZone()) {
   const end = guest.expiresAt ?? null;
-  const days = end ? daysLeft(end, now) : null;
+  const days = end ? daysLeft(end, now, zone) : null;
   const tone = days === null ? "calm" : expiryTone(days);
   const soon = tone === "soon";
   return { end, days, tone, warn: soon, prolong: soon };
@@ -223,4 +233,28 @@ export function isGuestsOnly(group: { memberIds: string[] }, people: { userId: s
 /** The tag a group chip carries: "guests" when every person in the group is a guest, else none. */
 export function groupTagFor(group: { memberIds: string[] }, people: { userId: string; role: string }[] | undefined): "guests" | null {
   return people && isGuestsOnly(group, people) ? "guests" : null;
+}
+
+/** The items of a guest's "..." menu in the Members tab. Passing to member is always a dialog, never a direct change. */
+export function guestMenu(o: { licensed: boolean; canDate: boolean; hasEnd: boolean; canAct: boolean }): { id: "manage" | "changeDate" | "setDate" | "passerMembre" | "remove"; opens: "panel" | "dialog" | "confirm" }[] {
+  if (!o.canAct) return [];
+  return [
+    { id: "manage", opens: "panel" },
+    ...(o.canDate ? [{ id: o.hasEnd ? ("changeDate" as const) : ("setDate" as const), opens: "dialog" as const }] : []),
+    // A community space changes the standing from the management panel's own select.
+    ...(o.licensed ? [{ id: "passerMembre" as const, opens: "dialog" as const }] : []),
+    { id: "remove", opens: "confirm" },
+  ];
+}
+
+/** The dictionary key (under `guests`) of what an expiry refusal says, or `null` for any other code. */
+export function guestRefusalKey(code: string): string | null {
+  const keys: Record<string, string> = {
+    bad_expiry: "guests.refusalBadExpiry",
+    guest_only: "guests.refusalGuestOnly",
+    access_ended: "guests.refusalAccessEnded",
+    not_ended: "guests.refusalNotEnded",
+    access_ended_for_good: "guests.endedForGood",
+  };
+  return keys[code] ?? null;
 }

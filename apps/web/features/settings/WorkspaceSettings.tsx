@@ -609,7 +609,7 @@ export function WorkspaceSettings({
 
           {ceilingOpen ? <GuestRightsDialog spaceName={workspaceName} pricingUrl={pricingUrl} onClose={() => setCeilingOpen(false)} /> : null}
 
-          {tab === "audit" && canReadAudit ? <AuditSettings spaceId={spaceId} members={members} roles={roles} /> : null}
+          {tab === "audit" && canReadAudit ? <AuditSettings spaceId={spaceId} spaceName={workspaceName} members={members} roles={roles} /> : null}
 
           {tab === "licence" && canManageLicence ? (
             <LicenceSettings

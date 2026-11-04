@@ -182,7 +182,7 @@ const REFUSAL_CODES = new Set([
   "role_name_reserved", "role_name_taken", "role_has_rules", "beyond_guest_ceiling",
   "make_them_a_member_first", "no_self_role", "manager_protected", "group_from_directory",
   "group_name_taken", "group_name_reserved", "group_name_invalid", "manager_must_be_member",
-  "base_role_not_allowed", "not_in_space", "too_many_people", "bad_expiry", "guest_only", "access_ended",
+  "base_role_not_allowed", "not_in_space", "too_many_people", "bad_expiry", "guest_only", "access_ended", "not_ended",
   "access_ended_for_good",
 ]);
 
@@ -3014,13 +3014,14 @@ export function createApi(transport: Transport) {
   }
 
   /** `PUT /notifications/{id}/read`: mark one notification read. */
-  async function markNotificationRead(id: string): Promise<void> {
-    await apiPut<void>(`/notifications/${id}/read`);
+  async function markNotificationRead(id: string, opts: { guestNotices?: boolean } = {}): Promise<void> {
+    // Told which kinds the app shows, so a guest notice is found (and marked) like any other.
+    await apiPut<void>(`/notifications/${id}/read${opts.guestNotices ? "?guest_notices=true" : ""}`);
   }
 
   /** `PUT /notifications/read`: mark every notification read. */
-  async function markAllNotificationsRead(): Promise<void> {
-    await apiPut<void>("/notifications/read");
+  async function markAllNotificationsRead(opts: { guestNotices?: boolean } = {}): Promise<void> {
+    await apiPut<void>(`/notifications/read${opts.guestNotices ? "?guest_notices=true" : ""}`);
   }
 
   // --- Notification delivery (preferences, Web Push) ---

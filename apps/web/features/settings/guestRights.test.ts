@@ -107,3 +107,37 @@ test("an_all_guest_group_chip_carries_the_tag", async () => {
   // With no list of people to judge by, no tag is guessed.
   assert.equal(groupTagFor({ memberIds: ["a"] }, undefined), null);
 });
+
+test("standing_lines_carry_their_chips", () => {
+  const toMember = auditLine(entry("member.standing_changed", { before: "guest", after: "member", expires_at: { before: "2026-12-31T22:59:59Z", after: null } }));
+  assert.deepEqual(toMember.chips, [
+    { sign: "+", what: "member" },
+    { sign: "-", what: "guest" },
+    { sign: "-", what: "until", date: "2026-12-31T22:59:59Z" },
+  ]);
+  // Without the date in the payload, no date chip is invented.
+  assert.deepEqual(auditLine(entry("member.standing_changed", { before: "guest", after: "member" })).chips, [{ sign: "+", what: "member" }, { sign: "-", what: "guest" }]);
+  const toGuest = auditLine(entry("member.standing_changed", { before: "member", after: "guest", expires_at: { before: null, after: "2026-12-31T22:59:59Z" } }));
+  assert.deepEqual(toGuest.chips, [{ sign: "+", what: "guest" }, { sign: "-", what: "member" }, { sign: "+", what: "until", date: "2026-12-31T22:59:59Z" }]);
+  assert.deepEqual(auditLine(entry("member.expired", { role: "guest" })).chips, [{ sign: "-", what: "space" }]);
+  assert.deepEqual(auditLine(entry("member.purged", { role: "guest" })).chips, [{ sign: "-", what: "space" }]);
+});
+
+test("each_refusal_has_its_sentence", async () => {
+  const { guestRefusalKey } = await import("./guestLogic.ts");
+  const rust = ["permissions/expiry_routes.rs", "messaging/spaces.rs"].map((f) => readFileSync(new URL(`../../../api/src/${f}`, import.meta.url), "utf8")).join("\n");
+  const codes = ["bad_expiry", "guest_only", "access_ended", "not_ended", "access_ended_for_good"];
+  const keys = new Set<string>();
+  for (const code of codes) {
+    assert.ok(rust.includes(`"${code}"`), `${code} is a code the API sends`);
+    const k = guestRefusalKey(code);
+    assert.ok(k, `${code} has a key`);
+    keys.add(k!);
+  }
+  assert.equal(keys.size, codes.length, "one sentence each");
+  assert.equal(guestRefusalKey("seats_full"), null);
+  for (const locale of ["fr", "en", "de", "es", "it", "pl"]) {
+    const guests = (JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as { guests: Record<string, string> }).guests;
+    for (const k of keys) assert.ok(guests[k.replace("guests.", "")]?.length > 0, `${locale} ${k}`);
+  }
+});

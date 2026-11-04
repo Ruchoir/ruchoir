@@ -2334,7 +2334,8 @@
     "guestToMember": "{{actor}} ha reso {{target}} membro, da ospite",
     "memberToGuest": "{{actor}} ha reso {{target}} ospite, da membro",
     "guestPurged": "L'accesso di {{target}} è stato eliminato dopo 90 giorni",
-    "accessUntil": "Accesso fino al {{date}}"
+    "accessUntil": "Accesso fino al {{date}}",
+    "accessTo": "Accesso a {{space}}"
   },
   "guests": {
     "endTitle": "Accesso fino al",
@@ -2427,6 +2428,11 @@
     "noticeSoon": "L'accesso di {{name}} termina {{when}}",
     "noticeEnding": "Il tuo accesso a {{space}} termina {{when}}",
     "endedNotice": "Il tuo accesso a {{space}} è terminato",
-    "endedNoticeBody": "I tuoi messaggi e file restano nello spazio. Parla con chi lo gestisce per riaverlo."
+    "endedNoticeBody": "I tuoi messaggi e file restano nello spazio. Parla con chi lo gestisce per riaverlo.",
+    "refusalBadExpiry": "La data di fine deve essere futura, entro i prossimi cinque anni.",
+    "refusalGuestOnly": "Solo un ospite può avere una data di fine: questa persona è membro.",
+    "refusalAccessEnded": "Questo accesso è già terminato: riattivalo per dargli una nuova data.",
+    "refusalNotEnded": "Questo accesso non è terminato: non c'è nulla da riattivare.",
+    "leftNotice": "Non fai più parte di {{space}}"
   }
 }

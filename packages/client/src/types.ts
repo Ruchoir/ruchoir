@@ -178,6 +178,7 @@ export type Refusal =
         | "bad_expiry"
         | "guest_only"
         | "access_ended"
+        | "not_ended"
         | "access_ended_for_good"
         | "base_role_not_allowed"
         | "not_in_space"

@@ -77,3 +77,17 @@ test("a_public_origin_apart_from_the_base_url", () => {
   // Without it, the base URL is still the origin.
   assert.equal(createClient({ baseUrl: "https://b.test" }).apiOrigin(), "https://b.test");
 });
+
+test("notification_marks_carry_the_guest_flag", async () => {
+  const calls = fakeFetch({ status: 204 }, { status: 204 }, { status: 204 }, { status: 204 });
+  const a = createClient({ baseUrl: "https://a.test" });
+  await a.markNotificationRead("n1", { guestNotices: true });
+  await a.markAllNotificationsRead({ guestNotices: true });
+  // Without the flag nothing changes: an app that does not know the guest notices must not name them.
+  await a.markNotificationRead("n2");
+  await a.markAllNotificationsRead();
+  assert.equal(calls[0].url, "https://a.test/api/v1/notifications/n1/read?guest_notices=true");
+  assert.equal(calls[1].url, "https://a.test/api/v1/notifications/read?guest_notices=true");
+  assert.equal(calls[2].url, "https://a.test/api/v1/notifications/n2/read");
+  assert.equal(calls[3].url, "https://a.test/api/v1/notifications/read");
+});

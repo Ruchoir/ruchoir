@@ -30,13 +30,33 @@ test("no_date_sends_null", () => {
 
 test("soon_is_seven_days_or_less", () => {
   const now = new Date("2026-11-15T09:00:00Z");
-  assert.equal(daysLeft("2026-11-20T22:59:59Z", now), 6);
-  assert.equal(daysLeft("2026-11-15T10:00:00Z", now), 1);
-  assert.equal(daysLeft("2026-11-14T10:00:00Z", now), 0);
+  // Calendar days in the viewer's zone: the 22nd is 7 days from the 15th, the 23rd is 8.
+  assert.equal(daysLeft("2026-11-22T22:59:59Z", now, PARIS), 7);
+  assert.equal(daysLeft("2026-11-23T22:59:59Z", now, PARIS), 8);
+  assert.equal(expiryTone(daysLeft("2026-11-22T22:59:59Z", now, PARIS)), "soon");
+  assert.equal(expiryTone(daysLeft("2026-11-23T22:59:59Z", now, PARIS)), "calm");
   assert.equal(expiryTone(7), "soon");
   assert.equal(expiryTone(1), "soon");
   assert.equal(expiryTone(8), "calm");
   assert.equal(expiryTone(27), "calm");
+});
+
+test("days_left_counts_calendar_days", () => {
+  const now = new Date("2026-11-15T09:00:00Z");
+  assert.equal(daysLeft("2026-11-20T22:59:59Z", now, PARIS), 5);
+  assert.equal(daysLeft("2026-11-15T22:59:59Z", now, PARIS), 0);
+  assert.equal(daysLeft("2026-11-16T22:59:59Z", now, PARIS), 1);
+  // Late evening on the last day is still that day, and the end is read where the viewer is.
+  assert.equal(daysLeft("2026-11-15T22:59:59Z", new Date("2026-11-15T21:00:00Z"), PARIS), 0);
+  assert.equal(daysLeft("2026-11-14T10:00:00Z", now, PARIS), 0);
+});
+
+test("end_label_drops_the_current_year", () => {
+  const now = new Date("2026-11-15T09:00:00Z");
+  assert.equal(endLabel("2026-12-12T22:59:59Z", "fr", PARIS, now), "12 décembre");
+  assert.equal(endLabel("2027-01-12T22:59:59Z", "fr", PARIS, now), "12 janvier 2027");
+  // Without a "now" the date is written in full, as in a table.
+  assert.equal(endLabel("2026-12-12T22:59:59Z", "fr", PARIS), "12 décembre 2026");
 });
 
 test("a_past_date_is_refused_in_the_field", () => {

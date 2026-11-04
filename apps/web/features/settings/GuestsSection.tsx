@@ -7,7 +7,8 @@ import { useTranslation } from "@/lib/i18n";
 import { currentLocale } from "@/lib/i18n/current";
 import { MenuPopover } from "../app/MenuPopover";
 import type { Toast } from "../app/types";
-import { browserZone, canSeeEnded, endLabel, guestRow, inDaysLabel } from "./guestLogic.ts";
+import { browserZone, canSeeEnded, endLabel, guestMenu, guestRow, inDaysLabel } from "./guestLogic.ts";
+import { PasserMembreDialog } from "./StandingDialogs";
 import { ProlongDialog } from "./ProlongDialog";
 import type { SettingsMember } from "./MembersSettings";
 import { grantableRoles } from "./rolesLogic";
@@ -34,6 +35,7 @@ export function GuestsSection({
   spaceId,
   myRole,
   myRights,
+  licensed,
   compact,
   onSaved,
   onNotify,
@@ -47,6 +49,8 @@ export function GuestsSection({
   spaceId: string;
   myRole: string;
   myRights: string[];
+  /** A licensed space: the row menu offers "Passer membre" (a dialog); a community one changes it from Gestion. */
+  licensed: boolean;
   compact?: boolean;
   /** An end date changed: read the people again. */
   onSaved: () => Promise<void>;
@@ -62,6 +66,8 @@ export function GuestsSection({
   const [prolonging, setProlonging] = useState<string | null>(initialProlong ?? null);
   const [now] = useState(() => new Date());
   const canDate = canSeeEnded(myRights);
+  const [promoting, setPromoting] = useState<string | null>(null);
+  const promoted = promoting ? guests.find((g) => g.userId === promoting) : undefined;
   const target = prolonging ? guests.find((g) => g.userId === prolonging) : undefined;
 
   return (
@@ -97,13 +103,17 @@ export function GuestsSection({
             compact={compact}
             canDate={canDate && (g.manageable === true || grantableRoles(myRole, g.role).length > 0)}
             canAct={g.manageable === true || grantableRoles(myRole, g.role).length > 0}
+            licensed={licensed}
+            onPromote={() => setPromoting(g.userId)}
             onProlong={() => setProlonging(g.userId)}
             onManage={() => onManage(g.userId)}
-            onChangeRole={onChangeRole}
             onRemoveMember={onRemoveMember}
           />
         ))}
       </Card>
+      {promoted ? (
+        <PasserMembreDialog member={promoted} spaceId={spaceId} onClose={() => setPromoting(null)} onChanged={onSaved} />
+      ) : null}
       {target ? (
         <ProlongDialog
           guest={{ userId: target.userId, name: target.name, title: target.title, expiresAt: target.expiresAt }}
@@ -124,9 +134,10 @@ function GuestRow({
   compact,
   canDate,
   canAct,
+  licensed,
+  onPromote,
   onProlong,
   onManage,
-  onChangeRole,
   onRemoveMember,
 }: {
   guest: SettingsMember;
@@ -135,9 +146,10 @@ function GuestRow({
   compact?: boolean;
   canDate: boolean;
   canAct: boolean;
+  licensed: boolean;
+  onPromote: () => void;
   onProlong: () => void;
   onManage: () => void;
-  onChangeRole: (member: { userId: string; name: string }, role: string) => void;
   onRemoveMember: (member: { userId: string; name: string }) => void;
 }) {
   const { t } = useTranslation();
@@ -147,13 +159,16 @@ function GuestRow({
   const menuRef = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState(false);
   const person = { userId: guest.userId, name: guest.name };
-  const items = [
-    { icon: "settings", label: t("profile.tabManage"), onClick: onManage },
-    ...(canDate ? [{ icon: "calendar-clock", label: row.end ? t("guests.changeDate") : t("guests.setDate"), onClick: onProlong }] : []),
-    { icon: "user-plus", label: t("guests.passerMembreAction"), onClick: () => onChangeRole(person, "member") },
-    { type: "separator" as const },
-    { icon: "user-minus", label: t("common.remove"), danger: true, onClick: () => onRemoveMember(person) },
-  ];
+  const run: Record<string, () => void> = { manage: onManage, changeDate: onProlong, setDate: onProlong, passerMembre: onPromote, remove: () => onRemoveMember(person) };
+  const items = guestMenu({ licensed, canDate, hasEnd: !!row.end, canAct }).map((it) => ({
+    icon: it.id === "manage" ? "settings" : it.id === "remove" ? "user-minus" : it.id === "passerMembre" ? "user-plus" : "calendar-clock",
+    label: it.id === "manage" ? t("profile.tabManage") : it.id === "changeDate" ? t("guests.changeDate") : it.id === "setDate" ? t("guests.setDate") : it.id === "passerMembre" ? t("guests.passerMembreAction") : t("common.remove"),
+    danger: it.id === "remove",
+    onClick: () => {
+      setMenu(false);
+      run[it.id]();
+    },
+  }));
   return (
     <div style={{ ...st.row, flexWrap: compact ? "wrap" : "nowrap", borderTop: first ? "none" : "1px solid var(--border-subtle)" }}>
       <Avatar name={guest.name} src={guest.avatarUrl ?? getAvatar(guest.name)} size={28} presence={guest.presence} shape="round" />
@@ -189,7 +204,7 @@ function GuestRow({
         {canAct ? (
           <>
             <IconButton ref={menuRef} icon="more-horizontal" size="sm" label={t("sidebar.actionsFor", { name: guest.name })} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((o) => !o)} />
-            <MenuPopover anchorRef={menuRef} open={menu} onClose={() => setMenu(false)} items={items.map((it) => (it.type === "separator" ? it : { ...it, onClick: () => { setMenu(false); it.onClick(); } }))} align="end" label={t("sidebar.actionsFor", { name: guest.name })} />
+            <MenuPopover anchorRef={menuRef} open={menu} onClose={() => setMenu(false)} items={items} align="end" label={t("sidebar.actionsFor", { name: guest.name })} />
           </>
         ) : (
           <Icon name="lock" size={13} style={{ color: "var(--text-muted)" }} />

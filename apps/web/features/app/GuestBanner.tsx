@@ -22,7 +22,7 @@ export function GuestBanner({ role, spaceName, expiresAt }: { role: string; spac
       <Icon name="user" size={14} style={{ flex: "none", marginTop: 1 }} />
       <span>
         {banner.dated
-          ? t("guests.bannerUntil", { space: spaceName, date: endLabel(banner.until, currentLocale(), browserZone()) })
+          ? t("guests.bannerUntil", { space: spaceName, date: endLabel(banner.until, currentLocale(), browserZone(), new Date()) })
           : t("guests.bannerNoEnd", { space: spaceName })}
       </span>
     </div>

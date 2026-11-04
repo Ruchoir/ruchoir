@@ -27,7 +27,7 @@ export function guestNoticeSummary(
  * The spaces that were in the list and are not any more, and that nobody was told about yet. `told`
  * is kept by the caller and filled here, so the notice shows once however many frames follow.
  */
-export function endedSpaces(before: { id: string; name: string }[], after: { id: string }[], told: Set<string>): { id: string; name: string }[] {
+export function endedSpaces<T extends { id: string }>(before: T[], after: { id: string }[], told: Set<string>): T[] {
   const still = new Set(after.map((s) => s.id));
   const gone = before.filter((s) => !still.has(s.id) && !told.has(s.id));
   for (const s of gone) told.add(s.id);
@@ -47,4 +47,12 @@ export function noticeTarget(n: { kind: string; spaceId: string; actorId?: strin
   if (n.kind === "guest_expiry_soon") return n.actorId ? { action: "prolong", spaceId: n.spaceId, userId: n.actorId } : { action: "members", spaceId: n.spaceId };
   if (n.kind === "guest_access_ending") return { action: "space", spaceId: n.spaceId };
   return null;
+}
+
+/**
+ * What a vanished space says: a guest whose access ended is told so (and that their messages stay);
+ * anyone else, who was removed or whose space is gone, is told they are no longer part of it.
+ */
+export function endedNoticeKeys(role: string | undefined): { title: string; body?: string } {
+  return role === "guest" ? { title: "guests.endedNotice", body: "guests.endedNoticeBody" } : { title: "guests.leftNotice" };
 }

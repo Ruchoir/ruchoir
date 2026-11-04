@@ -1,7 +1,7 @@
 // Run with `pnpm --filter @ruchoir/web test` (Node's own runner, types stripped by Node).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canSeeEnded, guestRow, splitPeople } from "./guestLogic.ts";
+import { canSeeEnded, guestMenu, guestRow, splitPeople } from "./guestLogic.ts";
 import { askRemoval, confirmRemoval, reactivateGuestAccess, saveGuestExpiry } from "./guestActions.ts";
 
 const PARIS = "Europe/Paris";
@@ -16,19 +16,19 @@ test("guests_leave_the_main_table_and_fill_their_section", () => {
 });
 
 test("a_soon_guest_gets_the_warning_and_prolong", () => {
-  const row = guestRow(person("d", "guest", { expiresAt: "2026-11-20T22:59:59Z" }), NOW);
-  assert.equal(row.days, 6);
+  const row = guestRow(person("d", "guest", { expiresAt: "2026-11-20T22:59:59Z" }), NOW, PARIS);
+  assert.equal(row.days, 5);
   assert.equal(row.tone, "soon");
   assert.equal(row.warn, true);
   assert.equal(row.prolong, true);
-  const far = guestRow(person("e", "guest", { expiresAt: "2026-12-12T22:59:59Z" }), NOW);
+  const far = guestRow(person("e", "guest", { expiresAt: "2026-12-12T22:59:59Z" }), NOW, PARIS);
   assert.equal(far.tone, "calm");
   assert.equal(far.warn, false);
   assert.equal(far.prolong, false);
 });
 
 test("no_date_shows_no_end_and_no_prolong_warning", () => {
-  const row = guestRow(person("d", "guest"), NOW);
+  const row = guestRow(person("d", "guest"), NOW, PARIS);
   assert.equal(row.end, null);
   assert.equal(row.days, null);
   assert.equal(row.warn, false);
@@ -84,4 +84,17 @@ test("remove_for_good_asks_for_confirmation", async () => {
   assert.equal(await confirmRemoval(api, "s1", pending, async () => void (refreshed += 1)), true);
   assert.deepEqual(removed, [["s1", "u1"]]);
   assert.equal(refreshed, 1);
+});
+
+test("the_row_menu_opens_the_passer_membre_dialog", () => {
+  const licensed = guestMenu({ licensed: true, canDate: true, hasEnd: true, canAct: true });
+  assert.deepEqual(licensed.map((i) => i.id), ["manage", "changeDate", "passerMembre", "remove"]);
+  // Passing a guest to member is a dialog (the recap, and the seats answer), never a direct change.
+  assert.equal(licensed.find((i) => i.id === "passerMembre")?.opens, "dialog");
+  assert.ok(!licensed.some((i) => (i.id as string) === "changeRole"));
+  // No end yet: the date item offers to set one.
+  assert.equal(guestMenu({ licensed: true, canDate: true, hasEnd: false, canAct: true })[1].id, "setDate");
+  // A community space keeps its role select in the management panel: no shortcut here.
+  assert.ok(!guestMenu({ licensed: false, canDate: true, hasEnd: true, canAct: true }).some((i) => i.id === "passerMembre"));
+  assert.deepEqual(guestMenu({ licensed: true, canDate: false, hasEnd: true, canAct: false }), []);
 });

@@ -176,7 +176,7 @@ export function PasserMembreDialog({
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-          {[member.title, member.expiresAt ? t("guests.guestUntil", { date: endLabel(member.expiresAt, locale, browserZone()) }) : t("guests.guestNoEnd")].filter(Boolean).join(" · ")}
+          {[member.title, member.expiresAt ? t("guests.guestUntil", { date: endLabel(member.expiresAt, locale, browserZone(), new Date()) }) : t("guests.guestNoEnd")].filter(Boolean).join(" · ")}
         </div>
         {full ? (
           <div role="alert" style={{ display: "flex", gap: 10, padding: "10px 12px", borderRadius: "var(--radius-item)", background: "var(--status-warning-bg)", border: "1px solid var(--status-warning-border)", color: "var(--status-warning-fg)", fontSize: "var(--text-xs)" }}>

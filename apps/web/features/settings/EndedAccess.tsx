@@ -88,6 +88,8 @@ export function EndedAccess({
       setRemoval(null);
     } catch (err) {
       onNotify({ tone: "danger", title: t("toast.removeFailed"), description: refusalMessage(refusalOf(err), t, t("common.tryAgain"), "members") });
+      // Whatever the list said, the server knows better now: a row that cannot be acted on goes away.
+      void load();
     } finally {
       setBusy(false);
     }
@@ -115,6 +117,7 @@ export function EndedAccess({
           spaceId={spaceId}
           onClose={() => setReviving(null)}
           onDone={refresh}
+          onFailed={load}
           onNotify={onNotify}
         />
       ) : null}
@@ -155,12 +158,15 @@ function ReactivateDialog({
   spaceId,
   onClose,
   onDone,
+  onFailed,
   onNotify,
 }: {
   item: Ended;
   spaceId: string;
   onClose: () => void;
   onDone: () => Promise<void>;
+  /** The reactivation was refused: read the list again. */
+  onFailed: () => Promise<void>;
   onNotify: (toast: Toast) => void;
 }) {
   const { t } = useTranslation();
@@ -180,6 +186,7 @@ function ReactivateDialog({
     } catch (err) {
       setError(refusalMessage(refusalOf(err), t, t("guests.reactivateFailed"), "members"));
       setBusy(false);
+      void onFailed();
     }
   };
 

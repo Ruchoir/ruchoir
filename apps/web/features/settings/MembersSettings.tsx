@@ -139,6 +139,7 @@ export function MembersSettings(props: MembersSettingsProps) {
           spaceId={props.spaceId}
           myRole={myRole}
           myRights={props.myRights}
+          licensed={licensed}
           compact={compact}
           onSaved={props.onGroupsChanged}
           onNotify={props.onNotify}

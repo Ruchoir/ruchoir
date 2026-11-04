@@ -87,12 +87,14 @@ const MARK = "\u0001";
 
 export type AuditSettingsProps = {
   spaceId: string;
+  /** The space's name, for the "Accès à X" pastille of an ended access. */
+  spaceName: string;
   members: Member[];
   roles: Role[];
 };
 
 /** The Journal tab: every change of rights in the space, newest first, filtered and paged. */
-export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
+export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSettingsProps) {
   const { t } = useTranslation();
   const [actor, setActor] = useState("");
   const [category, setCategory] = useState("");
@@ -189,9 +191,20 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
     // The end of an access, before and after: the two chips of a date line.
     const dated = ["guestExpiryFixed", "guestExpiryMoved", "guestExpiryRemoved", "guestReactivated"].includes(line.sentence);
     const endChip = (iso: unknown) => (typeof iso === "string" && iso ? t("audit.accessUntil", { date: formatDate(iso) }) : t("guests.noEnd"));
+    const standingChip = (what: "member" | "guest") => (what === "member" ? t("role.member") : t("guests.guestTag"));
     return (
       <>
         <span>{pieces}</span>
+        {line.chips ? (
+          <span style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+            {line.chips.map((chip) => (
+              <span key={`${chip.sign}${chip.what}`} style={chip.sign === "+" ? st.plus : st.minus}>
+                {chip.sign === "+" ? "+" : "\u2212"}{" "}
+                {chip.what === "until" ? t("audit.accessUntil", { date: formatDate(chip.date ?? "") }) : chip.what === "space" ? t("audit.accessTo", { space: spaceName }) : standingChip(chip.what)}
+              </span>
+            ))}
+          </span>
+        ) : null}
         {dated ? (
           <span style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
             {line.values.after ? <span style={st.plus}>+ {endChip(line.values.after)}</span> : null}

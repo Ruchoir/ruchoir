@@ -95,6 +95,14 @@ export function refusalMessage(refusal: Refusal | undefined, t: T, fallback: str
       return t("roles.refusal.beyondGuestCeiling");
     case "make_them_a_member_first":
       return t("roles.refusal.memberFirst");
+    case "bad_expiry":
+      return t("guests.refusalBadExpiry");
+    case "guest_only":
+      return t("guests.refusalGuestOnly");
+    case "access_ended":
+      return t("guests.refusalAccessEnded");
+    case "not_ended":
+      return t("guests.refusalNotEnded");
     case "access_ended_for_good":
       return t("guests.endedForGood");
     case "no_self_role":
