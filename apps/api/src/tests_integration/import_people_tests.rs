@@ -990,6 +990,90 @@ async fn a_scoped_import_creates_only_its_own_space_and_roles_still_apply() {
     assert!(others.iter().any(|m| m.role == "admin"));
 }
 
+async fn count(app: &TestApp, sql: &str, values: Vec<sea_orm::Value>) -> i64 {
+    app.db
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            sql,
+            values,
+        ))
+        .await
+        .expect("query")
+        .expect("row")
+        .try_get("", "n")
+        .expect("n")
+}
+
+#[tokio::test]
+async fn a_direct_conversation_stopped_on_seats_is_finished_by_the_resume() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let name = unique_space();
+    let (space, _) = crate::messaging::spaces::create_owned_space(&app.db, &name, fx.alice)
+        .await
+        .expect("space");
+    let space_ref = unique_ref("s");
+    let (u1, u2, u3) = (unique_ref("u1"), unique_ref("u2"), unique_ref("u3"));
+    let emails = [address("u1"), address("u2"), address("u3")];
+    let mut direct = source_channel(&unique_ref("dm"), &space_ref, "direct", &[&u1, &u2, &u3]);
+    direct.name = String::new();
+    let index = Index {
+        channels: vec![direct],
+        ..import_index(
+            vec![
+                source_user(&u1, &emails[0]),
+                source_user(&u2, &emails[1]),
+                source_user(&u3, &emails[2]),
+            ],
+            vec![source_space(&space_ref, &name)],
+        )
+    };
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_accounts(&app.db, &mapper, &plan::build(&index, &Existing::default()))
+        .await
+        .expect("accounts");
+    let (_, spaces) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
+        .await
+        .expect("spaces");
+
+    // The owner holds one of two seats: the first participant fits, the second does not.
+    let stopped =
+        run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice, &Seats(2)).await;
+    assert!(
+        matches!(stopped, Err(RunError::SeatsFull { .. })),
+        "{stopped:?}"
+    );
+    let conversations = || {
+        count(
+            &app,
+            "SELECT count(*)::bigint AS n FROM conversations WHERE space_id = $1 AND kind = 'direct'",
+            vec![space.into()],
+        )
+    };
+    assert_eq!(
+        conversations().await,
+        1,
+        "the half-written conversation exists"
+    );
+
+    // Seats are freed and the same run resumes: the conversation is found, not made again.
+    run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice, &Seats(10))
+        .await
+        .expect("the resume completes");
+    assert_eq!(conversations().await, 1, "still one conversation");
+    let participants = count(
+        &app,
+        "SELECT count(*)::bigint AS n FROM dm_participants p JOIN conversations c ON c.id = p.dm_id \
+         WHERE c.space_id = $1",
+        vec![space.into()],
+    )
+    .await;
+    assert_eq!(participants, 3, "and everybody is in it");
+}
+
 // --- channel moderators and channel-only people -----------------------------------------------
 
 async fn channel_role(app: &TestApp, space: Uuid, name: &str, user: Uuid) -> Option<String> {

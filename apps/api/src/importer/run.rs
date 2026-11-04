@@ -684,20 +684,12 @@ pub async fn import_conversations(
         };
         let space_id = *space_id;
 
-        if mapper
+        // A conversation this import already made is not made again, but it is still filled: a run
+        // that stopped halfway through its people (the seats ran out) left it with only some of
+        // them, and every insert below is safe to repeat.
+        let mapped = mapper
             .resolve(db, KIND_CHANNEL, &channel.id, Some(space_id))
-            .await?
-            .is_some()
-        {
-            note_every(
-                db,
-                mapper.job_id,
-                Counter::Conversations,
-                written.conversations_seen,
-            )
             .await?;
-            continue;
-        }
 
         // Members first, resolved through their mappings: an account the import skipped cannot be
         // put in a room, and silently inventing one would be worse than leaving them out.
@@ -710,92 +702,109 @@ pub async fn import_conversations(
 
         let now = OffsetDateTime::now_utc();
 
-        // A channel name is unique within its space, and an import that fills an existing space
-        // walks straight into that: nearly every instance already has a "general", and so does
-        // nearly every archive. Creating it again is impossible, so the history goes into the one
-        // that is already there - the same answer the spaces pass gives to a space of the same
-        // name, for the same reason.
-        let adopted = if channel.kind == "direct" {
-            None
+        let conversation_id = if let Some(id) = mapped {
+            id
         } else {
-            adoptable(
-                db,
-                mapper,
-                space_id,
-                &crate::messaging::slug::slugify(&channel.name),
-            )
-            .await?
-        };
-
-        // An adopted conversation is written about no further: it belongs to this instance, which
-        // is the only thing that knows what it is for, so its name, its topic and its kind stay as
-        // the people using it left them. Only its history and its members grow.
-        let conversation_id = if let Some(existing) = adopted {
-            written.conversations_filled += 1;
-            existing
-        } else {
-            let conversation_id = Uuid::new_v4();
-            conversations::ActiveModel {
-                id: Set(conversation_id),
-                space_id: Set(space_id),
-                kind: Set(channel.kind.clone()),
-                created_at: Set(now),
-            }
-            .insert(db)
-            .await?;
-            written.conversations_created += 1;
-            conversation_id
-        };
-
-        if adopted.is_some() {
-            // Nothing to insert: the row is already here, and it is not this import's to reshape.
-        } else if channel.kind == "direct" {
-            dm_conversations::ActiveModel {
-                id: Set(conversation_id),
-                space_id: Set(space_id),
-                is_group: Set(members.len() > 2),
-                created_by: Set(Some(creator)),
-                created_at: Set(now),
-            }
-            .insert(db)
-            .await?;
-        } else {
-            channels::ActiveModel {
-                id: Set(conversation_id),
-                space_id: Set(space_id),
-                // Free rather than exact: two conversations of one archive can carry names that
-                // come down to the same one here ("Café" and "cafe"), and they are two rooms, so
-                // they stay two rooms.
-                name: Set(free_name(
+            // A channel name is unique within its space, and an import that fills an existing space
+            // walks straight into that: nearly every instance already has a "general", and so does
+            // nearly every archive. Creating it again is impossible, so the history goes into the one
+            // that is already there - the same answer the spaces pass gives to a space of the same
+            // name, for the same reason.
+            let adopted = if channel.kind == "direct" {
+                None
+            } else {
+                adoptable(
                     db,
+                    mapper,
                     space_id,
                     &crate::messaging::slug::slugify(&channel.name),
                 )
-                .await?),
-                // An archived conversation arrives archived: it is read-only here, which is the
-                // closest thing to what it was there, and nobody has to tidy it up again.
-                channel_type: Set(if channel.archived {
-                    "archived".to_owned()
-                } else {
-                    channel.visibility.clone()
-                }),
-                topic: Set(if channel.topic.is_empty() {
-                    None
-                } else {
-                    Some(channel.topic.clone())
-                }),
-                created_by: Set(Some(creator)),
-                archived_at: Set(channel.archived.then_some(now)),
-                // Provenance, on the row itself: where this conversation came from, readable
-                // without joining anything.
-                imported_source: Set(Some(mapper.source.to_owned())),
-                external_ref: Set(Some(channel.id.clone())),
-                position: Set(None),
-                created_at: Set(now),
+                .await?
+            };
+
+            // An adopted conversation is written about no further: it belongs to this instance, which
+            // is the only thing that knows what it is for, so its name, its topic and its kind stay as
+            // the people using it left them. Only its history and its members grow.
+            let conversation_id = if let Some(existing) = adopted {
+                written.conversations_filled += 1;
+                existing
+            } else {
+                let conversation_id = Uuid::new_v4();
+                conversations::ActiveModel {
+                    id: Set(conversation_id),
+                    space_id: Set(space_id),
+                    kind: Set(channel.kind.clone()),
+                    created_at: Set(now),
+                }
+                .insert(db)
+                .await?;
+                written.conversations_created += 1;
+                conversation_id
+            };
+
+            if adopted.is_some() {
+                // Nothing to insert: the row is already here, and it is not this import's to reshape.
+            } else if channel.kind == "direct" {
+                dm_conversations::ActiveModel {
+                    id: Set(conversation_id),
+                    space_id: Set(space_id),
+                    is_group: Set(members.len() > 2),
+                    created_by: Set(Some(creator)),
+                    created_at: Set(now),
+                }
+                .insert(db)
+                .await?;
+            } else {
+                channels::ActiveModel {
+                    id: Set(conversation_id),
+                    space_id: Set(space_id),
+                    // Free rather than exact: two conversations of one archive can carry names that
+                    // come down to the same one here ("Café" and "cafe"), and they are two rooms, so
+                    // they stay two rooms.
+                    name: Set(free_name(
+                        db,
+                        space_id,
+                        &crate::messaging::slug::slugify(&channel.name),
+                    )
+                    .await?),
+                    // An archived conversation arrives archived: it is read-only here, which is the
+                    // closest thing to what it was there, and nobody has to tidy it up again.
+                    channel_type: Set(if channel.archived {
+                        "archived".to_owned()
+                    } else {
+                        channel.visibility.clone()
+                    }),
+                    topic: Set(if channel.topic.is_empty() {
+                        None
+                    } else {
+                        Some(channel.topic.clone())
+                    }),
+                    created_by: Set(Some(creator)),
+                    archived_at: Set(channel.archived.then_some(now)),
+                    // Provenance, on the row itself: where this conversation came from, readable
+                    // without joining anything.
+                    imported_source: Set(Some(mapper.source.to_owned())),
+                    external_ref: Set(Some(channel.id.clone())),
+                    position: Set(None),
+                    created_at: Set(now),
+                }
+                .insert(db)
+                .await?;
             }
-            .insert(db)
-            .await?;
-        }
+
+            // Mapped as soon as the row exists, before anyone is put in it: if the people run out of
+            // seats, a resume finds the conversation and finishes it instead of making another.
+            mapper
+                .record(
+                    db,
+                    KIND_CHANNEL,
+                    &channel.id,
+                    Some(space_id),
+                    conversation_id,
+                )
+                .await?;
+            conversation_id
+        };
 
         for (source_id, user_id) in &members {
             // Being in a conversation means being in its space: an import that forgets this leaves
@@ -821,16 +830,22 @@ pub async fn import_conversations(
                 .any(|state| &state.user == source_id && state.favorite);
 
             if channel.kind == "direct" {
-                dm_participants::ActiveModel {
-                    dm_id: Set(conversation_id),
-                    user_id: Set(*user_id),
-                    notification_level: Set("default".to_owned()),
-                    muted: Set(false),
-                    hidden: Set(false),
-                    added_at: Set(now),
+                if dm_participants::Entity::find_by_id((conversation_id, *user_id))
+                    .one(db)
+                    .await?
+                    .is_none()
+                {
+                    dm_participants::ActiveModel {
+                        dm_id: Set(conversation_id),
+                        user_id: Set(*user_id),
+                        notification_level: Set("default".to_owned()),
+                        muted: Set(false),
+                        hidden: Set(false),
+                        added_at: Set(now),
+                    }
+                    .insert(db)
+                    .await?;
                 }
-                .insert(db)
-                .await?;
             } else if channel_members::Entity::find_by_id((conversation_id, *user_id))
                 .one(db)
                 .await?
@@ -861,15 +876,6 @@ pub async fn import_conversations(
             }
         }
 
-        mapper
-            .record(
-                db,
-                KIND_CHANNEL,
-                &channel.id,
-                Some(space_id),
-                conversation_id,
-            )
-            .await?;
         note_every(
             db,
             mapper.job_id,
