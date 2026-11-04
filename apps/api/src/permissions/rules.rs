@@ -230,8 +230,9 @@ pub enum Aim {
         rank: Rank,
         guest: bool,
     },
-    /// The readers of a channel (files only).
-    Audience,
+    /// The readers of a channel (files only); `editor_reads` when the editor can view that channel,
+    /// so they are one of the readers the rule is about.
+    Audience { editor_reads: bool },
 }
 
 /// The target of a rule as [`ensure_writable`] reads it.
@@ -249,7 +250,7 @@ impl TargetRef {
             Aim::Role { system, .. } => Target::Role { system },
             Aim::Group { .. } => Target::Group,
             Aim::User { .. } => Target::User,
-            Aim::Audience => Target::Audience,
+            Aim::Audience { .. } => Target::Audience,
         }
     }
 }
@@ -342,7 +343,8 @@ pub fn ensure_writable(
                 |a, d| level_of(kind, Target::Everyone, a, d) == LevelRead::Level(Level::None);
             if deny.contains(resource.view())
                 || none(allow, deny)
-                || existing.is_some_and(|e| none(e.allow, e.deny))
+                || existing
+                    .is_some_and(|e| none(e.allow, e.deny) || e.deny.contains(resource.view()))
             {
                 return Err(RuleRefusal::Forbidden("reservation_admins_only"));
             }
@@ -358,7 +360,7 @@ pub fn ensure_writable(
     if !target.in_space {
         return Err(RuleRefusal::BadRequest("not_in_space"));
     }
-    if target.aim == Aim::Audience && !matches!(resource, ResourceRef::File(_)) {
+    if matches!(target.aim, Aim::Audience { .. }) && !matches!(resource, ResourceRef::File(_)) {
         return Err(RuleRefusal::BadRequest("audience_files_only"));
     }
     // Fine rules: a custom role as a target, or sets that are no preset level.
@@ -392,10 +394,12 @@ fn rank_above(rank: Rank, other: Rank) -> bool {
 
 /// Rule 3 for the editors below Owner and Space: the target is the editor, a group they are in, a
 /// role they hold, or a person, role or group (by the roles it carries) strictly above their rank.
-/// Equal-rank others are allowed. "Everyone" and audiences name no one above.
+/// Equal-rank others are allowed. "Everyone" names no one above; an audience is the editor's own
+/// when they read its channel.
 fn aimed_at_or_above(editor: &Editor, target: &TargetRef) -> bool {
     match target.aim {
-        Aim::Everyone { .. } | Aim::Audience => false,
+        Aim::Everyone { .. } => false,
+        Aim::Audience { editor_reads } => editor_reads,
         Aim::Role {
             position,
             editor_holds,
@@ -670,7 +674,9 @@ mod tests {
             write(
                 &local,
                 FILE,
-                at(Aim::Audience),
+                at(Aim::Audience {
+                    editor_reads: false
+                }),
                 PermissionSet::ALL,
                 PermissionSet::EMPTY,
                 None
@@ -729,7 +735,9 @@ mod tests {
             write(
                 &author,
                 FILE,
-                at(Aim::Audience),
+                at(Aim::Audience {
+                    editor_reads: false
+                }),
                 set(&[P::FilesEdit]),
                 PermissionSet::EMPTY,
                 None
@@ -877,6 +885,97 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn nobody_lifts_a_rule_aimed_at_the_readers_they_are_among() {
+        let deny = set(&[P::FilesView]);
+        let nothing = PermissionSet::EMPTY;
+        let stored = Some(Existing {
+            allow: nothing,
+            deny,
+        });
+        let mine = at(Aim::Audience { editor_reads: true });
+        let others = at(Aim::Audience {
+            editor_reads: false,
+        });
+        for kind in [
+            EditorKind::ChannelModerator,
+            EditorKind::Author,
+            EditorKind::Local,
+        ] {
+            let who = licensed(kind);
+            // Create, change and delete are all refused when they read that channel.
+            for (allow, deny, existing) in [
+                (read(FILE), nothing, None),
+                (read(FILE), nothing, stored),
+                (nothing, nothing, stored),
+                (nothing, deny, None),
+            ] {
+                assert_eq!(
+                    write(&who, FILE, mine, allow, deny, existing),
+                    Err(RuleRefusal::Forbidden("target_above_you")),
+                    "{kind:?}"
+                );
+            }
+            assert_eq!(
+                write(&who, FILE, others, read(FILE), nothing, stored),
+                Ok(())
+            );
+        }
+        for kind in [EditorKind::Owner, EditorKind::Space] {
+            assert_eq!(
+                write(&licensed(kind), FILE, mine, nothing, nothing, stored),
+                Ok(())
+            );
+        }
+    }
+
+    #[test]
+    fn an_existing_view_deny_for_everyone_is_the_administrators_whatever_its_level() {
+        // A deny of the view bit that reads Custom (it carries other bits), only an admin wrote it.
+        let stored = Some(Existing {
+            allow: set(&[P::FilesEdit]),
+            deny: set(&[P::FilesView, P::FilesManage]),
+        });
+        let everyone = at(Aim::Everyone { guests: false });
+        let lire = super::super::levels::rule_sets(
+            Kind::File,
+            Target::Everyone,
+            super::super::levels::Level::Read,
+        )
+        .unwrap();
+        for kind in [
+            EditorKind::ChannelModerator,
+            EditorKind::Author,
+            EditorKind::Local,
+        ] {
+            let who = licensed(kind);
+            let refused = Err(RuleRefusal::Forbidden("reservation_admins_only"));
+            assert_eq!(write(&who, FILE, everyone, lire.0, lire.1, stored), refused);
+            assert_eq!(
+                write(
+                    &who,
+                    FILE,
+                    everyone,
+                    PermissionSet::EMPTY,
+                    PermissionSet::EMPTY,
+                    stored
+                ),
+                refused
+            );
+        }
+        assert_eq!(
+            write(
+                &licensed(EditorKind::Space),
+                FILE,
+                everyone,
+                lire.0,
+                lire.1,
+                stored
+            ),
+            Ok(())
+        );
     }
 
     #[test]
@@ -1062,7 +1161,9 @@ mod tests {
                 rank: Rank::Position(0),
                 guest: false,
             },
-            Aim::Audience,
+            Aim::Audience {
+                editor_reads: false,
+            },
         ] {
             let target = TargetRef {
                 in_space: false,
@@ -1084,7 +1185,9 @@ mod tests {
                 write(
                     &space,
                     resource,
-                    at(Aim::Audience),
+                    at(Aim::Audience {
+                        editor_reads: false
+                    }),
                     read(resource),
                     PermissionSet::EMPTY,
                     None
@@ -1101,7 +1204,9 @@ mod tests {
             write(
                 &space,
                 FILE,
-                at(Aim::Audience),
+                at(Aim::Audience {
+                    editor_reads: false
+                }),
                 read(FILE),
                 PermissionSet::EMPTY,
                 None
