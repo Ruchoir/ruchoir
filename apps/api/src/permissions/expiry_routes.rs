@@ -57,7 +57,7 @@ pub fn router() -> Router<AppState> {
 /// The end of a guest's access: a date, an instant, or `null` for no end.
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct ExpiryRequest {
-    /// `YYYY-MM-DD` (the end of that day in the caller's time zone) or an RFC 3339 instant; `null`
+    /// `YYYY-MM-DD` (the end of that day in the time zone of whoever sets it) or an RFC 3339 instant; `null`
     /// (or absent) for no end.
     #[serde(default)]
     pub expires_at: Option<String>,
@@ -312,7 +312,7 @@ pub async fn set_expiry(
         (status = 400, description = "`bad_expiry`: not a date ahead within five years"),
         (status = 403, description = "Not allowed to manage this person"),
         (status = 404, description = "Not in this space"),
-        (status = 409, description = "`not_ended`: the person is not a guest whose access ended")
+        (status = 409, description = "`not_ended`: the person is not a guest whose access ended; `access_ended_for_good`: it ended more than ninety days ago")
     )
 )]
 pub async fn reactivate(
@@ -328,6 +328,15 @@ pub async fn reactivate(
     let target = manageable_target(&state, space_id, session.user_id, user_id).await?;
     if target.model.standing != "guest" || !target.ended {
         return Err(not_ended());
+    }
+    // Past the keeping window the list no longer offers the access, and the sweep removes it.
+    if target.model.expires_at.is_some_and(|ended| {
+        ended + Duration::days(guest_expiry::KEEP_DAYS) <= OffsetDateTime::now_utc()
+    }) {
+        return Err(ApiError::ConflictCode {
+            code: "access_ended_for_good",
+            message: "this access ended too long ago to be reactivated",
+        });
     }
     let end = match body.expires_at.as_deref() {
         Some(raw) => {

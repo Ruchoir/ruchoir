@@ -307,6 +307,7 @@ pub async fn list_members(
     let mut out = Vec::with_capacity(memberships.len());
     for membership in memberships {
         if let Some(user) = by_id.get(&membership.user_id) {
+            let shown = sees_standing(user.id);
             out.push(MemberDto {
                 user_id: user.id,
                 display_name: user.display_name.clone(),
@@ -323,8 +324,8 @@ pub async fn list_members(
                 joined_at: Some(super::dto::rfc3339(membership.joined_at)),
                 // A guest's standing and end are for the people who manage them and for the
                 // guest; another guest, or a member who manages nobody, is not told.
-                standing: sees_standing(user.id).then(|| membership.standing.clone()),
-                expires_at: sees_standing(user.id)
+                standing: shown.then(|| membership.standing.clone()),
+                expires_at: shown
                     .then(|| membership.expires_at.map(super::dto::rfc3339))
                     .flatten(),
             });

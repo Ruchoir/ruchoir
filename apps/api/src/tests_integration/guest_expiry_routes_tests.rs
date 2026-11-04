@@ -876,3 +876,20 @@ async fn the_routes_keep_the_contract() {
     assert!(paths["/api/v1/spaces/{space_id}/members/ended"]["get"].is_object());
     assert!(paths["/api/v1/spaces/{space_id}/members/{user_id}/reactivate"]["post"].is_object());
 }
+
+#[tokio::test]
+async fn reactivation_stops_where_the_list_stops() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let cookie = app.cookie_for(fx.owner).await;
+    let stale = guest_ending(&app.db, fx.space, "-91 days").await;
+    let (status, body) = reactivate(&app, fx.space, stale, &cookie, json!(rfc(in_days(9)))).await;
+    assert_eq!(
+        (status, body["error"].as_str()),
+        (409, Some("access_ended_for_good"))
+    );
+    assert!(row(&app, fx.space, stale).await.expires_at.expect("end") < OffsetDateTime::now_utc());
+    let kept = guest_ending(&app.db, fx.space, "-89 days").await;
+    let (status, _) = reactivate(&app, fx.space, kept, &cookie, json!(rfc(in_days(9)))).await;
+    assert_eq!(status, 200);
+}

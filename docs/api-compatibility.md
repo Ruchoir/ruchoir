@@ -101,14 +101,14 @@ lists the `guest_expiry` feature.
 A guest's end date can be changed after they joined, by whoever may manage them (`members.manage`
 and ranking above them; a guest never sets their own, a member never has one: `400 guest_only`):
 `PUT /api/v1/spaces/{id}/members/{user}/expiry` with `{ "expires_at": ... }` answers the person
-(`MemberDto`). The value is a date (`YYYY-MM-DD`, read as the end of that day in the caller's time
-zone, as `users.timezone` says) or an RFC 3339 instant, or `null` for no end; it must lie ahead,
+(`MemberDto`). The value is a date (`YYYY-MM-DD`, read as the end of that day in the SETTER's time
+zone, as their `users.timezone` says) or an RFC 3339 instant, or `null` for no end; it must lie ahead,
 within five years (`400 bad_expiry`). An ended access is not edited (`409 access_ended`). Moving or
 removing the date starts the reminders over. `GET .../members/ended` lists the accesses that ended
 and are still kept for ninety days (`user_id`, `display_name`, `title`, `ended_at`,
 `days_left_to_keep`), soonest removal first, for `members.manage` only; `POST
 .../members/{user}/reactivate` with the same body brings one back as it was (channels, groups and
-roles are untouched; `409 not_ended` for anyone else). `PATCH .../members/{user}` accepts the same
+roles are untouched; `409 not_ended` for anyone else, `409 access_ended_for_good` once ninety days have passed, as the list stops offering it). `PATCH .../members/{user}` accepts the same
 `expires_at` with `role: "guest"`, applied in the same write. The space's member list adds `standing`
 and `expires_at` to each person for those who manage people and for the person themself, and no one
 else; `SpaceDto.expires_at` is the caller's own end. All are announced with `permissions.changed`
