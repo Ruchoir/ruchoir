@@ -484,6 +484,8 @@ function AppShell() {
   } = useRunningImport(session !== null);
   /** Whether the import screen was opened to see a finished run rather than to start one. */
   const [importDetail, setImportDetail] = useState(false);
+  /** An import's report opened from the journal: the import screen shows that job's done screen. */
+  const [importJobId, setImportJobId] = useState<string | null>(null);
   // Boot lifecycle: `booting` covers the initial session check and data load; `bootError` holds a
   // fatal load failure (the API being unreachable), distinct from a 401 which sends us to the login.
   const [booting, setBooting] = useState(true);
@@ -2672,6 +2674,7 @@ function AppShell() {
     // Opening the screen is how the end of a run is acknowledged: the sidebar stops announcing it.
     // Opened from a run that has ended, it opens on that run, since that is what was clicked.
     setImportDetail(importRun !== null && !importRun.running);
+    setImportJobId(null);
     clearImportRun();
     if (view !== "import") setPrevView(view);
     setView("import");
@@ -4633,6 +4636,14 @@ function AppShell() {
           onAccessChanged={refreshAccess}
           onSaveMemberRoles={saveMemberRoles}
           canReadAudit={gates.readAudit}
+          onOpenImportReport={
+            session?.isInstanceAdmin
+              ? (jobId) => {
+                  openImport();
+                  setImportJobId(jobId);
+                }
+              : undefined
+          }
           canManageGroups={gates.manageGroups}
           canManageLicence={canLicences && currentWorkspace?.role === "owner"}
           licence={currentWorkspace?.licence}
@@ -4707,6 +4718,7 @@ function AppShell() {
           <div className="wc-dlg wc-dlg--xl" role="dialog" aria-modal="true" aria-labelledby="import-title">
             <ImportScreen
               openLast={importDetail}
+              openJob={importJobId}
               onClose={() => {
                 setView(prevView);
                 // An import started here is running by the time the screen closes; the sidebar
@@ -4718,6 +4730,8 @@ function AppShell() {
               instanceAddress={typeof window === "undefined" ? "" : window.location.host}
               onFinished={reloadSpaceCounters}
               instanceAdmin={session.isInstanceAdmin === true}
+              ownerName={session.name}
+              pricingUrl={pricingUrl}
             />
           </div>
         </div>

@@ -143,7 +143,9 @@ and `missing` (`used + incoming - seats`), fields the other routes answering `se
 `GET /api/v1/imports/{id}` (and the list) also answer `people` (once the run is over, also a cancelled
 one: `administrators`, `guests`, `moderators`, `groups` with `group_names`, `kept` with `kept_names`,
 `custom_roles`, `fallbacks` as `space`, `role_name`, `fixed` and `people`, and `seats` as `space`,
-`used_before`, `added` and `total`) and `limits` (the producer's words, again). The member list
+`used_before`, `added` and `total`, plus `created_spaces`, the names of the spaces the job made) and
+`limits` (the producer's words, again). Every job answer also carries `started_by` (`id` and `name`
+of whoever started it, null once the account is gone): additions no older app reads. The member list
 carries `imported_from` for whoever manages people, and a group carries it for whoever manages
 groups or people. Archive format 2 (`docs/import-archive.md`) needs no feature name: an older instance refuses a
 format 2 archive with its version message.

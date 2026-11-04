@@ -221,6 +221,13 @@ async fn admit_with_roles(
     Ok(Admitted::Added)
 }
 
+/// Whether a channel membership the run writes makes somebody a moderator of it: a moderator of the
+/// source, who is not a guest of the space (a guest never moderates), and who is not in the channel
+/// already (an adopted channel keeps the place they have). The plan counts with the same rule.
+pub fn writes_moderator(listed_moderator: bool, guest: bool, in_channel_already: bool) -> bool {
+    listed_moderator && !guest && !in_channel_already
+}
+
 /// The role a person holds in a space, `None` when they are not in it.
 pub async fn standing_of(
     db: &DatabaseConnection,

@@ -514,6 +514,9 @@ fn no_bare_space_members_reads() {
         ("messaging/channels.rs", "add_channel_members"),
         // the engine's own load
         ("permissions/load.rs", "memberships"),
+        // the plan's count of who is in each channel already (the moderators an adopted one keeps)
+        ("importer/job.rs", "space_people"),
+        ("importer/run.rs", "claimed_channels"),
     ];
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
     let mut stack = vec![root.clone()];

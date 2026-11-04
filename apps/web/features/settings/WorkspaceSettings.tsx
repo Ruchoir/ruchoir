@@ -180,6 +180,8 @@ export type WorkspaceSettingsProps = {
   onSaveMemberRoles: (userId: string, roleIds: string[]) => Promise<boolean>;
   /** Whether the caller reads the space's audit log (`audit.view`). */
   canReadAudit: boolean;
+  /** Open an import's report (its done screen), for whoever may open the import screen. */
+  onOpenImportReport?: (jobId: string) => void;
   /** Whether the caller manages the space's groups (`groups.manage`). */
   canManageGroups: boolean;
   /** Whether the caller manages the space's licence: its owner, on an instance that has licences. */
@@ -252,6 +254,7 @@ export function WorkspaceSettings({
   onAccessChanged,
   onSaveMemberRoles,
   canReadAudit,
+  onOpenImportReport,
   canManageGroups,
   canManageLicence,
   licence,
@@ -280,6 +283,8 @@ export function WorkspaceSettings({
   // "Droits des invités": the guests' role opened in the Rôles tab (licensed), or the read-only summary (community).
   const [openRole, setOpenRole] = useState<string | null>(null);
   const [ceilingOpen, setCeilingOpen] = useState(false);
+  // The family the journal opens on: the Members banner sends the reader there on "members".
+  const [auditCategory, setAuditCategory] = useState("");
   const [editingGuests, setEditingGuests] = useState(false);
   const sections = NAV.filter(([id]) =>
     id === "audit" ? canReadAudit : id === "groups" ? canManageGroups : id === "licence" ? canManageLicence : id === "general" || canManageMembers,
@@ -416,6 +421,8 @@ export function WorkspaceSettings({
             <button key={v} style={navItem(v === tab, compact)} onClick={() => {
                 setOpenGroup(null);
                 setOpenRole(null);
+                // The journal's family is a preset for one arrival (the Members banner), not a memory.
+                setAuditCategory("");
                 setTab(v);
               }}>
               <Icon name={i} size={14} style={{ color: v === tab ? "var(--on-pastel)" : "var(--text-muted)" }} />
@@ -553,6 +560,14 @@ export function WorkspaceSettings({
                 else setCeilingOpen(true);
               }}
               onGroupsChanged={onAccessChanged}
+              onOpenJournal={
+                canReadAudit
+                  ? () => {
+                      setAuditCategory("members");
+                      setTab("audit");
+                    }
+                  : undefined
+              }
               onNotify={onNotify}
               canInvite={canInvite}
               summary={memberSummary}
@@ -619,7 +634,9 @@ export function WorkspaceSettings({
           ) : null}
           {ceilingOpen ? <GuestRightsDialog spaceName={workspaceName} pricingUrl={pricingUrl} onClose={() => setCeilingOpen(false)} /> : null}
 
-          {tab === "audit" && canReadAudit ? <AuditSettings spaceId={spaceId} spaceName={workspaceName} members={members} roles={roles} /> : null}
+          {tab === "audit" && canReadAudit ? (
+            <AuditSettings spaceId={spaceId} spaceName={workspaceName} members={members} roles={roles} initialCategory={auditCategory} onOpenReport={onOpenImportReport} />
+          ) : null}
 
           {tab === "licence" && canManageLicence ? (
             <LicenceSettings

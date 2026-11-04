@@ -2914,6 +2914,17 @@
           "source": {
             "type": "string"
           },
+          "started_by": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StarterResponse",
+                "description": "Who started the import, for the done screen (\"X stays the owner\"); `None` once the account\nis gone."
+              }
+            ]
+          },
           "status": {
             "type": "string"
           }
@@ -4333,6 +4344,13 @@
           "administrators": {
             "minimum": 0,
             "type": "integer"
+          },
+          "created_spaces": {
+            "description": "The names of the spaces this job created (the others were filled): the done screen says who\nstays owner of those.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "custom_roles": {
             "minimum": 0,
@@ -5789,6 +5807,23 @@
           "id",
           "name",
           "slug"
+        ],
+        "type": "object"
+      },
+      "StarterResponse": {
+        "description": "The person who started an import.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
         ],
         "type": "object"
       },

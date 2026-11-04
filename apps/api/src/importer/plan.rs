@@ -199,6 +199,11 @@ pub struct Existing {
     /// What the spaces here hold in people and seats, for the people block of the plan. Filled for an
     /// instance administrator only: a scoped import creates spaces and fills none.
     pub space_people: Vec<SpacePeople>,
+    /// The archive's channels an earlier run already claimed, as (the channel's id in the archive,
+    /// addresses of the people in it now), found with the run's own lookup (`run::claimed_channels`).
+    /// A re-run writes no membership for those: the run finds the channel by this mapping, whatever
+    /// the channel is called here now.
+    pub claimed_channels: Vec<(String, Vec<String>)>,
 }
 
 /// The people and seats of the spaces here that share one name (names are what the run matches on).
@@ -215,6 +220,11 @@ pub struct SpacePeople {
     pub custom_roles_allowed: bool,
     /// Several spaces carry this name: the run refuses it, and the plan shows no seats for it.
     pub ambiguous: bool,
+    /// Addresses of the people who are guests of the space already (kept as they are).
+    pub guest_emails: Vec<String>,
+    /// The people in each channel of the space already, as (channel name, addresses): an adopted
+    /// channel keeps their place there, so they are never written a moderator.
+    pub channel_members: Vec<(String, Vec<String>)>,
 }
 
 pub fn build(index: &Index, existing: &Existing) -> Plan {
@@ -477,22 +487,66 @@ pub fn people_plan(index: &Index, plan: &Plan, existing: &Existing) -> PeoplePla
         }
         out.custom_roles += used_roles.len();
 
-        // Moderators: people of the space who are not guests there (a guest is written a member).
-        let guests_here: HashSet<&str> = role_of
+        // Moderators, counted the way the run writes them: one per channel membership it writes,
+        // so never a guest of the space (listed as one, or already one here) and never somebody
+        // who is in an adopted channel already (they keep their place in it).
+        let folded_in =
+            |emails: &[String], email: &str| emails.iter().any(|e| e.to_lowercase() == email);
+        let listed_guest: HashSet<&str> = role_of
             .iter()
             .filter(|(_, role, _)| *role == "guest")
             .map(|(user, _, _)| *user)
             .collect();
-        let mut moderating: HashSet<&str> = HashSet::new();
-        for channel in index.channels.iter().filter(|c| c.space == space_id) {
+        for channel in index
+            .channels
+            .iter()
+            .filter(|c| c.space == space_id && c.kind != "direct")
+        {
+            let handle = crate::messaging::slug::slugify(&channel.name);
+            let claimed = existing
+                .claimed_channels
+                .iter()
+                .find(|(id, _)| *id == channel.id)
+                .map(|(_, emails)| emails.as_slice());
+            let adopted_members: Option<&[String]> = claimed.or_else(|| {
+                here.and_then(|h| {
+                    existing
+                        .channels
+                        .iter()
+                        .any(|(s, c)| {
+                            s.trim().to_lowercase() == space.name.trim().to_lowercase()
+                                && *c == handle
+                        })
+                        .then(|| {
+                            h.channel_members
+                                .iter()
+                                .find(|(name, _)| *name == handle)
+                                .map_or(&[][..], |(_, emails)| emails.as_slice())
+                        })
+                })
+            });
             for moderator in &channel.moderators {
-                let skipped = account.get(moderator.as_str()).is_none_or(|a| a.skipped);
-                if !skipped && !guests_here.contains(moderator.as_str()) {
-                    moderating.insert(moderator.as_str());
+                if !channel.members.contains(moderator) {
+                    continue;
+                }
+                let Some(person) = account.get(moderator.as_str()).filter(|a| !a.skipped) else {
+                    continue;
+                };
+                let email = person.email.trim().to_lowercase();
+                let in_space =
+                    !email.is_empty() && here.is_some_and(|h| folded_in(&h.emails, &email));
+                let guest = if in_space {
+                    here.is_some_and(|h| folded_in(&h.guest_emails, &email))
+                } else {
+                    listed_guest.contains(moderator.as_str())
+                };
+                let in_channel = !email.is_empty()
+                    && adopted_members.is_some_and(|members| folded_in(members, &email));
+                if super::people::writes_moderator(true, guest, in_channel) {
+                    out.moderators += 1;
                 }
             }
         }
-        out.moderators += moderating.len();
 
         if let Some(h) = here {
             if let (Some(total), false) = (h.seats, h.ambiguous) {
@@ -957,6 +1011,7 @@ mod people_plan_tests {
             seats: Some(total),
             custom_roles_allowed: true,
             ambiguous: false,
+            ..Default::default()
         }
     }
 
@@ -1003,6 +1058,40 @@ mod people_plan_tests {
         assert_eq!(people.guests, 2);
         assert_eq!(people.moderators, 1);
         assert!(people.already_here.is_empty());
+    }
+
+    #[test]
+    fn moderators_are_those_the_run_writes_in_a_channel() {
+        let mut index = archive(4);
+        index.members = vec![
+            line("atelier", "u0", "member", &[]),
+            line("atelier", "u1", "member", &[]),
+            line("atelier", "u2", "member", &[]),
+            line("atelier", "u3", "guest", &[]),
+        ];
+        let mut general = channel("c1", "atelier", "channel");
+        general.name = "general".into();
+        general.members = vec!["u0".into(), "u1".into(), "u2".into(), "u3".into()];
+        general.moderators = vec!["u0".into(), "u1".into(), "u2".into(), "u3".into()];
+        index.channels = vec![general];
+        // u1 is a guest of the space already, u2 is in the adopted channel already.
+        let existing = Existing {
+            space_names: vec!["Atelier".into()],
+            channels: vec![("Atelier".into(), "general".into())],
+            space_people: vec![SpacePeople {
+                name_folded: "atelier".into(),
+                emails: vec!["u1@example.org".into(), "u2@example.org".into()],
+                guest_emails: vec!["u1@example.org".into()],
+                channel_members: vec![("general".into(), vec!["u2@example.org".into()])],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        // Only u0 is written a moderator: u1 is a guest, u2 keeps their place, u3 is listed a guest.
+        assert_eq!(plan_people(&index, &existing).moderators, 1);
+        // A space the import creates has nobody in it yet: only the guest listed as one stays out.
+        let created = Existing::default();
+        assert_eq!(plan_people(&index, &created).moderators, 3);
     }
 
     #[test]

@@ -1275,7 +1275,7 @@
     "etaSeconds": "moins d'une minute",
     "etaUnknown": "estimation en cours",
     "close": "Fermer cet écran",
-    "peopleTitle": "Les personnes",
+    "peopleTitle": "Rôles et groupes",
     "peopleIntro": "Corrigez une adresse ou laissez quelqu'un de côté. Rien n'est envoyé à cette étape.",
     "peopleSearch": "Chercher une personne",
     "peopleAll": "Toutes",
@@ -1388,7 +1388,64 @@
     "interrupted": "Interrompu",
     "spaceChannelsFilled_one": "{{count}} canal est déjà ici : il recevra l'historique de l'archive.",
     "spaceChannelsFilled_other": "{{count}} canaux sont déjà ici : ils recevront l'historique de l'archive.",
-    "events": "Événements"
+    "events": "Événements",
+    "peopleSub": "Ce que l'archive dit des personnes",
+    "peopleAdminsTitle_one": "{{count}} administrateur",
+    "peopleAdminsTitle_other": "{{count}} administrateurs",
+    "peopleAdminsSlack": "Les propriétaires et les administrateurs de Slack arrivent avec le rôle Administrateur.",
+    "peopleAdminsTeams": "Les propriétaires de Teams arrivent avec le rôle Administrateur.",
+    "peopleAdminsMattermost": "Les administrateurs d'équipe de Mattermost arrivent avec le rôle Administrateur.",
+    "peopleAdminsOther": "Les administrateurs de {{source}} arrivent avec le rôle Administrateur.",
+    "peopleOwnerNamed": "{{name}} reste propriétaire de l'espace {{space}} : personne ne le devient par l'import.",
+    "peopleGuestsBody": "Les comptes invités de {{source}} arrivent invités, sans date de fin et sans prendre de place. Vous pourrez en fixer une ensuite.",
+    "peopleModsTitle_one": "{{count}} modérateur de canal",
+    "peopleModsTitle_other": "{{count}} modérateurs de canaux",
+    "peopleModsBody": "Les administrateurs de canal deviennent modérateurs des canaux concernés.",
+    "peopleGroupsTitle_one": "{{count}} groupe",
+    "peopleGroupsTitle_other": "{{count}} groupes",
+    "peopleGroupsBody": "Créés tels quels, avec leurs membres et sans droits particuliers. Un groupe déjà importé n'est jamais créé en double.",
+    "peopleKeptTitle_one": "{{count}} personne déjà là, rôle conservé",
+    "peopleKeptTitle_other": "{{count}} personnes déjà là, rôle conservé",
+    "peopleKeptBody": "L'import ajoute les personnes avec leur rôle, mais ne change jamais celui de quelqu'un qui est déjà dans l'espace, ni en plus ni en moins.",
+    "peopleFallbacksMember_one": "{{count}} rôle personnalisé ramené à Membre",
+    "peopleFallbacksMember_other": "{{count}} rôles personnalisés ramenés à Membre",
+    "peopleFallbacksAdmin_one": "{{count}} rôle personnalisé ramené à Administrateur",
+    "peopleFallbacksAdmin_other": "{{count}} rôles personnalisés ramenés à Administrateur",
+    "peopleFallbacksMixed_one": "{{count}} rôle personnalisé ramené à un rôle fixe",
+    "peopleFallbacksMixed_other": "{{count}} rôles personnalisés ramenés à un rôle fixe",
+    "peopleFallbacksBody": "L'édition communautaire n'a pas de rôles personnalisés : les personnes concernées arrivent avec le rôle fixe indiqué.",
+    "peopleFallbacksPricing": "Les rôles personnalisés existent en édition Entreprise.",
+    "fallbackMember_one": "Rôle « {{role}} » ramené à Membre (édition communautaire), {{count}} personne",
+    "fallbackMember_other": "Rôle « {{role}} » ramené à Membre (édition communautaire), {{count}} personnes",
+    "fallbackMemberIn_one": "Rôle « {{role}} » ramené à Membre dans l'espace {{space}} (édition communautaire), {{count}} personne",
+    "fallbackMemberIn_other": "Rôle « {{role}} » ramené à Membre dans l'espace {{space}} (édition communautaire), {{count}} personnes",
+    "fallbackAdmin_one": "Rôle « {{role}} » ramené à Administrateur (édition communautaire), {{count}} personne",
+    "fallbackAdmin_other": "Rôle « {{role}} » ramené à Administrateur (édition communautaire), {{count}} personnes",
+    "fallbackAdminIn_one": "Rôle « {{role}} » ramené à Administrateur dans l'espace {{space}} (édition communautaire), {{count}} personne",
+    "fallbackAdminIn_other": "Rôle « {{role}} » ramené à Administrateur dans l'espace {{space}} (édition communautaire), {{count}} personnes",
+    "seatsUsed_one": "{{count}} place utilisée sur {{total}} après l'import",
+    "seatsUsed_other": "{{count}} places utilisées sur {{total}} après l'import",
+    "seatsFree_one": "{{count}} reste libre",
+    "seatsFree_other": "{{count}} restent libres",
+    "seatsTaken_one": "{{count}} déjà prise",
+    "seatsTaken_other": "{{count}} déjà prises",
+    "seatsAdded_one": "{{count}} apportée par l'import",
+    "seatsAdded_other": "{{count}} apportées par l'import",
+    "seatsGuestsFree": "Les invités ne prennent pas de place",
+    "seatsOverTitle_one": "{{count}} personne prendrait une place, il en reste {{left}}",
+    "seatsOverTitle_other": "{{count}} personnes prendraient une place, il en reste {{left}}",
+    "seatsOverTotal": "{{total}} places au total, {{used}} déjà prises",
+    "seatsOverLegend_one": "{{count}} libre pour {{incoming}} personnes à accueillir : {{missing}}",
+    "seatsOverLegend_other": "{{count}} libres pour {{incoming}} personnes à accueillir : {{missing}}",
+    "seatsMissingInline_one": "il manque {{count}} place",
+    "seatsMissingInline_other": "il manque {{count}} places",
+    "seatsMissing_one": "Il manque {{count}} place",
+    "seatsMissing_other": "Il manque {{count}} places",
+    "seatsOverText": "Seuls les membres et les administrateurs à ajouter comptent : les invités ne prennent pas de place et les personnes déjà dans l'espace gardent la leur. L'import ne peut pas commencer tant que toutes les personnes ne peuvent pas être accueillies : rien n'a été écrit. Libérez des places, ou passez à une offre qui en compte davantage, puis revenez sur cet écran.",
+    "seatsPricingNewTab": "Voir les tarifs (s'ouvre dans un nouvel onglet)",
+    "seatsNoPricing": "Contactez la personne qui gère la licence pour obtenir des places.",
+    "seatsOverNeeded_one": "{{count}} place nécessaire, {{free}} libres",
+    "seatsOverNeeded_other": "{{count}} places nécessaires, {{free}} libres"
   },
   "externalLink": {
     "title": "Attention, vous quittez Ruchoir",
@@ -2173,7 +2230,8 @@
     "you": "vous",
     "manageNote": "Vous ajoutez et retirez des personnes de ce groupe. Ses rôles et ses responsables se règlent dans les réglages de l'espace.",
     "leave": "Quitter le groupe",
-    "left": "Vous avez quitté le groupe"
+    "left": "Vous avez quitté le groupe",
+    "importedFrom": "Importé de {{source}}."
   },
   "licence": {
     "refusal": {
@@ -2294,7 +2352,11 @@
     "onUnnamedFile": "sur un fichier ou dossier",
     "onUnnamedCalendar": "sur un agenda",
     "theChannel": "le canal",
-    "aChannel": "un canal"
+    "aChannel": "un canal",
+    "importApplied": "{{actor}} a importé l'espace depuis {{source}}",
+    "importChip": "+ {{what}}",
+    "importNote": "Une seule ligne par import, pour ne pas noyer le journal sous une ligne par personne importée. Le détail, personne par personne, reste dans le rapport de l'import.",
+    "importReport": "Ouvrir le rapport"
   },
   "guests": {
     "endTitle": "Accès jusqu'au",
@@ -2403,7 +2465,8 @@
     "refusalGuestOnly": "Seul un invité peut avoir une date de fin : cette personne est membre.",
     "refusalAccessEnded": "Cet accès est déjà terminé : réactivez-le pour lui donner une nouvelle date.",
     "refusalNotEnded": "Cet accès n'est pas terminé : il n'y a rien à réactiver.",
-    "leftNotice": "Vous ne faites plus partie de {{space}}"
+    "leftNotice": "Vous ne faites plus partie de {{space}}",
+    "createdByImport": "Créé par l'import"
   },
   "access": {
     "title": "Accès à {{name}}",
@@ -2752,5 +2815,16 @@
       "unavailable": "L'aperçu est indisponible pour le moment."
     },
     "readOnlyBodySend": "Votre message n'a pas été envoyé. Cliquez sur Quitter, en haut, pour reprendre la main."
+  },
+  "members": {
+    "importWhenToday": "aujourd'hui",
+    "importWhenYesterday": "hier",
+    "importWhenDays_one": "il y a {{count}} jour",
+    "importWhenDays_other": "il y a {{count}} jours",
+    "importBannerTitle": "Import depuis {{source}} terminé {{when}}.",
+    "importBannerText": "Repris de {{source}} avec leurs droits : {{figures}}.",
+    "importBannerLink": "Voir dans le journal",
+    "importRoles_one": "{{count}} rôle personnalisé",
+    "importRoles_other": "{{count}} rôles personnalisés"
   }
 }

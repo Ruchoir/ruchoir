@@ -119,6 +119,7 @@ type GroupDto = {
   member_ids: string[];
   manager_ids: string[];
   role_ids: string[];
+  imported_from?: string | null;
   may: { edit: boolean; delete: boolean; change_members: boolean; change_roles: boolean; appoint: boolean };
 };
 
@@ -131,6 +132,7 @@ function toGroup(dto: GroupDto): Group {
     memberIds: dto.member_ids,
     managerIds: dto.manager_ids,
     roleIds: dto.role_ids,
+    ...(dto.imported_from ? { importedFrom: dto.imported_from } : {}),
     may: {
       edit: dto.may.edit,
       delete: dto.may.delete,
@@ -333,10 +335,17 @@ const REFUSAL_CODES = new Set([
  */
 export function refusalOf(err: unknown): Refusal | undefined {
   if (!(err instanceof ApiError)) return undefined;
-  const body = (err.body ?? {}) as { error?: string; reason?: string; seats?: number; pricing_url?: string; organisation?: string; used_in?: UsedInDto[] };
+  const body = (err.body ?? {}) as { error?: string; reason?: string; seats?: number; pricing_url?: string; organisation?: string; used_in?: UsedInDto[]; space?: string; used?: number; incoming?: number; missing?: number };
   const code = body.error === "forbidden" ? body.reason : body.error;
   if (!code || !REFUSAL_CODES.has(code)) return undefined;
-  if (code === "seats_full") return { code, seats: body.seats ?? 0, pricingUrl: body.pricing_url ?? "" };
+  if (code === "seats_full") {
+    const refusal: Refusal = { code, seats: body.seats ?? 0, pricingUrl: body.pricing_url ?? "" };
+    // The import's refusal says more than the others: which space, and by how many places.
+    if (typeof body.missing === "number") {
+      return { ...refusal, space: body.space, used: body.used ?? 0, incoming: body.incoming ?? 0, missing: body.missing };
+    }
+    return refusal;
+  }
   if (code === "licence_required") return { code, pricingUrl: body.pricing_url ?? "" };
   if (code === "licence_other_space") return { code, organisation: body.organisation };
   if (code === "group_has_rules" || code === "role_has_rules") {
@@ -772,6 +781,7 @@ type MemberDto = {
   joined_at?: string;
   expires_at?: string | null;
   standing?: string | null;
+  imported_from?: string | null;
 };
 
 /** A guest whose access ended and whose row is still kept, as the API lists it. */
@@ -791,6 +801,7 @@ function toMember(m: MemberDto): Member {
     joinedAt: m.joined_at,
     expiresAt: m.expires_at ?? undefined,
     standing: m.standing ?? undefined,
+    importedFrom: m.imported_from ?? undefined,
   };
 }
 
@@ -815,6 +826,8 @@ export type Member = {
   expiresAt?: string;
   /** `owner`, `member` or `guest`, for whoever may manage people and for the person themself. */
   standing?: string;
+  /** The import that brought them (`<source>:<job id>`), only in the space member list for whoever manages people. */
+  importedFrom?: string;
 };
 
 /** A guest whose access ended and who is still kept (90 days), until they are removed for good. */
@@ -1621,6 +1634,52 @@ const canFallBackToSse = () => typeof EventSource !== "undefined";
 // Only an instance administrator sees any of this: every route below answers 404 to everyone else,
 // so a client that shows the screen to the wrong person shows them a screen full of errors.
 
+/** One licensed space's seats around an import, before the run. */
+export type SeatsLine = { space: string; used: number; incoming: number; total: number; over: boolean };
+
+/** A role of the source this server cannot create, and the fixed role the people get instead. */
+export type PlannedFallback = { role: string; fixed: "member" | "admin"; people: number };
+
+/** What the archive says about roles, guests and groups, from the plan. */
+export type PeoplePlan = {
+  administrators: number;
+  guests: number;
+  moderators: number;
+  /** How many groups would be created. */
+  groups: number;
+  /** The first of their names. */
+  groupNames: string[];
+  customRoles: number;
+  fallbacks: PlannedFallback[];
+  /** The first names of people already in their space, whose role is left alone. */
+  alreadyHere: string[];
+  alreadyHereTotal: number;
+  /** One line per filled, licensed space: empty for a created space or a community one. */
+  seats: SeatsLine[];
+};
+
+/** A role of the source that went to a fixed role, in one space, once the run is over. */
+export type FallbackSummary = { space: string; roleName: string; fixed: "member" | "admin"; people: number };
+
+/** A licensed space's seats around a finished run. */
+export type SeatsSummary = { space: string; usedBefore: number; added: number; total: number };
+
+/** What crossed in terms of people, groups and roles, as the job reports it. */
+export type PeopleSummary = {
+  administrators: number;
+  guests: number;
+  moderators: number;
+  groups: number;
+  groupNames: string[];
+  kept: number;
+  keptNames: string[];
+  customRoles: number;
+  fallbacks: FallbackSummary[];
+  seats: SeatsSummary[];
+  /** The names of the spaces the job created (the others were filled). */
+  createdSpaces: string[];
+};
+
 /** What an import would do, from `POST /imports/plan`. Nothing is written to produce it. */
 export type ImportPlan = {
   source: string;
@@ -1647,6 +1706,8 @@ export type ImportPlan = {
   /** The producer's own words about what it left behind. Shown in full, never summarised. */
   limits: string[];
   warnings: string[];
+  /** Who arrives with which role, and what it costs in seats. */
+  people: PeoplePlan;
   /** What replacing the instance would destroy, so both halves of the choice are visible at once. */
   replacingWouldDestroy: {
     spaces: number;
@@ -1678,6 +1739,12 @@ export type ImportJob = {
   error: string | null;
   /** When it ended, RFC 3339, or null while it runs. */
   finishedAt: string | null;
+  /** What crossed in people, groups and roles; null while it runs and for an import from before this was kept. */
+  people: PeopleSummary | null;
+  /** The producer's own words about what it left behind, kept for the done screen. */
+  limits: string[];
+  /** Who started it; null once their account is gone. */
+  startedBy: { id: string; name: string } | null;
 };
 
 type ImportJobDto = {
@@ -1698,7 +1765,42 @@ type ImportJobDto = {
   events_total?: number;
   error: string | null;
   finished_at: string | null;
+  people?: PeopleSummaryDto | null;
+  limits?: string[];
+  started_by?: { id: string; name: string } | null;
 };
+
+type PeopleSummaryDto = {
+  administrators: number;
+  guests: number;
+  moderators: number;
+  groups: number;
+  group_names?: string[];
+  kept: number;
+  kept_names?: string[];
+  custom_roles: number;
+  fallbacks?: { space: string; role_name: string; fixed: string; people: number }[];
+  seats?: { space: string; used_before: number; added: number; total: number }[];
+  created_spaces?: string[];
+};
+
+const fixedRole = (v: string): "member" | "admin" => (v === "admin" ? "admin" : "member");
+
+export function toPeopleSummary(dto: PeopleSummaryDto): PeopleSummary {
+  return {
+    administrators: dto.administrators,
+    guests: dto.guests,
+    moderators: dto.moderators,
+    groups: dto.groups,
+    groupNames: dto.group_names ?? [],
+    kept: dto.kept,
+    keptNames: dto.kept_names ?? [],
+    customRoles: dto.custom_roles,
+    fallbacks: (dto.fallbacks ?? []).map((f) => ({ space: f.space, roleName: f.role_name, fixed: fixedRole(f.fixed), people: f.people })),
+    seats: (dto.seats ?? []).map((x) => ({ space: x.space, usedBefore: x.used_before, added: x.added, total: x.total })),
+    createdSpaces: dto.created_spaces ?? [],
+  };
+}
 
 function toImportJob(dto: ImportJobDto): ImportJob {
   return {
@@ -1719,6 +1821,9 @@ function toImportJob(dto: ImportJobDto): ImportJob {
     eventsTotal: dto.events_total ?? 0,
     error: dto.error,
     finishedAt: dto.finished_at,
+    people: dto.people ? toPeopleSummary(dto.people) : null,
+    limits: dto.limits ?? [],
+    startedBy: dto.started_by ?? null,
   };
 }
 
@@ -4203,6 +4308,18 @@ export function createApi(transport: Transport) {
       events?: number;
       limits: string[];
       warnings: string[];
+      people?: {
+        administrators: number;
+        guests: number;
+        moderators: number;
+        groups: string[];
+        groups_total: number;
+        custom_roles: number;
+        fallbacks: { role: string; fixed: string; people: number }[];
+        already_here: string[];
+        already_here_total: number;
+        seats: { space: string; used: number; incoming: number; total: number; over: boolean }[];
+      };
       replacing_would_destroy: {
         spaces: number;
         accounts: number;
@@ -4239,6 +4356,18 @@ export function createApi(transport: Transport) {
       events: dto.events ?? 0,
       limits: dto.limits,
       warnings: dto.warnings,
+      people: {
+        administrators: dto.people?.administrators ?? 0,
+        guests: dto.people?.guests ?? 0,
+        moderators: dto.people?.moderators ?? 0,
+        groups: dto.people?.groups_total ?? 0,
+        groupNames: dto.people?.groups ?? [],
+        customRoles: dto.people?.custom_roles ?? 0,
+        fallbacks: (dto.people?.fallbacks ?? []).map((f) => ({ role: f.role, fixed: fixedRole(f.fixed), people: f.people })),
+        alreadyHere: dto.people?.already_here ?? [],
+        alreadyHereTotal: dto.people?.already_here_total ?? 0,
+        seats: (dto.people?.seats ?? []).map((x) => ({ space: x.space, used: x.used, incoming: x.incoming, total: x.total, over: x.over })),
+      },
       replacingWouldDestroy: {
         spaces: dto.replacing_would_destroy.spaces,
         accounts: dto.replacing_would_destroy.accounts,

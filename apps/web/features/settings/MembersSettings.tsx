@@ -12,6 +12,7 @@ import { RoleChip, roleLabel, ROLE_LABEL } from "./roleChips";
 import type { Toast } from "../app/types";
 import { holdsRole, rolesViaGroups, sortGroups } from "./groupsLogic.ts";
 import { EndedAccess } from "./EndedAccess";
+import { ImportBanner } from "./ImportBanner";
 import { GuestsSection } from "./GuestsSection";
 import { splitPeople } from "./guestLogic.ts";
 import { grantableRoles } from "./rolesLogic";
@@ -58,6 +59,8 @@ export type MembersSettingsProps = {
   onChangeRole: (member: { userId: string; name: string }, role: string) => void;
   onRemoveMember: (member: { userId: string; name: string }) => void;
   onSaveMemberRoles: (userId: string, roleIds: string[]) => Promise<boolean>;
+  /** The banner's way to the journal, filtered on Members (offered when the viewer reads the journal). */
+  onOpenJournal?: () => void;
   compact?: boolean;
 };
 
@@ -84,6 +87,7 @@ export function MembersSettings(props: MembersSettingsProps) {
     <>
       <h2 style={st.h}>{t("conversation.members")}</h2>
       <p style={st.sub}>{props.summary}</p>
+      <ImportBanner spaceId={props.spaceId} rights={props.myRights} onOpenJournal={props.onOpenJournal} />
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
         <div style={{ width: 260 }}>
           <Input size="sm" icon="search" placeholder={t("space.searchMember")} value={query} onChange={(e) => setQuery(e.target.value)} />

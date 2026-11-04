@@ -888,7 +888,7 @@ async fn the_run_stops_when_the_space_filled_since_the_plan() {
     // The plan sees one seat free for the one arrival.
     let edition: Arc<dyn Edition> = Arc::new(Seats(2));
     let (index, _) = crate::importer::check::check(&dir, None).expect("check");
-    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref())
+    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref(), &index)
         .await
         .expect("existing");
     let plan = crate::importer::plan::build(&index, &existing);
@@ -1323,6 +1323,167 @@ async fn an_adopted_channel_takes_new_moderators_only() {
     assert_eq!(
         channel_role(&app, space, "general", new).await.as_deref(),
         Some("admin")
+    );
+}
+
+#[tokio::test]
+async fn the_plan_counts_the_moderators_the_run_writes() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (old_email, guest_email, listed_email, new_email) = (
+        address("old"),
+        address("existing-guest"),
+        address("listed-guest"),
+        address("new"),
+    );
+    let old = make_user_with(&app, &old_email).await;
+    let (name, space) = space_with_general(&app, fx.alice, old).await;
+    // Somebody who is a guest of the space already, whatever the archive lists them as.
+    let existing_guest = make_user_with(&app, &guest_email).await;
+    space_members::ActiveModel {
+        space_id: Set(space),
+        user_id: Set(existing_guest),
+        role: Set("guest".to_owned()),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("guest row");
+    let dir = people_archive_with(
+        2,
+        &name,
+        &[
+            ("old", &old_email),
+            ("eg", &guest_email),
+            ("lg", &listed_email),
+            ("new", &new_email),
+        ],
+        &[
+            ("old", "member", &[]),
+            ("eg", "member", &[]),
+            ("lg", "guest", &[]),
+            ("new", "member", &[]),
+        ],
+        &[(
+            "general",
+            &["old", "eg", "lg", "new"],
+            &["old", "eg", "lg", "new"],
+        )],
+    );
+    let edition: Arc<dyn Edition> = Arc::new(CommunityEdition);
+    let (index, _) = crate::importer::check::check(&dir, None).expect("check");
+    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref(), &index)
+        .await
+        .expect("existing");
+    let plan = crate::importer::plan::build(&index, &existing);
+    let planned = crate::importer::plan::people_plan(&index, &plan, &existing).moderators;
+
+    let (_, outcome) = run_people(&app, fx.alice, &dir, edition).await;
+    let written = outcome.expect("the run completes").written.moderators;
+    // `old` is in the adopted channel already, `eg` is a guest here, `lg` is listed a guest: only
+    // `new` is written a moderator.
+    assert_eq!(written, 1);
+    assert_eq!(planned, written, "the plan counts what the run writes");
+}
+
+#[tokio::test]
+async fn a_rerun_plan_counts_no_moderator_the_run_will_not_write() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (name, a, b) = (unique_space(), address("a"), address("b"));
+    let dir = people_archive_with(
+        2,
+        &name,
+        &[("a", &a), ("b", &b)],
+        &[("a", "member", &[]), ("b", "member", &[])],
+        &[("projets", &["a", "b"], &["a", "b"])],
+    );
+    let edition: Arc<dyn Edition> = Arc::new(CommunityEdition);
+    let (_, first) = run_people(&app, fx.alice, &dir, edition.clone()).await;
+    assert_eq!(first.expect("first run").written.moderators, 2);
+
+    // The channel is renamed here, so only its mapping still says it came from this archive.
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE channels SET name = 'renamed' WHERE space_id = $1 AND name = 'projets'",
+            [space_named(&app, &name).await.into()],
+        ))
+        .await
+        .expect("rename");
+
+    let (index, _) = crate::importer::check::check(&dir, None).expect("check");
+    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref(), &index)
+        .await
+        .expect("existing");
+    let plan = crate::importer::plan::build(&index, &existing);
+    let planned = crate::importer::plan::people_plan(&index, &plan, &existing).moderators;
+    let (_, second) = run_people(&app, fx.alice, &dir, edition).await;
+    let written = second.expect("second run").written.moderators;
+    assert_eq!(written, 0, "the channel is found by its mapping");
+    assert_eq!(planned, written, "the plan counts what the run writes");
+}
+
+#[tokio::test]
+async fn the_plan_finds_a_claimed_channel_as_the_run_does() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (name, a, b) = (unique_space(), address("a"), address("b"));
+    let dir = people_archive_with(
+        2,
+        &name,
+        &[("a", &a), ("b", &b)],
+        &[("a", "member", &[]), ("b", "member", &[])],
+        &[("projets", &["a", "b"], &["a", "b"])],
+    );
+    let edition: Arc<dyn Edition> = Arc::new(CommunityEdition);
+    run_people(&app, fx.alice, &dir, edition.clone())
+        .await
+        .1
+        .expect("first run");
+    let (index, _) = crate::importer::check::check(&dir, None).expect("check");
+    let space = space_named(&app, &name).await;
+    let renamed = || {
+        app.db.execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE channels SET name = 'renamed' WHERE space_id = $1 AND name = 'projets'",
+            [space.into()],
+        ))
+    };
+    renamed().await.expect("rename");
+
+    // The mapping is recorded under another space: for this run it is not the channel's, the
+    // channel is written again (as a new one), and the plan has to say the same.
+    let (other, _) =
+        crate::messaging::spaces::create_owned_space(&app.db, &unique_space(), fx.alice)
+            .await
+            .expect("other space");
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE import_mappings SET space_id = $1 WHERE kind = 'channel' AND internal_id IN \
+             (SELECT id FROM channels WHERE space_id = $2)",
+            [other.into(), space.into()],
+        ))
+        .await
+        .expect("move the mapping");
+    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref(), &index)
+        .await
+        .expect("existing");
+    let plan = crate::importer::plan::build(&index, &existing);
+    let planned = crate::importer::plan::people_plan(&index, &plan, &existing).moderators;
+    let (_, second) = run_people(&app, fx.alice, &dir, edition).await;
+    let written = second.expect("second run").written.moderators;
+    assert_eq!(
+        written, 2,
+        "a mapping under another space is not this run's channel"
+    );
+    assert_eq!(
+        planned, written,
+        "the plan finds a claimed channel as the run does"
     );
 }
 
@@ -2560,4 +2721,50 @@ async fn a_resumed_run_journals_what_it_added() {
     let summary = stored.summary.expect("summary");
     assert_eq!(in_lines, summary["administrators"].as_i64().expect("count"));
     assert_eq!(in_lines, 2);
+}
+
+#[tokio::test]
+async fn a_job_response_names_who_started_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let dir = crossing_archive(&unique_space(), "member");
+    let (job, outcome) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    outcome.expect("the run completes");
+    let alice = users::Entity::find_by_id(fx.alice)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("user");
+    let cookie = app.cookie_for(fx.alice).await;
+    let body = get_job(&app, &cookie, job).await;
+    assert_eq!(body["started_by"]["id"], fx.alice.to_string());
+    assert_eq!(body["started_by"]["name"], alice.display_name);
+
+    // The account is gone: the job stays, and says nobody rather than a stale name.
+    let mut stored: crate::entities::import_jobs::ActiveModel =
+        crate::entities::import_jobs::Entity::find_by_id(job)
+            .one(&app.db)
+            .await
+            .expect("query")
+            .expect("job")
+            .into();
+    stored.created_by = Set(None);
+    stored.update(&app.db).await.expect("detach");
+    let body = get_job(&app, &cookie, job).await;
+    assert!(body["started_by"].is_null(), "{body}");
+}
+
+#[tokio::test]
+async fn the_summary_lists_the_spaces_the_run_created() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let name = unique_space();
+    let dir = crossing_archive(&name, "member");
+    let (job, outcome) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    outcome.expect("the run completes");
+    let cookie = app.cookie_for(fx.alice).await;
+    let body = get_job(&app, &cookie, job).await;
+    assert_eq!(body["people"]["created_spaces"], json!([name]));
 }

@@ -32,8 +32,11 @@ import {
   listImports,
   type PersonChoice,
   planImport,
+  refusalOf,
   startImport,
 } from "@/lib/data/api";
+import { ImportPeopleBlock } from "./ImportPeopleBlock";
+import { missingPlaces, type PeopleView, seatsFromRefusal, startDisabled, viewFromPlan, viewFromSummary } from "./importPeople.ts";
 import { PASS_WEIGHT } from "./importRun";
 import type { Toast } from "./types";
 
@@ -117,6 +120,9 @@ export function ImportScreen({
   compact = false,
   instanceAdmin = false,
   onFinished,
+  ownerName = null,
+  pricingUrl,
+  openJob = null,
 }: {
   onClose: () => void;
   onNotify?: (t: Toast) => void;
@@ -144,6 +150,12 @@ export function ImportScreen({
    * instance, nor addresses to fill in, nor invitations to send.
    */
   instanceAdmin?: boolean;
+  /** The person importing: who stays owner of a space the import creates. */
+  ownerName?: string | null;
+  /** Open on this job's screen (from the journal's "Ouvrir le rapport"), rather than on the last one. */
+  openJob?: string | null;
+  /** The pricing page, for the places an import lacks and the custom roles it cannot make. */
+  pricingUrl?: string;
 }) {
   const { t } = useTranslation();
   const [stage, setStage] = useState<Stage>("source");
@@ -190,6 +202,8 @@ export function ImportScreen({
   const [advanced, setAdvanced] = useState(false);
   const [replace, setReplace] = useState(false);
   const [typedAddress, setTypedAddress] = useState("");
+  /** The server's `402 seats_full` at the start, said in the same red state as the plan's own count. */
+  const [seatsRefusal, setSeatsRefusal] = useState<{ space?: string; used?: number; incoming?: number; seats: number; pricingUrl?: string } | null>(null);
 
   // --- the run -----------------------------------------------------------------------------------
   const [job, setJob] = useState<ImportJob | null>(null);
@@ -234,8 +248,24 @@ export function ImportScreen({
   // Read once, at mount: whether this opening was a request to see the last run. It cannot change
   // while the screen is open, and the screen must not jump steps under the reader if it did.
   const wanted = useRef(openLast);
+  const wantedJob = useRef(openJob);
   useEffect(() => {
     let alive = true;
+    // The journal's "Ouvrir le rapport": that job's own screen, not the last one.
+    if (wantedJob.current) {
+      getImport(wantedJob.current)
+        .then((found) => {
+          if (!alive) return;
+          setJob(found);
+          setStage("run");
+        })
+        .catch(() => {
+          // A job that cannot be read leaves the screen where it always starts.
+        });
+      return () => {
+        alive = false;
+      };
+    }
     listImports()
       .then((jobs) => {
         if (!alive) return;
@@ -430,6 +460,7 @@ export function ImportScreen({
     try {
       const next = await planImport(file.trim(), passphrase || undefined);
       setPlan(next);
+      setSeatsRefusal(null);
       setStage("plan");
     } catch (error) {
       setPlan(null);
@@ -456,7 +487,13 @@ export function ImportScreen({
       setPassphrase("");
       setStage("run");
     } catch (error) {
-      fail(error);
+      const refusal = refusalOf(error);
+      if (refusal?.code === "seats_full" && refusal.missing !== undefined) {
+        // Nothing was written: the screen shows the shortage and keeps Lancer off.
+        setSeatsRefusal(refusal);
+      } else {
+        fail(error);
+      }
     } finally {
       setBusy(false);
     }
@@ -480,6 +517,7 @@ export function ImportScreen({
   const backToArchive = () => {
     setPlan(null);
     setPlanError(null);
+    setSeatsRefusal(null);
     setJob(null);
     setPaces({});
     setEtas({});
@@ -569,6 +607,19 @@ export function ImportScreen({
     plan ? PLATFORMS.find((p) => p.toLowerCase() === plan.source.toLowerCase()) : platform,
   );
   const sourceName = sourceBrand ?? t(key("import.sourceUnknown"));
+  /**
+   * The plan's people, with the server's own refusal laid over the seats when the start answered 402:
+   * it knows the count at the moment of the run, which may be newer than the plan's.
+   */
+  /** Before the run: the person importing stays owner of each space the plan creates. */
+  const stayingOwner = plan && ownerName ? { name: ownerName, spaces: plan.spaces.filter((x) => x.outcome === "created").map((x) => x.name) } : null;
+  const planPeople: PeopleView | null = plan
+    ? { ...viewFromPlan(plan.people, stayingOwner), seats: seatsRefusal ? [seatsFromRefusal(seatsRefusal)] : viewFromPlan(plan.people).seats }
+    : null;
+  /** The source's name on the done screen, where the job (not the plan) says where it came from. */
+  const doneSource = job ? PLATFORMS.find((p) => p.toLowerCase() === job.source.toLowerCase()) : undefined;
+  const doneSourceName = brandFor(doneSource) ?? t(key("import.sourceUnknown"));
+  const tooFewSeats = planPeople ? startDisabled(planPeople) : false;
 
   // --- the pieces ------------------------------------------------------------------------------
   const colClass = `wc-imp-col${compact ? " wc-imp-col--compact" : ""}`;
@@ -977,6 +1028,8 @@ export function ImportScreen({
         ))}
       </div>
 
+      <ImportPeopleBlock people={planPeople} source={plan.source} sourceName={sourceName} pricingUrl={pricingUrl || seatsRefusal?.pricingUrl || undefined} />
+
       <div className="wc-imp-card">
         {!instanceAdmin ? (
           // In place of the missing-address warning, which would ask for something the server will
@@ -1270,6 +1323,34 @@ export function ImportScreen({
                   files: formatNumber(job.filesDone),
                 })}
           </p>
+          {/* What crossed, as the run wrote it (so the same after a reload), then what the producer
+              left behind, again: the done screen is where somebody checks the move is complete. */}
+          <ImportPeopleBlock
+            people={job.people ? viewFromSummary(job.people, job.startedBy) : null}
+            source={job.source}
+            sourceName={doneSourceName}
+            pricingUrl={pricingUrl}
+          />
+          {job.limits.length > 0 ? (
+            <div className="wc-imp-card" style={{ marginBottom: 12 }}>
+              <Check
+                tone="info"
+                icon="info"
+                title={
+                  <>
+                    {t(key("import.limitsTitle"), { source: doneSourceName })}{" "}
+                    <span className="wc-imp-check__aside">· {t(key("import.limitsAside"))}</span>
+                  </>
+                }
+              >
+                <ul>
+                  {job.limits.map((limit) => (
+                    <li key={limit}>{limit}</li>
+                  ))}
+                </ul>
+              </Check>
+            </div>
+          ) : null}
           {/* Once it is done, and only then, the question of who hears about it. Nothing left during
               the import: ten thousand accounts arriving is not ten thousand emails leaving, and
               somebody has to say who. */}
@@ -1556,13 +1637,21 @@ export function ImportScreen({
     );
   } else if (stage === "plan") {
     bottom = footer(
-      back(t(key("import.changeArchive")), backToArchive, busy),
+      <>
+        {back(t(key("import.changeArchive")), backToArchive, busy)}
+        {tooFewSeats && planPeople ? (
+          <span className="wc-imp-foot__note" role="status" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Icon name="lock" size={13} />
+            {t("import.seatsMissing", { count: Math.max(1, missingPlaces(planPeople)) })}
+          </span>
+        ) : null}
+      </>,
       replace ? (
-        <Button variant="danger" onClick={begin} loading={busy} disabled={typedAddress.trim() !== instanceAddress}>
+        <Button variant="danger" onClick={begin} loading={busy} disabled={tooFewSeats || typedAddress.trim() !== instanceAddress}>
           {t(key("import.startReplacing"))}
         </Button>
       ) : (
-        <Button variant="primary" onClick={begin} loading={busy}>
+        <Button variant="primary" onClick={begin} loading={busy} disabled={tooFewSeats}>
           {t(key("import.start"))}
         </Button>
       ),

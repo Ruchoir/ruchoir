@@ -12,6 +12,7 @@ import { levelLabelKey } from "../access/accessLogic.ts";
 import { tk } from "../access/EntryRow";
 import { auditLine, dayKey, lineCategory, type Sentence, type Slot } from "./auditLogic";
 import { RoleDot, ROLE_LABEL, roleLabel } from "./roleChips";
+import { figureText } from "./ImportBanner";
 import { PERMISSION_TEXT } from "./permissionText";
 
 /** Each sentence's words, with `{{actor}}` and the other slots and values to fill. */
@@ -62,6 +63,7 @@ const SENTENCE: Record<Sentence, TranslationKey> = {
   guestToMember: key("audit.guestToMember"),
   memberToGuest: key("audit.memberToGuest"),
   guestPurged: key("audit.guestPurged"),
+  importApplied: key("audit.importApplied"),
   unknown: key("audit.unknown"),
 };
 
@@ -109,13 +111,17 @@ export type AuditSettingsProps = {
   spaceName: string;
   members: Member[];
   roles: Role[];
+  /** The family the filter starts on (the Members banner opens the journal on "members"). */
+  initialCategory?: string;
+  /** Open an import's report (the done screen of the job): offered to whoever may open the import screen. */
+  onOpenReport?: (jobId: string) => void;
 };
 
 /** The Journal tab: every change of rights in the space, newest first, filtered and paged. */
-export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSettingsProps) {
+export function AuditSettings({ spaceId, spaceName, members, roles, initialCategory = "", onOpenReport }: AuditSettingsProps) {
   const { t } = useTranslation();
   const [actor, setActor] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(initialCategory);
   const [period, setPeriod] = useState("30");
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [next, setNext] = useState<string | undefined>();
@@ -261,6 +267,15 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
             ))}
           </span>
         ) : null}
+        {line.figures && line.figures.length > 0 ? (
+          <span style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+            {line.figures.map((f) => (
+              <span key={f.kind} style={st.plus}>
+                {t("audit.importChip", { what: figureText(t, f) })}
+              </span>
+            ))}
+          </span>
+        ) : null}
         {dated ? (
           <span style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
             {line.values.after ? <span style={st.plus}>+ {endChip(line.values.after)}</span> : null}
@@ -284,6 +299,9 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
       </>
     );
   };
+
+  // The report of the newest import on the page: one note under the list, not a link on every line.
+  const reportJob = entries.map((e) => auditLine(e).report).find((job): job is string => typeof job === "string") ?? null;
 
   // Grouped by the reader's day, in the log's order (newest first).
   const groups: { day: string; at: string; entries: AuditEntry[] }[] = [];
@@ -369,6 +387,23 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
           </Card>
         </div>
       ))}
+
+      {reportJob ? (
+        <p style={{ ...st.sub, display: "flex", gap: 8, alignItems: "flex-start", marginTop: 16, fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+          <Icon name="info" size={14} style={{ flex: "none", marginTop: 2 }} />
+          <span>
+            {t("audit.importNote")}
+            {onOpenReport ? (
+              <>
+                {" "}
+                <button type="button" onClick={() => onOpenReport(reportJob)} style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 600, color: "var(--text-strong)", textDecoration: "underline", cursor: "pointer" }}>
+                  {t("audit.importReport")}
+                </button>
+              </>
+            ) : null}
+          </span>
+        </p>
+      ) : null}
 
       {next ? (
         <div style={{ marginTop: 14 }}>

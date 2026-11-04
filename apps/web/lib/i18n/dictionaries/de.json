@@ -1275,7 +1275,7 @@
     "etaSeconds": "weniger als eine Minute",
     "etaUnknown": "Dauer wird geschätzt",
     "close": "Diesen Bildschirm schließen",
-    "peopleTitle": "Die Personen",
+    "peopleTitle": "Rollen und Gruppen",
     "peopleIntro": "Berichtigen Sie eine Adresse oder lassen Sie jemanden aus. In diesem Schritt wird nichts versendet.",
     "peopleSearch": "Nach einer Person suchen",
     "peopleAll": "Alle",
@@ -1388,7 +1388,64 @@
     "interrupted": "Abgebrochen",
     "spaceChannelsFilled_one": "{{count}} Kanal ist bereits hier: Er übernimmt den Verlauf aus dem Archiv.",
     "spaceChannelsFilled_other": "{{count}} Kanäle sind bereits hier: Sie übernehmen den Verlauf aus dem Archiv.",
-    "events": "Termine"
+    "events": "Termine",
+    "peopleSub": "Was das Archiv über die Personen sagt",
+    "peopleAdminsTitle_one": "{{count}} Administrator",
+    "peopleAdminsTitle_other": "{{count}} Administratoren",
+    "peopleAdminsSlack": "Die Eigentümer und Administratoren von Slack kommen mit der Rolle Administrator an.",
+    "peopleAdminsTeams": "Die Eigentümer von Teams kommen mit der Rolle Administrator an.",
+    "peopleAdminsMattermost": "Die Team-Administratoren von Mattermost kommen mit der Rolle Administrator an.",
+    "peopleAdminsOther": "Die Administratoren von {{source}} kommen mit der Rolle Administrator an.",
+    "peopleOwnerNamed": "{{name}} bleibt Eigentümer des Bereichs {{space}}: Durch den Import wird niemand Eigentümer.",
+    "peopleGuestsBody": "Die Gastkonten von {{source}} kommen als Gäste an, ohne Enddatum und ohne einen Platz zu belegen. Ein Enddatum können Sie danach festlegen.",
+    "peopleModsTitle_one": "{{count}} Kanalmoderator",
+    "peopleModsTitle_other": "{{count}} Kanalmoderatoren",
+    "peopleModsBody": "Kanaladministratoren werden Moderatoren der betroffenen Kanäle.",
+    "peopleGroupsTitle_one": "{{count}} Gruppe",
+    "peopleGroupsTitle_other": "{{count}} Gruppen",
+    "peopleGroupsBody": "Werden unverändert angelegt, mit ihren Mitgliedern und ohne besondere Rechte. Eine bereits importierte Gruppe wird nie doppelt angelegt.",
+    "peopleKeptTitle_one": "{{count}} Person schon da, Rolle bleibt",
+    "peopleKeptTitle_other": "{{count}} Personen schon da, Rolle bleibt",
+    "peopleKeptBody": "Der Import fügt Personen mit ihrer Rolle hinzu, ändert aber nie die Rolle von jemandem, der schon im Bereich ist, weder nach oben noch nach unten.",
+    "peopleFallbacksMember_one": "{{count}} eigene Rolle auf Mitglied zurückgesetzt",
+    "peopleFallbacksMember_other": "{{count}} eigene Rollen auf Mitglied zurückgesetzt",
+    "peopleFallbacksAdmin_one": "{{count}} eigene Rolle auf Administrator zurückgesetzt",
+    "peopleFallbacksAdmin_other": "{{count}} eigene Rollen auf Administrator zurückgesetzt",
+    "peopleFallbacksMixed_one": "{{count}} eigene Rolle auf eine feste Rolle zurückgesetzt",
+    "peopleFallbacksMixed_other": "{{count}} eigene Rollen auf feste Rollen zurückgesetzt",
+    "peopleFallbacksBody": "Die Community-Edition kennt keine eigenen Rollen: Die betroffenen Personen kommen mit der angegebenen festen Rolle an.",
+    "peopleFallbacksPricing": "Eigene Rollen gibt es in der Enterprise-Edition.",
+    "fallbackMember_one": "Rolle „{{role}}“ auf Mitglied zurückgesetzt (Community-Edition), {{count}} Person",
+    "fallbackMember_other": "Rolle „{{role}}“ auf Mitglied zurückgesetzt (Community-Edition), {{count}} Personen",
+    "fallbackMemberIn_one": "Rolle „{{role}}“ im Bereich {{space}} auf Mitglied zurückgesetzt (Community-Edition), {{count}} Person",
+    "fallbackMemberIn_other": "Rolle „{{role}}“ im Bereich {{space}} auf Mitglied zurückgesetzt (Community-Edition), {{count}} Personen",
+    "fallbackAdmin_one": "Rolle „{{role}}“ auf Administrator zurückgesetzt (Community-Edition), {{count}} Person",
+    "fallbackAdmin_other": "Rolle „{{role}}“ auf Administrator zurückgesetzt (Community-Edition), {{count}} Personen",
+    "fallbackAdminIn_one": "Rolle „{{role}}“ im Bereich {{space}} auf Administrator zurückgesetzt (Community-Edition), {{count}} Person",
+    "fallbackAdminIn_other": "Rolle „{{role}}“ im Bereich {{space}} auf Administrator zurückgesetzt (Community-Edition), {{count}} Personen",
+    "seatsUsed_one": "{{count}} von {{total}} Plätzen nach dem Import belegt",
+    "seatsUsed_other": "{{count}} von {{total}} Plätzen nach dem Import belegt",
+    "seatsFree_one": "{{count}} bleibt frei",
+    "seatsFree_other": "{{count}} bleiben frei",
+    "seatsTaken_one": "{{count}} schon belegt",
+    "seatsTaken_other": "{{count}} schon belegt",
+    "seatsAdded_one": "{{count}} durch den Import",
+    "seatsAdded_other": "{{count}} durch den Import",
+    "seatsGuestsFree": "Gäste belegen keinen Platz",
+    "seatsOverTitle_one": "{{count}} Person würde einen Platz belegen, es bleiben {{left}}",
+    "seatsOverTitle_other": "{{count}} Personen würden einen Platz belegen, es bleiben {{left}}",
+    "seatsOverTotal": "{{total}} Plätze insgesamt, {{used}} schon belegt",
+    "seatsOverLegend_one": "{{count}} frei für {{incoming}} aufzunehmende Personen: {{missing}}",
+    "seatsOverLegend_other": "{{count}} frei für {{incoming}} aufzunehmende Personen: {{missing}}",
+    "seatsMissingInline_one": "es fehlt {{count}} Platz",
+    "seatsMissingInline_other": "es fehlen {{count}} Plätze",
+    "seatsMissing_one": "Es fehlt {{count}} Platz",
+    "seatsMissing_other": "Es fehlen {{count}} Plätze",
+    "seatsOverText": "Nur die hinzuzufügenden Mitglieder und Administratoren zählen: Gäste belegen keinen Platz, und wer schon im Bereich ist, behält seinen. Der Import kann erst starten, wenn alle aufgenommen werden können: Es wurde nichts geschrieben. Geben Sie Plätze frei oder wechseln Sie zu einem Angebot mit mehr Plätzen und kehren Sie dann zu diesem Bildschirm zurück.",
+    "seatsPricingNewTab": "Preise ansehen (öffnet in einem neuen Tab)",
+    "seatsNoPricing": "Wenden Sie sich an die Person, die die Lizenz verwaltet, um mehr Plätze zu erhalten.",
+    "seatsOverNeeded_one": "{{count}} Platz nötig, {{free}} frei",
+    "seatsOverNeeded_other": "{{count}} Plätze nötig, {{free}} frei"
   },
   "externalLink": {
     "title": "Achtung, Sie verlassen Ruchoir",
@@ -2147,7 +2204,8 @@
     "you": "Sie",
     "manageNote": "Sie nehmen Personen in diese Gruppe auf und entfernen sie. Ihre Rollen und Verantwortlichen legen Sie in den Einstellungen des Bereichs fest.",
     "leave": "Gruppe verlassen",
-    "left": "Sie haben die Gruppe verlassen"
+    "left": "Sie haben die Gruppe verlassen",
+    "importedFrom": "Aus {{source}} importiert."
   },
   "licence": {
     "refusal": {
@@ -2268,7 +2326,11 @@
     "onUnnamedFile": "bei einer Datei oder einem Ordner",
     "onUnnamedCalendar": "in einem Kalender",
     "theChannel": "den Kanal",
-    "aChannel": "einen Kanal"
+    "aChannel": "einen Kanal",
+    "importApplied": "{{actor}} hat den Bereich aus {{source}} importiert",
+    "importChip": "+ {{what}}",
+    "importNote": "Eine einzige Zeile pro Import, damit das Protokoll nicht unter einer Zeile pro importierter Person verschwindet. Die Einzelheiten pro Person bleiben im Importbericht.",
+    "importReport": "Bericht öffnen"
   },
   "guests": {
     "endTitle": "Zugang bis",
@@ -2377,7 +2439,8 @@
     "refusalGuestOnly": "Nur ein Gast kann ein Enddatum haben: Diese Person ist Mitglied.",
     "refusalAccessEnded": "Dieser Zugang ist bereits beendet: Reaktivieren Sie ihn, um ein neues Datum zu setzen.",
     "refusalNotEnded": "Dieser Zugang ist nicht beendet: Es gibt nichts zu reaktivieren.",
-    "leftNotice": "Sie gehören nicht mehr zu {{space}}"
+    "leftNotice": "Sie gehören nicht mehr zu {{space}}",
+    "createdByImport": "Durch den Import angelegt"
   },
   "access": {
     "title": "Zugriff auf {{name}}",
@@ -2718,5 +2781,16 @@
       "unavailable": "Die Vorschau ist im Moment nicht verfügbar."
     },
     "readOnlyBodySend": "Ihre Nachricht wurde nicht gesendet. Klicken Sie oben auf Beenden, um wieder die Kontrolle zu übernehmen."
+  },
+  "members": {
+    "importWhenToday": "heute",
+    "importWhenYesterday": "gestern",
+    "importWhenDays_one": "vor {{count}} Tag",
+    "importWhenDays_other": "vor {{count}} Tagen",
+    "importBannerTitle": "Import aus {{source}} {{when}} abgeschlossen.",
+    "importBannerText": "Mit ihren Rechten aus {{source}} übernommen: {{figures}}.",
+    "importBannerLink": "Im Protokoll ansehen",
+    "importRoles_one": "{{count}} eigene Rolle",
+    "importRoles_other": "{{count}} eigene Rollen"
   }
 }

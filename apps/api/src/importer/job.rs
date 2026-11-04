@@ -92,7 +92,7 @@ pub async fn execute<S: BlobSink>(
         )));
     }
 
-    let existing = existing_for(db, admin, settings.edition.as_ref()).await?;
+    let existing = existing_for(db, admin, settings.edition.as_ref(), &index).await?;
     let plan: Plan = plan::build(&index, &existing);
 
     let job_id = run::start_job(db, &source, admin, None, "{}").await?;
@@ -148,7 +148,7 @@ async fn run_into<S: BlobSink>(
         finish(db, job_id, "failed", &reason).await?;
         return Err(RunError::Ambiguous(reason));
     }
-    let existing = existing_for(db, admin, settings.edition.as_ref()).await?;
+    let existing = existing_for(db, admin, settings.edition.as_ref(), &index).await?;
     let plan = plan::build(&index, &existing);
     run_passes(
         db, storage, archive, passphrase, admin, job_id, index, plan, settings,
@@ -181,7 +181,7 @@ async fn run_passes<S: BlobSink>(
         .and_then(|job| serde_json::from_str::<serde_json::Value>(&job.options).ok())
         .and_then(|options| serde_json::from_value(options.get("people")?.clone()).ok())
         .unwrap_or_default();
-    let existing = existing_for(db, admin, settings.edition.as_ref()).await?;
+    let existing = existing_for(db, admin, settings.edition.as_ref(), &index).await?;
     if !choices.is_empty() {
         plan::apply_choices(&mut plan, &choices, &existing);
     }
@@ -503,6 +503,7 @@ pub async fn existing_for(
     db: &DatabaseConnection,
     importer: Uuid,
     edition: &dyn crate::edition::Edition,
+    index: &super::archive::Index,
 ) -> Result<Existing, RunError> {
     use crate::entities::{spaces, users};
 
@@ -511,11 +512,21 @@ pub async fn existing_for(
             "the person running this import has no account".to_owned(),
         ));
     };
+    // Found with the run's own lookup (`Mapper::resolve`), in the namespace the run will read.
+    let source = index
+        .manifest
+        .as_ref()
+        .map(|m| m.source.clone())
+        .unwrap_or_default();
+    let mapper =
+        Mapper::new(Uuid::nil(), &source).scoped_to((!me.is_instance_admin).then_some(importer));
+    let claimed_channels = run::claimed_channels(db, &mapper, index).await?;
     if !me.is_instance_admin {
         return Ok(Existing {
             importer_email: me.email.clone(),
             emails: vec![me.email],
             scoped: true,
+            claimed_channels,
             ..Default::default()
         });
     }
@@ -539,6 +550,7 @@ pub async fn existing_for(
         channels: run::existing_channels(db).await?,
         scoped: false,
         space_people: space_people(db, edition).await?,
+        claimed_channels,
     })
 }
 
@@ -571,6 +583,45 @@ async fn space_people(
             emails.entry(space).or_default().push(email);
         }
     }
+    // management: guests of a space (ended ones too: the run reads the row's role, whatever it says).
+    let mut guests: HashMap<Uuid, Vec<String>> = HashMap::new();
+    for row in db
+        .query_all_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT m.space_id, u.email FROM space_members m JOIN users u ON u.id = m.user_id \
+             WHERE m.role = 'guest'",
+        ))
+        .await?
+    {
+        if let (Ok(space), Ok(email)) = (
+            row.try_get::<Uuid>("", "space_id"),
+            row.try_get::<String>("", "email"),
+        ) {
+            guests.entry(space).or_default().push(email);
+        }
+    }
+    // management: who is in each channel already, for the moderators an adopted channel keeps.
+    let mut in_channels: HashMap<Uuid, Vec<(String, Vec<String>)>> = HashMap::new();
+    for row in db
+        .query_all_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT c.space_id, c.name, u.email FROM channel_members cm \
+             JOIN channels c ON c.id = cm.channel_id JOIN users u ON u.id = cm.user_id",
+        ))
+        .await?
+    {
+        if let (Ok(space), Ok(name), Ok(email)) = (
+            row.try_get::<Uuid>("", "space_id"),
+            row.try_get::<String>("", "name"),
+            row.try_get::<String>("", "email"),
+        ) {
+            let channels = in_channels.entry(space).or_default();
+            match channels.iter_mut().find(|(known, _)| *known == name) {
+                Some((_, emails)) => emails.push(email),
+                None => channels.push((name, vec![email])),
+            }
+        }
+    }
     // management: the seats a space uses, as `edition::seats_used` counts them, for every space.
     let mut used: HashMap<Uuid, u32> = HashMap::new();
     for row in db
@@ -593,9 +644,13 @@ async fn space_people(
     for space in spaces::Entity::find().all(db).await? {
         let folded = space.name.trim().to_lowercase();
         let space_emails = emails.remove(&space.id).unwrap_or_default();
+        let space_guests = guests.remove(&space.id).unwrap_or_default();
+        let space_channels = in_channels.remove(&space.id).unwrap_or_default();
         if let Some(found) = out.iter_mut().find(|p| p.name_folded == folded) {
             found.ambiguous = true;
             found.emails.extend(space_emails);
+            found.guest_emails.extend(space_guests);
+            found.channel_members.extend(space_channels);
             continue;
         }
         let (seats, roles_allowed) = match edition.entitlement(db, space.id).await? {
@@ -610,6 +665,8 @@ async fn space_people(
             seats,
             custom_roles_allowed: roles_allowed,
             ambiguous: false,
+            guest_emails: space_guests,
+            channel_members: space_channels,
         });
     }
     Ok(out)

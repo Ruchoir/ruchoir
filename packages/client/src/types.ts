@@ -94,6 +94,8 @@ export type Group = {
   managerIds: string[];
   /** The roles it carries, strongest first. */
   roleIds: string[];
+  /** The import that made it (`<source>:<job id>`), only for whoever manages groups. */
+  importedFrom?: string;
   /** What the caller may do to it. */
   may: { edit: boolean; delete: boolean; changeMembers: boolean; changeRoles: boolean; appoint: boolean };
 };
@@ -154,7 +156,7 @@ export type LicenceView = {
  * `refusalOf`). Codes the app does not know read as no refusal at all, and the generic message shows.
  */
 export type Refusal =
-  | { code: "seats_full"; seats: number; pricingUrl: string }
+  | { code: "seats_full"; seats: number; pricingUrl: string; space?: string; used?: number; incoming?: number; missing?: number }
   | { code: "licence_required"; pricingUrl: string }
   | { code: "licence_other_space"; organisation?: string }
   | { code: "group_has_rules" | "role_has_rules"; usedIn?: UsedIn[] }
