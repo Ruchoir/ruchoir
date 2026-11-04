@@ -70,6 +70,10 @@ pub enum Action {
     RuleCreated,
     RuleUpdated,
     RuleDeleted,
+    /// What a person had handed out in the space's name was revoked because they left or were
+    /// removed. Payload `{ invitations, links }`, the counts revoked; written only when there was
+    /// something to revoke.
+    MemberIssuedRevoked,
     /// People were brought over from another product. Payload: `{ source, job_id,
     /// administrators, guests, groups, moderators, custom_roles, fallbacks }`.
     ImportApplied,
@@ -77,11 +81,12 @@ pub enum Action {
 
 impl Action {
     /// Every action, for the read filter and its tests.
-    pub const ALL: [Action; 31] = [
+    pub const ALL: [Action; 32] = [
         Action::MemberJoined,
         Action::MemberLeft,
         Action::MemberRemoved,
         Action::MemberRoleChanged,
+        Action::MemberIssuedRevoked,
         Action::MemberExpired,
         Action::MemberPurged,
         Action::MemberExpirySet,
@@ -117,6 +122,7 @@ impl Action {
             Action::MemberLeft => "member.left",
             Action::MemberRemoved => "member.removed",
             Action::MemberRoleChanged => "member.role_changed",
+            Action::MemberIssuedRevoked => "member.issued_revoked",
             Action::MemberExpired => "member.expired",
             Action::MemberPurged => "member.purged",
             Action::MemberExpirySet => "member.expiry_set",
@@ -154,6 +160,7 @@ impl Action {
             | Action::MemberLeft
             | Action::MemberRemoved
             | Action::MemberRoleChanged
+            | Action::MemberIssuedRevoked
             | Action::OwnershipTransferred
             | Action::MemberRolesChanged
             | Action::ImportApplied => "members",
@@ -305,6 +312,6 @@ mod tests {
         assert_eq!(Action::ImportApplied.as_str(), "import.applied");
         assert_eq!(Action::ImportApplied.category(), "members");
         assert!(Action::ALL.contains(&Action::ImportApplied));
-        assert_eq!(Action::ALL.len(), 31);
+        assert_eq!(Action::ALL.len(), 32);
     }
 }

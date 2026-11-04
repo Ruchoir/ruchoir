@@ -12805,6 +12805,9 @@ mod hardening_files_tests;
 mod hardening_race_tests;
 
 #[cfg(test)]
+mod hardening_invitations_tests;
+
+#[cfg(test)]
 mod hardening_limit_tests;
 
 #[cfg(test)]

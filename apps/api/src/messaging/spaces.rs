@@ -641,7 +641,6 @@ pub async fn update_member_role(
 
     // The end that goes with a guest standing, read in the actor's zone and checked before anything
     // is written: a bad date changes nothing, not even the role.
-    let end_before = target.expires_at;
     let new_end = match body.expires_at.as_deref() {
         Some(raw) => {
             if !role_changes && target_ended {
@@ -682,6 +681,39 @@ pub async fn update_member_role(
     if !actor_rank_now.outranks(target_rank_now) {
         return Err(ApiError::ForbiddenBecause("person_above_you"));
     }
+    // The person the decision is about, read again under the lock: a removal, a promotion or a
+    // transfer that ran while this request waited has changed who they are, and the role they hold
+    // now (not the one read before) is what `before`, the right needed and the audit lines speak of.
+    let target = space_members::Entity::find_by_id((space_id, user_id))
+        .one(&txn)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    let rights_now =
+        crate::permissions::check::space_rights(&txn, space_id, session.user_id).await?;
+    let a_role_now = |role: &str| role == "admin" || role == "owner";
+    let needed_now = if a_role_now(&wanted) || a_role_now(&target.role) {
+        Permission::RolesManage
+    } else {
+        Permission::MembersManage
+    };
+    if !rights_now.contains(needed_now) {
+        return Err(ApiError::Forbidden);
+    }
+    let role_changes = target.role != wanted;
+    let target_ended = target.role == "guest"
+        && crate::permissions::membership::any(&txn, space_id, user_id)
+            .await?
+            .is_some_and(|m| m.ended);
+    if !role_changes && body.expires_at.is_none() {
+        return Ok(Json(Vec::new()));
+    }
+    if target_ended && (role_changes || new_end.is_some()) {
+        return Err(ApiError::ConflictCode {
+            code: "access_ended",
+            message: "this access has ended: reactivate it before changing it",
+        });
+    }
+    let end_before = target.expires_at;
     let before = target.role.clone();
     let mut changes = Vec::new();
     if role_changes {
@@ -867,7 +899,8 @@ pub async fn leave_space(
     // to, and one second later the query no longer authorises them to ask for it.
     let audience = super::authz::space_member_ids(&state.db, space_id, session.user_id).await?;
 
-    let notice = withdraw_membership(&txn, space_id, session.user_id, LEFT_EVENT).await?;
+    let notice =
+        withdraw_membership(&txn, space_id, session.user_id, session.user_id, LEFT_EVENT).await?;
     crate::audit::record(
         &txn,
         space_id,
@@ -887,36 +920,57 @@ pub async fn leave_space(
 }
 
 /// Lock the space's row for the rest of the transaction, so that the writes which decide on who
-/// owns it (an owner leaving, the transfer) are served one after the other, each reading what the
-/// one before left.
-async fn lock_space<C: ConnectionTrait>(txn: &C, space_id: Uuid) -> Result<(), ApiError> {
+/// owns it (an owner leaving, the transfer, a removal) are served one after the other, each reading
+/// what the one before left.
+///
+/// **The one lock order of the space's writes.** Every transaction that takes more than one of these
+/// takes them in this order and never the other way round, which is what keeps two of them from
+/// waiting on each other:
+///
+/// 1. the space's row, here (`FOR NO KEY UPDATE`, not `FOR UPDATE`: the foreign-key checks of every
+///    insert that names the space take `FOR KEY SHARE` on it, which `FOR UPDATE` conflicts with and
+///    this does not);
+/// 2. the space's seat lock (`edition::lock_space_seats`, an advisory transaction lock);
+/// 3. the rows: the invitation being spent or revoked, the member rows written.
+///
+/// The paths that follow it: accepting an invitation, changing a role, removing a member, leaving,
+/// an import of people (rows only after the seat lock). The expiry sweep takes member rows and then
+/// invitation rows, never 1 or 2, so it cannot close a cycle with them.
+pub(crate) async fn lock_space<C: ConnectionTrait>(
+    txn: &C,
+    space_id: Uuid,
+) -> Result<(), ApiError> {
     txn.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
-        "SELECT id FROM spaces WHERE id = $1 FOR UPDATE",
+        "SELECT id FROM spaces WHERE id = $1 FOR NO KEY UPDATE",
         [space_id.into()],
     ))
     .await?;
     Ok(())
 }
 
-/// Revoke the invitations and public links `user_id` issued in `space_id`, still live.
+/// Revoke the invitations and public links `user_id` issued in `space_id`, still live. Returns how
+/// many of each were revoked: `(invitations, links)`.
 pub(crate) async fn revoke_issued_by<C: ConnectionTrait>(
     txn: &C,
     space_id: Uuid,
     user_id: Uuid,
-) -> Result<(), ApiError> {
-    for table in ["space_invitations", "file_links"] {
-        txn.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            format!(
-                "UPDATE {table} SET revoked_at = now() \
-                  WHERE space_id = $1 AND created_by = $2 AND revoked_at IS NULL"
-            ),
-            [space_id.into(), user_id.into()],
-        ))
-        .await?;
+) -> Result<(u64, u64), ApiError> {
+    let mut counts = [0_u64; 2];
+    for (slot, table) in ["space_invitations", "file_links"].into_iter().enumerate() {
+        counts[slot] = txn
+            .execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                format!(
+                    "UPDATE {table} SET revoked_at = now() \
+                      WHERE space_id = $1 AND created_by = $2 AND revoked_at IS NULL"
+                ),
+                [space_id.into(), user_id.into()],
+            ))
+            .await?
+            .rows_affected();
     }
-    Ok(())
+    Ok((counts[0], counts[1]))
 }
 
 /// Take one membership out of a space, and write the notice that says so.
@@ -934,6 +988,7 @@ async fn withdraw_membership<C: ConnectionTrait>(
     txn: &C,
     space_id: Uuid,
     user_id: Uuid,
+    actor: Uuid,
     event: &str,
 ) -> Result<Option<messages::Model>, ApiError> {
     let channel_ids: Vec<Uuid> = channels::Entity::find()
@@ -955,7 +1010,19 @@ async fn withdraw_membership<C: ConnectionTrait>(
         .await?;
     // What they handed out in the space's name goes with them: their invitations and public links
     // (both are also refused at use once their issuer is gone; this settles the lists).
-    revoke_issued_by(txn, space_id, user_id).await?;
+    let (invitations, links) = revoke_issued_by(txn, space_id, user_id).await?;
+    if invitations + links > 0 {
+        // One line for the lot, so the log says why links people may have shared stopped working.
+        crate::audit::record(
+            txn,
+            space_id,
+            Some(actor),
+            crate::audit::Action::MemberIssuedRevoked,
+            crate::audit::Target::Member(user_id),
+            serde_json::json!({ "invitations": invitations, "links": links }),
+        )
+        .await?;
+    }
 
     let channel = default_channel(txn, space_id).await?;
     Ok(Some(
@@ -1048,21 +1115,30 @@ pub async fn remove_member(
         crate::permissions::catalogue::Permission::MembersManage,
     )
     .await?;
+
+    let txn = state.db.begin().await?;
+    // What was read above is only an early answer. Under the space's lock the decision is taken
+    // again on what stands now, so that removing someone while they are being made the owner cannot
+    // leave the space without one, and a transfer that won leaves a clean 404 or 403 behind.
+    lock_space(&txn, space_id).await?;
+    crate::permissions::membership::active(&txn, space_id, session.user_id)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
     // management: sees ended guests.
     let target = space_members::Entity::find_by_id((space_id, user_id))
-        .one(&state.db)
+        .one(&txn)
         .await?
         .ok_or(ApiError::NotFound)?;
     // Rule 3 of the delegation rules: only someone strictly below the actor is shown the door.
-    crate::permissions::delegation::ensure_acts_on(&state.db, space_id, session.user_id, user_id)
+    crate::permissions::delegation::ensure_acts_on(&txn, space_id, session.user_id, user_id)
         .await?;
 
     // Read while they are still on the roster: it is who the departure is announced to, and the
     // person leaving has to be in it to be told the space is no longer theirs.
     let audience = super::authz::space_member_ids(&state.db, space_id, session.user_id).await?;
 
-    let txn = state.db.begin().await?;
-    let notice = withdraw_membership(&txn, space_id, user_id, REMOVED_EVENT).await?;
+    let notice =
+        withdraw_membership(&txn, space_id, user_id, session.user_id, REMOVED_EVENT).await?;
     crate::audit::record(
         &txn,
         space_id,
