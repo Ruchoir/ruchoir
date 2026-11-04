@@ -41,6 +41,16 @@ impl Edition for ProbeEdition {
         &["probe"]
     }
 
+    async fn import_custom_role(
+        &self,
+        _txn: &sea_orm::DatabaseTransaction,
+        _space_id: Uuid,
+        _role: &crate::edition::ImportedRole,
+        _actor: Uuid,
+    ) -> Result<crate::edition::ImportedRoleOutcome, sea_orm::DbErr> {
+        Ok(crate::edition::ImportedRoleOutcome::FallBack)
+    }
+
     fn background(&self, _state: AppState) {}
 }
 
@@ -173,6 +183,16 @@ impl Edition for LicensedEdition {
         &[]
     }
 
+    async fn import_custom_role(
+        &self,
+        _txn: &sea_orm::DatabaseTransaction,
+        _space_id: Uuid,
+        _role: &crate::edition::ImportedRole,
+        _actor: Uuid,
+    ) -> Result<crate::edition::ImportedRoleOutcome, sea_orm::DbErr> {
+        Ok(crate::edition::ImportedRoleOutcome::FallBack)
+    }
+
     fn background(&self, _state: AppState) {}
 }
 
@@ -210,6 +230,16 @@ impl Edition for FrozenEdition {
 
     fn features(&self) -> &'static [&'static str] {
         &[]
+    }
+
+    async fn import_custom_role(
+        &self,
+        _txn: &sea_orm::DatabaseTransaction,
+        _space_id: Uuid,
+        _role: &crate::edition::ImportedRole,
+        _actor: Uuid,
+    ) -> Result<crate::edition::ImportedRoleOutcome, sea_orm::DbErr> {
+        Ok(crate::edition::ImportedRoleOutcome::FallBack)
     }
 
     fn background(&self, _state: AppState) {}
@@ -371,6 +401,16 @@ impl Edition for FullEdition {
 
     fn features(&self) -> &'static [&'static str] {
         &[]
+    }
+
+    async fn import_custom_role(
+        &self,
+        _txn: &sea_orm::DatabaseTransaction,
+        _space_id: Uuid,
+        _role: &crate::edition::ImportedRole,
+        _actor: Uuid,
+    ) -> Result<crate::edition::ImportedRoleOutcome, sea_orm::DbErr> {
+        Ok(crate::edition::ImportedRoleOutcome::FallBack)
     }
 
     fn background(&self, _state: AppState) {}
@@ -560,6 +600,16 @@ impl Edition for GatedEdition {
         &[]
     }
 
+    async fn import_custom_role(
+        &self,
+        _txn: &sea_orm::DatabaseTransaction,
+        _space_id: Uuid,
+        _role: &crate::edition::ImportedRole,
+        _actor: Uuid,
+    ) -> Result<crate::edition::ImportedRoleOutcome, sea_orm::DbErr> {
+        Ok(crate::edition::ImportedRoleOutcome::FallBack)
+    }
+
     fn background(&self, _state: AppState) {}
 }
 
@@ -606,4 +656,54 @@ async fn a_paid_write_needs_a_licence() {
             }
         }
     }
+}
+
+#[tokio::test]
+async fn community_falls_back_on_every_custom_role() {
+    use crate::edition::{BasedOn, ImportedRole, ImportedRoleOutcome};
+    use sea_orm::TransactionTrait;
+    let Some(app) = boot_as(Arc::new(CommunityEdition), None, |_| {}).await else {
+        return;
+    };
+    let txn = app.db.begin().await.expect("begin");
+    for based_on in [BasedOn::Member, BasedOn::Admin] {
+        let role = ImportedRole {
+            source_id: "role-1".to_owned(),
+            name: "Moderators".to_owned(),
+            based_on,
+        };
+        let outcome = CommunityEdition
+            .import_custom_role(&txn, Uuid::new_v4(), &role, Uuid::new_v4())
+            .await
+            .expect("outcome");
+        assert_eq!(outcome, ImportedRoleOutcome::FallBack);
+    }
+    txn.rollback().await.expect("rollback");
+}
+
+#[tokio::test]
+async fn lock_space_seats_serialises_two_transactions() {
+    use crate::edition::lock_space_seats;
+    use sea_orm::TransactionTrait;
+    let Some(app) = boot_as(Arc::new(CommunityEdition), None, |_| {}).await else {
+        return;
+    };
+    let space = Uuid::new_v4();
+    let first = app.db.begin().await.expect("begin first");
+    lock_space_seats(&first, space).await.expect("first lock");
+
+    let db = app.db.clone();
+    let second = tokio::spawn(async move {
+        let txn = db.begin().await.expect("begin second");
+        lock_space_seats(&txn, space).await.expect("second lock");
+        txn.commit().await.expect("commit second");
+    });
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    assert!(!second.is_finished(), "the second waits for the first");
+
+    first.commit().await.expect("commit first");
+    tokio::time::timeout(Duration::from_secs(5), second)
+        .await
+        .expect("the second proceeds once the first committed")
+        .expect("join");
 }

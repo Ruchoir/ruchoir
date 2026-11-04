@@ -24,6 +24,8 @@ pub struct Model {
     pub expiry_notice_sent_at: Option<TimeDateTimeWithTimeZone>,
     /// How far the reminders went: `7`, `1`, then `0` (ended and announced); `None` before any.
     pub expiry_stage: Option<i16>,
+    /// The import that brought this person, as `<source>:<job id>`; `None` when they came by hand.
+    pub imported_from: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -55,6 +55,7 @@ mod m20261106_000001_space_groups;
 mod m20261107_000001_resource_rules;
 mod m20261108_000001_guest_expiry;
 mod m20261109_000001_rule_set_by;
+mod m20261110_000001_import_people;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -112,6 +113,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261107_000001_resource_rules::Migration),
             Box::new(m20261108_000001_guest_expiry::Migration),
             Box::new(m20261109_000001_rule_set_by::Migration),
+            Box::new(m20261110_000001_import_people::Migration),
         ]
     }
 }

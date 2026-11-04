@@ -143,6 +143,7 @@ pub async fn start_job<C: ConnectionTrait>(
         events_total: Set(0),
         events_done: Set(0),
         error: Set(None),
+        summary: Set(None),
         started_at: Set(Some(OffsetDateTime::now_utc())),
         finished_at: Set(None),
         created_at: NotSet,

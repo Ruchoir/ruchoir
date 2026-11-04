@@ -70,11 +70,13 @@ pub enum Action {
     RuleCreated,
     RuleUpdated,
     RuleDeleted,
+    /// People were brought over from another product.
+    ImportApplied,
 }
 
 impl Action {
     /// Every action, for the read filter and its tests.
-    pub const ALL: [Action; 30] = [
+    pub const ALL: [Action; 31] = [
         Action::MemberJoined,
         Action::MemberLeft,
         Action::MemberRemoved,
@@ -105,6 +107,7 @@ impl Action {
         Action::RuleCreated,
         Action::RuleUpdated,
         Action::RuleDeleted,
+        Action::ImportApplied,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -139,6 +142,7 @@ impl Action {
             Action::RuleCreated => "rule.created",
             Action::RuleUpdated => "rule.updated",
             Action::RuleDeleted => "rule.deleted",
+            Action::ImportApplied => "import.applied",
         }
     }
 
@@ -150,7 +154,8 @@ impl Action {
             | Action::MemberRemoved
             | Action::MemberRoleChanged
             | Action::OwnershipTransferred
-            | Action::MemberRolesChanged => "members",
+            | Action::MemberRolesChanged
+            | Action::ImportApplied => "members",
             Action::MemberExpired
             | Action::MemberPurged
             | Action::MemberExpirySet
@@ -268,5 +273,13 @@ mod tests {
             assert_eq!(action.category(), "access");
             assert!(Action::ALL.contains(&action));
         }
+    }
+
+    #[test]
+    fn import_applied_is_filed_under_members() {
+        assert_eq!(Action::ImportApplied.as_str(), "import.applied");
+        assert_eq!(Action::ImportApplied.category(), "members");
+        assert!(Action::ALL.contains(&Action::ImportApplied));
+        assert_eq!(Action::ALL.len(), 31);
     }
 }
