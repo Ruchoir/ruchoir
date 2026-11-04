@@ -194,7 +194,10 @@ pub(crate) async fn guard(State(state): State<AppState>, req: Request, next: Nex
     };
     let Some(preview) = preview else {
         // The state could not be read or understood, so whether this session previews is unknown:
-        // a read goes on as an ordinary request, a write is not let through on a guess.
+        // a read goes on as an ordinary request, a write is not let through on a guess. A read let
+        // through this way shows the viewer's own full rights, never more than they hold (an
+        // accepted limit, ruled in the security review of lot 4: a write is what a preview must keep
+        // shut, and that fails closed just below).
         return if allowed {
             next.run(req).await
         } else {

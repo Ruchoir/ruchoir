@@ -281,10 +281,13 @@ async fn a_preview_refuses_every_write() {
     };
     // The control: the same write goes through without a preview.
     assert_eq!(post(&real).await.expect("post").status().as_u16(), 201);
+    // This conversation's messages only: other tests write elsewhere at the same time.
+    let general = fx.general;
     let count = |db: &DatabaseConnection| {
         let db = db.clone();
         async move {
             messages::Entity::find()
+                .filter(messages::Column::ConversationId.eq(general))
                 .count(&db)
                 .await
                 .expect("count messages")
