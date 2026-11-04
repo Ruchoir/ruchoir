@@ -68,6 +68,7 @@ import { LicenceInstallScreen } from "../screens/space/LicenceInstallScreen";
 import { SpaceLicenceScreen } from "../screens/space/SpaceLicenceScreen";
 import { SpaceGroupsScreen } from "../screens/space/SpaceGroupsScreen";
 import { GroupEditorScreen } from "../screens/space/GroupEditorScreen";
+import { GroupPeopleSheet } from "../screens/discussions/GroupPeopleSheet";
 import { GroupFormScreen } from "../screens/space/GroupFormScreen";
 import { RoleCreateScreen } from "../screens/space/RoleCreateScreen";
 import { RoleEditorScreen } from "../screens/space/RoleEditorScreen";
@@ -156,6 +157,7 @@ export function RootNavigator({ instanceId }: { instanceId: string }) {
         <Stack.Screen name="roleCreate" component={RoleCreateScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="spaceGroups" component={SpaceGroupsScreen} />
         <Stack.Screen name="groupEditor" component={GroupEditorScreen} />
+        <Stack.Screen name="groupPeople" component={GroupPeopleSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="groupCreate" component={GroupFormScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="spaceAudit" component={SpaceAuditScreen} />
         <Stack.Screen name="spaceLicence" component={SpaceLicenceScreen} />

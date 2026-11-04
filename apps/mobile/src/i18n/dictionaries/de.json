@@ -649,7 +649,9 @@
     "editFailedText": "Die Nachricht behält ihren bisherigen Text. Sie können es erneut versuchen.",
     "ok": "OK",
     "placeholderThread": "Im Thread antworten…",
-    "placeholder": "Nachricht schreiben…"
+    "placeholder": "Nachricht schreiben…",
+    "groupLine_one": "Gruppe · {{count}} Person",
+    "groupLine_other": "Gruppe · {{count}} Personen"
   },
   "emoji": {
     "search": "Emoji suchen",
@@ -1491,7 +1493,9 @@
     "addNoticeRoles_one": "{{names}} erhält die Rollen {{roles}}, solange die Person in der Gruppe ist. Das wird im Protokoll festgehalten.",
     "addNoticeRoles_other": "{{names}} erhalten die Rollen {{roles}}, solange sie in der Gruppe sind. Das wird im Protokoll festgehalten.",
     "addConfirm_one": "{{count}} Person hinzufügen",
-    "addConfirm_other": "{{count}} Personen hinzufügen"
+    "addConfirm_other": "{{count}} Personen hinzufügen",
+    "openEditor": "Gruppe öffnen",
+    "openEditorHint": "Personen und Rollen ändern"
   },
   "guests": {
     "endedNotice": "Ihr Zugang zu {{space}} ist beendet",

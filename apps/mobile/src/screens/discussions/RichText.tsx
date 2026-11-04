@@ -12,7 +12,18 @@ import { CodeBlock } from "./CodeBlock";
  * A message's body: lines, quotes, list items and code fences by line, and within a line the
  * segments of `parseInline` (mentions tinted with the accent, bold, italic, code, links).
  */
-export function RichText({ body, mentionNames }: { body: string; mentionNames: string[] }) {
+export function RichText({
+  body,
+  mentionNames,
+  groupNames,
+  onOpenGroup,
+}: {
+  body: string;
+  mentionNames: string[];
+  /** The names of the groups a `@` can reach, and what a tap on one does (open its people). */
+  groupNames?: string[];
+  onOpenGroup?: (mention: string) => void;
+}) {
   const { c, s } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const blocks: { kind: "line" | "quote" | "item" | "code"; text: string; lang?: string }[] = [];
@@ -44,11 +55,24 @@ export function RichText({ body, mentionNames }: { body: string; mentionNames: s
           <CodeBlock key={i} code={block.text} lang={block.lang} />
         ) : (
           <Text key={i} tone="strong" style={[styles.line, block.kind === "quote" && [styles.quote, { borderLeftColor: c.lineStrong, color: c.body }]]}>
-            {parseInline(block.text, mentionNames).map((seg, j) => {
+            {parseInline(block.text, mentionNames, groupNames).map((seg, j) => {
               switch (seg.kind) {
                 case "mention":
                   return (
                     <Text key={j} tone="onPastel" style={[styles.mention, { backgroundColor: c.acc }]}>
+                      {seg.text}
+                    </Text>
+                  );
+                case "group":
+                  // A pill like a person's; a tap lists the group's people.
+                  return (
+                    <Text
+                      key={j}
+                      tone="onPastel"
+                      accessibilityRole={onOpenGroup ? "button" : undefined}
+                      onPress={onOpenGroup ? () => onOpenGroup(seg.text) : undefined}
+                      style={[styles.mention, { backgroundColor: c.acc }]}
+                    >
                       {seg.text}
                     </Text>
                   );

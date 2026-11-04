@@ -649,7 +649,9 @@
     "editFailedText": "Le message garde son ancien texte. Vous pouvez réessayer.",
     "ok": "OK",
     "placeholderThread": "Répondre dans le fil…",
-    "placeholder": "Écrire un message…"
+    "placeholder": "Écrire un message…",
+    "groupLine_one": "Groupe · {{count}} personne",
+    "groupLine_other": "Groupe · {{count}} personnes"
   },
   "emoji": {
     "search": "Rechercher un emoji",
@@ -1491,7 +1493,9 @@
     "addNoticeRoles_one": "{{names}} recevra les rôles {{roles}} tant que cette personne sera dans le groupe. Ce sera écrit au journal.",
     "addNoticeRoles_other": "{{names}} recevront les rôles {{roles}} tant que ces personnes seront dans le groupe. Ce sera écrit au journal.",
     "addConfirm_one": "Ajouter {{count}} personne",
-    "addConfirm_other": "Ajouter {{count}} personnes"
+    "addConfirm_other": "Ajouter {{count}} personnes",
+    "openEditor": "Ouvrir le groupe",
+    "openEditorHint": "Modifier ses personnes et ses rôles"
   },
   "guests": {
     "endedNotice": "Votre accès à {{space}} a pris fin",

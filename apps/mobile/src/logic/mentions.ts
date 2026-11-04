@@ -10,11 +10,23 @@ export type ActiveToken = { kind: "@" | "#"; query: string; start: number };
 const MENTION = /(?:^|\s)@([\p{L}\p{N}_'-]*)$/u;
 const CHANNEL = /(?:^|\s)#([\p{L}\p{N}_-]*)$/u;
 
-/** The `@` or `#` token that ends at the cursor, or null when the cursor is not in one. */
-export function activeToken(text: string, cursor: number): ActiveToken | null {
+/** A group's name has spaces ("@Chantier Re"): the token reaches across them (the web's pattern). */
+const SPACED_MENTION = /(?:^|\s)@([\p{L}\p{N}_'-]+(?: [\p{L}\p{N}_'-]*)+)$/u;
+
+/**
+ * The `@` or `#` token that ends at the cursor, or null when the cursor is not in one. Given the
+ * names of the groups one may mention, an `@` token stays open across spaces while what was typed
+ * still begins one of them, and closes at the first word that does not.
+ */
+export function activeToken(text: string, cursor: number, groupNames: readonly string[] = []): ActiveToken | null {
   const before = text.slice(0, cursor);
   const mention = MENTION.exec(before);
   if (mention) return { kind: "@", query: mention[1], start: cursor - mention[1].length - 1 };
+  const spaced = groupNames.length > 0 ? SPACED_MENTION.exec(before) : null;
+  if (spaced) {
+    const needle = fold(spaced[1]);
+    if (groupNames.some((n) => fold(n).startsWith(needle))) return { kind: "@", query: spaced[1], start: cursor - spaced[1].length - 1 };
+  }
   // One hash only: `##` is a heading, and a list of channels in front of a title would be in the way.
   const channel = CHANNEL.exec(before);
   if (channel && !before.endsWith("##")) return { kind: "#", query: channel[1], start: cursor - channel[1].length - 1 };

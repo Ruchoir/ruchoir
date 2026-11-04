@@ -154,6 +154,7 @@ export function ThreadScreen() {
                   mentionsMe={!local && myNames.some((n) => body.includes(n))}
                   avatar={members.avatarOf(m.author)}
                   mentionNames={members.mentionNames}
+                  groups={members.groups}
                   pending={local?.state}
                   onRetry={local ? () => outbox.retry(local.localId) : undefined}
                   onDiscard={local ? () => outbox.drop(local.localId) : undefined}
@@ -178,6 +179,8 @@ export function ThreadScreen() {
             alsoInChannelLabel={alsoLabel}
             placeholder={t("compose.placeholderThread")}
             people={members.list}
+            groups={members.groups}
+            viewerRole={current?.role}
             channels={channels.data ?? []}
             broadcasts={!!channelId}
             myUserId={me.id}

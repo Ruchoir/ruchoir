@@ -143,6 +143,8 @@ export type RootParams = {
   spaceGroups: undefined;
   /** A group of the current space: its people, the roles it carries, its managers (the groups list opens it). */
   groupEditor: { groupId: string };
+  /** The people of a group a message named (`@Comptabilité`), from a tap on its pill. */
+  groupPeople: { groupId: string };
   /** A new group (name, description), which then opens its editor; with `groupId`, the name and description of that group. */
   groupCreate: { groupId?: string } | undefined;
   spaceAudit: undefined;

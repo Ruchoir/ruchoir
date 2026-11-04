@@ -731,7 +731,11 @@
     "editFailedText": "Wiadomość zachowuje poprzednią treść. Możesz spróbować ponownie.",
     "ok": "OK",
     "placeholderThread": "Odpowiedz w wątku…",
-    "placeholder": "Napisz wiadomość…"
+    "placeholder": "Napisz wiadomość…",
+    "groupLine_one": "Grupa · {{count}} osoba",
+    "groupLine_few": "Grupa · {{count}} osoby",
+    "groupLine_many": "Grupa · {{count}} osób",
+    "groupLine_other": "Grupa · {{count}} osoby"
   },
   "emoji": {
     "search": "Szukaj emoji",
@@ -1623,7 +1627,9 @@
     "addConfirm_one": "Dodaj {{count}} osobę",
     "addConfirm_few": "Dodaj {{count}} osoby",
     "addConfirm_many": "Dodaj {{count}} osób",
-    "addConfirm_other": "Dodaj {{count}} osoby"
+    "addConfirm_other": "Dodaj {{count}} osoby",
+    "openEditor": "Otwórz grupę",
+    "openEditorHint": "Zmień jej osoby i role"
   },
   "guests": {
     "endedNotice": "Twój dostęp do {{space}} się zakończył",

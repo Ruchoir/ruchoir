@@ -300,6 +300,7 @@ type MessagesProps = {
 };
 
 function Messages({ conversationId, title, channelId, unread, oneToOne, channel, channels, onJoined, members, focus, onFocusTaken }: MessagesProps) {
+  const space = useSpace();
   const api = useApi();
   const { getChannelMessages, getReadCursors, joinChannel, setReadCursor } = api;
   const { t } = useTranslation();
@@ -605,6 +606,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
               mentionsMe={!local && myNames.some((n) => body.includes(n))}
               avatar={members.avatarOf(item.message.author)}
               mentionNames={members.mentionNames}
+                  groups={members.groups}
               pending={local?.state}
               onRetry={local ? () => outbox.retry(local.localId) : undefined}
               onDiscard={local ? () => outbox.drop(local.localId) : undefined}
@@ -668,6 +670,8 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
           draftKey={conversationId}
           placeholder={t("compose.placeholder")}
           people={members.list}
+          groups={members.groups}
+          viewerRole={space.current?.role}
           channels={channels}
           broadcasts={channel !== undefined}
           myUserId={me.id}

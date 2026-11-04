@@ -649,7 +649,9 @@
     "editFailedText": "The message keeps its previous text. You can try again.",
     "ok": "OK",
     "placeholderThread": "Reply in the thread…",
-    "placeholder": "Write a message…"
+    "placeholder": "Write a message…",
+    "groupLine_one": "Group · {{count}} person",
+    "groupLine_other": "Group · {{count}} people"
   },
   "emoji": {
     "search": "Search an emoji",
@@ -1491,7 +1493,9 @@
     "addNoticeRoles_one": "{{names}} will get the roles {{roles}} as long as they are in the group. This will be written to the log.",
     "addNoticeRoles_other": "{{names}} will get the roles {{roles}} as long as they are in the group. This will be written to the log.",
     "addConfirm_one": "Add {{count}} person",
-    "addConfirm_other": "Add {{count}} people"
+    "addConfirm_other": "Add {{count}} people",
+    "openEditor": "Open the group",
+    "openEditorHint": "Change its people and roles"
   },
   "guests": {
     "endedNotice": "Your access to {{space}} has ended",

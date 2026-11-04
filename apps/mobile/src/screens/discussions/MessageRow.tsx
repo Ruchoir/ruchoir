@@ -1,4 +1,4 @@
-import type { ApiMessage } from "@ruchoir/client";
+import type { ApiMessage, Group } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { MessageSquare, Pin } from "lucide-react-native";
@@ -9,6 +9,7 @@ import { authHeadersFor, useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { listStamp, timeOf } from "../../logic/format";
+import { groupByName } from "../../logic/groupMentions";
 import { thumbBox } from "../../logic/thumb";
 import { useTabletLayout } from "../../layout/useWide";
 import { styleCache } from "../../theme/themedStyles";
@@ -34,6 +35,8 @@ type Props = {
   mentionsMe: boolean;
   avatar?: string;
   mentionNames: string[];
+  /** The space's groups: a `@Name` that is one is a pill, and a tap on it lists its people. */
+  groups?: Group[];
   /** A message of mine still in the outbox: going out, or failed and waiting to be retried. */
   pending?: "sending" | "failed";
   onRetry?: () => void;
@@ -60,6 +63,7 @@ export const MessageRow = memo(function MessageRow({
   mentionsMe,
   avatar,
   mentionNames,
+  groups,
   pending,
   onRetry,
   onDiscard,
@@ -172,7 +176,15 @@ export const MessageRow = memo(function MessageRow({
             {t("message.deleted")}
           </Text>
         ) : m.body ? (
-          <RichText body={m.body} mentionNames={mentionNames} />
+          <RichText
+            body={m.body}
+            mentionNames={mentionNames}
+            groupNames={groups?.map((g) => g.name)}
+            onOpenGroup={(mention) => {
+              const group = groupByName(groups ?? [], mention);
+              if (group) navigation.navigate("groupPeople", { groupId: group.id });
+            }}
+          />
         ) : null}
         {!m.deleted && m.link ? <LinkCard link={m.link} /> : null}
         {!m.deleted && images.length > 0 ? (
