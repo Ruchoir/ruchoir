@@ -706,3 +706,43 @@ async fn an_author_shares_with_a_channel_they_read_on_the_old_route() {
     let id = body["id"].as_str().expect("id").to_owned();
     assert_eq!(unshare(&app, fx.member, mine, &id).await.0, 204);
 }
+
+#[tokio::test]
+async fn the_old_listing_names_people_only_to_who_may_see_the_directory() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let file = make_file(&app.db, fx.space_id, fx.owner, "plan.txt").await;
+    for target in [fx.admin, fx.member] {
+        let (status, answer) = share(
+            &app,
+            fx.owner,
+            file,
+            json!({ "target_user_id": target, "permission": "view" }),
+        )
+        .await;
+        assert_eq!(status, 201, "{answer}");
+    }
+    let (_, listed) = shares_of(&app, fx.member, file).await;
+    assert_eq!(listed.as_array().expect("shares").len(), 2, "{listed}");
+    exec(
+        &app.db,
+        "UPDATE space_roles SET permissions = array_remove(permissions, 'members.view') \
+          WHERE space_id = $1 AND system_key = 'members'",
+        vec![fx.space_id.into()],
+    )
+    .await;
+    let (status, listed) = shares_of(&app, fx.member, file).await;
+    assert_eq!(status, 200);
+    let rows = listed.as_array().expect("shares");
+    assert_eq!(rows.len(), 1, "{listed}");
+    assert_eq!(rows[0]["target_user_id"], fx.member.to_string());
+    assert_eq!(
+        shares_of(&app, fx.owner, file)
+            .await
+            .1
+            .as_array()
+            .expect("s")
+            .len(),
+        2
+    );
+}

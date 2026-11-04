@@ -105,12 +105,22 @@ pub async fn list_shares(
     let space_id = access.file.space_id;
     let guest =
         check::standing(&state.db, space_id, session.user_id).await? == Some(Standing::Guest);
+    // People are named only to whoever may see the directory (and everyone sees their own row).
+    let directory = !guest
+        && check::can(
+            &state.db,
+            space_id,
+            session.user_id,
+            Resource::Space,
+            Permission::MembersView,
+        )
+        .await?;
     let mut shares = Vec::with_capacity(rows.len());
     for row in &rows {
         let person: Option<Uuid> = row.try_get("", "user_id")?;
         let channel: Option<Uuid> = row.try_get("", "audience_channel_id")?;
         let shown = match (person, channel) {
-            (Some(person), _) => !guest || person == session.user_id,
+            (Some(person), _) => directory || person == session.user_id,
             (None, Some(channel)) => {
                 check::can(
                     &state.db,
