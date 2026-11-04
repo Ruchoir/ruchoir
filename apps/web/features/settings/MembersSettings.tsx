@@ -11,6 +11,9 @@ import { MemberManagement } from "./MemberAccess";
 import { RoleChip, roleLabel, ROLE_LABEL } from "./roleChips";
 import type { Toast } from "../app/types";
 import { holdsRole, rolesViaGroups, sortGroups } from "./groupsLogic.ts";
+import { EndedAccess } from "./EndedAccess";
+import { GuestsSection } from "./GuestsSection";
+import { splitPeople } from "./guestLogic.ts";
 import { grantableRoles } from "./rolesLogic";
 
 export type SettingsMember = Member & { presence: Presence };
@@ -66,6 +69,8 @@ export function MembersSettings(props: MembersSettingsProps) {
     (m) => m.name.toLowerCase().includes(query.trim().toLowerCase()) && (!roleFilter || holdsRole(m, roleFilter, groups)) &&
       (!groupFilter || groups.find((g) => g.id === groupFilter)?.memberIds.includes(m.userId)),
   );
+  // Guests have their own section below the table, with their end dates.
+  const { members: shownMembers, guests: shownGuests } = splitPeople(shown);
   const managed = managing ? members.find((m) => m.userId === managing) : undefined;
   const myTop = me?.roleIds?.[0] ? roles.find((r) => r.id === me.roleIds?.[0]) : undefined;
 
@@ -114,7 +119,7 @@ export function MembersSettings(props: MembersSettingsProps) {
             <span style={st.act} />
           </div>
         ) : null}
-        {shown.map((m, i) =>
+        {shownMembers.map((m, i) =>
           licensed ? (
             <LicensedRow key={m.userId} member={m} first={i === 0} me={me} roles={roles} groups={groups} compact={compact} onManage={() => setManaging(m.userId)} />
           ) : (
@@ -122,6 +127,21 @@ export function MembersSettings(props: MembersSettingsProps) {
           ),
         )}
       </Card>
+      {shownGuests.length > 0 ? (
+        <GuestsSection
+          guests={shownGuests}
+          spaceId={props.spaceId}
+          myRole={myRole}
+          myRights={props.myRights}
+          compact={compact}
+          onSaved={props.onGroupsChanged}
+          onNotify={props.onNotify}
+          onManage={setManaging}
+          onChangeRole={props.onChangeRole}
+          onRemoveMember={props.onRemoveMember}
+        />
+      ) : null}
+      <EndedAccess spaceId={props.spaceId} spaceName={props.spaceName} myRights={props.myRights} onChanged={props.onGroupsChanged} onNotify={props.onNotify} />
       {licensed && groups.some((g) => g.roleIds.length > 0 && g.memberIds.length > 0) ? (
         <p style={st.foot}>
           <Icon name="users" size={12} />

@@ -10,6 +10,9 @@ import { formatDate, formatList } from "@/lib/i18n/format";
 import type { Toast } from "../app/types";
 import { MemberGroups } from "../groups/MemberGroups";
 import { rolesViaGroups } from "./groupsLogic.ts";
+import { ProlongDialog } from "./ProlongDialog";
+import { browserZone, endLabel } from "./guestLogic.ts";
+import { currentLocale } from "@/lib/i18n/current";
 import { PERMISSION_TEXT } from "./permissionText";
 import { RoleChip, ROLE_LABEL } from "./roleChips";
 import { grantableRoles, memberAccessFor, roleIdsToSave, type RoleChoice } from "./rolesLogic";
@@ -118,6 +121,8 @@ export function MemberManagement({ member, me, myRole, myRights, edition, roles,
   const managesPeople = myRights.includes("members.manage");
   const legacy = grantableRoles(myRole, member.role);
   const since = member.joinedAt ? formatDate(member.joinedAt) : "";
+  const [prolonging, setProlonging] = useState(false);
+  const canDate = managesPeople && member.role === "guest" && member.manageable !== false && !!spaceId && !!onGroupsChanged && !!onNotify;
   return (
     <div>
       {identity ? (
@@ -215,6 +220,19 @@ export function MemberManagement({ member, me, myRole, myRights, edition, roles,
             </div>
           ) : null}
         </div>
+        {member.role === "guest" ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, fontSize: "var(--text-xs)", color: "var(--text-body)" }}>
+            <Icon name="calendar-clock" size={14} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              {member.expiresAt ? `${t("guests.endTitle")} ${endLabel(member.expiresAt, currentLocale(), browserZone())}` : t("guests.noEnd")}
+            </span>
+            {canDate ? (
+              <Button size="sm" variant="secondary" iconLeft="calendar-plus" onClick={() => setProlonging(true)}>
+                {member.expiresAt ? t("guests.changeDate") : t("guests.setDate")}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         {access.mode !== "fixed" && myRole === "owner" ? (
           <div style={{ marginTop: 8 }}>
             <Button size="sm" variant="link" iconLeft="star" onClick={() => onChangeRole("owner")}>
@@ -224,6 +242,15 @@ export function MemberManagement({ member, me, myRole, myRights, edition, roles,
         ) : null}
       </div>
 
+      {prolonging && spaceId && onGroupsChanged && onNotify ? (
+        <ProlongDialog
+          guest={{ userId: member.userId, name: member.name, title: member.title, expiresAt: member.expiresAt }}
+          spaceId={spaceId}
+          onClose={() => setProlonging(false)}
+          onSaved={onGroupsChanged}
+          onNotify={onNotify}
+        />
+      ) : null}
       {managesPeople ? (
         <div style={{ ...s.section, borderBottom: 0 }}>
           <Button size="sm" variant="ghost" iconLeft="user-minus" onClick={onRemove} style={{ color: "var(--status-danger-fg)" }}>

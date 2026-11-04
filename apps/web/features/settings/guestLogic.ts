@@ -141,3 +141,25 @@ export function choiceRefusal(choice: EndChoice, now: Date, zone: string): "empt
 export function browserZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 }
+
+/** What the Members tab needs of a person to sort them. */
+type Person = { role: string; bot: boolean };
+
+/** Members (owners, administrators, members, bots) stay in the main table; guests have their own section. */
+export function splitPeople<T extends Person>(people: T[]): { members: T[]; guests: T[] } {
+  return { members: people.filter((p) => p.role !== "guest"), guests: people.filter((p) => p.role === "guest") };
+}
+
+/** How a guest's row reads: the end, how far it is, and whether it deserves the warning and Prolong. */
+export function guestRow(guest: { expiresAt?: string }, now: Date) {
+  const end = guest.expiresAt ?? null;
+  const days = end ? daysLeft(end, now) : null;
+  const tone = days === null ? "calm" : expiryTone(days);
+  const soon = tone === "soon";
+  return { end, days, tone, warn: soon, prolong: soon };
+}
+
+/** Ended accesses are for whoever manages people: the API refuses the list to anyone else. */
+export function canSeeEnded(rights: string[]): boolean {
+  return rights.includes("members.manage");
+}

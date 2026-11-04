@@ -329,6 +329,9 @@ const ALLOWED_DUPLICATES = new Set([
   // A permission's name says what one may do, a button what to do now: the same French word
   // ("Inviter des personnes", "Épingler", "Réagir", "Vider la corbeille"), but an infinitive in a
   // Polish list of rights and an imperative on a Polish button.
+  // The guests section's title is the people it lists; the calendar's attendees are people at an
+  // event, and several languages word the two differently.
+  "guests.sectionTitle",
   "perm.membersInvite",
   "perm.messagePin",
   "perm.messageReact",

@@ -95,6 +95,8 @@ export function refusalMessage(refusal: Refusal | undefined, t: T, fallback: str
       return t("roles.refusal.beyondGuestCeiling");
     case "make_them_a_member_first":
       return t("roles.refusal.memberFirst");
+    case "access_ended_for_good":
+      return t("guests.endedForGood");
     case "no_self_role":
       return t(selfRoleKey(context));
     case "manager_protected":

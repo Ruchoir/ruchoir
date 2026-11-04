@@ -281,7 +281,8 @@ export function WorkspaceSettings({
   const memberSummary = (() => {
     const guests = members.filter((m) => m.role === "guest").length;
     const bots = members.filter((m) => m.bot).length;
-    const people = members.length - bots;
+    // Guests are counted on their own: they are not "members" and take no seat.
+    const people = members.length - bots - guests;
     const parts = [t("space.members", { count: people })];
     if (guests > 0) parts.push(t("space.guests", { count: guests }));
     if (bots > 0) parts.push(t("space.bots", { count: bots }));
