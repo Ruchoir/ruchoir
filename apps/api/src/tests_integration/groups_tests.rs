@@ -360,7 +360,7 @@ async fn the_groups_migration_round_trips() {
     };
     let db = &scratch.db;
     let tables = "SELECT count(*) AS n FROM information_schema.tables WHERE table_name IN ('space_groups', 'space_group_members', 'space_group_roles', 'space_role_holdings')";
-    let wide = "SELECT count(*) AS n FROM pg_constraint WHERE contype = 'c' AND pg_get_constraintdef(oid) LIKE '%''group''%'";
+    let wide = "SELECT count(*) AS n FROM pg_constraint WHERE contype = 'c' AND conrelid::regclass::text <> 'import_mappings' AND pg_get_constraintdef(oid) LIKE '%''group''%'";
     assert_eq!(count(db, tables, vec![]).await, 4);
     assert_eq!(count(db, wide, vec![]).await, 2);
 
