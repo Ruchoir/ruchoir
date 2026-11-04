@@ -201,7 +201,12 @@ import { WorkspaceRail } from "./WorkspaceRail";
 import { readDeepLink } from "@/lib/dev/deeplink";
 import { lastChannelOf, rememberChannel } from "@/lib/lastChannel";
 import { useLayout, useTouch } from "./useLayout";
+import { configureClient } from "@ruchoir/client/config";
 import { oneLine } from "./preview";
+import { PreviewBanner } from "./PreviewBanner";
+import type { Place } from "../settings/usedInLogic.ts";
+import { PlaceNavContext } from "./placeNav";
+import { previewGone, previewToast, shouldShowToast } from "./previewLogic.ts";
 import { BottomTabs } from "./BottomTabs";
 import { UploadPanel } from "@/features/files/UploadPanel";
 import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchField, QuickLinks, SpaceMark } from "./mobile/MobileScreens";
@@ -535,6 +540,8 @@ function AppShell() {
   const [pricingUrl, setPricingUrl] = useState<string>();
   /** Whether the instance runs the licensed edition's licence routes. */
   const [canLicences, setCanLicences] = useState(false);
+  /** The instance lists `resource_rules`: access is set by levels (the Access dialog). */
+  const [canResourceRules, setCanResourceRules] = useState(false);
   /**
    * An invitation the visitor arrived with, held across the whole authentication flow: they may have
    * to sign in or register first, and the token has to survive that. Kept in memory only, like the
@@ -1154,6 +1161,7 @@ function AppShell() {
         setCanHideDms(supports(capabilities, "account_preferences"));
         setPricingUrl(capabilities.pricingUrl);
         setCanLicences(supports(capabilities, "licences"));
+        setCanResourceRules(supports(capabilities, "resource_rules"));
       })
       .catch(() => {});
     return () => {
@@ -1199,6 +1207,10 @@ function AppShell() {
    * the effect's dependencies would tear the WebSocket down and rebuild it on each one.
    */
   const notifyRef = useRef<((toast: Toast) => void) | null>(null);
+  /** When a write was last refused because the space is looked at as a role. */
+  const previewRefusedAt = useRef<number | undefined>(undefined);
+  /** Whether a preview is on: the client skips background writes meanwhile. */
+  const previewActiveRef = useRef(false);
   // The spaces whose end of access was already announced: the notice shows once.
   const endedToldRef = useRef(new Set<string>());
   // `switchWorkspace`, for the notice handler declared before it.
@@ -2278,6 +2290,9 @@ function AppShell() {
   };
 
   const showToast = (t: Toast) => {
+    // A write refused by a preview is said once, by the app; the screen's own failure toast that
+    // follows would only replace it with a worse explanation.
+    if (!shouldShowToast(previewRefusedAt.current, Date.now(), { tone: t.tone, isPreviewToast: t.title === tRef.current("preview.readOnlyTitle") })) return;
     setToast(t);
     setToastVisible(true);
     setToastKey((k) => k + 1);
@@ -2294,6 +2309,46 @@ function AppShell() {
     notifyRef.current = showToast;
     tRef.current = t;
   });
+
+  // A write refused because the space is looked at as a role: said once, wherever it came from, and
+  // the text typed stays where it is (the screens keep their own "not sent").
+  useEffect(() => {
+    configureClient({
+      // While a space is looked at as a role, what the app writes on its own is not sent at all.
+      previewActive: () => previewActiveRef.current,
+      onPreviewReadOnly: (request) => {
+        previewRefusedAt.current = Date.now();
+        const toast = previewToast(request);
+        notifyRef.current?.({ tone: toast.tone, title: tRef.current(toast.titleKey), description: tRef.current(toast.bodyKey) });
+      },
+    });
+    return () => configureClient({ onPreviewReadOnly: undefined, previewActive: undefined });
+  }, []);
+
+  // The server refuses the real-time connection of a previewing session: the screens do not move on
+  // their own until the preview ends. Said once when it starts.
+  const previewedRole = workspaces.find((w) => w.id === ws)?.preview?.roleId;
+  useEffect(() => {
+    previewActiveRef.current = previewedRole !== undefined;
+  }, [previewedRole]);
+  // The server ends a preview after 30 idle minutes: while one is shown, ask again on focus and every
+  // minute, and read the screen again as the person when it is gone.
+  useEffect(() => {
+    if (!previewedRole) return;
+    const check = () =>
+      void getWorkspaces()
+        .then((fresh) => previewGone(previewedRole, fresh, ws) && window.location.reload())
+        .catch(() => {});
+    const timer = window.setInterval(check, 60_000);
+    window.addEventListener("focus", check);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", check);
+    };
+  }, [previewedRole, ws]);
+  useEffect(() => {
+    if (previewedRole) notifyRef.current?.({ tone: "info", title: tRef.current("preview.realtime") });
+  }, [previewedRole]);
 
   /** Move to an authentication screen with a clean slate (no stale error, notice or pending flag). */
   const goToStage = (stage: AuthStage) => {
@@ -2773,6 +2828,17 @@ function AppShell() {
       setMobileTab("calendar");
     } else {
       setView("calendar");
+    }
+  };
+
+  /** Go to a place a settings dialog names: a channel, the files at a folder, or the calendar. */
+  const openPlace = (place: Place) => {
+    if (place.type === "channel") openChannel(place.id);
+    else if (place.type === "calendar") showCalendar();
+    else {
+      setFilesFolder(place.folderId);
+      setView("files");
+      if (compact) setMobileContent(true);
     }
   };
 
@@ -3381,6 +3447,9 @@ function AppShell() {
 
   /** The space on screen, when there is one: the name and role the two exit dialogs are about. */
   const currentWorkspace = workspaces.find((w) => w.id === ws);
+  const previewBanner = currentWorkspace?.preview ? (
+    <PreviewBanner spaceId={currentWorkspace.id} spaceName={currentWorkspace.name} preview={currentWorkspace.preview} onNotify={showToast} />
+  ) : null;
   /** What the caller holds in the open space, by permission name. */
   const myRights = rightsOf(currentWorkspace);
   /** The doors of the space's administration, each on the right the API checks behind it. */
@@ -3401,6 +3470,10 @@ function AppShell() {
     const group = spaceGroups.find((g) => foldName(g.name) === wanted);
     if (group) openGroup(group.id);
   };
+  /** What the channel Access dialog needs, once the instance lists `resource_rules`. */
+  const accessRules = canResourceRules
+    ? { spaceId: ws, viewerId: session?.id, pricingUrl, onChanged: () => refreshAccessRef.current() }
+    : undefined;
   /** The open group's panel, once the groups are loaded (a group deleted meanwhile just closes it). */
   const openedGroup = openGroupId ? spaceGroups.find((g) => g.id === openGroupId) : undefined;
   const openGroupNode =
@@ -4459,6 +4532,7 @@ function AppShell() {
           }}
           onNotify={showToast}
           onUpdateChannel={(patch) => updateChannel(channelId, patch)}
+          accessRules={accessRules}
           myRole={currentWorkspace?.role ?? "member"}
           myChannelRole={myChannelRole(channelId)}
           canModerateChannels={canModerateChannels}
@@ -4503,6 +4577,7 @@ function AppShell() {
           slugs={workspaces.map((w) => w.slug)}
           onEditorChange={setEditorOpen}
           initialFolderId={filesFolder}
+          accessRules={accessRules}
           shareTargets={[
             ...channels.filter((c) => c.member !== false).map((c) => ({ id: c.id, name: c.name, kind: "channel" as const, fav: c.fav })),
             ...visibleDms.filter((d) => !d.bot).map((d) => ({ id: d.id, name: d.name, kind: "dm" as const, lastAt: d.lastMessage?.at })),
@@ -4526,9 +4601,11 @@ function AppShell() {
           onBack={compact ? backToTabs : undefined}
           onLeave={compact ? undefined : () => setView("channel")}
           onNotify={showToast}
+          accessRules={accessRules}
         />
       ) : null}
       {contentView === "settings" ? (
+        <PlaceNavContext.Provider value={openPlace}>
         <WorkspaceSettings
           // Keyed by the space: the screen holds the name being edited in its own state, seeded once
           // from the space it was opened on. Without this, switching space left the previous name in
@@ -4583,6 +4660,7 @@ function AppShell() {
           onDelete={() => setModal("deleteSpace")}
           onLeave={() => setModal("leaveSpace")}
         />
+        </PlaceNavContext.Provider>
       ) : null}
       {contentView === "threads" ? <ActivityView kind="threads" items={threads} onOpen={openMessage} onBack={compact ? backToTabs : undefined} /> : null}
       {contentView === "mentions" ? <ActivityView kind="mentions" items={mentions} onOpen={openMessage} onBack={compact ? backToTabs : undefined} /> : null}
@@ -4788,6 +4866,7 @@ function AppShell() {
           channel={channels.find((c) => c.id === channelSettingsId)!}
           onClose={() => setChannelSettingsId(null)}
           onUpdate={(patch) => updateChannel(channelSettingsId, patch)}
+          accessRules={accessRules}
           onNotify={showToast}
           myRole={currentWorkspace?.role ?? "member"}
           myChannelRole={canModerateChannels ? myChannelRole(channelSettingsId) : "member"}
@@ -5023,6 +5102,7 @@ function AppShell() {
             spaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
             rememberFilter
             onNotify={showToast}
+            accessRules={accessRules}
           />
         ) : null}
         {mobileTab === "activity" ? (
@@ -5081,14 +5161,17 @@ function AppShell() {
     // Two columns: the space's list, railless, and what is open. Side panels cover the conversation
     // (see ChannelScreen's `overlayPanels`) rather than squeezing it.
     return (
-      <div style={{ height: "var(--ui-vh)", display: "flex", overflow: "hidden", background: "var(--surface-canvas)" }}>
-        <div
-          style={{ ...switchingStyle, flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}
-          aria-busy={switchingSpace || undefined}
-        >
-          {/* The calendar brings its own column, in place of the space's. */}
-          {contentView === "calendar" ? null : renderSidebar("tablet")}
-          {content}
+      <div style={{ height: "var(--ui-vh)", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--surface-canvas)" }}>
+        {previewBanner}
+        <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
+          <div
+            style={{ ...switchingStyle, flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}
+            aria-busy={switchingSpace || undefined}
+          >
+            {/* The calendar brings its own column, in place of the space's. */}
+            {contentView === "calendar" ? null : renderSidebar("tablet")}
+            {content}
+          </div>
         </div>
         {spaces}
         {you}
@@ -5098,14 +5181,17 @@ function AppShell() {
   }
 
   return (
-    <div style={{ height: "var(--ui-vh)", display: "flex", overflow: "hidden", background: "var(--surface-canvas)" }}>
-      {rail}
-      <div
-        style={{ ...switchingStyle, flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}
-        aria-busy={switchingSpace || undefined}
-      >
-        {contentView === "calendar" ? null : desktopSidebar}
-        {content}
+    <div style={{ height: "var(--ui-vh)", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--surface-canvas)" }}>
+      {previewBanner}
+      <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
+        {rail}
+        <div
+          style={{ ...switchingStyle, flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}
+          aria-busy={switchingSpace || undefined}
+        >
+          {contentView === "calendar" ? null : desktopSidebar}
+          {content}
+        </div>
       </div>
       {overlays}
     </div>

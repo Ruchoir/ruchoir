@@ -17,6 +17,10 @@ import {
 } from "@/lib/data/calendar";
 import { useTranslation } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/format";
+import { AccessDialog } from "../access/AccessDialog";
+import { calendarLevelOf, levelLabelKey } from "../access/accessLogic.ts";
+import { tk } from "../access/EntryRow";
+import type { ChannelAccessRules } from "../channel/ChannelAccess";
 import { colorVar } from "./OccurrenceChip";
 import { RemindersField } from "./RemindersField";
 import { SharesSection } from "./SharesSection";
@@ -151,6 +155,8 @@ export function CalendarSettingsDialog({
   spaceId,
   spaceName,
   suggestedColor,
+  accessRules,
+  onNotify,
   onDone,
   onClose,
 }: {
@@ -161,6 +167,9 @@ export function CalendarSettingsDialog({
   spaceName?: string;
   /** For a new calendar: the colour it starts with. */
   suggestedColor?: CalendarColor;
+  /** Set when the instance lists `resource_rules`: who may do what on a space calendar is its own dialog. */
+  accessRules?: ChannelAccessRules;
+  onNotify?: (toast: { tone: "info" | "success" | "danger"; title: string }) => void;
   onDone: (message: "saved" | "created" | "deleted" | "failed") => void;
   onClose: () => void;
 }) {
@@ -175,6 +184,10 @@ export function CalendarSettingsDialog({
   const [mine, setMine] = useState<number[] | undefined>(calendar?.myReminders);
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shared, setShared] = useState(false);
+  // An existing space calendar, on a server with levels: the write setting gives way to the entries.
+  const byLevels = Boolean(accessRules && calendar?.spaceId && manage);
 
   const save = async () => {
     if (!name.trim()) return;
@@ -183,7 +196,7 @@ export function CalendarSettingsDialog({
       const fields = {
         name: name.trim(),
         color,
-        writeAccess: inSpace ? writeAccess : undefined,
+        writeAccess: inSpace && !byLevels ? writeAccess : undefined,
         defaultReminders: defaults,
       };
       if (calendar) {
@@ -211,6 +224,30 @@ export function CalendarSettingsDialog({
       onDone("failed");
     }
   };
+
+  // The share dialog replaces the settings dialog (frame 8) rather than stacking over it; closing it
+  // brings the settings back.
+  if (sharing && calendar && accessRules) {
+    return (
+      <AccessDialog
+        spaceId={calendar.spaceId!}
+        kind="calendar"
+        resourceId={calendar.id}
+        resourceName={calendar.name}
+        archived={false}
+        viewerId={accessRules.viewerId}
+        pricingUrl={accessRules.pricingUrl}
+        onChanged={() => {
+          setShared(true);
+          accessRules.onChanged?.();
+        }}
+        onExplain={accessRules.onExplain}
+        onNotify={(toast) => onNotify?.({ tone: toast.tone, title: toast.title })}
+        // What the calendar lists (its write setting) is read again once the levels were touched.
+        onClose={() => (shared ? onDone("saved") : setSharing(false))}
+      />
+    );
+  }
 
   return (
     <Dialog
@@ -265,7 +302,16 @@ export function CalendarSettingsDialog({
                 </button>
               ))}
             </div>
-            {inSpace ? (
+            {byLevels && calendar && accessRules ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}>
+                <span style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-strong)" }}>{t("calendar.whoWrites")}</span>
+                <span style={muted}>{t("calendar.writeSummary", { level: t(tk(levelLabelKey("calendar", calendarLevelOf(calendar.writeAccess)))) })}</span>
+                <Button iconLeft="users" onClick={() => setSharing(true)}>
+                  {t("calendar.shareByLevels")}
+                </Button>
+              </div>
+            ) : null}
+            {inSpace && !byLevels ? (
               <div role="radiogroup" aria-label={t("calendar.whoWrites")} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <span style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-strong)" }}>{t("calendar.whoWrites")}</span>
                 <Radio name="write" checked={writeAccess === "members"} onChange={() => setWriteAccess("members")} label={t("calendar.writeMembers")} />

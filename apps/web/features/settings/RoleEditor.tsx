@@ -5,15 +5,18 @@ import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Card, Dialog, Field, Icon, IconButton, Input, Select, Switch, Tabs, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
 import { deleteRole, refusalOf, updateRole } from "@/lib/data/api";
-import type { Group, Role } from "@/lib/data/types";
+import type { Group, Role, UsedIn } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
 import { formatList } from "@/lib/i18n/format";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { viewAsState } from "../app/previewLogic.ts";
 import type { Toast } from "../app/types";
 import { GroupIcon } from "../groups/GroupIcon";
 import { rolePeople } from "./groupsLogic.ts";
 import { refusalMessage, roleColour, roleLabel } from "./roleChips";
 import { FAMILY_TEXT, PERMISSION_TEXT } from "./permissionText";
+import { UsedInDialog } from "./UsedInDialog";
+import { startViewAs } from "./viewAs";
 import { changedPermissions, FAMILIES, GUEST_CEILING, permissionRow } from "./rolesLogic";
 
 /** The pastels a role may wear (`ROLE_COLOURS` in `apps/api/src/permissions/roles.rs`). */
@@ -107,6 +110,8 @@ export function RoleEditor({ spaceId, role, roles, members, groups, onOpenGroup,
   const [closed, setClosed] = useState<Set<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  /** Where the role is named by rules, when the server refused the deletion for that. */
+  const [usedIn, setUsedIn] = useState<UsedIn[] | null>(null);
   const [name, setName] = useState(role.name);
   const [colour, setColour] = useState(role.colour ?? "sky");
   const [nameError, setNameError] = useState("");
@@ -174,7 +179,9 @@ export function RoleEditor({ spaceId, role, roles, members, groups, onOpenGroup,
       onBack();
     } catch (err) {
       setConfirmDelete(false);
-      failed(err);
+      const refusal = refusalOf(err);
+      if (refusal?.code === "role_has_rules" && refusal.usedIn) setUsedIn(refusal.usedIn);
+      else failed(err);
     } finally {
       setBusy(false);
     }
@@ -218,6 +225,11 @@ export function RoleEditor({ spaceId, role, roles, members, groups, onOpenGroup,
                   : t("message.reactors", { count: holders.length })}
           </p>
         </div>
+        {viewAsState(role, { edition: frozen ? "frozen" : "enterprise", canManageRoles: myRights.includes("roles.manage") }) === "button" ? (
+          <Button size="sm" variant="secondary" iconLeft="eye" onClick={() => void startViewAs(spaceId, role, onNotify, t)}>
+            {t("preview.viewAs")}
+          </Button>
+        ) : null}
         {custom && editable ? (
           <Button size="sm" variant="ghost" iconLeft="trash-2" onClick={() => setConfirmDelete(true)}>
             {t("roles.delete")}
@@ -421,6 +433,8 @@ export function RoleEditor({ spaceId, role, roles, members, groups, onOpenGroup,
           ) : null}
         </div>
       ) : null}
+
+      {usedIn ? <UsedInDialog of="role" name={role.name} usedIn={usedIn} onClose={() => setUsedIn(null)} /> : null}
 
       <Dialog
         open={confirmDelete}

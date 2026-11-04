@@ -1819,7 +1819,9 @@
       "read": "Vedere i dettagli",
       "write": "Modificare gli eventi"
     },
-    "printFile": "calendario.pdf"
+    "printFile": "calendario.pdf",
+    "writeSummary": "Oggi l'intero spazio ha il livello «{{level}}» su questo calendario.",
+    "shareByLevels": "Condividi il calendario"
   },
   "invitationPage": {
     "title": "Invito",
@@ -2337,7 +2339,27 @@
     "memberToGuest": "{{actor}} ha reso {{target}} ospite, da membro",
     "guestPurged": "L'accesso di {{target}} è stato eliminato dopo 90 giorni",
     "accessUntil": "Accesso fino al {{date}}",
-    "accessTo": "Accesso a {{space}}"
+    "accessTo": "Accesso a {{space}}",
+    "ruleCreated": "{{actor}} ha dato accesso a {{target}} {{resource}}",
+    "ruleUpdated": "{{actor}} ha cambiato il livello di {{target}} {{resource}}",
+    "ruleCustomised": "{{actor}} ha personalizzato l'accesso di {{target}} {{resource}}",
+    "ruleDeleted": "{{actor}} ha rimosso l'accesso di {{target}} {{resource}}",
+    "ruleReserved": "{{actor}} ha riservato {{resource}}: tutto lo spazio non ha più accesso",
+    "onChannel": "sul canale",
+    "onFile": "sul file o cartella",
+    "onCalendar": "sul calendario",
+    "levelChip": "Livello {{level}}",
+    "readersOfChannel": "i lettori di un canale",
+    "rolePreviewStarted": "{{actor}} ha visualizzato lo spazio come {{role}}",
+    "rolePreviewEnded": "{{actor}} ha lasciato l'anteprima come {{role}}",
+    "somebody": "una persona",
+    "aGroup": "un gruppo",
+    "aRole": "un ruolo",
+    "onUnnamedChannel": "su un canale",
+    "onUnnamedFile": "su un file o cartella",
+    "onUnnamedCalendar": "su un calendario",
+    "theChannel": "il canale",
+    "aChannel": "un canale"
   },
   "guests": {
     "endTitle": "Accesso fino al",
@@ -2447,5 +2469,353 @@
     "refusalAccessEnded": "Questo accesso è già terminato: riattivalo per dargli una nuova data.",
     "refusalNotEnded": "Questo accesso non è terminato: non c'è nulla da riattivare.",
     "leftNotice": "Non fai più parte di {{space}}"
+  },
+  "access": {
+    "title": "Accesso a {{name}}",
+    "subtitle": "Chi può leggere, scrivere o gestire questo canale. I livelli si sommano: ognuno include il precedente.",
+    "subtitlePrivate": "Un canale privato: compare solo per chi ha accesso.",
+    "subtitleEnterprise": "I ruoli personalizzati diventano destinatari e ogni voce si può personalizzare permesso per permesso.",
+    "typeLabel": "Visibilità del canale",
+    "publicTitle": "Pubblico",
+    "publicBody": "Tutti nello spazio lo vedono e possono unirsi.",
+    "privateTitle": "Privato",
+    "privateBody": "Solo chi è elencato qui sotto lo vede.",
+    "colWho": "Chi ha accesso",
+    "colLevel": "Livello",
+    "everyoneSub": "Tutti i membri",
+    "allGuests": "Tutti gli ospiti",
+    "allGuestsSub": "Ospiti dello spazio",
+    "customRoleSub": "Ruolo personalizzato",
+    "audienceSub": "Lettori di un canale",
+    "hiddenTarget": "Voce nascosta",
+    "justAdded": "Appena aggiunto",
+    "level": {
+      "none": "Nessun accesso",
+      "read": "Leggere",
+      "manage": "Gestire",
+      "custom": "Personalizzato",
+      "channel": {
+        "contribute": "Partecipare"
+      },
+      "file": {
+        "contribute": "Modificare"
+      },
+      "calendar": {
+        "contribute": "Scrivere"
+      }
+    },
+    "levelDesc": {
+      "channel": {
+        "read": "Vedere il canale e reagire.",
+        "contribute": "Leggere, scrivere, allegare, fissare, menzionare tutti.",
+        "manage": "Moderare, gestire i membri e le impostazioni del canale."
+      },
+      "file": {
+        "read": "Vedere il file o la cartella.",
+        "contribute": "Vedere, creare e modificare.",
+        "manage": "Tutto questo, più gestire l'accesso e il link pubblico."
+      },
+      "calendar": {
+        "read": "Vedere il calendario.",
+        "contribute": "Vedere e scrivere eventi.",
+        "manage": "Gestire tutto nel calendario."
+      }
+    },
+    "guestCap": "Non per un ospite: il limite degli ospiti lo impedisce.",
+    "selfLocked": "Non puoi modificare il tuo stesso accesso.",
+    "levelNotHeld": "Non ha questo livello qui.",
+    "atLeast": "almeno {{level}} (tutto lo spazio)",
+    "denyTag": "Negato",
+    "denyNote": "Accesso negato qui",
+    "clamped": "il suo livello è limitato per i suoi ospiti",
+    "inheritedFrom": "Ereditato da {{folder}}",
+    "inheritedHidden": "Ereditato da una cartella superiore",
+    "levelFor": "Livello di {{name}}",
+    "editDetail": "Modifica il dettaglio",
+    "readOnly": {
+      "licenceRequired": "Puoi consultare questo accesso senza modificarlo: delegare la gestione dell'accesso fa parte dell'edizione Enterprise.",
+      "licenceFrozen": "Le modifiche sono sospese: la licenza di questo spazio è congelata. Puoi comunque consultare l'accesso.",
+      "notAllowed": "Puoi consultare questo accesso, ma non modificarlo.",
+      "archived": "Questo canale è archiviato: il suo accesso non si può più modificare.",
+      "trashed": "Questo elemento è nel cestino: il suo accesso non può più essere modificato."
+    },
+    "verifyTitle": "Verificare l'accesso di qualcuno.",
+    "verifyBody": "Scegli una persona: ti spieghiamo passo per passo perché ha, o non ha, accesso.",
+    "teaser": "Un ruolo personalizzato come destinatario, negare l'accesso a una persona, regolare ogni permesso uno per uno: edizione Enterprise.",
+    "add": "Aggiungi persone o gruppi",
+    "loading": "Caricamento dell'accesso…",
+    "loadFailed": "Impossibile caricare l'accesso.",
+    "open": "Gestisci l'accesso",
+    "summaryPublic": "Pubblico: tutti nello spazio vedono questo canale e possono unirsi. Stabilisci chi può leggere, partecipare o gestire.",
+    "summaryPrivate": "Privato: solo chi ha accesso vede questo canale. Stabilisci chi può leggere, partecipare o gestire.",
+    "addTitle": "Aggiungi a {{name}}",
+    "addSub": "Cerca tra i gruppi, i ruoli, i membri e gli ospiti dello spazio.",
+    "search": "Cerca un gruppo, un ruolo o una persona",
+    "alreadyListed": "Già nell'elenco",
+    "guestNotice": "{{name}} è ospite: il suo accesso non supera mai il limite degli ospiti, qualunque sia il livello scelto.",
+    "refusal": {
+      "cannotGrant": "Non puoi concedere un permesso che non hai tu stesso qui.",
+      "targetAboveYou": "Questa persona o questo gruppo è al di sopra di te: non puoi modificarne l'accesso.",
+      "reservationAdminsOnly": "Solo il proprietario e gli amministratori possono togliere l'accesso a tutti.",
+      "guestCeiling": "Un ospite non può superare il limite degli ospiti.",
+      "audienceFilesOnly": "I lettori di un canale si scelgono solo per i file.",
+      "baseRoleLevelsOnly": "Questa riga accetta solo livelli.",
+      "permissionInBoth": "Un permesso non può essere consentito e negato insieme."
+    },
+    "groupSub_one": "Gruppo · {{count}} persona",
+    "groupSub_many": "Gruppo · {{count}} persone",
+    "groupSub_other": "Gruppo · {{count}} persone",
+    "customExcept_one": "{{level}} tranne {{count}} permesso",
+    "customExcept_many": "{{level}} tranne {{count}} permessi",
+    "customExcept_other": "{{level}} tranne {{count}} permessi",
+    "customPlus_one": "{{level}} più {{count}} permesso",
+    "customPlus_many": "{{level}} più {{count}} permessi",
+    "customPlus_other": "{{level}} più {{count}} permessi",
+    "customChanges_one": "{{level}}, {{count}} permesso modificato",
+    "customChanges_many": "{{level}}, {{count}} permessi modificati",
+    "customChanges_other": "{{level}}, {{count}} permessi modificati",
+    "levelForSelected_one": "Livello per {{count}} selezione",
+    "levelForSelected_many": "Livello per {{count}} selezioni",
+    "levelForSelected_other": "Livello per {{count}} selezioni",
+    "addConfirm_one": "Aggiungi {{count}} voce",
+    "addConfirm_many": "Aggiungi {{count}} voci",
+    "addConfirm_other": "Aggiungi {{count}} voci",
+    "guestGroupNotice_one": "Nel gruppo scelto, il livello degli ospiti è limitato allo stesso modo.",
+    "guestGroupNotice_many": "Nei gruppi scelti, il livello degli ospiti è limitato allo stesso modo.",
+    "guestGroupNotice_other": "Nei gruppi scelti, il livello degli ospiti è limitato allo stesso modo.",
+    "privateNote_one": "{{names}} vede ora {{channel}} nell'elenco dei canali e vi entra con un clic. Nessuno viene avvisato: né la persona né gli altri. Gli accessi dati a un ruolo, a un gruppo o a una persona funzionano allo stesso modo.",
+    "privateNote_many": "{{names}} vedono ora {{channel}} nell'elenco dei canali e vi entrano con un clic. Nessuno viene avvisato: né loro né gli altri. Gli accessi dati a un ruolo, a un gruppo o a una persona funzionano allo stesso modo.",
+    "privateNote_other": "{{names}} vedono ora {{channel}} nell'elenco dei canali e vi entrano con un clic. Nessuno viene avvisato: né loro né gli altri. Gli accessi dati a un ruolo, a un gruppo o a una persona funzionano allo stesso modo.",
+    "subtitleFile": "Questo file segue la sua cartella, tranne per le voci modificate qui sotto.",
+    "subtitleFileIn": "{{parent}}. Questo file segue la sua cartella, tranne per le voci modificate qui sotto.",
+    "subtitleFolder": "Quello che imposti qui vale per tutto ciò che questa cartella contiene.",
+    "subtitleFolderIn": "{{parent}}. Quello che imposti qui vale per tutto ciò che questa cartella contiene.",
+    "subtitleCalendar": "Chi vede gli eventi, chi può crearli, chi gestisce il calendario.",
+    "shareFolderTitle": "Condividi la cartella {{name}}",
+    "shareCalendarTitle": "Condividi il calendario {{name}}",
+    "tab": "Accesso",
+    "inheritedFromLabel": "Ereditato da",
+    "modifiedHere": "Modificato qui",
+    "overrides": "Sostituisce «{{level}}» ereditato da {{folder}}",
+    "overridesHidden": "Sostituisce «{{level}}» ereditato da una cartella superiore",
+    "restore": "Ripristina l'ereditarietà",
+    "audienceName": "Lettori di #{{name}}",
+    "closestWins": "Vince la regola più vicina.",
+    "closestWinsBody": "Per {{name}}, questo elemento è impostato su «{{level}}» anche se la cartella sopra dà «{{parentLevel}}». Le altre voci continuano a seguire la cartella.",
+    "usedIn": {
+      "file": "File o cartella",
+      "titleGroup": "Impossibile eliminare il gruppo {{name}}",
+      "titleRole": "Impossibile eliminare il ruolo {{name}}",
+      "sub": "Alcune regole di accesso lo nominano: eliminandolo, un rifiuto potrebbe sparire e aprire un accesso senza che nessuno lo veda.",
+      "warnTitle": "{{name}} è ancora in uso.",
+      "warnBody": "Toglilo prima da ogni regola qui sotto, poi torna a eliminarlo.",
+      "where": "Dove è usato",
+      "hidden": "Un elemento che non puoi aprire"
+    },
+    "verify": "Verifica",
+    "learnMore": "Scopri di più",
+    "freeManage": {
+      "subtitle": "Puoi leggere chi ha accesso qui, ma non modificarlo.",
+      "noNames": "gli amministratori dello spazio",
+      "title": {
+        "folder": "Chi ha accesso a una cartella si imposta dalle impostazioni dello spazio.",
+        "file": "Chi ha accesso a un file si imposta dalle impostazioni dello spazio.",
+        "calendar": "Chi ha accesso a un calendario si imposta dalle impostazioni dello spazio.",
+        "channel": "Chi ha accesso a un canale si imposta dalle impostazioni dello spazio."
+      },
+      "body": {
+        "file": "Il tuo livello Gestisci su {{name}} ti permette di rinominarlo, eliminarlo e creare un link pubblico. Per cambiare chi ha accesso, chiedi a {{who}}.",
+        "calendar": "Il tuo livello Gestisci su {{name}} ti permette di rinominarlo, modificarlo ed eliminarlo. Per cambiare chi ha accesso, chiedi a {{who}}.",
+        "channel": "Il tuo livello Gestisci su {{name}} ti permette di moderare i messaggi e configurare il canale. Per cambiare chi ha accesso, chiedi a {{who}}."
+      },
+      "upsell": {
+        "folder": "Delegare la condivisione di una cartella a chi la gestisce: edizione Enterprise.",
+        "file": "Delegare la condivisione di un file a chi lo gestisce: edizione Enterprise.",
+        "calendar": "Delegare la condivisione di un calendario a chi lo gestisce: edizione Enterprise.",
+        "channel": "Delegare la condivisione di un canale a chi lo gestisce: edizione Enterprise."
+      }
+    },
+    "you": "Tu",
+    "delegation": {
+      "folder": "Gestisci questa cartella: ne imposti l'accesso, entro i limiti dei tuoi permessi.",
+      "file": "Gestisci questo file: ne imposti l'accesso, entro i limiti dei tuoi permessi.",
+      "calendar": "Gestisci questo calendario: ne imposti l'accesso, entro i limiti dei tuoi permessi.",
+      "channel": "Gestisci questo canale: ne imposti l'accesso, entro i limiti dei tuoi permessi."
+    },
+    "delegationHead": "Hai il livello Gestisci su {{name}}.",
+    "delegationBody": "Ti permette di impostare l'accesso degli altri qui, senza riservare tutto lo spazio né cambiare la tua riga.",
+    "delegationFoot": "Dai solo permessi che hai tu qui. Tutto viene scritto nel registro, a tuo nome.",
+    "selectedRemove": "Rimuovi {{name}} dalla selezione",
+    "givenBy": "Lo ha dato {{name}}",
+    "addedByYou": "Aggiunta da te",
+    "publicLink": "Link pubblico",
+    "publicLinkHint": "Chiunque abbia il link apre il file, senza account. Riservato a chi lo gestisce."
+  },
+  "customise": {
+    "title": "Personalizza: {{name}}",
+    "subtitle": "Ogni permesso è Ereditato, Consentito o Negato. Ereditato vuol dire nessuna regola qui: il permesso viene dal ruolo di base.",
+    "groupRead": "Lettura",
+    "groupParticipate": "Partecipazione",
+    "inherited": "Ereditato",
+    "allowed": "Consentito",
+    "denied": "Negato",
+    "lockNotHeld": "Non lo hai tu qui: non puoi né concederlo né negarlo.",
+    "resultLevel": "Risultato: {{level}}",
+    "resultExcept": ", tranne {{list}}",
+    "resultPlus": ", più {{list}}",
+    "resultNote": "Imposti solo i permessi che hai tu su questo contenuto.",
+    "changed": "Permessi modificati: {{count}}",
+    "unchanged": "Nessuna modifica",
+    "upsell": "Impostare i permessi uno per uno fa parte dell'edizione Enterprise.",
+    "saveFailed": "I permessi non sono stati salvati.",
+    "openFor": "Personalizza i permessi di {{name}}"
+  },
+  "why": {
+    "title": "Perché? {{person}} su {{resource}}",
+    "titleBare": "Perché? Su {{resource}}",
+    "subtitle": "Ogni passaggio è letto nell'ordine in cui Ruchoir lo applica. Qui non si modifica nulla.",
+    "pick": "Scegli una persona",
+    "you": "{{name}} (tu)",
+    "loading": "Lettura dei passaggi...",
+    "failed": "Non è stato possibile caricare la spiegazione.",
+    "noSteps": "Nessun passaggio: nulla dà un permesso a questa persona qui.",
+    "resultFor": "Risultato per {{name}}",
+    "hiddenPlace": "un elemento che non puoi aprire",
+    "hiddenTarget": "qualcuno che non puoi vedere",
+    "alreadyVia": "Ha già accesso tramite {{via}}",
+    "role": {
+      "direct": "{{person}} ha il ruolo {{role}}.",
+      "viaGroup": "{{person}} riceve {{role}} dal gruppo {{groups}}.",
+      "directAndGroup": "{{person}} ha {{role}} e lo riceve anche dal gruppo {{groups}}."
+    },
+    "step": {
+      "unknown": "Un altro passaggio modifica {{permission}}.",
+      "base": {
+        "granted": "Base: il ruolo di base dello spazio dà {{permission}} a {{person}}.",
+        "removed": "Base: il ruolo di base dello spazio toglie {{permission}} a {{person}}."
+      },
+      "role": {
+        "granted": "Ruolo: {{permission}} viene dal ruolo {{role}}.",
+        "removed": "Ruolo: il ruolo {{role}} toglie {{permission}}."
+      },
+      "rule": {
+        "granted": "Regola su {{where}}: {{target}} riceve {{permission}}.",
+        "removed": "Regola su {{where}}: {{target}} perde {{permission}}."
+      },
+      "private_lock": {
+        "granted": "Blocco privato: {{target}} apre questo canale privato ({{permission}}).",
+        "removed": "Blocco privato: il canale è privato, {{person}} perde {{permission}} finché una regola non lo apre."
+      },
+      "guest_ceiling": {
+        "granted": "Tetto degli ospiti: un ospite può mantenere {{permission}}.",
+        "removed": "Tetto degli ospiti: {{person}} è un ospite e {{permission}} supera ciò che un ospite può avere."
+      },
+      "owner": {
+        "granted": "Proprietario: {{person}} possiede lo spazio, quindi {{permission}} è concesso.",
+        "removed": "Proprietario: {{permission}} è tolto nonostante la proprietà."
+      },
+      "author": {
+        "granted": "Autore: {{person}} ha creato questo elemento, quindi {{permission}} è concesso.",
+        "removed": "Autore: {{permission}} è tolto nonostante la creazione dell'elemento."
+      },
+      "archived": {
+        "granted": "Archiviato: {{permission}} resta concesso nonostante l'archiviazione.",
+        "removed": "Archiviato: l'elemento è archiviato o nel cestino, quindi {{permission}} è tolto."
+      },
+      "joined": {
+        "granted": "Membro del canale: {{person}} ha aderito al canale, quindi {{permission}} è concesso.",
+        "removed": "Membro del canale: {{person}} perde {{permission}} pur essendo nel canale."
+      },
+      "unseen": {
+        "granted": "Percorso: {{permission}} è concesso da ciò che contiene l'elemento.",
+        "removed": "Percorso: {{person}} non può aprire ciò che contiene l'elemento, quindi {{permission}} è tolto."
+      },
+      "conversation": {
+        "granted": "Conversazione: {{person}} è nella conversazione in cui l'elemento è stato condiviso, quindi {{permission}} è concesso.",
+        "removed": "Conversazione: {{permission}} è tolto per questa conversazione."
+      },
+      "message": {
+        "granted": "Messaggio: l'elemento è allegato a un messaggio che {{person}} può leggere, quindi {{permission}} è concesso.",
+        "removed": "Messaggio: {{permission}} è tolto per questo messaggio."
+      },
+      "event": {
+        "granted": "Evento: l'elemento è collegato a un evento che {{person}} può vedere, quindi {{permission}} è concesso.",
+        "removed": "Evento: {{permission}} è tolto per questo evento."
+      }
+    },
+    "reason": {
+      "none": "Nessuna regola lo concede",
+      "base": "Dal ruolo di base",
+      "role": "Da un ruolo",
+      "rule": "Da una regola",
+      "private_lock": "Dal blocco privato",
+      "guest_ceiling": "Dal tetto degli ospiti",
+      "owner": "Come proprietario",
+      "author": "Come autore",
+      "archived": "Perché archiviato",
+      "joined": "Come membro del canale",
+      "unseen": "Dal percorso",
+      "conversation": "Da una conversazione",
+      "message": "Da un messaggio",
+      "event": "Da un evento",
+      "other": "Da un altro passaggio",
+      "ruleOn": "Da una regola su {{where}}, livello {{level}}",
+      "ruleOnHidden": "Da una regola in una posizione nascosta, livello {{level}}",
+      "askManage": "Richiede di gestire"
+    },
+    "locksNone": "Blocchi: il blocco privato, il tetto degli ospiti e la proprietà non cambiano nulla qui.",
+    "sep": ": ",
+    "card": {
+      "view": "Vedere"
+    },
+    "label": {
+      "base": "Base",
+      "roles": "I suoi ruoli",
+      "space": "Nello spazio",
+      "hiddenPlace": "Posizione nascosta"
+    },
+    "para": {
+      "base": {
+        "granted": "il ruolo di base dello spazio dà {{permission}} a {{person}}.",
+        "removed": "il ruolo di base dello spazio toglie {{permission}} a {{person}}."
+      },
+      "space": {
+        "granted": "{{role}} consente: {{permission}}.",
+        "removed": "{{role}} toglie: {{permission}}."
+      },
+      "rule": {
+        "grantedNoLevel": "una regola concede {{permission}} a {{target}}, di cui fa parte {{person}}.",
+        "removed": "una regola toglie {{permission}} a {{target}}, di cui fa parte {{person}}.",
+        "granted_one": "una regola dà {{level}} a {{target}}. {{person}} ne fa parte: {{permission}} è concesso.",
+        "granted_other": "una regola dà {{level}} a {{target}}. {{person}} ne fa parte: {{permission}} sono concessi.",
+        "granted_many": "una regola dà {{level}} a {{target}}. {{person}} ne fa parte: {{permission}} sono concessi.",
+        "granted_few": "una regola dà {{level}} a {{target}}. {{person}} ne fa parte: {{permission}} sono concessi."
+      },
+      "level": {
+        "none": "nessuna regola per {{person}}, i suoi gruppi o i suoi ruoli. Continua ad applicarsi la regola sopra."
+      },
+      "viaGroup": "ricevuto dal gruppo {{groups}}",
+      "viaDirect": "assegnato direttamente",
+      "viaBoth": "assegnato direttamente e ricevuto dal gruppo {{groups}}"
+    }
+  },
+  "preview": {
+    "viewAs": "Visualizza come",
+    "viewAsFor": "Visualizza lo spazio come {{role}}",
+    "hint": "Disponibile per i ruoli sotto il tuo, se puoi gestire i ruoli. Non vedi mai più dei tuoi permessi: l'anteprima ne è limitata.",
+    "locked": "«Visualizza come» fa parte dell'edizione Enterprise.",
+    "banner": "Stai visualizzando {{space}} come {{role}}",
+    "note": "Sola lettura · termina dopo {{minutes}} minuti di inattività",
+    "quit": "Esci",
+    "realtime": "Il tempo reale è sospeso durante l'anteprima.",
+    "readOnlyTitle": "Azione rifiutata: l'anteprima è in sola lettura.",
+    "readOnlyBody": "La tua modifica non è stata salvata. Fai clic su Esci, in alto, per riprendere il controllo.",
+    "startFailed": "Non è stato possibile avviare l'anteprima.",
+    "quitFailed": "Non è stato possibile terminare l'anteprima. Riprova.",
+    "refusal": {
+      "baseRole": "I ruoli di base non si possono visualizzare in anteprima.",
+      "unavailable": "L'anteprima non è disponibile al momento."
+    },
+    "readOnlyBodySend": "Il tuo messaggio non è stato inviato. Fai clic su Esci, in alto, per riprendere il controllo."
   }
 }

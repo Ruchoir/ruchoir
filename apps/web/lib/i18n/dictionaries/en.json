@@ -1748,7 +1748,9 @@
       "read": "See details",
       "write": "Edit events"
     },
-    "printFile": "calendar.pdf"
+    "printFile": "calendar.pdf",
+    "writeSummary": "Today, the whole space has the \"{{level}}\" level on this calendar.",
+    "shareByLevels": "Share the calendar"
   },
   "invitationPage": {
     "title": "Invitation",
@@ -2246,7 +2248,27 @@
     "memberToGuest": "{{actor}} made {{target}} a guest, from member",
     "guestPurged": "{{target}}'s access was deleted after 90 days",
     "accessUntil": "Access until {{date}}",
-    "accessTo": "Access to {{space}}"
+    "accessTo": "Access to {{space}}",
+    "ruleCreated": "{{actor}} gave {{target}} access {{resource}}",
+    "ruleUpdated": "{{actor}} changed the level of {{target}} {{resource}}",
+    "ruleCustomised": "{{actor}} customised the access of {{target}} {{resource}}",
+    "ruleDeleted": "{{actor}} removed the access of {{target}} {{resource}}",
+    "ruleReserved": "{{actor}} reserved {{resource}}: the whole space no longer has access",
+    "onChannel": "on the channel",
+    "onFile": "on the file or folder",
+    "onCalendar": "on the calendar",
+    "levelChip": "Level {{level}}",
+    "readersOfChannel": "the readers of a channel",
+    "rolePreviewStarted": "{{actor}} viewed the space as {{role}}",
+    "rolePreviewEnded": "{{actor}} left the preview as {{role}}",
+    "somebody": "a person",
+    "aGroup": "a group",
+    "aRole": "a role",
+    "onUnnamedChannel": "on a channel",
+    "onUnnamedFile": "on a file or folder",
+    "onUnnamedCalendar": "on a calendar",
+    "theChannel": "the channel",
+    "aChannel": "a channel"
   },
   "guests": {
     "endTitle": "Access until",
@@ -2356,5 +2378,345 @@
     "refusalAccessEnded": "This access has already ended: reactivate it to give it a new date.",
     "refusalNotEnded": "This access has not ended: there is nothing to reactivate.",
     "leftNotice": "You are no longer part of {{space}}"
+  },
+  "access": {
+    "title": "Access to {{name}}",
+    "subtitle": "Who can read, write in or manage this channel. Levels add up: each one includes the previous.",
+    "subtitlePrivate": "A private channel: it only appears for those who have access.",
+    "subtitleEnterprise": "Custom roles become targets, and each entry can be customised permission by permission.",
+    "typeLabel": "Channel visibility",
+    "publicTitle": "Public",
+    "publicBody": "Everyone in the space sees it and can join.",
+    "privateTitle": "Private",
+    "privateBody": "Only those listed below see it.",
+    "colWho": "Who has access",
+    "colLevel": "Level",
+    "everyoneSub": "All members",
+    "allGuests": "All guests",
+    "allGuestsSub": "Guests of the space",
+    "customRoleSub": "Custom role",
+    "audienceSub": "Readers of a channel",
+    "hiddenTarget": "Hidden entry",
+    "justAdded": "Just added",
+    "level": {
+      "none": "No access",
+      "read": "Read",
+      "manage": "Manage",
+      "custom": "Custom",
+      "channel": {
+        "contribute": "Take part"
+      },
+      "file": {
+        "contribute": "Edit"
+      },
+      "calendar": {
+        "contribute": "Write"
+      }
+    },
+    "levelDesc": {
+      "channel": {
+        "read": "See the channel and react.",
+        "contribute": "Read, write, attach, pin, mention everyone.",
+        "manage": "Moderate, manage the members and the channel settings."
+      },
+      "file": {
+        "read": "See the file or folder.",
+        "contribute": "See, create and edit.",
+        "manage": "All of that, plus managing access and the public link."
+      },
+      "calendar": {
+        "read": "See the calendar.",
+        "contribute": "See and write events.",
+        "manage": "Manage everything in the calendar."
+      }
+    },
+    "guestCap": "Not for a guest: the guest ceiling forbids it.",
+    "selfLocked": "You cannot change your own access.",
+    "levelNotHeld": "You do not hold this level here.",
+    "atLeast": "at least {{level}} (whole space)",
+    "denyTag": "Denied",
+    "denyNote": "Access denied here",
+    "clamped": "its level is capped for its guests",
+    "inheritedFrom": "Inherited from {{folder}}",
+    "inheritedHidden": "Inherited from a parent folder",
+    "levelFor": "Level of {{name}}",
+    "editDetail": "Edit the detail",
+    "readOnly": {
+      "licenceRequired": "You can view this access without changing it: delegating access management is part of the Enterprise edition.",
+      "licenceFrozen": "Changes are suspended: this space's licence is frozen. You can view the access.",
+      "notAllowed": "You can view this access, but not change it.",
+      "archived": "This channel is archived: its access can no longer be changed.",
+      "trashed": "This item is in the trash: its access can no longer be changed."
+    },
+    "verifyTitle": "Check someone's access.",
+    "verifyBody": "Choose a person: we explain step by step why they have, or lack, access.",
+    "teaser": "A custom role as a target, denying a person access, setting each permission one by one: Enterprise edition.",
+    "add": "Add people or groups",
+    "loading": "Loading access…",
+    "loadFailed": "Could not load the access.",
+    "open": "Manage access",
+    "summaryPublic": "Public: everyone in the space sees this channel and can join it. Set who can read, take part or manage.",
+    "summaryPrivate": "Private: only people with access see this channel. Set who can read, take part or manage.",
+    "addTitle": "Add to {{name}}",
+    "addSub": "Search among the space's groups, roles, members and guests.",
+    "search": "Search for a group, a role or a person",
+    "alreadyListed": "Already on the list",
+    "guestNotice": "{{name}} is a guest: their access never goes beyond the guest ceiling, whatever level is chosen.",
+    "refusal": {
+      "cannotGrant": "You cannot give a permission you do not hold yourself here.",
+      "targetAboveYou": "This person or group is above you: you cannot change their access.",
+      "reservationAdminsOnly": "Only the owner and administrators can take access away from everyone.",
+      "guestCeiling": "A guest cannot go beyond the guest ceiling.",
+      "audienceFilesOnly": "The readers of a channel can only be chosen for files.",
+      "baseRoleLevelsOnly": "This line only takes levels.",
+      "permissionInBoth": "A permission cannot be both allowed and denied."
+    },
+    "groupSub_one": "Group · {{count}} person",
+    "groupSub_other": "Group · {{count}} people",
+    "customExcept_one": "{{level}} except {{count}} permission",
+    "customExcept_other": "{{level}} except {{count}} permissions",
+    "customPlus_one": "{{level}} plus {{count}} permission",
+    "customPlus_other": "{{level}} plus {{count}} permissions",
+    "customChanges_one": "{{level}}, {{count}} permission changed",
+    "customChanges_other": "{{level}}, {{count}} permissions changed",
+    "levelForSelected_one": "Level for {{count}} selected",
+    "levelForSelected_other": "Level for {{count}} selected",
+    "addConfirm_one": "Add {{count}} entry",
+    "addConfirm_other": "Add {{count}} entries",
+    "guestGroupNotice_one": "In the chosen group, guests' level is capped the same way.",
+    "guestGroupNotice_other": "In the chosen groups, guests' level is capped the same way.",
+    "privateNote_one": "{{names}} now sees {{channel}} in their channel list and joins it in one click. Nobody is notified: not them, not the others. Access given to a role, a group or a person works the same way.",
+    "privateNote_other": "{{names}} now see {{channel}} in their channel list and join it in one click. Nobody is notified: not them, not the others. Access given to a role, a group or a person works the same way.",
+    "subtitleFile": "This file follows its folder, except for the entries changed below.",
+    "subtitleFileIn": "{{parent}}. This file follows its folder, except for the entries changed below.",
+    "subtitleFolder": "What you set here applies to everything this folder contains.",
+    "subtitleFolderIn": "{{parent}}. What you set here applies to everything this folder contains.",
+    "subtitleCalendar": "Who sees the events, who can create them, who manages the calendar.",
+    "shareFolderTitle": "Share the folder {{name}}",
+    "shareCalendarTitle": "Share the calendar {{name}}",
+    "tab": "Access",
+    "inheritedFromLabel": "Inherited from",
+    "modifiedHere": "Changed here",
+    "overrides": "Replaces \"{{level}}\" inherited from {{folder}}",
+    "overridesHidden": "Replaces \"{{level}}\" inherited from a parent folder",
+    "restore": "Restore inheritance",
+    "audienceName": "Readers of #{{name}}",
+    "closestWins": "The closest rule wins.",
+    "closestWinsBody": "For {{name}}, this item is set to \"{{level}}\" even though the folder above gives \"{{parentLevel}}\". The other entries keep following the folder.",
+    "usedIn": {
+      "file": "File or folder",
+      "titleGroup": "Cannot delete the group {{name}}",
+      "titleRole": "Cannot delete the role {{name}}",
+      "sub": "Access rules name it: deleting it could make a denial disappear and open access without anyone seeing it.",
+      "warnTitle": "{{name}} is still in use.",
+      "warnBody": "Remove it from each rule below first, then come back to delete it.",
+      "where": "Where it is used",
+      "hidden": "An item you cannot open"
+    },
+    "verify": "Verify",
+    "learnMore": "Learn more",
+    "freeManage": {
+      "subtitle": "You can read who has access here, but not change it.",
+      "noNames": "the space's administrators",
+      "title": {
+        "folder": "Who has access to a folder is set from the space settings.",
+        "file": "Who has access to a file is set from the space settings.",
+        "calendar": "Who has access to a calendar is set from the space settings.",
+        "channel": "Who has access to a channel is set from the space settings."
+      },
+      "body": {
+        "file": "Your Manage level on {{name}} lets you rename it, delete it and create a public link. To change who has access, ask {{who}}.",
+        "calendar": "Your Manage level on {{name}} lets you rename it, edit it and delete it. To change who has access, ask {{who}}.",
+        "channel": "Your Manage level on {{name}} lets you moderate messages and set up the channel. To change who has access, ask {{who}}."
+      },
+      "upsell": {
+        "folder": "Delegating the sharing of a folder to those who manage it: Enterprise edition.",
+        "file": "Delegating the sharing of a file to those who manage it: Enterprise edition.",
+        "calendar": "Delegating the sharing of a calendar to those who manage it: Enterprise edition.",
+        "channel": "Delegating the sharing of a channel to those who manage it: Enterprise edition."
+      }
+    },
+    "you": "You",
+    "delegation": {
+      "folder": "You manage this folder: you set its access, within your own rights.",
+      "file": "You manage this file: you set its access, within your own rights.",
+      "calendar": "You manage this calendar: you set its access, within your own rights.",
+      "channel": "You manage this channel: you set its access, within your own rights."
+    },
+    "delegationHead": "You have the Manage level on {{name}}.",
+    "delegationBody": "It lets you set other people's access here, without reserving the whole space or changing your own line.",
+    "delegationFoot": "You only give rights you hold yourself here. Everything is written to the journal under your name.",
+    "selectedRemove": "Remove {{name}} from the selection",
+    "givenBy": "{{name}} gave it to them",
+    "addedByYou": "Added by you",
+    "publicLink": "Public link",
+    "publicLinkHint": "Anyone with the link opens the file, without an account. Reserved for those who manage it."
+  },
+  "customise": {
+    "title": "Customise: {{name}}",
+    "subtitle": "Each permission is Inherited, Allowed or Denied. Inherited means no rule here: the permission comes from the base role.",
+    "groupRead": "Reading",
+    "groupParticipate": "Taking part",
+    "inherited": "Inherited",
+    "allowed": "Allowed",
+    "denied": "Denied",
+    "lockNotHeld": "You do not hold this yourself here: you cannot grant or deny it.",
+    "resultLevel": "Result: {{level}}",
+    "resultExcept": ", except {{list}}",
+    "resultPlus": ", plus {{list}}",
+    "resultNote": "You only set the permissions you hold yourself on this item.",
+    "changed": "Permissions changed: {{count}}",
+    "unchanged": "No change",
+    "upsell": "Setting permissions one by one is part of the Enterprise edition.",
+    "saveFailed": "The permissions were not saved.",
+    "openFor": "Customise the permissions of {{name}}"
+  },
+  "why": {
+    "title": "Why? {{person}} on {{resource}}",
+    "titleBare": "Why? On {{resource}}",
+    "subtitle": "Each step is read in the order Ruchoir applies it. Nothing is changed here.",
+    "pick": "Choose a person",
+    "you": "{{name}} (you)",
+    "loading": "Reading the steps...",
+    "failed": "The explanation could not be loaded.",
+    "noSteps": "No step: nothing gives this person a permission here.",
+    "resultFor": "Result for {{name}}",
+    "hiddenPlace": "an item you cannot open",
+    "hiddenTarget": "someone you cannot see",
+    "alreadyVia": "Already has access through {{via}}",
+    "role": {
+      "direct": "{{person}} holds {{role}}.",
+      "viaGroup": "{{person}} gets {{role}} through the group {{groups}}.",
+      "directAndGroup": "{{person}} holds {{role}}, and also gets it through the group {{groups}}."
+    },
+    "step": {
+      "unknown": "Another step changes {{permission}}.",
+      "base": {
+        "granted": "Base: the space's base role gives {{person}} {{permission}}.",
+        "removed": "Base: the space's base role takes {{permission}} from {{person}}."
+      },
+      "role": {
+        "granted": "Role: {{permission}} comes from the role {{role}}.",
+        "removed": "Role: the role {{role}} takes {{permission}} away."
+      },
+      "rule": {
+        "granted": "Rule on {{where}}: {{target}} gets {{permission}}.",
+        "removed": "Rule on {{where}}: {{target}} loses {{permission}}."
+      },
+      "private_lock": {
+        "granted": "Private lock: {{target}} opens this private channel ({{permission}}).",
+        "removed": "Private lock: the channel is private, so {{person}} loses {{permission}} unless a rule opens it."
+      },
+      "guest_ceiling": {
+        "granted": "Guest ceiling: a guest may keep {{permission}}.",
+        "removed": "Guest ceiling: {{person}} is a guest, and {{permission}} is more than a guest can hold."
+      },
+      "owner": {
+        "granted": "Owner: {{person}} owns the space, so {{permission}} is granted.",
+        "removed": "Owner: {{permission}} is taken away despite ownership."
+      },
+      "author": {
+        "granted": "Author: {{person}} created this item, so {{permission}} is granted.",
+        "removed": "Author: {{permission}} is taken away despite having created the item."
+      },
+      "archived": {
+        "granted": "Archived: {{permission}} stays granted despite the archiving.",
+        "removed": "Archived: the item is archived or in the trash, so {{permission}} is taken away."
+      },
+      "joined": {
+        "granted": "Channel member: {{person}} joined the channel, so {{permission}} is granted.",
+        "removed": "Channel member: {{person}} loses {{permission}} despite being in the channel."
+      },
+      "unseen": {
+        "granted": "Path: {{permission}} is granted through what contains the item.",
+        "removed": "Path: {{person}} cannot open what contains the item, so {{permission}} is taken away."
+      },
+      "conversation": {
+        "granted": "Conversation: {{person}} is in the conversation where the item was shared, so {{permission}} is granted.",
+        "removed": "Conversation: {{permission}} is taken away for this conversation."
+      },
+      "message": {
+        "granted": "Message: the item is attached to a message {{person}} can read, so {{permission}} is granted.",
+        "removed": "Message: {{permission}} is taken away for this message."
+      },
+      "event": {
+        "granted": "Event: the item is linked to an event {{person}} can see, so {{permission}} is granted.",
+        "removed": "Event: {{permission}} is taken away for this event."
+      }
+    },
+    "reason": {
+      "none": "No rule grants it",
+      "base": "By the base role",
+      "role": "By a role",
+      "rule": "By a rule",
+      "private_lock": "By the private lock",
+      "guest_ceiling": "By the guest ceiling",
+      "owner": "As the owner",
+      "author": "As the author",
+      "archived": "Because it is archived",
+      "joined": "As a channel member",
+      "unseen": "By the path",
+      "conversation": "By a conversation",
+      "message": "By a message",
+      "event": "By an event",
+      "other": "By another step",
+      "ruleOn": "By a rule on {{where}}, level {{level}}",
+      "ruleOnHidden": "By a rule on a hidden location, level {{level}}",
+      "askManage": "Needs the right to manage"
+    },
+    "locksNone": "Locks: the private lock, the guest ceiling and ownership change nothing here.",
+    "sep": ": ",
+    "card": {
+      "view": "View"
+    },
+    "label": {
+      "base": "Base",
+      "roles": "Their roles",
+      "space": "In the space",
+      "hiddenPlace": "Hidden location"
+    },
+    "para": {
+      "base": {
+        "granted": "the space's base role gives {{person}} {{permission}}.",
+        "removed": "the space's base role takes {{permission}} from {{person}}."
+      },
+      "space": {
+        "granted": "{{role}} allows: {{permission}}.",
+        "removed": "{{role}} takes away: {{permission}}."
+      },
+      "rule": {
+        "grantedNoLevel": "a rule gives {{permission}} to {{target}}, which {{person}} is part of.",
+        "removed": "a rule takes {{permission}} from {{target}}, which {{person}} is part of.",
+        "granted_one": "a rule gives {{level}} to {{target}}. {{person}} is part of it: {{permission}} is granted.",
+        "granted_other": "a rule gives {{level}} to {{target}}. {{person}} is part of it: {{permission}} are granted.",
+        "granted_many": "a rule gives {{level}} to {{target}}. {{person}} is part of it: {{permission}} are granted.",
+        "granted_few": "a rule gives {{level}} to {{target}}. {{person}} is part of it: {{permission}} are granted."
+      },
+      "level": {
+        "none": "no rule for {{person}}, their groups or their roles. The rule above keeps applying."
+      },
+      "viaGroup": "received through the group {{groups}}",
+      "viaDirect": "given directly",
+      "viaBoth": "given directly and received through the group {{groups}}"
+    }
+  },
+  "preview": {
+    "viewAs": "View as",
+    "viewAsFor": "View the space as {{role}}",
+    "hint": "Available for the roles placed below yours, if you can manage roles. You never see more than your own permissions: the preview is capped by them.",
+    "locked": "\"View as\" is part of the Enterprise edition.",
+    "banner": "You are viewing {{space}} as {{role}}",
+    "note": "Read only · ends after {{minutes}} minutes of inactivity",
+    "quit": "Quit",
+    "realtime": "Real time is paused during the preview.",
+    "readOnlyTitle": "Action refused: the preview is read only.",
+    "readOnlyBody": "Your change was not saved. Click Quit at the top to take control again.",
+    "startFailed": "The preview could not start.",
+    "quitFailed": "The preview could not end. Try again.",
+    "refusal": {
+      "baseRole": "The base roles cannot be previewed.",
+      "unavailable": "The preview is unavailable right now."
+    },
+    "readOnlyBodySend": "Your message was not sent. Click Quit at the top to take control again."
   }
 }

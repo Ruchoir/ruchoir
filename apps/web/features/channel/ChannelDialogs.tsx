@@ -15,7 +15,7 @@ import type { Channel, ChannelType } from "@/lib/data";
 import type { Member } from "@/lib/data/api";
 import type { ChannelNotifPref, NotifLevel } from "../app/notifications";
 import type { Toast } from "../app/types";
-import { ChannelAccess } from "./ChannelAccess";
+import { ChannelAccess, type ChannelAccessRules } from "./ChannelAccess";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { isApiError } from "@/lib/data/http";
 
@@ -45,10 +45,16 @@ export function ChannelSettingsDialog({
   myChannelRole,
   onDelete,
   isDefault = false,
+  accessRules,
 }: {
   channel: Channel;
   onClose: () => void;
-  onUpdate: (patch: Partial<Channel>) => void;
+  onUpdate: (patch: Partial<Channel>) => void | Promise<unknown>;
+  /**
+   * Set when the instance lists `resource_rules`: the access section becomes the levels dialog. Absent
+   * (an older server), the legacy public/private and role reservation questions stay.
+   */
+  accessRules?: ChannelAccessRules;
   onNotify: (toast: Toast) => void;
   /** The caller's own space role: always admitted, and what the reservation is checked against. */
   myRole: string;
@@ -170,11 +176,30 @@ export function ChannelSettingsDialog({
         </Field>
         <ChannelAccess
           type={type}
-          onTypeChange={setType}
+          onTypeChange={
+            accessRules
+              ? async (next) => {
+                  // The levels dialog changes it at once, as every other line of it does; Save below
+                  // must not put the old value back.
+                  setType(next);
+                  await onUpdate({ type: next });
+                }
+              : setType
+          }
           allowedRoles={allowedRoles}
           onRolesChange={setAllowedRoles}
           myRole={myRole}
           disabled={archived}
+          rules={
+            accessRules
+              ? {
+                  ...accessRules,
+                  channelId: channel.id,
+                  channelName: channel.name,
+                  onNotify,
+                }
+              : undefined
+          }
         />
 
         <Field label={t("channel.membersAndAccess", { count: members?.length ?? 0 })}>

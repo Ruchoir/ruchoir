@@ -44,6 +44,9 @@ pub struct WhyPersonDto {
     pub name: String,
     /// `owner`, `member` or `guest`.
     pub standing: &'static str,
+    /// Every role the person holds in the space beyond the base roles, given to them or carried by
+    /// one of their groups, by name; whether or not a step names it.
+    pub roles: Vec<WhyRoleDto>,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -339,6 +342,31 @@ impl Names<'_> {
         )))
     }
 
+    /// A role as the person holds it: given to them, and every group of theirs carrying it.
+    async fn role_held(
+        &mut self,
+        id: Uuid,
+        explained: &check::Explained,
+    ) -> Result<Option<WhyRoleDto>, ApiError> {
+        let Some(name) = self.name("space_roles", id).await? else {
+            return Ok(None);
+        };
+        // Every group of the person's is visible to whoever may ask: a guest only ever explains
+        // themselves, so the groups are their own.
+        let mut via_groups = Vec::new();
+        for group in explained.role_groups.get(&id).into_iter().flatten() {
+            via_groups.extend(self.group(*group).await?);
+        }
+        via_groups.sort_by_key(|group| group.name.to_lowercase());
+        let direct = self.direct_roles.contains(&id) || via_groups.is_empty();
+        Ok(Some(WhyRoleDto {
+            id,
+            name,
+            direct,
+            via_groups,
+        }))
+    }
+
     async fn step(
         &mut self,
         n: u32,
@@ -350,25 +378,16 @@ impl Names<'_> {
         let (kind, target, role) = match step.source {
             Source::BaseRole if !at_a_level => ("base", None, None),
             Source::Role(id) if !at_a_level => {
-                // Every group of the person's is visible to whoever may ask: a guest only ever
-                // explains themselves, so the groups are their own.
-                let mut via_groups = Vec::new();
-                for group in explained.role_groups.get(&id).into_iter().flatten() {
-                    via_groups.extend(self.group(*group).await?);
-                }
-                via_groups.sort_by_key(|group| group.name.to_lowercase());
-                let direct = self.direct_roles.contains(&id) || via_groups.is_empty();
-                let name = self.name("space_roles", id).await?.unwrap_or_default();
-                (
-                    "role",
-                    None,
-                    Some(WhyRoleDto {
+                let role = match self.role_held(id, explained).await? {
+                    Some(role) => role,
+                    None => WhyRoleDto {
                         id,
-                        name,
-                        direct,
-                        via_groups,
-                    }),
-                )
+                        name: String::new(),
+                        direct: self.direct_roles.contains(&id),
+                        via_groups: Vec::new(),
+                    },
+                };
+                ("role", None, Some(role))
             }
             Source::Lifted(_) => (
                 "private_lock",
@@ -499,6 +518,7 @@ pub async fn read_why(
         id: person_id,
         name,
         standing: standing_word(explained.standing),
+        roles: Vec::new(),
     };
 
     let family = PermissionSet::of_family(family_of(resource));
@@ -512,6 +532,22 @@ pub async fn read_why(
         cache: HashMap::new(),
         seen: HashMap::new(),
     };
+    // Every role the person holds beyond the base ones, direct or through a group: what the loader
+    // already read, so nothing new is loaded.
+    let mut role_ids: Vec<Uuid> = names
+        .direct_roles
+        .iter()
+        .copied()
+        .chain(explained.role_groups.keys().copied())
+        .collect();
+    role_ids.sort();
+    role_ids.dedup();
+    let mut roles = Vec::new();
+    for id in role_ids {
+        roles.extend(names.role_held(id, &explained).await?);
+    }
+    roles.sort_by_key(|role| role.name.to_lowercase());
+    let person = WhyPersonDto { roles, ..person };
     let mut steps = Vec::new();
     let mut last: HashMap<Permission, u32> = HashMap::new();
     for step in explained

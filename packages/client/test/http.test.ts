@@ -51,3 +51,43 @@ test("a_401_tells_why", async () => {
   await assert.rejects(apiRequest("POST", "/auth/password", {}));
   assert.deepEqual(codes, ["invalid_credentials"]);
 });
+
+test("a_write_refused_by_a_preview_calls_onPreviewReadOnly", async () => {
+  fakeFetch({ status: 403, body: { error: "preview_read_only" } }, { status: 403, body: { error: "forbidden", reason: "preview_read_only" } }, { status: 403, body: { error: "forbidden", reason: "cannot_grant" } });
+  const heard: string[] = [];
+  configureClient({ baseUrl: "https://a.test", onPreviewReadOnly: (request) => heard.push(`${request.method} ${request.path}`) });
+  for (let i = 0; i < 3; i++) await apiRequest("PUT", "/x").catch(() => {});
+  assert.deepEqual(heard, ["PUT /x", "PUT /x"]);
+});
+
+test("a_preview_sends_no_background_write_and_toasts_nothing_unasked", async () => {
+  const heard: string[] = [];
+  let previewing = true;
+  configureClient({ baseUrl: "https://a.test", previewActive: () => previewing, onPreviewReadOnly: (request) => heard.push(`${request.method} ${request.path}`) });
+  const background = [
+    ["PUT", "/conversations/c1/read"], ["PUT", "/notifications/n1/read?guest_notices=true"], ["PUT", "/notifications/read"],
+    ["POST", "/realtime/typing"], ["PUT", "/push/devices"], ["PUT", "/push/subscription"], ["POST", "/files/f1/office/heartbeat?tab=t"],
+  ] as const;
+  // While previewing none of them leaves the client, and nothing is heard.
+  const calls = fakeFetch();
+  for (const [method, path] of background) await apiRequest(method, path);
+  assert.equal(calls.length, 0);
+  assert.deepEqual(heard, []);
+  // What the person starts is sent, and its refusal is heard.
+  fakeFetch({ status: 403, body: { error: "preview_read_only" } });
+  await apiRequest("POST", "/conversations/c1/messages").catch(() => {});
+  assert.deepEqual(heard, ["POST /conversations/c1/messages"]);
+  // Reads are never held back.
+  const reads = fakeFetch({ body: {} });
+  await apiRequest("GET", "/conversations/c1/read");
+  assert.equal(reads.length, 1);
+  // Before the preview is known, a background write goes out; if the server refuses it, silently.
+  previewing = false;
+  fakeFetch({ status: 403, body: { error: "preview_read_only" } });
+  await apiRequest("PUT", "/conversations/c1/read").catch(() => {});
+  assert.deepEqual(heard, ["POST /conversations/c1/messages"]);
+  // Outside a preview everything is sent as before.
+  const normal = fakeFetch({ body: {} });
+  await apiRequest("PUT", "/conversations/c1/read");
+  assert.equal(normal.length, 1);
+});

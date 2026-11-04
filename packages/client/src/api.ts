@@ -17,7 +17,18 @@ import { multipartBody } from "./multipart.ts";
 import { toEventCard, type EventCardDto } from "./calendar.ts";
 import type { AccountPrefsDoc } from "./accountPrefs.ts";
 import type {
+  AccessChange,
+  AccessKind,
+  AccessLevel,
+  AccessTarget,
+  AccessTargetKind,
+  AccessTargetRef,
+  AccessView,
   AuditPage,
+  NamedRef,
+  Preview,
+  UsedIn,
+  WhyView,
   AuditQuery,
   LicenceView,
   Refusal,
@@ -86,6 +97,7 @@ type SpaceDto = {
   edition?: string;
   licence?: { seats: number; used: number; valid_until: string; expires_in_days: number };
   expires_at?: string | null;
+  preview?: { role_id: string; role_name: string } | null;
 };
 
 type RoleDto = {
@@ -176,7 +188,136 @@ function toLicenceView(dto: LicenceViewDto): LicenceView {
   };
 }
 
+type NamedRefDto = { kind: string; id?: string | null; name?: string | null; hidden?: boolean | null };
+type UsedInDto = { kind: string; id?: string | null; name?: string | null; hidden?: boolean | null; level?: string | null; parent_id?: string | null };
+type AccessEntryDto = {
+  id?: string | null;
+  target: NamedRefDto;
+  level: string;
+  allow: string[];
+  deny: string[];
+  clamped: boolean;
+  guest: boolean;
+  inherited_from?: NamedRefDto | null;
+  summary?: { nearest: string; changes: { permission: string; state: string }[] } | null;
+  via_legacy: boolean;
+  set_by?: { id: string; name: string } | null;
+  set_at?: string | null;
+};
+type AccessDto = {
+  resource: { kind: string; id: string; name: string; parent?: NamedRefDto | null };
+  private: boolean;
+  archived: boolean;
+  entries: AccessEntryDto[];
+  may: { edit: boolean; fine: boolean; manage_target_levels: string[]; held?: string[]; reason?: string | null };
+};
+type WhyRoleDto = { id: string; name: string; direct: boolean; via_groups: { id: string; name: string }[] };
+type WhyDto = {
+  person: { id: string; name: string; standing: string; roles?: WhyRoleDto[] };
+  steps: {
+    n: number;
+    kind: string;
+    permission: string;
+    effect: string;
+    role?: WhyRoleDto | null;
+    target?: NamedRefDto | null;
+    level?: NamedRefDto | null;
+    rule_level?: string | null;
+  }[];
+  result: { permission: string; granted: boolean; reason?: { n: number } | null }[];
+};
+
+function toNamedRef(dto: NamedRefDto): NamedRef {
+  return { kind: dto.kind, id: dto.id ?? undefined, name: dto.name ?? undefined, hidden: dto.hidden === true };
+}
+
+function toAccessTarget(dto: NamedRefDto): AccessTarget {
+  return { ...toNamedRef(dto), kind: dto.kind as AccessTargetKind };
+}
+
+/** A level from the wire; one this app does not know reads as `custom`, which it only displays. */
+function toAccessLevel(level: string): AccessLevel {
+  return level === "none" || level === "read" || level === "contribute" || level === "manage" ? level : "custom";
+}
+
+function toAccessView(dto: AccessDto): AccessView {
+  return {
+    resource: {
+      kind: dto.resource.kind as AccessKind,
+      id: dto.resource.id,
+      name: dto.resource.name,
+      parent: dto.resource.parent ? toNamedRef(dto.resource.parent) : undefined,
+    },
+    private: dto.private,
+    archived: dto.archived,
+    entries: dto.entries.map((e) => ({
+      id: e.id ?? undefined,
+      target: toAccessTarget(e.target),
+      level: toAccessLevel(e.level),
+      allow: e.allow,
+      deny: e.deny,
+      clamped: e.clamped,
+      guest: e.guest,
+      inheritedFrom: e.inherited_from ? toNamedRef(e.inherited_from) : undefined,
+      summary: e.summary
+        ? {
+            nearest: toAccessLevel(e.summary.nearest),
+            changes: e.summary.changes.map((c) => ({ permission: c.permission, state: c.state as AccessChange["state"] })),
+          }
+        : undefined,
+      viaLegacy: e.via_legacy,
+      setBy: e.set_by ? { id: e.set_by.id, name: e.set_by.name } : undefined,
+      setAt: e.set_at ?? undefined,
+    })),
+    may: {
+      edit: dto.may.edit,
+      fine: dto.may.fine,
+      manageTargetLevels: dto.may.manage_target_levels.map(toAccessLevel),
+      held: dto.may.held ?? [],
+      reason: dto.may.reason ?? undefined,
+    },
+  };
+}
+
+function toWhyView(dto: WhyDto): WhyView {
+  return {
+    person: {
+      id: dto.person.id,
+      name: dto.person.name,
+      standing: dto.person.standing,
+      roles: (dto.person.roles ?? []).map((r) => ({ id: r.id, name: r.name, direct: r.direct, viaGroups: r.via_groups })),
+    },
+    steps: dto.steps.map((s) => ({
+      n: s.n,
+      kind: s.kind,
+      permission: s.permission,
+      effect: s.effect === "removed" ? "removed" : "granted",
+      role: s.role ? { id: s.role.id, name: s.role.name, direct: s.role.direct, viaGroups: s.role.via_groups } : undefined,
+      target: s.target ? toAccessTarget(s.target) : undefined,
+      level: s.level ? toNamedRef(s.level) : undefined,
+      ruleLevel: s.rule_level ? toAccessLevel(s.rule_level) : undefined,
+    })),
+    result: dto.result.map((r) => ({ permission: r.permission, granted: r.granted, reasonStep: r.reason?.n })),
+  };
+}
+
+function toUsedIn(dto: UsedInDto): UsedIn {
+  return {
+    kind: dto.kind as UsedIn["kind"],
+    id: dto.id ?? undefined,
+    name: dto.name ?? undefined,
+    hidden: dto.hidden === true,
+    level: dto.level ? toAccessLevel(dto.level) : undefined,
+    parentId: dto.parent_id ?? undefined,
+  };
+}
+
+export { isBackgroundWrite } from "./background.ts";
+
 const REFUSAL_CODES = new Set([
+  "cannot_grant", "target_above_you", "reservation_admins_only", "guest_ceiling", "audience_files_only",
+  "base_role_not_previewable", "base_role_levels_only", "permission_in_both", "unknown_permission", "wrong_family", "group_has_rules",
+  "preview_read_only", "preview_unavailable",
   "seats_full", "licence_required", "licence_frozen", "licence_invalid", "licence_other_space",
   "licence_expired", "role_above_you", "person_above_you", "permission_not_held",
   "role_name_reserved", "role_name_taken", "role_has_rules", "beyond_guest_ceiling",
@@ -192,12 +333,15 @@ const REFUSAL_CODES = new Set([
  */
 export function refusalOf(err: unknown): Refusal | undefined {
   if (!(err instanceof ApiError)) return undefined;
-  const body = (err.body ?? {}) as { error?: string; reason?: string; seats?: number; pricing_url?: string; organisation?: string };
+  const body = (err.body ?? {}) as { error?: string; reason?: string; seats?: number; pricing_url?: string; organisation?: string; used_in?: UsedInDto[] };
   const code = body.error === "forbidden" ? body.reason : body.error;
   if (!code || !REFUSAL_CODES.has(code)) return undefined;
   if (code === "seats_full") return { code, seats: body.seats ?? 0, pricingUrl: body.pricing_url ?? "" };
   if (code === "licence_required") return { code, pricingUrl: body.pricing_url ?? "" };
   if (code === "licence_other_space") return { code, organisation: body.organisation };
+  if (code === "group_has_rules" || code === "role_has_rules") {
+    return Array.isArray(body.used_in) ? { code, usedIn: body.used_in.map(toUsedIn) } : { code };
+  }
   return { code } as Refusal;
 }
 
@@ -489,6 +633,7 @@ function toWorkspace(dto: SpaceDto): Workspace {
     licence: dto.licence
       ? { seats: dto.licence.seats, used: dto.licence.used, validUntil: dto.licence.valid_until, expiresInDays: dto.licence.expires_in_days }
       : undefined,
+    preview: dto.preview ? { roleId: dto.preview.role_id, roleName: dto.preview.role_name } : undefined,
   };
 }
 
@@ -2146,6 +2291,71 @@ export function createApi(transport: Transport) {
   /** `PUT /spaces/{id}/groups/{groupId}/managers`: who manages a group (enterprise edition). */
   async function setGroupManagers(spaceId: string, groupId: string, userIds: string[]): Promise<Group> {
     return toGroup(await apiPut<GroupDto>(`/spaces/${spaceId}/groups/${groupId}/managers`, { user_ids: userIds }));
+  }
+
+  // --- Access, "Pourquoi ?" and the preview (permissions lot 4) ---
+
+  /** `GET /spaces/{id}/access/{kind}/{resourceId}`: who has what on a channel, a file or folder, or a calendar. */
+  async function getAccess(spaceId: string, kind: AccessKind, resourceId: string): Promise<AccessView> {
+    return toAccessView(await apiGet<AccessDto>(`/spaces/${spaceId}/access/${kind}/${resourceId}`));
+  }
+
+  /**
+   * `PUT /spaces/{id}/access/{kind}/{resourceId}/entries`: give `target` a preset level (`none`
+   * reserves, for those who may). Answers the dialog as it is now; refusals read with {@link refusalOf}.
+   */
+  async function setAccessLevel(
+    spaceId: string,
+    kind: AccessKind,
+    resourceId: string,
+    target: AccessTargetRef,
+    level: Exclude<AccessLevel, "custom">,
+  ): Promise<AccessView> {
+    return toAccessView(
+      await apiPut<AccessDto>(`/spaces/${spaceId}/access/${kind}/${resourceId}/entries`, { target: { kind: target.kind, id: target.id }, level }),
+    );
+  }
+
+  /**
+   * `PUT /spaces/{id}/access/{kind}/{resourceId}/rules` (enterprise edition): write one entry as
+   * permissions, `allow` and `deny` by name. Both empty deletes the rule. Answers the whole dialog.
+   */
+  async function setAccessRule(
+    spaceId: string,
+    kind: AccessKind,
+    resourceId: string,
+    target: AccessTargetRef,
+    rule: { allow: string[]; deny: string[] },
+  ): Promise<AccessView> {
+    return toAccessView(
+      await apiPut<AccessDto>(`/spaces/${spaceId}/access/${kind}/${resourceId}/rules`, {
+        target: { kind: target.kind, id: target.id },
+        allow: rule.allow,
+        deny: rule.deny,
+      }),
+    );
+  }
+
+  /** `DELETE /spaces/{id}/access/{kind}/{resourceId}/entries/{ruleId}`: what the base roles grant applies again. */
+  async function removeAccessEntry(spaceId: string, kind: AccessKind, resourceId: string, ruleId: string): Promise<void> {
+    await apiDelete<void>(`/spaces/${spaceId}/access/${kind}/${resourceId}/entries/${ruleId}`);
+  }
+
+  /** `GET .../why`: step by step, why `userId` (the caller when omitted) has or lacks each permission. */
+  async function explainAccess(spaceId: string, kind: AccessKind, resourceId: string, userId?: string): Promise<WhyView> {
+    const query = userId ? `?user_id=${encodeURIComponent(userId)}` : "";
+    return toWhyView(await apiGet<WhyDto>(`/spaces/${spaceId}/access/${kind}/${resourceId}/why${query}`));
+  }
+
+  /** `POST /spaces/{id}/roles/{roleId}/preview` (enterprise edition): look at the space as that role, read only. */
+  async function startPreview(spaceId: string, roleId: string): Promise<Preview> {
+    const dto = await apiPost<{ role_id: string; role_name: string; idle_seconds?: number }>(`/spaces/${spaceId}/roles/${roleId}/preview`);
+    return { roleId: dto.role_id, roleName: dto.role_name, idleSeconds: dto.idle_seconds };
+  }
+
+  /** `DELETE /spaces/{id}/preview`: back to the person's own rights. */
+  async function quitPreview(spaceId: string): Promise<void> {
+    await apiDelete<void>(`/spaces/${spaceId}/preview`);
   }
 
   // --- Roles, audit log, licence (permissions lot 2) ---
@@ -4136,7 +4346,8 @@ export function createApi(transport: Transport) {
     getWorkspaces, createSpace, renameSpace, setChannelOrder, setDefaultChannel, setMemberRole,
     leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
     setMemberRoles, listGroups, createGroup, updateGroup, deleteGroup, addGroupMembers,
-    removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
+    removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAccess, setAccessLevel, setAccessRule, removeAccessEntry,
+    explainAccess, startPreview, quitPreview, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
     getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
     uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
     createChannel, setChannelFavorite, deleteChannel, updateChannel, joinChannel, leaveChannel,
@@ -4172,7 +4383,8 @@ export const {
   getWorkspaces, createSpace, renameSpace, setChannelOrder, setDefaultChannel, setMemberRole,
   leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
     setMemberRoles, listGroups, createGroup, updateGroup, deleteGroup, addGroupMembers,
-    removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
+    removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAccess, setAccessLevel, setAccessRule, removeAccessEntry,
+    explainAccess, startPreview, quitPreview, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
   getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
   uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
   createChannel, setChannelFavorite, deleteChannel, updateChannel, joinChannel, leaveChannel,

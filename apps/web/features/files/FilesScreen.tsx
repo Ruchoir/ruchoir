@@ -29,6 +29,7 @@ import { entryOf, type Item, type ListProps, type MenuAt } from "./listTypes";
 import { type ActionId, actionsFor, canManage, type Sort, sortEntries } from "./model";
 import { useView } from "./useView";
 import { MoveDialog } from "./MoveDialog";
+import type { ChannelAccessRules } from "../channel/ChannelAccess";
 import { type ShareTarget, ShareDialog } from "./ShareDialog";
 import { TrashView } from "./TrashView";
 import { NewMenu } from "./NewMenu";
@@ -104,6 +105,8 @@ export type FilesScreenProps = {
   initialFolderId?: string;
   /** The conversations a file can be sent into (the space's channels joined, the direct messages). */
   shareTargets?: ShareTarget[];
+  /** Set when the instance lists `resource_rules`: folders can be shared too, files get the levels tab. */
+  accessRules?: ChannelAccessRules;
 };
 
 /**
@@ -127,6 +130,7 @@ export function FilesScreen({
   onEditorChange,
   initialFolderId,
   shareTargets = [],
+  accessRules,
 }: FilesScreenProps) {
   const { t } = useTranslation();
   const desktop = useDesktop();
@@ -168,7 +172,7 @@ export function FilesScreen({
   const [retentionDays, setRetentionDays] = useState<number | undefined>(undefined);
   const [publicLinks, setPublicLinks] = useState(false);
   /** The file being shared, with whether this person manages it. */
-  const [sharing, setSharing] = useState<{ file: SpaceFile; manage: boolean } | null>(null);
+  const [sharing, setSharing] = useState<{ file: SpaceFile; manage: boolean; folder: boolean } | null>(null);
   /** Which view: the space's files, or its trash. */
   const [view, setView] = useState<"files" | FilesView | "trash">("files");
   /** Bumped when something leaves or returns to the trash from here, for the trash view to ask again. */
@@ -260,7 +264,10 @@ export function FilesScreen({
     const entry = entryOf(file);
     const manage = canManage(entry, currentUserId, spaceRole);
     const key = file.id ?? file.name;
-    return { key, file, entry, manage, actions: actionsFor(entry, manage), location: flat ? locations.get(key) : undefined };
+    const actions = actionsFor(entry, manage);
+    // With levels a folder is shared too (it gives its access to what it holds): "Partager" after "Ouvrir".
+    if (accessRules && entry.isFolder && entry.id) actions.splice(1, 0, "share");
+    return { key, file, entry, manage, actions, location: flat ? locations.get(key) : undefined };
   });
   const selection = useSelection(items.map((i) => i.key));
   const selectedItems = items.filter((i) => selection.selected.has(i.key));
@@ -387,7 +394,7 @@ export function FilesScreen({
         if (f.id) download(f.id, f.name);
         return;
       case "share":
-        return setSharing({ file: f, manage: item.manage });
+        return setSharing({ file: f, manage: item.manage, folder: item.entry.isFolder });
       case "star": {
         if (!f.id) return;
         const next = !item.entry.starred;
@@ -875,6 +882,8 @@ export function FilesScreen({
         canManage={sharing?.manage ?? false}
         publicLinks={publicLinks}
         targets={shareTargets}
+        rules={accessRules}
+        isFolder={sharing?.folder ?? false}
         onNotify={onNotify}
         onClose={() => setSharing(null)}
       />

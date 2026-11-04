@@ -6334,6 +6334,13 @@
           "name": {
             "type": "string"
           },
+          "roles": {
+            "description": "Every role the person holds in the space beyond the base roles, given to them or carried by\none of their groups, by name; whether or not a step names it.",
+            "items": {
+              "$ref": "#/components/schemas/WhyRoleDto"
+            },
+            "type": "array"
+          },
           "standing": {
             "description": "`owner`, `member` or `guest`.",
             "type": "string"
@@ -6342,7 +6349,8 @@
         "required": [
           "id",
           "name",
-          "standing"
+          "standing",
+          "roles"
         ],
         "type": "object"
       },

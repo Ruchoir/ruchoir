@@ -20,6 +20,7 @@ import {
   ChannelSettingsDialog,
   LeaveChannelDialog,
 } from "./ChannelDialogs";
+import type { ChannelAccessRules } from "./ChannelAccess";
 import { SearchPanel } from "./SearchPanel";
 import { type ChannelMember, SidePanel } from "./SidePanel";
 import { Composer } from "./Composer";
@@ -312,7 +313,9 @@ export type ChannelScreenProps = {
   onCloseProfile: () => void;
   onCloseGroup?: () => void;
   onNotify: (toast: Toast) => void;
-  onUpdateChannel: (patch: Partial<Channel>) => void;
+  onUpdateChannel: (patch: Partial<Channel>) => void | Promise<unknown>;
+  /** The levels dialog's context, when the instance lists `resource_rules`; absent keeps the legacy settings. */
+  accessRules?: ChannelAccessRules;
   /** The caller's own space role, for the channel settings' role reservation. */
   myRole: string;
   /**
@@ -464,6 +467,7 @@ export function ChannelScreen({
   onCloseGroup,
   onNotify,
   onUpdateChannel,
+  accessRules,
   myRole,
   myChannelRole,
   myUserId,
@@ -1225,6 +1229,7 @@ export function ChannelScreen({
           channel={channel}
           onClose={() => setMenuDialog(null)}
           onUpdate={onUpdateChannel}
+          accessRules={accessRules}
           onNotify={onNotify}
           myRole={myRole}
           myChannelRole={canModerate ? effectiveChannelRole : "member"}
