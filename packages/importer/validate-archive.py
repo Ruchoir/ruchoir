@@ -244,10 +244,13 @@ def _check_manifest(
     }
     if people is not None:
         actual.update(people)
-    else:
+    elif version == 1:
+        # Only a format 1 archive "says format 1": any other version is already refused above.
         for name in PEOPLE_FILES:
             if (archive / name).is_file():
                 report.warn(f"{name} belongs to format 2 and this archive says format 1: it is ignored")
+        if any(channel.get("moderators") for channel in channels.values()):
+            report.warn("moderators belong to format 2 and this archive says format 1: they are ignored")
     counts = manifest.get("counts") or {}
     for name, value in actual.items():
         if name in counts and counts[name] != value:

@@ -323,6 +323,12 @@ fn check_manifest(index: &Index, report: &mut Report) {
                 ));
             }
         }
+        if index.moderators_ignored > 0 {
+            report.warn(
+                "moderators belong to format 2 and this archive says format 1: they are ignored"
+                    .into(),
+            );
+        }
     }
     for (name, count) in actual {
         if let Some(declared) = manifest.counts.get(name) {

@@ -346,6 +346,14 @@ class ValidatorCase(unittest.TestCase):
     def test_format_3_is_refused_with_the_newer_producer_message(self) -> None:
         set_format(self.archive, 3)
         self.assert_caught("format_version 3")
+        self.assertFalse(any("says format 1" in w for w in self.warnings()))
+
+    def test_moderators_in_a_format_1_archive_are_only_a_warning(self) -> None:
+        channels = self.channels()
+        channels[0]["moderators"] = ["alice"]
+        rewrite(self.archive, "channels.jsonl", channels)
+        self.assertEqual(self.errors(), [])
+        self.assertTrue(any("moderators belong to format 2" in w for w in self.warnings()))
 
     def test_a_member_line_for_an_unknown_user_is_an_error(self) -> None:
         self.v2(members=[self.person("ghost")])

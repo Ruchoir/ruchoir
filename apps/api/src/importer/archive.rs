@@ -302,6 +302,9 @@ pub struct Index {
     pub members: Vec<MemberRecord>,
     pub groups: Vec<GroupRecord>,
     pub roles: Vec<RoleRecord>,
+    /// How many conversations carried `moderators` that a format 1 archive made the reader set
+    /// aside, so the checker can say so.
+    pub moderators_ignored: usize,
     pub files: Vec<FileRecord>,
     pub calendars: Vec<CalendarRecord>,
     pub message_count: usize,
@@ -459,6 +462,9 @@ pub fn index(path: &Path, passphrase: Option<&str>) -> Result<Index> {
         index.groups.clear();
         index.roles.clear();
         for channel in &mut index.channels {
+            if !channel.moderators.is_empty() {
+                index.moderators_ignored += 1;
+            }
             channel.moderators.clear();
         }
     }

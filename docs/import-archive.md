@@ -153,7 +153,7 @@ All three files are optional, and `counts` may declare them like the others. Ide
 - `members.jsonl`: `role` is `admin`, `member` or `guest` (nobody is imported as an owner). `roles`
   lists ids of `roles.jsonl` in the same space. The same person may appear once per space, with a
   different role in each; twice in one space is an error.
-- `groups.jsonl`: ids are unique, `space` is a space of the archive, `members` are accounts of the
+- `groups.jsonl`: ids are unique across the archive, `space` is a space of the archive, `members` are accounts of the
   archive, and two groups of a space may not share a name once case is folded.
 - `roles.jsonl`: ids are unique within a space, `based_on` is `member` or `admin`, and two roles of
   a space may not share a name once case is folded.

@@ -318,7 +318,43 @@ def _a_moderator_outside_members(archive: Path) -> None:
     rewrite(archive, "channels.jsonl", channels)
 
 
+def _v2_members(archive: Path, rows: list[dict]) -> None:
+    set_format(archive, 2)
+    rewrite(archive, "members.jsonl", rows)
+
+
+def _a_member_of_an_unknown_user(archive: Path) -> None:
+    _v2_members(archive, [{"space": "atelier", "user": "ghost", "role": "member", "roles": []}])
+
+
+def _an_undefined_role_id(archive: Path) -> None:
+    _v2_members(archive, [{"space": "atelier", "user": "alice", "role": "member", "roles": ["nope"]}])
+
+
+def _a_duplicate_member_line(archive: Path) -> None:
+    line = {"space": "atelier", "user": "alice", "role": "member", "roles": []}
+    _v2_members(archive, [line, {**line, "role": "admin"}])
+
+
+def _an_unknown_group_member(archive: Path) -> None:
+    set_format(archive, 2)
+    rewrite(archive, "groups.jsonl", [
+        {"id": "g1", "space": "atelier", "name": "Design", "description": "", "members": ["ghost"]}
+    ])
+
+
+def _a_duplicate_role_name(archive: Path) -> None:
+    set_format(archive, 2)
+    role = {"space": "atelier", "based_on": "member"}
+    rewrite(archive, "roles.jsonl", [{**role, "id": "r1", "name": "Mods"}, {**role, "id": "r2", "name": "mods"}])
+
+
 BREAKAGES = [
+    ("a member of an unknown user", _a_member_of_an_unknown_user),
+    ("an undefined role id", _an_undefined_role_id),
+    ("a duplicate member line", _a_duplicate_member_line),
+    ("an unknown group member", _an_unknown_group_member),
+    ("a duplicate role name", _a_duplicate_role_name),
     ("a member of an unknown space", _a_member_of_an_unknown_space),
     ("a duplicate group name", _a_duplicate_group_name),
     ("a moderator outside the members", _a_moderator_outside_members),
@@ -426,6 +462,18 @@ class CheckersAgree(unittest.TestCase):
         rs_ok, rs_said = rust_accepts(archive)
         self.assertTrue(py_ok, py_said)
         self.assertTrue(rs_ok, rs_said)
+
+    def test_both_warn_about_moderators_in_a_v1_archive(self) -> None:
+        """Accepted by both, and both say the field is ignored."""
+        channels = _rows(self.archive, "channels.jsonl")
+        channels[0]["moderators"] = ["alice"]
+        rewrite(self.archive, "channels.jsonl", channels)
+        py_ok, py_said = python_accepts(self.archive)
+        rs_ok, rs_said = rust_accepts(self.archive)
+        self.assertTrue(py_ok and rs_ok, f"{py_said} / {rs_said}")
+        py_warned = validator.validate(self.archive).warnings
+        self.assertTrue(any("moderators belong to format 2" in w for w in py_warned), py_warned)
+        self.assertIn("moderators belong to format 2", rs_said)
 
     def test_both_accept_a_sound_format_2_archive(self) -> None:
         set_format(self.archive, 2)
