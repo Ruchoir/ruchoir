@@ -12796,3 +12796,7 @@ mod file_share_tests;
 /// "Voir en tant que": the preview door. It reads, it never writes, it never shows more than the
 /// viewer holds, and it stays with its request.
 mod preview_tests;
+
+/// Regressions of the permissions hardening review, one file per area.
+#[cfg(test)]
+mod hardening_files_tests;

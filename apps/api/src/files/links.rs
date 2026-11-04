@@ -727,6 +727,23 @@ async fn live_link(
                 && f.conversation_id.is_none()
         })
         .ok_or(FileError::NotFound)?;
+    // A link is the creator's act, and lives only as long as their right to make it: still in the
+    // space (a removed member, an ended guest) and still holding `files.public_link` on the file.
+    // The right is asked of the engine as the creator, so a demotion or a new rule counts at once.
+    let Some(creator) = link.created_by else {
+        return Err(FileError::NotFound);
+    };
+    let may = crate::permissions::check::can(
+        &state.db,
+        file.space_id,
+        creator,
+        crate::permissions::check::Resource::File(file.id),
+        crate::permissions::catalogue::Permission::FilesPublicLink,
+    )
+    .await?;
+    if !may {
+        return Err(FileError::NotFound);
+    }
     Ok((link, file))
 }
 
