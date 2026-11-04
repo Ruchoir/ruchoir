@@ -68,6 +68,8 @@ export type AppNotification = {
   emoji?: string;
   /** For a guest notice: the days that were left when it was written (7 or 1). */
   daysLeft?: number;
+  /** For `guest_expiry_soon`: the guest it is about. */
+  actorId?: string;
 };
 
 /**

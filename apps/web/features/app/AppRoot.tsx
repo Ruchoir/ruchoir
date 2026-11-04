@@ -1,6 +1,6 @@
 "use client";
 
-import { endedSpaces } from "./guestNotices.ts";
+import { endedSpaces, noticeTarget } from "./guestNotices.ts";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAvatar, getPresence, setChannelMembers, setCurrentUser, setSpaceRooms, setUserPresence } from "@/lib/data";
 import { isDesktop } from "@/lib/desktop/runtime";
@@ -387,6 +387,7 @@ function toAppNotification(
     reminder: n.reminder,
     emoji: n.emoji,
     daysLeft: n.daysLeft,
+    actorId: n.actorId,
   };
 }
 
@@ -1181,6 +1182,10 @@ function AppShell() {
   const notifyRef = useRef<((toast: Toast) => void) | null>(null);
   // The spaces whose end of access was already announced: the notice shows once.
   const endedToldRef = useRef(new Set<string>());
+  // `switchWorkspace`, for the notice handler declared before it.
+  const switchRef = useRef<(id: string) => Promise<void>>(async () => {});
+  // A "soon" notice clicked: the settings open on Members with this guest's prolong dialog.
+  const [prolongRequest, setProlongRequest] = useState<{ userId: string } | null>(null);
   // The desktop app's bridge (null on the web), for effects that outlive a render.
   const desktop = useDesktop();
   // The account settings, kept in line with the server's (and the other devices').
@@ -2029,6 +2034,8 @@ function AppShell() {
    */
   const openView = (next: AppView) => {
     setView(next);
+    // Any ordinary way into a screen drops a prolong request left by a notice.
+    setProlongRequest(null);
     if (next !== "mentions") return;
     const toMark = visibleNotifs.filter((n) => isMention(n.kind) && !n.read);
     if (toMark.length === 0) return;
@@ -2779,8 +2786,18 @@ function AppShell() {
     if (!targetChannel) {
       const notice = notifs.find((n) => n.id === id);
       // A guest notice is about access: its manager goes to the people, the guest has nothing to open.
-      if (notice?.kind === "guest_expiry_soon" || notice?.kind === "guest_access_ending") {
-        if (notice.kind === "guest_expiry_soon") openView("settings");
+      const target = notice ? noticeTarget(notice) : null;
+      if (target) {
+        void (async () => {
+          await switchRef.current(target.spaceId);
+          if (target.action === "space") {
+            if (target.spaceId === ws) openView("channel");
+            return;
+          }
+          openView("settings");
+          if (target.action === "prolong") setProlongRequest({ userId: target.userId });
+          else setProlongRequest(null);
+        })();
         return;
       }
       const reminder = notice?.reminder;
@@ -3412,6 +3429,7 @@ function AppShell() {
             spaceId={ws}
             onGroupsChanged={() => refreshAccess()}
             onNotify={showToast}
+            people={members}
             seats={currentWorkspace.licence ? { seats: currentWorkspace.licence.seats, used: currentWorkspace.licence.used } : undefined}
             onSaveRoles={(roleIds) => saveMemberRoles(userId, roleIds)}
             onChangeRole={(role) => void changeMemberRole({ userId, name: member.name }, role)}
@@ -3697,6 +3715,9 @@ function AppShell() {
       setSwitchingSpace(false);
     }
   };
+  useEffect(() => {
+    switchRef.current = switchWorkspace;
+  });
 
   /**
    * Open a notification clicked in the system tray, once the app holds what it points at.
@@ -4485,7 +4506,8 @@ function AppShell() {
           // Keyed by the space: the screen holds the name being edited in its own state, seeded once
           // from the space it was opened on. Without this, switching space left the previous name in
           // the field, and pressing save would have renamed the new space to the old one's name.
-          key={ws}
+          key={`${ws}:${prolongRequest?.userId ?? ""}`}
+          prolongGuestId={prolongRequest?.userId}
           workspaceName={workspaces.find((w) => w.id === ws)?.name ?? "espace"}
           spaceId={ws}
           iconUrl={workspaces.find((w) => w.id === ws)?.iconUrl}

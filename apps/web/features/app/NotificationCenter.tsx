@@ -361,6 +361,9 @@ function NotifRow({
         <span style={{ display: "block", marginTop: 3, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
           {notif.reminder ? [...new Set([notif.spaceName, notif.reminder.calendarName].filter(Boolean))].join(" · ") : notif.label} · {formatStamp(notif.createdAt)}
         </span>
+        {notif.kind === "guest_expiry_soon" ? (
+          <span style={{ display: "block", marginTop: 4, fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-link, var(--text-strong))" }}>{t("guests.prolong")}</span>
+        ) : null}
         {notif.kind === "calendar_invitation" && notif.reminder?.eventId && notif.reminder.myStatus ? (
           <InboxAnswer eventId={notif.reminder.eventId} current={notif.reminder.myStatus} />
         ) : null}

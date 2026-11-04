@@ -107,6 +107,8 @@ export type MemberManagementProps = {
   onNotify?: (toast: Toast) => void;
   /** The space's licence, to say how many seats are used once someone stops holding one. */
   seats?: { seats: number; used: number };
+  /** The space's people, to tag the groups made of guests only. */
+  people?: { userId: string; role: string }[];
   /** Set their roles (strongest first); resolves to whether it was saved. */
   onSaveRoles: (roleIds: string[]) => Promise<boolean>;
   /** Change their legacy role or standing, handing the space over included (confirmed upstream). */
@@ -119,7 +121,7 @@ export type MemberManagementProps = {
  * tab's dialog and the profile's "Gestion" tab draw this same component, so both offer and refuse
  * the same things; the API is the judge either way.
  */
-export function MemberManagement({ member, me, myRole, myRights, edition, roles, identity = false, groups, spaceId, onGroupsChanged, onNotify, seats, onSaveRoles, onChangeRole, onRemove }: MemberManagementProps) {
+export function MemberManagement({ member, me, myRole, myRights, edition, roles, identity = false, groups, spaceId, onGroupsChanged, onNotify, seats, people, onSaveRoles, onChangeRole, onRemove }: MemberManagementProps) {
   const { t } = useTranslation();
   const via = rolesViaGroups(member, groups ?? []);
   const access = memberAccessFor({ member, me: me?.userId ?? "", edition, roles, rights: myRights, viaGroups: via });
@@ -237,7 +239,7 @@ export function MemberManagement({ member, me, myRole, myRights, edition, roles,
       ) : null}
 
       {groups && spaceId && !member.bot ? (
-        <MemberGroups member={member} groups={groups} roles={roles} spaceId={spaceId} viewerId={me?.userId ?? ""} viewerIsOwner={myRole === "owner"} onChanged={onGroupsChanged} onNotify={onNotify} />
+        <MemberGroups member={member} groups={groups} roles={roles} spaceId={spaceId} viewerId={me?.userId ?? ""} viewerIsOwner={myRole === "owner"} onChanged={onGroupsChanged} onNotify={onNotify} people={people} />
       ) : null}
 
       <div style={s.section}>

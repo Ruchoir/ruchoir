@@ -24,3 +24,16 @@ test("a_vanished_space_shows_the_ended_notice_once", () => {
   // A space that is still there is never reported.
   assert.deepEqual(endedSpaces(before, before, new Set()), []);
 });
+
+import { noticeTarget } from "./guestNotices.ts";
+
+test("the_soon_notice_offers_prolong_for_that_guest", () => {
+  assert.deepEqual(noticeTarget({ kind: "guest_expiry_soon", spaceId: "s1", actorId: "g9" }), { action: "prolong", spaceId: "s1", userId: "g9" });
+  // Without the guest's id in the payload, the Members tab opens and nobody is guessed.
+  assert.deepEqual(noticeTarget({ kind: "guest_expiry_soon", spaceId: "s1" }), { action: "members", spaceId: "s1" });
+});
+
+test("the_guest_notice_opens_the_space", () => {
+  assert.deepEqual(noticeTarget({ kind: "guest_access_ending", spaceId: "s1" }), { action: "space", spaceId: "s1" });
+  assert.equal(noticeTarget({ kind: "mention", spaceId: "s1" }), null);
+});

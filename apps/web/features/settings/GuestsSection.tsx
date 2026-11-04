@@ -41,6 +41,7 @@ export function GuestsSection({
   onChangeRole,
   onRemoveMember,
   onGuestRights,
+  initialProlong,
 }: {
   guests: SettingsMember[];
   spaceId: string;
@@ -54,9 +55,11 @@ export function GuestsSection({
   onChangeRole: (member: { userId: string; name: string }, role: string) => void;
   onRemoveMember: (member: { userId: string; name: string }) => void;
   onGuestRights?: () => void;
+  /** A guest whose prolong dialog is open from the start. */
+  initialProlong?: string;
 }) {
   const { t } = useTranslation();
-  const [prolonging, setProlonging] = useState<string | null>(null);
+  const [prolonging, setProlonging] = useState<string | null>(initialProlong ?? null);
   const [now] = useState(() => new Date());
   const canDate = canSeeEnded(myRights);
   const target = prolonging ? guests.find((g) => g.userId === prolonging) : undefined;

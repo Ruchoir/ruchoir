@@ -23,6 +23,15 @@ export type Slot =
   | { kind: "role"; name: string; colour?: string }
   | { kind: "legacy"; roles: string[] };
 
+/** The families of the journal, in the order the filter lists them (the API's `category` values). */
+export const AUDIT_CATEGORIES = ["members", "roles", "groups", "channels", "calendars", "licence", "guests"] as const;
+export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
+
+/** The family a line is filed under: the API's, or members for one this app does not know. */
+export function lineCategory(entry: { category: string; action: string }): AuditCategory {
+  return (AUDIT_CATEGORIES as readonly string[]).includes(entry.category) ? (entry.category as AuditCategory) : "members";
+}
+
 export type Sentence =
   | "memberJoined"
   | "memberJoinedGuest"

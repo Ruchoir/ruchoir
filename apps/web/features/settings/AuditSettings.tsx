@@ -8,7 +8,7 @@ import type { AuditEntry, Role } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatDate, formatDayHeading, formatTime, formatUtcDate } from "@/lib/i18n/format";
-import { auditLine, dayKey, type Sentence, type Slot } from "./auditLogic";
+import { auditLine, dayKey, lineCategory, type Sentence, type Slot } from "./auditLogic";
 import { RoleDot, ROLE_LABEL, roleLabel } from "./roleChips";
 import { PERMISSION_TEXT } from "./permissionText";
 
@@ -62,10 +62,11 @@ const CATEGORY: Record<string, TranslationKey> = {
   channels: key("tabs.channels"),
   calendars: key("calendar.calendars"),
   licence: key("licence.title"),
+  guests: key("guests.sectionTitle"),
 };
 
 /** A line's tag says "Groupe", the filter lists "Groupes": every other family reads the same in both. */
-const TAG: Record<string, TranslationKey> = { ...CATEGORY, groups: key("groups.colGroup") };
+const TAG: Record<string, TranslationKey> = { ...CATEGORY, groups: key("groups.colGroup"), guests: key("guests.guestTag") };
 
 const PERIOD_DAYS: Record<string, number | undefined> = { "7": 7, "30": 30, "90": 90, all: undefined };
 
@@ -287,7 +288,7 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
                   <Avatar name="?" size={24} />
                 )}
                 <span style={st.text}>{sentence(entry)}</span>
-                {TAG[entry.category] ? <Tag>{t(TAG[entry.category])}</Tag> : null}
+                {TAG[lineCategory(entry)] ? <Tag>{t(TAG[lineCategory(entry)])}</Tag> : null}
               </div>
             ))}
           </Card>

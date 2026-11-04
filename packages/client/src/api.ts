@@ -913,6 +913,8 @@ export type ApiNotification = {
   /** For a guest notice: when the access ends (RFC 3339), and the days that were left (7 or 1). */
   endsAt?: string;
   daysLeft?: number;
+  /** For `guest_expiry_soon`: the guest it is about (their user id). */
+  actorId?: string;
 };
 
 /**
@@ -966,7 +968,7 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
       : {}),
     ...(dto.kind === "calendar_shared" && dto.calendar_name ? { calendarName: dto.calendar_name } : {}),
     ...(dto.kind === "reaction" && dto.emoji ? { emoji: dto.emoji } : {}),
-    ...(dto.kind.startsWith("guest_") ? { endsAt: dto.ends_at ?? undefined, daysLeft: dto.days_left ?? undefined } : {}),
+    ...(dto.kind.startsWith("guest_") ? { endsAt: dto.ends_at ?? undefined, daysLeft: dto.days_left ?? undefined, actorId: dto.actor_id } : {}),
     actor: dto.actor_name ?? "",
     preview: dto.preview,
     createdAt: dto.created_at,

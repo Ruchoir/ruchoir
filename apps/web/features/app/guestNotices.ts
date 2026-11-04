@@ -33,3 +33,18 @@ export function endedSpaces(before: { id: string; name: string }[], after: { id:
   for (const s of gone) told.add(s.id);
   return gone;
 }
+
+/**
+ * Where a guest notice leads. For a manager (`guest_expiry_soon`, which names the guest in its
+ * `actor_id`): Members with the prolong dialog open for that guest; without the id, Members alone.
+ * For the guest (`guest_access_ending`): the space's home. Any other kind leads nowhere from here.
+ */
+export function noticeTarget(n: { kind: string; spaceId: string; actorId?: string }):
+  | { action: "prolong"; spaceId: string; userId: string }
+  | { action: "members"; spaceId: string }
+  | { action: "space"; spaceId: string }
+  | null {
+  if (n.kind === "guest_expiry_soon") return n.actorId ? { action: "prolong", spaceId: n.spaceId, userId: n.actorId } : { action: "members", spaceId: n.spaceId };
+  if (n.kind === "guest_access_ending") return { action: "space", spaceId: n.spaceId };
+  return null;
+}

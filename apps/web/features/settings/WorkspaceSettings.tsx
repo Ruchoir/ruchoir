@@ -153,6 +153,8 @@ export type WorkspaceSettingsProps = {
    * member list and the roles, which the API refuses to anyone else.
    */
   canManageMembers: boolean;
+  /** A guest whose prolong dialog opens on arrival, in the Members tab (from a notice). */
+  prolongGuestId?: string;
   /** Whether the caller may invite (`members.invite`). */
   canInvite: boolean;
   /** Whether the caller sets the arrival channel (`space.settings`). */
@@ -236,6 +238,7 @@ export function WorkspaceSettings({
   iconUrl,
   canEditIdentity,
   canManageMembers,
+  prolongGuestId,
   canInvite,
   canSetDefaultChannel,
   edition,
@@ -271,7 +274,7 @@ export function WorkspaceSettings({
   compact = false,
 }: WorkspaceSettingsProps) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<NavKey>("general");
+  const [tab, setTab] = useState<NavKey>(prolongGuestId ? "members" : "general");
   // A group opened from elsewhere (a role's people): the Groupes tab shows it straight away.
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   // "Droits des invités": the guests' role opened in the Rôles tab (licensed), or the read-only summary (community).
@@ -541,6 +544,7 @@ export function WorkspaceSettings({
               groups={groups}
               spaceId={spaceId}
               licence={licence}
+              prolongFor={prolongGuestId}
               onGuestRights={() => {
                 const guests = roles.find((r) => r.systemKey === "guests");
                 if (rightsEntry(edition) === "editor" && guests) {

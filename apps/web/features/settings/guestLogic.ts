@@ -219,3 +219,8 @@ export function isGuestsOnly(group: { memberIds: string[] }, people: { userId: s
   const roles = new Map(people.map((p) => [p.userId, p.role]));
   return group.memberIds.every((id) => roles.get(id) === "guest");
 }
+
+/** The tag a group chip carries: "guests" when every person in the group is a guest, else none. */
+export function groupTagFor(group: { memberIds: string[] }, people: { userId: string; role: string }[] | undefined): "guests" | null {
+  return people && isGuestsOnly(group, people) ? "guests" : null;
+}

@@ -45,6 +45,8 @@ export type MembersSettingsProps = {
   spaceId: string;
   /** "Droits des invités": open the guests' role (licensed) or read the ceiling (community). */
   onGuestRights?: () => void;
+  /** A guest whose prolong dialog opens on arrival. */
+  prolongFor?: string;
   /** The space's licence (owners only), to count seats in the guest dialogs. */
   licence?: { seats: number; used: number };
   /** A group's members changed: read the people and groups again. */
@@ -144,6 +146,7 @@ export function MembersSettings(props: MembersSettingsProps) {
           onChangeRole={props.onChangeRole}
           onRemoveMember={props.onRemoveMember}
           onGuestRights={props.onGuestRights}
+          initialProlong={props.prolongFor}
         />
       ) : null}
       <EndedAccess spaceId={props.spaceId} spaceName={props.spaceName} myRights={props.myRights} onChanged={props.onGroupsChanged} onNotify={props.onNotify} />
@@ -180,6 +183,7 @@ export function MembersSettings(props: MembersSettingsProps) {
               onGroupsChanged={props.onGroupsChanged}
               onNotify={props.onNotify}
               seats={props.licence}
+              people={members}
               onSaveRoles={(roleIds) => props.onSaveMemberRoles(managed.userId, roleIds)}
               onChangeRole={(role) => {
                 setManaging(null);

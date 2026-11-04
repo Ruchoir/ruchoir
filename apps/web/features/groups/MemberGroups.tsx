@@ -10,6 +10,7 @@ import { formatList } from "@/lib/i18n/format";
 import { MenuPopover } from "../app/MenuPopover";
 import type { Toast } from "../app/types";
 import { groupsOf, sortGroups } from "../settings/groupsLogic.ts";
+import { groupTagFor } from "../settings/guestLogic.ts";
 import { refusalMessage, roleLabel } from "../settings/roleChips";
 import { addBlockFor, removalOf } from "./groupPanelLogic.ts";
 
@@ -20,19 +21,33 @@ const s: Record<string, CSSProperties> = {
 };
 
 /** A group as a pastille: the group icon, its name; it opens the group when `onOpen` is given. */
-export function GroupChip({ group, onOpen }: { group: Pick<Group, "id" | "name">; onOpen?: (groupId: string) => void }) {
+export function GroupChip({ group, onOpen, guestsOnly }: { group: Pick<Group, "id" | "name">; onOpen?: (groupId: string) => void; guestsOnly?: boolean }) {
   const inner = (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
       <Icon name="users" size={12} style={{ color: "var(--text-muted)" }} />
       {group.name}
     </span>
   );
-  if (!onOpen) return <Tag>{inner}</Tag>;
-  return (
+  const chip = !onOpen ? (
+    <Tag>{inner}</Tag>
+  ) : (
     <button type="button" onClick={() => onOpen(group.id)} style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", font: "inherit" }}>
       <Tag>{inner}</Tag>
     </button>
   );
+  return guestsOnly ? (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      {chip}
+      <TagGuests />
+    </span>
+  ) : (
+    chip
+  );
+}
+
+function TagGuests() {
+  const { t } = useTranslation();
+  return <Tag tone="warning">{t("guests.sectionTitle")}</Tag>;
 }
 
 /** The "Groupes" section of a profile: the groups the person is in, openable when the caller says how. */
@@ -65,7 +80,10 @@ export function MemberGroups({
   viewerIsOwner,
   onChanged,
   onNotify,
+  people,
 }: {
+  /** The space's people, to tell a group of guests only (the tag); the groups list already holds who is in each. */
+  people?: { userId: string; role: string }[];
   member: Member;
   groups: Group[];
   roles: Role[];
@@ -110,7 +128,7 @@ export function MemberGroups({
         const carried = roles.filter((r) => g.roleIds.includes(r.id)).map((r) => roleLabel(r, t));
         return (
           <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderTop: i ? "1px solid var(--border-subtle)" : "none" }}>
-            <GroupChip group={g} />
+            <GroupChip group={g} guestsOnly={groupTagFor(g, people) === "guests"} />
             {carried.length > 0 ? (
               <span style={{ flex: 1, minWidth: 0, fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("groups.carries", { roles: formatList(carried) })}</span>
             ) : (

@@ -85,3 +85,25 @@ test("every_expiry_action_has_a_journal_sentence", () => {
     for (const sentence of sentences) assert.ok(audit[sentence]?.length > 0, `${locale} audit.${sentence}`);
   }
 });
+
+test("guest_lines_sit_under_the_guests_category", async () => {
+  const { AUDIT_CATEGORIES, lineCategory } = await import("./auditLogic.ts");
+  assert.ok(AUDIT_CATEGORIES.includes("guests"));
+  // The filter keeps the earlier families, in order, with the guests last.
+  assert.deepEqual([...AUDIT_CATEGORIES], ["members", "roles", "groups", "channels", "calendars", "licence", "guests"]);
+  for (const action of ["member.expiry_set", "member.expired", "member.reactivated", "member.standing_changed", "member.purged"]) {
+    assert.equal(lineCategory({ action, category: "guests" }), "guests", action);
+  }
+  assert.equal(lineCategory({ action: "member.joined", category: "members" }), "members");
+  // A category this app does not know reads as members, never as a missing tag.
+  assert.equal(lineCategory({ action: "x", category: "future" }), "members");
+});
+
+test("an_all_guest_group_chip_carries_the_tag", async () => {
+  const { groupTagFor } = await import("./guestLogic.ts");
+  const people = [{ userId: "a", role: "guest" }, { userId: "b", role: "guest" }, { userId: "c", role: "member" }];
+  assert.equal(groupTagFor({ memberIds: ["a", "b"] }, people), "guests");
+  assert.equal(groupTagFor({ memberIds: ["a", "c"] }, people), null);
+  // With no list of people to judge by, no tag is guessed.
+  assert.equal(groupTagFor({ memberIds: ["a"] }, undefined), null);
+});
