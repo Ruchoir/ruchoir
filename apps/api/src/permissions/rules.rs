@@ -16,7 +16,7 @@ use super::check::{effective, space_rights, standing, Resource};
 use super::delegation::{rank_of, Rank};
 use super::engine::Standing;
 use super::groups::Paid;
-use super::levels::{level_of, Kind, LevelRead, Target};
+use super::levels::{level_of, Kind, Level, LevelRead, Target};
 use super::system_roles::GUEST_CEILING;
 use crate::messaging::error::ApiError;
 use crate::state::AppState;
@@ -51,6 +51,15 @@ impl ResourceRef {
             ResourceRef::Channel(_) => Permission::ChannelManage,
             ResourceRef::File(_) => Permission::FilesManage,
             ResourceRef::Calendar(_) => Permission::CalendarManage,
+        }
+    }
+
+    /// The permission that opens the resource.
+    fn view(self) -> Permission {
+        match self {
+            ResourceRef::Channel(_) => Permission::ChannelView,
+            ResourceRef::File(_) => Permission::FilesView,
+            ResourceRef::Calendar(_) => Permission::CalendarView,
         }
     }
 
@@ -203,8 +212,13 @@ pub async fn editor_of(
 pub enum Aim {
     /// `@members`, or `@guests` when `guests`.
     Everyone { guests: bool },
-    /// A role at `position` (Administrator included when `system`).
-    Role { position: i32, system: bool },
+    /// A role at `position` (Administrator included when `system`); `editor_holds` when the editor
+    /// holds it themselves (directly or through a group).
+    Role {
+        position: i32,
+        system: bool,
+        editor_holds: bool,
+    },
     /// A group: whether the editor is in it, and the highest position among the roles it carries.
     Group {
         editor_in: bool,
@@ -316,10 +330,23 @@ pub fn ensure_writable(
     if !allow.minus(editor.rights).is_empty() {
         return Err(RuleRefusal::Forbidden("cannot_grant"));
     }
-    // Rule 3: no deny, and no change of a stored rule, aimed at oneself or above.
+    // Rules 3 and the reservation, for the editors who are not Owner or Space.
     let strong = matches!(editor.kind, EditorKind::Owner | EditorKind::Space);
-    if !strong && (!deny.is_empty() || existing.is_some()) && above_editor(editor, target) {
-        return Err(RuleRefusal::Forbidden("target_above_you"));
+    if !strong {
+        if aimed_at_or_above(editor, target) {
+            return Err(RuleRefusal::Forbidden("target_above_you"));
+        }
+        if matches!(target.aim, Aim::Everyone { .. }) {
+            let kind = resource.kind();
+            let none =
+                |a, d| level_of(kind, Target::Everyone, a, d) == LevelRead::Level(Level::None);
+            if deny.contains(resource.view())
+                || none(allow, deny)
+                || existing.is_some_and(|e| none(e.allow, e.deny))
+            {
+                return Err(RuleRefusal::Forbidden("reservation_admins_only"));
+            }
+        }
     }
     let guest = matches!(
         target.aim,
@@ -347,21 +374,40 @@ pub fn ensure_writable(
     Ok(())
 }
 
-/// Whether the target is the editor, a group of theirs, or a role or person at or above their rank.
-fn above_editor(editor: &Editor, target: &TargetRef) -> bool {
+/// Whether `position` sits strictly above the rank (an owner is never below a position).
+fn position_above(rank: Rank, position: i32) -> bool {
+    match rank {
+        Rank::Owner => false,
+        Rank::Position(mine) => position > mine,
+    }
+}
+
+/// Whether `other` stands strictly above `rank` (an owner above everyone who is not one).
+fn rank_above(rank: Rank, other: Rank) -> bool {
+    match other {
+        Rank::Owner => rank != Rank::Owner,
+        Rank::Position(theirs) => position_above(rank, theirs),
+    }
+}
+
+/// Rule 3 for the editors below Owner and Space: the target is the editor, a group they are in, a
+/// role they hold, or a person, role or group (by the roles it carries) strictly above their rank.
+/// Equal-rank others are allowed. "Everyone" and audiences name no one above.
+fn aimed_at_or_above(editor: &Editor, target: &TargetRef) -> bool {
     match target.aim {
-        // "Tout l'espace" is the base of the resource, not someone above the editor: its
-        // "Aucun accès" is today's reservation, which every free editor already sets.
-        Aim::Everyone { .. } => false,
-        Aim::Role { position, .. } => !editor.rank.outranks_position(position),
+        Aim::Everyone { .. } | Aim::Audience => false,
+        Aim::Role {
+            position,
+            editor_holds,
+            ..
+        } => editor_holds || position_above(editor.rank, position),
         Aim::Group {
             editor_in,
             top_position,
-        } => editor_in || top_position.is_some_and(|p| !editor.rank.outranks_position(p)),
+        } => editor_in || top_position.is_some_and(|p| position_above(editor.rank, p)),
         Aim::User {
             is_editor, rank, ..
-        } => is_editor || !editor.rank.outranks(rank),
-        Aim::Audience => false,
+        } => is_editor || rank_above(editor.rank, rank),
     }
 }
 
@@ -573,7 +619,8 @@ mod tests {
                 FILE,
                 at(Aim::Role {
                     position: 100,
-                    system: true
+                    system: true,
+                    editor_holds: false
                 }),
                 read(FILE),
                 PermissionSet::EMPTY,
@@ -658,14 +705,21 @@ mod tests {
         );
         assert_eq!(refused, Err(RuleRefusal::Forbidden("cannot_grant")));
         assert_eq!(refused.unwrap_err().code(), "cannot_grant");
-        // A deny is not a grant: rule 2 looks at the allow only.
+        // A deny is not a grant: rule 2 looks at the allow only (Lire for everyone denies the rest).
+        let (allow, deny) = super::super::levels::rule_sets(
+            Kind::File,
+            Target::Everyone,
+            super::super::levels::Level::Read,
+        )
+        .unwrap();
+        assert!(!deny.is_empty());
         assert_eq!(
             write(
                 &author,
                 FILE,
                 at(Aim::Everyone { guests: false }),
-                PermissionSet::EMPTY,
-                set(&[P::FilesView]),
+                allow,
+                deny,
                 None
             ),
             Ok(())
@@ -684,102 +738,241 @@ mod tests {
         );
     }
 
-    #[test]
-    fn nobody_lifts_a_rule_aimed_at_them_or_above_them() {
-        let local = Editor {
+    fn user(is_editor: bool, rank: Rank) -> TargetRef {
+        at(Aim::User {
+            is_editor,
+            rank,
+            guest: false,
+        })
+    }
+
+    fn role(position: i32, editor_holds: bool) -> TargetRef {
+        at(Aim::Role {
+            position,
+            system: false,
+            editor_holds,
+        })
+    }
+
+    fn licensed(kind: EditorKind) -> Editor {
+        Editor {
             paid: Paid::Enterprise,
             rank: Rank::Position(10),
-            ..editor(EditorKind::Local, PermissionSet::ALL)
-        };
+            ..editor(kind, PermissionSet::ALL)
+        }
+    }
+
+    #[test]
+    fn nobody_edits_a_rule_aimed_at_themselves_or_strictly_above() {
+        let local = licensed(EditorKind::Local);
         let deny = set(&[P::FilesView]);
-        let cases = [
-            // The editor themselves.
-            at(Aim::User {
-                is_editor: true,
-                rank: Rank::Position(10),
-                guest: false,
-            }),
-            // A person at their rank, and above it.
-            at(Aim::User {
-                is_editor: false,
-                rank: Rank::Position(10),
-                guest: false,
-            }),
-            at(Aim::User {
-                is_editor: false,
-                rank: Rank::Owner,
-                guest: false,
-            }),
-            // A group they are in, and one carrying a role at or above their rank.
+        let nothing = PermissionSet::EMPTY;
+        let stored = Some(Existing {
+            allow: read(FILE),
+            deny: nothing,
+        });
+        let refused = [
+            // The editor, a group of theirs, a role they hold.
+            user(true, Rank::Position(10)),
             at(Aim::Group {
                 editor_in: true,
                 top_position: None,
             }),
+            role(3, true),
+            // Strictly above: a person, an owner, a group by its top role, a role.
+            user(false, Rank::Position(11)),
+            user(false, Rank::Owner),
+            at(Aim::Group {
+                editor_in: false,
+                top_position: Some(11),
+            }),
+            role(11, false),
+        ];
+        for target in refused {
+            // Creating, changing (allow only) and denying are all refused.
+            for (allow, deny, existing) in [
+                (read(FILE), nothing, None),
+                (read(FILE), nothing, stored),
+                (nothing, deny, None),
+            ] {
+                assert_eq!(
+                    write(&local, FILE, target, allow, deny, existing),
+                    Err(RuleRefusal::Forbidden("target_above_you")),
+                    "{target:?}"
+                );
+            }
+        }
+        // Deleting goes through the same check, with what is stored.
+        assert_eq!(
+            write(
+                &local,
+                FILE,
+                user(true, Rank::Position(10)),
+                nothing,
+                nothing,
+                stored
+            ),
+            Err(RuleRefusal::Forbidden("target_above_you"))
+        );
+        // Equal rank is allowed: a person, a group by its top role, a role not held.
+        for target in [
+            user(false, Rank::Position(10)),
+            user(false, Rank::Position(9)),
             at(Aim::Group {
                 editor_in: false,
                 top_position: Some(10),
             }),
-            // A role at or above their rank, "everyone" being position 0 or below.
-            at(Aim::Role {
-                position: 10,
-                system: false,
+            at(Aim::Group {
+                editor_in: false,
+                top_position: None,
             }),
-            at(Aim::Role {
-                position: 100,
-                system: true,
-            }),
-        ];
-        for target in cases {
+            role(10, false),
+            role(2, false),
+        ] {
             assert_eq!(
-                write(&local, FILE, target, PermissionSet::EMPTY, deny, None),
-                Err(RuleRefusal::Forbidden("target_above_you")),
+                write(&local, FILE, target, read(FILE), nothing, stored),
+                Ok(()),
                 "{target:?}"
             );
         }
-        // A change of what is stored counts as well, allow only.
-        let stored = Some(Existing {
-            allow: read(FILE),
-            deny: PermissionSet::EMPTY,
-        });
-        let me = at(Aim::User {
-            is_editor: true,
-            rank: Rank::Position(10),
-            guest: false,
-        });
+        // An owner-rank person is not above an owner-rank editor.
+        let owner_rank = Editor {
+            rank: Rank::Owner,
+            ..local
+        };
         assert_eq!(
-            write(&local, FILE, me, read(FILE), PermissionSet::EMPTY, stored),
-            Err(RuleRefusal::Forbidden("target_above_you"))
-        );
-        // "Everyone" is not above anyone: its deny and its changes stay open to every editor.
-        let everyone = at(Aim::Everyone { guests: false });
-        assert_eq!(
-            write(&local, FILE, everyone, PermissionSet::EMPTY, deny, stored),
+            write(
+                &owner_rank,
+                FILE,
+                user(false, Rank::Owner),
+                read(FILE),
+                nothing,
+                None
+            ),
             Ok(())
         );
-        // Below them it is fine, and a first allow is fine even for oneself.
-        let below = at(Aim::User {
-            is_editor: false,
-            rank: Rank::Position(9),
-            guest: false,
-        });
-        assert_eq!(
-            write(&local, FILE, below, PermissionSet::EMPTY, deny, None),
-            Ok(())
-        );
-        assert_eq!(
-            write(&local, FILE, me, read(FILE), PermissionSet::EMPTY, None),
-            Ok(())
-        );
-        // Owner and Space editors are not held by it.
-        for kind in [EditorKind::Owner, EditorKind::Space] {
-            let boss = Editor {
-                paid: Paid::Enterprise,
-                ..editor(kind, PermissionSet::ALL)
-            };
+        // Moderators and authors are held by it too.
+        for kind in [EditorKind::ChannelModerator, EditorKind::Author] {
             assert_eq!(
-                write(&boss, FILE, me, read(FILE), PermissionSet::EMPTY, stored),
-                Ok(()),
+                write(
+                    &licensed(kind),
+                    FILE,
+                    user(true, Rank::Position(10)),
+                    read(FILE),
+                    nothing,
+                    None
+                ),
+                Err(RuleRefusal::Forbidden("target_above_you")),
                 "{kind:?}"
+            );
+        }
+        // Owner and Space editors are exempt.
+        for kind in [EditorKind::Owner, EditorKind::Space] {
+            let boss = licensed(kind);
+            for target in refused {
+                assert_eq!(
+                    write(&boss, FILE, target, read(FILE), nothing, stored),
+                    Ok(()),
+                    "{kind:?} {target:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_reservation_stays_with_owner_and_space_editors() {
+        let none = (PermissionSet::EMPTY, set(&[P::FilesView]));
+        let lire = super::super::levels::rule_sets(
+            Kind::File,
+            Target::Everyone,
+            super::super::levels::Level::Read,
+        )
+        .unwrap();
+        let none_stored = Some(Existing {
+            allow: none.0,
+            deny: none.1,
+        });
+        let lire_stored = Some(Existing {
+            allow: lire.0,
+            deny: lire.1,
+        });
+        for guests in [false, true] {
+            let everyone = at(Aim::Everyone { guests });
+            for kind in [
+                EditorKind::ChannelModerator,
+                EditorKind::Author,
+                EditorKind::Local,
+            ] {
+                let who = licensed(kind);
+                let refused = Err(RuleRefusal::Forbidden("reservation_admins_only"));
+                // Set it, change it away, remove it.
+                assert_eq!(write(&who, FILE, everyone, none.0, none.1, None), refused);
+                assert_eq!(
+                    write(&who, FILE, everyone, lire.0, lire.1, none_stored),
+                    refused
+                );
+                assert_eq!(
+                    write(
+                        &who,
+                        FILE,
+                        everyone,
+                        PermissionSet::EMPTY,
+                        PermissionSet::EMPTY,
+                        none_stored
+                    ),
+                    refused
+                );
+                // A deny of the view bit with an allow is still a reservation.
+                assert_eq!(
+                    write(
+                        &who,
+                        FILE,
+                        everyone,
+                        set(&[P::FilesEdit]),
+                        set(&[P::FilesView]),
+                        None
+                    ),
+                    refused
+                );
+                // Lire and up is theirs to set, change and remove.
+                assert_eq!(write(&who, FILE, everyone, lire.0, lire.1, None), Ok(()));
+                assert_eq!(
+                    write(&who, FILE, everyone, lire.0, lire.1, lire_stored),
+                    Ok(())
+                );
+                assert_eq!(
+                    write(
+                        &who,
+                        FILE,
+                        everyone,
+                        PermissionSet::EMPTY,
+                        PermissionSet::EMPTY,
+                        lire_stored
+                    ),
+                    Ok(())
+                );
+            }
+            for kind in [EditorKind::Owner, EditorKind::Space] {
+                let boss = licensed(kind);
+                assert_eq!(write(&boss, FILE, everyone, none.0, none.1, None), Ok(()));
+                assert_eq!(
+                    write(&boss, FILE, everyone, lire.0, lire.1, none_stored),
+                    Ok(())
+                );
+            }
+        }
+        // The view bit of each family.
+        for (resource, view) in [(CHANNEL, P::ChannelView), (CALENDAR, P::CalendarView)] {
+            assert_eq!(
+                write(
+                    &licensed(EditorKind::ChannelModerator),
+                    resource,
+                    at(Aim::Everyone { guests: false }),
+                    PermissionSet::EMPTY,
+                    set(&[view]),
+                    None
+                ),
+                Err(RuleRefusal::Forbidden("reservation_admins_only"))
             );
         }
     }
@@ -858,6 +1051,7 @@ mod tests {
             Aim::Role {
                 position: 5,
                 system: false,
+                editor_holds: false,
             },
             Aim::Group {
                 editor_in: false,
@@ -921,6 +1115,7 @@ mod tests {
         let custom_role = at(Aim::Role {
             position: 5,
             system: false,
+            editor_holds: false,
         });
         let someone = at(Aim::User {
             is_editor: false,
@@ -996,6 +1191,20 @@ mod tests {
             RuleRefusal::Forbidden("cannot_grant").into_api(url),
             ApiError::ForbiddenBecause("cannot_grant")
         ));
+        assert!(matches!(
+            RuleRefusal::Forbidden("target_above_you").into_api(url),
+            ApiError::ForbiddenBecause("target_above_you")
+        ));
+        assert!(matches!(
+            RuleRefusal::Forbidden("reservation_admins_only").into_api(url),
+            ApiError::ForbiddenBecause("reservation_admins_only")
+        ));
+        for code in ["not_in_space", "audience_files_only"] {
+            assert!(matches!(
+                RuleRefusal::BadRequest(code).into_api(url),
+                ApiError::BadRequestCode { code: c, .. } if c == code
+            ));
+        }
         assert!(matches!(
             RuleRefusal::BadRequest("guest_ceiling").into_api(url),
             ApiError::BadRequestCode {

@@ -59,7 +59,7 @@ async fn rule(
     .await;
 }
 
-struct Licensed;
+struct Licensed(bool);
 
 #[async_trait::async_trait]
 impl Edition for Licensed {
@@ -72,9 +72,16 @@ impl Edition for Licensed {
         _db: &DatabaseConnection,
         _space_id: Uuid,
     ) -> Result<Entitlement, sea_orm::DbErr> {
-        Ok(Entitlement::Enterprise {
-            seats: 7,
-            valid_until: time::macros::datetime!(2027-12-31 0:00 UTC),
+        Ok(if self.0 {
+            Entitlement::Enterprise {
+                seats: 7,
+                valid_until: time::macros::datetime!(2027-12-31 0:00 UTC),
+            }
+        } else {
+            Entitlement::Frozen {
+                seats: 7,
+                expired_at: time::macros::datetime!(2026-01-01 0:00 UTC),
+            }
         })
     }
 
@@ -256,7 +263,8 @@ async fn a_local_manager_is_answered_with_the_licence_it_has() {
 
 #[tokio::test]
 async fn a_licensed_space_answers_paid_enterprise() {
-    let Some(server) = crate::testkit::boot_with(Arc::new(Licensed), None, |_| {}).await else {
+    let Some(server) = crate::testkit::boot_with(Arc::new(Licensed(true)), None, |_| {}).await
+    else {
         return;
     };
     let db = &server.state.db;
@@ -434,4 +442,89 @@ async fn rule_entries_are_readable_in_the_log_by_family_and_labelled_by_name() {
     assert!(entries
         .iter()
         .any(|e| e["target"]["kind"] == "channel" && e["target"]["label"] == "salon"));
+}
+
+#[tokio::test]
+async fn a_frozen_space_answers_paid_frozen() {
+    let Some(server) = crate::testkit::boot_with(Arc::new(Licensed(false)), None, |_| {}).await
+    else {
+        return;
+    };
+    let db = &server.state.db;
+    let fx = ladder(db).await;
+    let folder = make_file(db, fx.space_id, fx.owner, "dossier").await;
+    rule(
+        db,
+        fx.space_id,
+        ("file_id", folder),
+        ("user_id", fx.member),
+        &["files.view", "files.manage"],
+    )
+    .await;
+    let editor = editor_of(
+        &server.state,
+        fx.space_id,
+        fx.member,
+        ResourceRef::File(folder),
+    )
+    .await
+    .expect("editor")
+    .expect("local");
+    assert_eq!(
+        (editor.kind, editor.paid),
+        (EditorKind::Local, Paid::Frozen)
+    );
+}
+
+#[tokio::test]
+async fn a_guest_author_and_a_former_member_edit_nothing() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let guest_file = make_file(&app.db, fx.space_id, fx.guest, "invite.txt").await;
+    assert_eq!(
+        kind_of(&app, fx.space_id, fx.guest, ResourceRef::File(guest_file)).await,
+        None
+    );
+    // A member who wrote a file and then left (or was removed) edits nothing any more.
+    let mine = make_file(&app.db, fx.space_id, fx.member, "mine.txt").await;
+    assert_eq!(
+        kind_of(&app, fx.space_id, fx.member, ResourceRef::File(mine)).await,
+        Some(EditorKind::Author)
+    );
+    exec(
+        &app.db,
+        "DELETE FROM space_members WHERE space_id = $1 AND user_id = $2",
+        vec![fx.space_id.into(), fx.member.into()],
+    )
+    .await;
+    assert_eq!(
+        kind_of(&app, fx.space_id, fx.member, ResourceRef::File(mine)).await,
+        None
+    );
+}
+
+#[tokio::test]
+async fn a_space_editor_holds_on_the_resource_only_what_the_resource_leaves_them() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let file = make_file(&app.db, fx.space_id, fx.owner, "secret.txt").await;
+    exec(
+        &app.db,
+        "INSERT INTO permission_overrides (space_id, file_id, user_id, deny) VALUES ($1, $2, $3, $4)",
+        vec![
+            fx.space_id.into(),
+            file.into(),
+            fx.admin.into(),
+            vec!["files.edit".to_owned()].into(),
+        ],
+    )
+    .await;
+    let editor = editor_of(&app.state, fx.space_id, fx.admin, ResourceRef::File(file))
+        .await
+        .expect("editor")
+        .expect("space editor");
+    assert_eq!(editor.kind, EditorKind::Space);
+    // Rule 2 reads these rights: what the resource took away cannot be granted from here.
+    assert!(!editor.rights.contains(Permission::FilesEdit));
+    assert!(editor.rights.contains(Permission::FilesView));
 }
