@@ -969,3 +969,190 @@ async fn an_ended_guest_who_moderated_a_channel_edits_no_access() {
     .await;
     assert_eq!(status, 403, "an ended guest edits no access");
 }
+
+/// A direct conversation between `people`, rows only (what the API would have made).
+async fn make_dm(app: &TestApp, space: Uuid, people: &[Uuid]) -> Uuid {
+    let id = Uuid::new_v4();
+    for sql in [
+        "INSERT INTO conversations (id, space_id, kind) VALUES ($1, $2, 'direct')",
+        "INSERT INTO dm_conversations (id, space_id, is_group, created_by) \
+         VALUES ($1, $2, false, NULL)",
+    ] {
+        exec(&app.db, sql, vec![id.into(), space.into()])
+            .await
+            .expect("dm");
+    }
+    for user in people {
+        exec(
+            &app.db,
+            "INSERT INTO dm_participants (dm_id, user_id) VALUES ($1, $2)",
+            vec![id.into(), (*user).into()],
+        )
+        .await
+        .expect("participant");
+    }
+    id
+}
+
+async fn dm_notices(app: &TestApp, user: Uuid, dm: Uuid) -> usize {
+    notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(user))
+        .filter(notifications::Column::ConversationId.eq(dm))
+        .all(&app.db)
+        .await
+        .expect("notices")
+        .len()
+}
+
+async fn dm_audience(app: &TestApp, space: Uuid, dm: Uuid) -> Vec<Uuid> {
+    let access = crate::messaging::authz::ConversationAccess {
+        conversation_id: dm,
+        space_id: space,
+        kind: crate::messaging::authz::ConversationKind::Direct,
+        channel_type: None,
+    };
+    crate::messaging::authz::conversation_audience(&app.db, &access)
+        .await
+        .expect("audience")
+}
+
+#[tokio::test]
+async fn an_expired_guest_reads_and_hears_no_direct_message_until_reactivated() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let guest = guest_ending(&app.db, fx.space, "1 hour").await;
+    let dm = make_dm(&app, fx.space, &[fx.member, guest]).await;
+    let member = app.cookie_for(fx.member).await;
+    let guest_cookie = app.cookie_for(guest).await;
+    let messages = format!("/api/v1/conversations/{dm}/messages");
+
+    // Running: the guest writes, the member answers and is heard.
+    let (status, text) = call(
+        &app,
+        reqwest::Method::POST,
+        &messages,
+        &guest_cookie,
+        Some(json!({ "body": "mine" })),
+    )
+    .await;
+    assert_eq!(status, 201, "{text}");
+    let mine = serde_json::from_str::<Value>(&text).expect("json")["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+    let (status, text) = call(
+        &app,
+        reqwest::Method::POST,
+        &messages,
+        &member,
+        Some(json!({ "body": "theirs" })),
+    )
+    .await;
+    assert_eq!(status, 201, "{text}");
+    let theirs = serde_json::from_str::<Value>(&text).expect("json")["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+    assert_eq!(dm_notices(&app, guest, dm).await, 1);
+    assert!(dm_audience(&app, fx.space, dm).await.contains(&guest));
+
+    exec(
+        &app.db,
+        "UPDATE space_members SET expires_at = now() - interval '1 second' \
+         WHERE space_id = $1 AND user_id = $2",
+        vec![fx.space.into(), guest.into()],
+    )
+    .await
+    .expect("expire");
+
+    let emoji = "%F0%9F%91%8D";
+    let refused = |method: reqwest::Method, path: String, body: Option<Value>| {
+        let app = &app;
+        let cookie = guest_cookie.clone();
+        async move { call(app, method, &path, &cookie, body).await.0 }
+    };
+    assert_eq!(
+        refused(reqwest::Method::GET, messages.clone(), None).await,
+        403,
+        "list"
+    );
+    assert_eq!(
+        refused(
+            reqwest::Method::POST,
+            messages.clone(),
+            Some(json!({ "body": "still here?" }))
+        )
+        .await,
+        403,
+        "send"
+    );
+    assert_eq!(
+        refused(
+            reqwest::Method::PUT,
+            format!("/api/v1/messages/{theirs}/reactions/{emoji}"),
+            None
+        )
+        .await,
+        403,
+        "react"
+    );
+    assert_eq!(
+        refused(
+            reqwest::Method::PATCH,
+            format!("/api/v1/messages/{mine}"),
+            Some(json!({ "body": "edited" }))
+        )
+        .await,
+        403,
+        "edit"
+    );
+
+    // Not heard: out of the audience, no notice for what the member says next.
+    assert_eq!(dm_audience(&app, fx.space, dm).await, vec![fx.member]);
+    let (status, _) = call(
+        &app,
+        reqwest::Method::POST,
+        &messages,
+        &member,
+        Some(json!({ "body": "anyone?" })),
+    )
+    .await;
+    assert_eq!(status, 201);
+    assert_eq!(dm_notices(&app, guest, dm).await, 1, "no new notice");
+
+    // Nothing was deleted: reactivated, the history is theirs again.
+    exec(
+        &app.db,
+        "UPDATE space_members SET expires_at = now() + interval '1 day' \
+         WHERE space_id = $1 AND user_id = $2",
+        vec![fx.space.into(), guest.into()],
+    )
+    .await
+    .expect("reactivate");
+    let (status, page) = get_json(&app, &messages, &guest_cookie).await;
+    assert_eq!(status, 200, "{page}");
+    assert_eq!(page["messages"].as_array().expect("messages").len(), 3);
+    assert!(dm_audience(&app, fx.space, dm).await.contains(&guest));
+}
+
+#[tokio::test]
+async fn a_removed_member_gets_403_on_their_old_direct_message() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let leaver = make_user(&app.db, "leaver").await;
+    crate::testkit::add_member(&app.db, fx.space, leaver, "member").await;
+    let dm = make_dm(&app, fx.space, &[fx.member, leaver]).await;
+    let cookie = app.cookie_for(leaver).await;
+    let messages = format!("/api/v1/conversations/{dm}/messages");
+    assert_eq!(get_json(&app, &messages, &cookie).await.0, 200);
+
+    exec(
+        &app.db,
+        "DELETE FROM space_members WHERE space_id = $1 AND user_id = $2",
+        vec![fx.space.into(), leaver.into()],
+    )
+    .await
+    .expect("remove");
+    assert_eq!(get_json(&app, &messages, &cookie).await.0, 403);
+    assert_eq!(dm_audience(&app, fx.space, dm).await, vec![fx.member]);
+}

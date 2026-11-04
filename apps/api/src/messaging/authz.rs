@@ -104,7 +104,11 @@ pub async fn ensure_conversation_access(
             })
         }
         "direct" => {
-            if !is_dm_participant(db, conversation_id, user_id).await? {
+            // A participant row outlives the person's place in the space (an ended guest, a
+            // removed member) so that coming back gives the history back; it grants nothing alone.
+            if !is_dm_participant(db, conversation_id, user_id).await?
+                || !is_space_member(db, conversation.space_id, user_id).await?
+            {
                 return Err(ApiError::Forbidden);
             }
             Ok(ConversationAccess {
@@ -128,13 +132,22 @@ pub async fn conversation_audience(
 ) -> Result<Vec<Uuid>, ApiError> {
     let ids = match access.kind {
         ConversationKind::Channel => channel_audience(db, access.conversation_id).await?,
-        ConversationKind::Direct => dm_participants::Entity::find()
-            .filter(dm_participants::Column::DmId.eq(access.conversation_id))
-            .all(db)
-            .await?
-            .into_iter()
-            .map(|p| p.user_id)
-            .collect(),
+        ConversationKind::Direct => {
+            let participants: Vec<Uuid> = dm_participants::Entity::find()
+                .filter(dm_participants::Column::DmId.eq(access.conversation_id))
+                .all(db)
+                .await?
+                .into_iter()
+                .map(|p| p.user_id)
+                .collect();
+            // Only the participants still active in the space: an ended guest or a removed
+            // member keeps their row, and hears nothing.
+            membership::active_among(db, access.space_id, participants)
+                .await?
+                .into_iter()
+                .map(|member| member.user_id)
+                .collect()
+        }
     };
     Ok(ids)
 }
