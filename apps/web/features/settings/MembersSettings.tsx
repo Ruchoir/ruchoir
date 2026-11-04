@@ -43,6 +43,8 @@ export type MembersSettingsProps = {
   /** The space's groups (empty when it lists none to the viewer). */
   groups: Group[];
   spaceId: string;
+  /** The space's licence (owners only), to count seats in the guest dialogs. */
+  licence?: { seats: number; used: number };
   /** A group's members changed: read the people and groups again. */
   onGroupsChanged: () => Promise<void>;
   onNotify: (toast: Toast) => void;
@@ -174,6 +176,7 @@ export function MembersSettings(props: MembersSettingsProps) {
               spaceId={props.spaceId}
               onGroupsChanged={props.onGroupsChanged}
               onNotify={props.onNotify}
+              seats={props.licence}
               onSaveRoles={(roleIds) => props.onSaveMemberRoles(managed.userId, roleIds)}
               onChangeRole={(role) => {
                 setManaging(null);

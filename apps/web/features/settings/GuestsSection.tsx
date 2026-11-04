@@ -147,7 +147,7 @@ function GuestRow({
   const items = [
     { icon: "settings", label: t("profile.tabManage"), onClick: onManage },
     ...(canDate ? [{ icon: "calendar-clock", label: row.end ? t("guests.changeDate") : t("guests.setDate"), onClick: onProlong }] : []),
-    { icon: "user-plus", label: t("guests.makeMember"), onClick: () => onChangeRole(person, "member") },
+    { icon: "user-plus", label: t("guests.passerMembreAction"), onClick: () => onChangeRole(person, "member") },
     { type: "separator" as const },
     { icon: "user-minus", label: t("common.remove"), danger: true, onClick: () => onRemoveMember(person) },
   ];

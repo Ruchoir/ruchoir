@@ -534,6 +534,7 @@ export function WorkspaceSettings({
               roles={roles}
               groups={groups}
               spaceId={spaceId}
+              licence={licence}
               onGroupsChanged={onAccessChanged}
               onNotify={onNotify}
               canInvite={canInvite}

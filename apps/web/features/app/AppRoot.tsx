@@ -3395,6 +3395,7 @@ function AppShell() {
             spaceId={ws}
             onGroupsChanged={() => refreshAccess()}
             onNotify={showToast}
+            seats={currentWorkspace.licence ? { seats: currentWorkspace.licence.seats, used: currentWorkspace.licence.used } : undefined}
             onSaveRoles={(roleIds) => saveMemberRoles(userId, roleIds)}
             onChangeRole={(role) => void changeMemberRole({ userId, name: member.name }, role)}
             onRemove={() => setRemoving({ userId, name: member.name })}

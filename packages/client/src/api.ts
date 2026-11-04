@@ -2065,10 +2065,12 @@ export function createApi(transport: Transport) {
     spaceId: string,
     userId: string,
     role: string,
+    options: { expiresAt?: string | null } = {},
   ): Promise<{ userId: string; role: string }[]> {
+    // `expiresAt` only goes with `role: "guest"`: the end of the access they are given as they become one.
     const changes = await apiPatch<{ space_id: string; user_id: string; role: string }[]>(
       `/spaces/${spaceId}/members/${userId}`,
-      { role },
+      options.expiresAt ? { role, expires_at: options.expiresAt } : { role },
     );
     return changes.map((c) => ({ userId: c.user_id, role: c.role }));
   }

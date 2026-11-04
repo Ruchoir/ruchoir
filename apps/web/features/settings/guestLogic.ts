@@ -163,3 +163,46 @@ export function guestRow(guest: { expiresAt?: string }, now: Date) {
 export function canSeeEnded(rights: string[]): boolean {
   return rights.includes("members.manage");
 }
+
+/** One sentence of a dialog, as a dictionary key and the names it mentions (roles held, in a list). */
+export type Line = { key: string; names?: string[] };
+
+type Held = { roleIds?: string[] };
+type RoleLike = { id: string; name: string; systemKey?: string };
+
+/**
+ * What turning a person into a guest takes away and what stays, as sentences. The roles they hold
+ * are named among what stays: they keep applying, under the guests' ceiling.
+ */
+export function standingLoss(member: Held, roles: RoleLike[]): { loses: Line[]; keeps: Line[] } {
+  const held = roles.filter((r) => member.roleIds?.includes(r.id) && !r.systemKey).map((r) => r.name);
+  return {
+    loses: [{ key: "guests.loseView" }, { key: "guests.loseDirectory" }, { key: "guests.loseCeiling" }],
+    keeps: [
+      { key: "guests.keepChannels" },
+      { key: "guests.keepMessages" },
+      { key: "guests.keepGroups" },
+      ...(held.length > 0 ? [{ key: "guests.keepRoles", names: held }] : []),
+    ],
+  };
+}
+
+/** What turning a guest into a member gives and costs, as sentences. */
+export function standingGain(member: { expiresAt?: string }): Line[] {
+  return [{ key: "guests.gainView" }, { key: "guests.gainSeat" }, ...(member.expiresAt ? [{ key: "guests.gainClearsDate" }] : [])];
+}
+
+/** The seats once one more person stops holding one; `null` when the space has no licence to count. */
+export function seatsAfterInvite(licence: { seats: number; used: number } | undefined): { used: number; total: number } | null {
+  return licence ? { used: Math.max(0, licence.used - 1), total: licence.seats } : null;
+}
+
+/** Which of a person's standing controls their management panel offers the viewer. */
+export function gestionControls(member: { role: string; manageable?: boolean }, rights: string[]) {
+  const manages = canSeeEnded(rights) && member.manageable !== false;
+  return {
+    endControl: manages && showsEndDate(member.role),
+    toMember: manages && member.role === "guest",
+    toGuest: manages && member.role === "member",
+  };
+}

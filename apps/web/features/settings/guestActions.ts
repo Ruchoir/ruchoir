@@ -57,3 +57,40 @@ export async function confirmRemoval(
   await refresh();
   return true;
 }
+
+/** The seats refusal an API error carries (`402 seats_full`), or `null` for any other failure. */
+export function seatsFullOf(err: unknown): { seats: number; pricingUrl: string } | null {
+  const e = err as { status?: number; body?: { error?: string; seats?: number; pricing_url?: string } } | null;
+  if (e?.status !== 402 || e.body?.error !== "seats_full") return null;
+  return { seats: e.body.seats ?? 0, pricingUrl: e.body.pricing_url ?? "" };
+}
+
+type StandingApi = {
+  setMemberRole: (spaceId: string, userId: string, role: string, options?: { expiresAt?: string | null }) => Promise<unknown>;
+};
+
+/**
+ * Turn a guest into a member. A full licence is not a failure to throw but an answer to show: the
+ * guest keeps their access and the dialog names the seats and the way to a bigger licence.
+ */
+export async function passerMembre(
+  api: StandingApi,
+  request: { spaceId: string; userId: string },
+  refresh: () => Promise<void>,
+): Promise<{ ok: true } | { ok: false; seatsFull: { seats: number; pricingUrl: string } }> {
+  try {
+    await api.setMemberRole(request.spaceId, request.userId, "member");
+  } catch (err) {
+    const full = seatsFullOf(err);
+    if (full) return { ok: false, seatsFull: full };
+    throw err;
+  }
+  await refresh();
+  return { ok: true };
+}
+
+/** Turn a member into a guest, with an end date or none; the choice is checked before anything is sent. */
+export async function passerInvite(api: StandingApi, request: ExpiryRequest, refresh: () => Promise<void>): Promise<void> {
+  await api.setMemberRole(request.spaceId, request.userId, "guest", { expiresAt: instantOf(request) });
+  await refresh();
+}
