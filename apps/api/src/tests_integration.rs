@@ -4612,6 +4612,7 @@ fn source_channel(id: &str, space: &str, kind: &str, members: &[&str]) -> Channe
         members: members.iter().map(|m| (*m).to_string()).collect(),
         member_state: vec![],
         created_at: None,
+        moderators: vec![],
     }
 }
 

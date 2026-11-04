@@ -26,7 +26,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-FORMAT_VERSIONS = {1}
+FORMAT_VERSIONS = {1, 2}
 # `synthetic` is the odd one: an archive nobody exported, generated to run the importer against
 # the size of a real migration. It is named rather than disguised as a product, because the
 # source is written into every mapping the run records and a false one there would outlive the
@@ -46,6 +46,10 @@ SYSTEM_EVENTS = {
 FILES = ("spaces.jsonl", "users.jsonl", "channels.jsonl", "messages.jsonl", "files.jsonl")
 # Optional: an archive from a source with no calendars has neither.
 OPTIONAL_FILES = ("calendars.jsonl", "events.jsonl")
+# Format 2: who stands where. Ignored, with a warning, inside a format 1 archive.
+PEOPLE_FILES = ("members.jsonl", "groups.jsonl", "roles.jsonl")
+MEMBER_ROLES = {"admin", "member", "guest"}
+BASED_ON = {"member", "admin"}
 HASH = re.compile(r"^sha256:[0-9a-f]{64}$")
 COLOUR = re.compile(r"^#[0-9a-fA-F]{6}$")
 # An author that matches no account: a guest, a bot, someone the producer could not resolve. The
@@ -139,13 +143,23 @@ def validate(archive: Path) -> Report:
     calendars = unique_ids(_optional(archive / "calendars.jsonl", report), "calendars.jsonl", report)
     events = unique_ids(_optional(archive / "events.jsonl", report), "events.jsonl", report)
 
+    # A format 1 archive does not know the people files: whatever it carries of them is ignored.
+    version = manifest.get("format_version")
+    is_v2 = isinstance(version, int) and not isinstance(version, bool) and version == 2
+    members = _optional(archive / "members.jsonl", report) if is_v2 else []
+    groups = _optional(archive / "groups.jsonl", report) if is_v2 else []
+    roles = _optional(archive / "roles.jsonl", report) if is_v2 else []
+
     _check_manifest(
         archive, manifest, spaces, users, channels, messages_rows, files, report,
         calendars=calendars, events=events,
+        people={"members": len(members), "groups": len(groups), "roles": len(roles)} if is_v2 else None,
     )
     _check_spaces(spaces, report)
     _check_users(users, report)
     _check_channels(channels, spaces, users, report)
+    if is_v2:
+        _check_people(members, groups, roles, channels, spaces, users, report)
     _check_messages(messages, channels, users, files, report)
     _check_files(archive, files, messages, report)
     _check_file_places(files, spaces, channels, messages, report)
@@ -196,7 +210,7 @@ def _check_events(events, calendars, report) -> None:
 
 
 def _check_manifest(
-    archive, manifest, spaces, users, channels, messages, files, report, calendars=None, events=None
+    archive, manifest, spaces, users, channels, messages, files, report, calendars=None, events=None, people=None
 ) -> None:
     if not manifest:
         return
@@ -228,6 +242,12 @@ def _check_manifest(
         "calendars": len(calendars or {}),
         "events": len(events or {}),
     }
+    if people is not None:
+        actual.update(people)
+    else:
+        for name in PEOPLE_FILES:
+            if (archive / name).is_file():
+                report.warn(f"{name} belongs to format 2 and this archive says format 1: it is ignored")
     counts = manifest.get("counts") or {}
     for name, value in actual.items():
         if name in counts and counts[name] != value:
@@ -290,6 +310,83 @@ def _check_channels(channels, spaces, users, report) -> None:
             report.error(f"channel {identifier}: a direct conversation needs at least two people")
         if channel.get("created_at") is not None and not is_timestamp(channel["created_at"]):
             report.error(f"channel {identifier}: created_at is not an ISO instant")
+
+
+def _check_people(members, groups, roles, channels, spaces, users, report) -> None:
+    """Format 2: who stands where. Mirrors `check_people` in the importer's checker."""
+    defined: set[tuple] = set()
+    role_names: set[tuple] = set()
+    for role in roles:
+        identifier, space = role.get("id"), role.get("space")
+        if space not in spaces:
+            report.error(f"role {identifier}: space {space!r} is not in this archive")
+        if (space, identifier) in defined:
+            report.error(f"role {identifier}: two roles of space {space} share an identifier")
+        defined.add((space, identifier))
+        if role.get("based_on") not in BASED_ON:
+            report.error(f"role {identifier}: based_on {role.get('based_on')!r} is not one we have")
+        name = (space, str(role.get("name") or "").lower())
+        if name in role_names:
+            report.error(f"role {identifier}: another role of space {space} has the same name")
+        role_names.add(name)
+
+    seen: set[tuple] = set()
+    guests: set[tuple] = set()
+    for member in members:
+        space, user, role = member.get("space"), member.get("user"), member.get("role")
+        if space not in spaces:
+            report.error(f"member {user}: space {space!r} is not in this archive")
+        if user not in users:
+            report.error(f"member {user}: not an account in this archive")
+        if (space, user) in seen:
+            report.error(f"member {user}: listed twice in space {space}")
+        seen.add((space, user))
+        if role not in MEMBER_ROLES:
+            report.error(f"member {user}: role {role!r} is not one we have")
+        held = member.get("roles") or []
+        for identifier in held:
+            if (space, identifier) not in defined:
+                report.error(f"member {user}: role {identifier!r} is not defined for space {space}")
+        if role == "guest":
+            guests.add((space, user))
+            if held:
+                report.warn(f"member {user}: a guest carries roles, which are ignored")
+
+    grouped: set[tuple] = set()
+    group_ids: set = set()
+    group_names: set[tuple] = set()
+    for group in groups:
+        identifier, space = group.get("id"), group.get("space")
+        if identifier in group_ids:
+            report.error(f"group {identifier}: two groups share an identifier")
+        group_ids.add(identifier)
+        if space not in spaces:
+            report.error(f"group {identifier}: space {space!r} is not in this archive")
+        name = (space, str(group.get("name") or "").lower())
+        if name in group_names:
+            report.error(f"group {identifier}: another group of space {space} has the same name")
+        group_names.add(name)
+        for person in group.get("members") or []:
+            if person not in users:
+                report.error(f"group {identifier}: member {person!r} is not an account in this archive")
+            grouped.add((space, person))
+
+    conversing: set[tuple] = set()
+    for identifier, channel in channels.items():
+        listed = channel.get("members") if isinstance(channel.get("members"), list) else []
+        for person in listed:
+            conversing.add((channel.get("space"), person))
+        for moderator in channel.get("moderators") or []:
+            if moderator not in listed:
+                report.error(f"conversation {identifier}: moderator {moderator!r} is not one of its members")
+            elif (channel.get("space"), moderator) in guests:
+                report.warn(f"conversation {identifier}: a guest is listed as moderator, which is ignored")
+    for member in members:
+        key = (member.get("space"), member.get("user"))
+        if key not in conversing and key not in grouped:
+            report.warn(
+                f"member {key[1]}: listed in space {key[0]} but in no conversation and no group of it"
+            )
 
 
 def _check_messages(messages, channels, users, files, report) -> None:

@@ -159,6 +159,11 @@ def build_archive(root: Path, **overrides) -> Path:
             }
         ],
     }
+    # The people files are format 2: giving any of them makes the archive one, unless the caller
+    # says otherwise (a format 1 archive that carries them by mistake is a case worth testing).
+    format_version = overrides.pop(
+        "format_version", 2 if any(k in overrides for k in ("members", "groups", "roles")) else 1
+    )
     data.update(overrides)
 
     for name, rows in data.items():
@@ -167,7 +172,7 @@ def build_archive(root: Path, **overrides) -> Path:
                 sink.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     manifest = {
-        "format_version": 1,
+        "format_version": format_version,
         "source": "mattermost",
         "source_version": "10.5",
         "producer": "test",
@@ -182,6 +187,12 @@ def build_archive(root: Path, **overrides) -> Path:
     }
     (archive / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return archive
+
+
+def set_format(archive: Path, version: int) -> None:
+    manifest = json.loads((archive / "manifest.json").read_text(encoding="utf-8"))
+    manifest["format_version"] = version
+    (archive / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
 def rewrite(archive: Path, name: str, rows: list[dict]) -> None:

@@ -30,7 +30,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from helpers import PACKAGE, build_archive, load, rewrite
+from helpers import PACKAGE, build_archive, load, rewrite, set_format
 
 validator = load("validate-archive.py")
 
@@ -300,7 +300,28 @@ def _two_events_with_one_identifier(archive: Path) -> None:
     rewrite(archive, "events.jsonl", events)
 
 
+def _a_member_of_an_unknown_space(archive: Path) -> None:
+    set_format(archive, 2)
+    rewrite(archive, "members.jsonl", [{"space": "nowhere", "user": "alice", "role": "member", "roles": []}])
+
+
+def _a_duplicate_group_name(archive: Path) -> None:
+    set_format(archive, 2)
+    group = {"space": "atelier", "description": "", "members": []}
+    rewrite(archive, "groups.jsonl", [{**group, "id": "g1", "name": "Design"}, {**group, "id": "g2", "name": "design"}])
+
+
+def _a_moderator_outside_members(archive: Path) -> None:
+    set_format(archive, 2)
+    channels = _rows(archive, "channels.jsonl")
+    channels[0]["moderators"] = ["stranger"]
+    rewrite(archive, "channels.jsonl", channels)
+
+
 BREAKAGES = [
+    ("a member of an unknown space", _a_member_of_an_unknown_space),
+    ("a duplicate group name", _a_duplicate_group_name),
+    ("a moderator outside the members", _a_moderator_outside_members),
     ("a reaction whose people are under the wrong field", _reaction_by_the_wrong_field),
     ("a pinned notice", _pinned_notice),
     ("a reaction named rather than drawn", _reaction_named_rather_than_drawn),
@@ -387,6 +408,28 @@ class CheckersAgree(unittest.TestCase):
         files[0].update({"space": "bureau", "folder": "Projets/2026"})
         rewrite(self.archive, "files.jsonl", files)
 
+        py_ok, py_said = python_accepts(self.archive)
+        rs_ok, rs_said = rust_accepts(self.archive)
+        self.assertTrue(py_ok, py_said)
+        self.assertTrue(rs_ok, rs_said)
+
+    def test_agree_on_a_v1_archive_with_v2_files(self) -> None:
+        """A format 1 archive carrying format 2 files is read as format 1 by both: accepted."""
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        archive = build_archive(
+            Path(tmp.name),
+            format_version=1,
+            members=[{"space": "nowhere", "user": "ghost", "role": "owner", "roles": ["x"]}],
+        )
+        py_ok, py_said = python_accepts(archive)
+        rs_ok, rs_said = rust_accepts(archive)
+        self.assertTrue(py_ok, py_said)
+        self.assertTrue(rs_ok, rs_said)
+
+    def test_both_accept_a_sound_format_2_archive(self) -> None:
+        set_format(self.archive, 2)
+        rewrite(self.archive, "members.jsonl", [{"space": "atelier", "user": "alice", "role": "admin", "roles": []}])
         py_ok, py_said = python_accepts(self.archive)
         rs_ok, rs_said = rust_accepts(self.archive)
         self.assertTrue(py_ok, py_said)

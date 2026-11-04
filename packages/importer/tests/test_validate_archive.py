@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from helpers import build_archive, load, rewrite
+from helpers import build_archive, load, rewrite, set_format
 
 validator = load("validate-archive.py")
 
@@ -53,7 +53,7 @@ class ValidatorCase(unittest.TestCase):
     # -- manifest ------------------------------------------------------------------------------
     def test_a_newer_format_is_refused_rather_than_guessed_at(self) -> None:
         manifest = json.loads((self.archive / "manifest.json").read_text())
-        manifest["format_version"] = 2
+        manifest["format_version"] = 3
         (self.archive / "manifest.json").write_text(json.dumps(manifest))
         self.assert_caught("format_version")
 
@@ -306,6 +306,118 @@ class ValidatorCase(unittest.TestCase):
         channels[0]["members"] = ["alice", "alice", "bob"]
         rewrite(self.archive, "channels.jsonl", channels)
         self.assert_caught("listed twice")
+
+    # -- format 2: people, groups and roles --------------------------------------------------------
+    def v2(self, members=None, groups=None, roles=None, moderators=None) -> None:
+        set_format(self.archive, 2)
+        if members is not None:
+            rewrite(self.archive, "members.jsonl", members)
+        if groups is not None:
+            rewrite(self.archive, "groups.jsonl", groups)
+        if roles is not None:
+            rewrite(self.archive, "roles.jsonl", roles)
+        if moderators is not None:
+            channels = self.channels()
+            channels[0]["moderators"] = moderators
+            rewrite(self.archive, "channels.jsonl", channels)
+
+    @staticmethod
+    def person(user, role="member", roles=(), space="atelier") -> dict:
+        return {"space": space, "user": user, "role": role, "roles": list(roles)}
+
+    def test_a_format_2_archive_reads_members_groups_and_roles(self) -> None:
+        self.v2(
+            members=[self.person("alice", "admin", ["r1"]), self.person("bob")],
+            groups=[{"id": "g1", "space": "atelier", "name": "Design", "description": "", "members": ["alice"]}],
+            roles=[{"id": "r1", "space": "atelier", "name": "Moderators", "based_on": "member"}],
+            moderators=["alice"],
+        )
+        report = validator.validate(self.archive)
+        self.assertEqual(report.errors, [])
+        self.assertEqual(report.warnings, [])
+
+    def test_a_format_1_archive_still_reads_and_ignores_people_files(self) -> None:
+        self.v2(members=[self.person("ghost", "owner", ["nope"])], moderators=["ghost"])
+        set_format(self.archive, 1)
+        report = validator.validate(self.archive)
+        self.assertEqual(report.errors, [])
+        self.assertTrue(any("belongs to format 2" in w for w in report.warnings), report.warnings)
+
+    def test_format_3_is_refused_with_the_newer_producer_message(self) -> None:
+        set_format(self.archive, 3)
+        self.assert_caught("format_version 3")
+
+    def test_a_member_line_for_an_unknown_user_is_an_error(self) -> None:
+        self.v2(members=[self.person("ghost")])
+        self.assert_caught("member ghost: not an account")
+
+    def test_a_member_line_for_an_unknown_space_or_role_is_an_error(self) -> None:
+        self.v2(members=[self.person("alice", space="nowhere")])
+        self.assert_caught("space 'nowhere' is not in this archive")
+        self.v2(members=[self.person("alice", role="owner")])
+        self.assert_caught("role 'owner' is not one we have")
+
+    def test_two_lines_for_one_person_and_space_is_an_error(self) -> None:
+        self.v2(members=[self.person("alice"), self.person("alice", "admin")])
+        self.assert_caught("listed twice in space atelier")
+
+    def test_one_person_two_spaces_two_roles(self) -> None:
+        spaces = [
+            {"id": "atelier", "name": "Atelier", "description": "", "visibility": "public"},
+            {"id": "bureau", "name": "Bureau", "description": "", "visibility": "private"},
+        ]
+        rewrite(self.archive, "spaces.jsonl", spaces)
+        self.v2(members=[self.person("alice", "admin"), self.person("alice", "guest", space="bureau")])
+        self.assertEqual(self.errors(), [])
+
+    def test_a_moderator_outside_the_members_is_an_error(self) -> None:
+        self.v2(moderators=["stranger"])
+        self.assert_caught("moderator 'stranger' is not one of its members")
+
+    def test_two_groups_with_one_name_is_an_error(self) -> None:
+        group = {"space": "atelier", "description": "", "members": []}
+        self.v2(groups=[{**group, "id": "g1", "name": "Design"}, {**group, "id": "g2", "name": "DESIGN"}])
+        self.assert_caught("has the same name")
+
+    def test_a_role_id_nobody_defined_is_an_error(self) -> None:
+        self.v2(members=[self.person("alice", roles=["ghost-role"])])
+        self.assert_caught("role 'ghost-role' is not defined for space atelier")
+
+    def test_a_guest_with_roles_is_only_a_warning(self) -> None:
+        self.v2(
+            members=[self.person("alice", "guest", ["r1"])],
+            roles=[{"id": "r1", "space": "atelier", "name": "R", "based_on": "admin"}],
+            moderators=["alice"],
+        )
+        report = validator.validate(self.archive)
+        self.assertEqual(report.errors, [])
+        self.assertTrue(any("a guest carries roles" in w for w in report.warnings))
+        self.assertTrue(any("a guest is listed as moderator" in w for w in report.warnings))
+
+    def test_a_person_in_no_conversation_and_no_group_is_only_a_warning(self) -> None:
+        channels = self.channels()
+        channels[0]["members"] = ["bob"]
+        channels[0]["member_state"] = []
+        rewrite(self.archive, "channels.jsonl", channels)
+        self.v2(members=[self.person("alice")])
+        report = validator.validate(self.archive)
+        self.assertEqual(report.errors, [])
+        self.assertTrue(any("no conversation and no group" in w for w in report.warnings))
+
+    def test_declared_counts_of_members_groups_roles_are_held(self) -> None:
+        self.v2(members=[self.person("alice")])
+        manifest = json.loads((self.archive / "manifest.json").read_text())
+        manifest["counts"].update({"members": 2, "groups": 1})
+        (self.archive / "manifest.json").write_text(json.dumps(manifest))
+        self.assert_caught("counts 2 members, the archive holds 1")
+        self.assert_caught("counts 1 groups, the archive holds 0")
+
+    def test_a_listed_checksum_covers_the_people_files(self) -> None:
+        self.v2(members=[self.person("alice")])
+        manifest = json.loads((self.archive / "manifest.json").read_text())
+        manifest["checksums"]["members.jsonl"] = "sha256:" + "0" * 64
+        (self.archive / "manifest.json").write_text(json.dumps(manifest))
+        self.assert_caught("members.jsonl does not match its declared checksum")
 
 
 if __name__ == "__main__":

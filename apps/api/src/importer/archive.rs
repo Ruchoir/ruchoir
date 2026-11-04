@@ -24,7 +24,7 @@ use sha2::{Digest, Sha256};
 
 /// Format versions this build knows how to read. An archive from a newer producer is refused
 /// rather than guessed at.
-pub const SUPPORTED_FORMAT_VERSIONS: &[u32] = &[1];
+pub const SUPPORTED_FORMAT_VERSIONS: &[u32] = &[1, 2];
 
 /// Everything that can go wrong while reading an archive.
 ///
@@ -154,6 +154,47 @@ pub struct ChannelRecord {
     pub member_state: Vec<MemberStateRecord>,
     #[serde(default)]
     pub created_at: Option<String>,
+    /// Format 2: the people (all of them in `members`) who moderate this conversation.
+    #[serde(default)]
+    pub moderators: Vec<String>,
+}
+
+/// Format 2: a person's standing in a space (`members.jsonl`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct MemberRecord {
+    pub space: String,
+    pub user: String,
+    /// `admin`, `member` or `guest`.
+    #[serde(default)]
+    pub role: String,
+    /// Ids of `roles.jsonl` this person holds in the space.
+    #[serde(default)]
+    pub roles: Vec<String>,
+}
+
+/// Format 2: a group of people in a space (`groups.jsonl`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct GroupRecord {
+    pub id: String,
+    pub space: String,
+    pub name: String,
+    #[serde(default)]
+    #[allow(dead_code)]
+    // carried for the people import that reads groups; checked and kept here
+    pub description: String,
+    #[serde(default)]
+    pub members: Vec<String>,
+}
+
+/// Format 2: a role of the source product (`roles.jsonl`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct RoleRecord {
+    pub id: String,
+    pub space: String,
+    pub name: String,
+    /// `member` or `admin`.
+    #[serde(default)]
+    pub based_on: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -257,6 +298,10 @@ pub struct Index {
     pub spaces: Vec<SpaceRecord>,
     pub users: Vec<UserRecord>,
     pub channels: Vec<ChannelRecord>,
+    /// Format 2 only: emptied when the archive says format 1.
+    pub members: Vec<MemberRecord>,
+    pub groups: Vec<GroupRecord>,
+    pub roles: Vec<RoleRecord>,
     pub files: Vec<FileRecord>,
     pub calendars: Vec<CalendarRecord>,
     pub message_count: usize,
@@ -287,6 +332,9 @@ pub enum Member<'a> {
     Space(SpaceRecord),
     User(UserRecord),
     Channel(ChannelRecord),
+    Person(MemberRecord),
+    Group(GroupRecord),
+    CustomRole(RoleRecord),
     Message(MessageRecord),
     File(FileRecord),
     Calendar(CalendarRecord),
@@ -347,6 +395,9 @@ pub fn index(path: &Path, passphrase: Option<&str>) -> Result<Index> {
             Member::Space(s) => index.spaces.push(s),
             Member::User(u) => index.users.push(u),
             Member::Channel(c) => index.channels.push(c),
+            Member::Person(m) => index.members.push(m),
+            Member::Group(g) => index.groups.push(g),
+            Member::CustomRole(r) => index.roles.push(r),
             Member::File(f) => index.files.push(f),
             Member::Calendar(c) => index.calendars.push(c),
             Member::Event(_) => index.event_count += 1,
@@ -397,6 +448,20 @@ pub fn index(path: &Path, passphrase: Option<&str>) -> Result<Index> {
         }
         Some(_) => {}
     }
+    // A format 1 archive does not know these files: whatever it carries of them is ignored, so an
+    // old producer's output reads exactly as it did before format 2 existed.
+    if index
+        .manifest
+        .as_ref()
+        .is_some_and(|m| m.format_version < 2)
+    {
+        index.members.clear();
+        index.groups.clear();
+        index.roles.clear();
+        for channel in &mut index.channels {
+            channel.moderators.clear();
+        }
+    }
     Ok(index)
 }
 
@@ -422,6 +487,9 @@ where
         "spaces.jsonl",
         "users.jsonl",
         "channels.jsonl",
+        "members.jsonl",
+        "groups.jsonl",
+        "roles.jsonl",
         "messages.jsonl",
         "files.jsonl",
         "calendars.jsonl",
@@ -436,6 +504,9 @@ where
             "spaces.jsonl" => hashed(file, name, visit, Member::Space)?,
             "users.jsonl" => hashed(file, name, visit, Member::User)?,
             "channels.jsonl" => hashed(file, name, visit, Member::Channel)?,
+            "members.jsonl" => hashed(file, name, visit, Member::Person)?,
+            "groups.jsonl" => hashed(file, name, visit, Member::Group)?,
+            "roles.jsonl" => hashed(file, name, visit, Member::CustomRole)?,
             "messages.jsonl" => hashed(file, name, visit, Member::Message)?,
             "calendars.jsonl" => hashed(file, name, visit, Member::Calendar)?,
             "events.jsonl" => hashed(file, name, visit, Member::Event)?,
@@ -537,6 +608,9 @@ where
             "spaces.jsonl" => hashed(&mut entry, &name, visit, Member::Space)?,
             "users.jsonl" => hashed(&mut entry, &name, visit, Member::User)?,
             "channels.jsonl" => hashed(&mut entry, &name, visit, Member::Channel)?,
+            "members.jsonl" => hashed(&mut entry, &name, visit, Member::Person)?,
+            "groups.jsonl" => hashed(&mut entry, &name, visit, Member::Group)?,
+            "roles.jsonl" => hashed(&mut entry, &name, visit, Member::CustomRole)?,
             "messages.jsonl" => hashed(&mut entry, &name, visit, Member::Message)?,
             "files.jsonl" => hashed(&mut entry, &name, visit, Member::File)?,
             "calendars.jsonl" => hashed(&mut entry, &name, visit, Member::Calendar)?,

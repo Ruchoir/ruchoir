@@ -360,6 +360,7 @@ mod tests {
             members: vec![],
             member_state: vec![],
             created_at: None,
+            moderators: vec![],
         }
     }
 
