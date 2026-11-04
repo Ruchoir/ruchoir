@@ -53,6 +53,14 @@ export type Sentence =
   | "groupManagersChanged"
   | "licenceInstalled"
   | "licenceRemoved"
+  | "guestExpiryFixed"
+  | "guestExpiryMoved"
+  | "guestExpiryRemoved"
+  | "guestExpired"
+  | "guestReactivated"
+  | "guestToMember"
+  | "memberToGuest"
+  | "guestPurged"
   | "unknown";
 
 export type AuditLine = {
@@ -200,6 +208,19 @@ export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined): A
       return line("licenceInstalled", { values: { seats: typeof d.seats === "number" ? d.seats : 0, until: str(d.valid_until) } });
     case "licence.removed":
       return line("licenceRemoved");
+    case "member.expiry_set": {
+      const before = str(d.before);
+      const after = str(d.after);
+      return line(!before ? "guestExpiryFixed" : !after ? "guestExpiryRemoved" : "guestExpiryMoved", { slots: { target }, values: { before, after } });
+    }
+    case "member.expired":
+      return line("guestExpired", { slots: { target } });
+    case "member.reactivated":
+      return line("guestReactivated", { slots: { target }, values: { before: str(d.before), after: str(d.after) } });
+    case "member.standing_changed":
+      return line(d.after === "guest" ? "memberToGuest" : "guestToMember", { slots: { target } });
+    case "member.purged":
+      return line("guestPurged", { slots: { target } });
     default:
       return line("unknown");
   }

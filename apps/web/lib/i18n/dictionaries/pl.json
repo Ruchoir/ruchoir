@@ -2416,7 +2416,16 @@
     "formerMembers_other": "{{count}} osoby, których nie ma już w przestrzeni",
     "groupDeletedBare": "{{actor}} usunął(-ęła) grupę {{group}}",
     "licenceRemoved": "{{actor}} usuwa licencję",
-    "unknown": "{{actor}} wprowadza zmianę ({{action}})"
+    "unknown": "{{actor}} wprowadza zmianę ({{action}})",
+    "guestExpiryFixed": "{{actor}} ustawił(a) koniec dostępu dla {{target}}",
+    "guestExpiryMoved": "{{actor}} zmienił(a) datę dostępu dla {{target}}",
+    "guestExpiryRemoved": "{{actor}} usunął(-ęła) datę końca dostępu dla {{target}}",
+    "guestExpired": "Dostęp dla {{target}} się zakończył: data została osiągnięta",
+    "guestReactivated": "{{actor}} przywrócił(a) dostęp dla {{target}}",
+    "guestToMember": "{{actor}} zmienił(a) {{target}} z gościa w członka",
+    "memberToGuest": "{{actor}} zmienił(a) {{target}} z członka w gościa",
+    "guestPurged": "Dostęp dla {{target}} został usunięty po 90 dniach",
+    "accessUntil": "Dostęp do {{date}}"
   },
   "guests": {
     "endTitle": "Dostęp do",
@@ -2490,6 +2499,25 @@
     "removeDate": "Usuń datę",
     "memberStatusNote": "Członek widzi całą przestrzeń i zajmuje miejsce w licencji. Jego data końca zostaje wtedy usunięta.",
     "guestStatusNote": "Gość ma dostęp tylko do tego, co mu udostępniono, i nie zajmuje miejsca w licencji.",
-    "seatsFullRest": "Aby zmienić gościa w członka, przejdź na większą licencję. {{name}} pozostaje gościem i zachowuje dostęp, a nikt nie traci swojego."
+    "seatsFullRest": "Aby zmienić gościa w członka, przejdź na większą licencję. {{name}} pozostaje gościem i zachowuje dostęp, a nikt nie traci swojego.",
+    "ceilingTitle": "Gość nigdy nie może",
+    "ceilingDirectory": "Zobaczyć pełnego katalogu członków",
+    "ceilingPeople": "Zapraszać, usuwać ani zmieniać uprawnień innych",
+    "ceilingCreate": "Tworzyć ani usuwać kanału, grupy czy roli",
+    "ceilingModerate": "Moderować wiadomości, zarządzać kanałem, folderem czy kalendarzem",
+    "ceilingSettings": "Tworzyć publicznego linku, czytać dziennika, zmieniać ustawień",
+    "rightsSub": "Co może zrobić gość w {{space}}.",
+    "rightsFree": "Wersja bezpłatna",
+    "rightsOpens": "Ma dostęp tylko do tego, co mu udostępniono",
+    "rightsOpensBody": "Kanał, folder lub kalendarz udostępnia się mu pojedynczo, z „Dostępu” lub „Udostępnij”.",
+    "rightsCan": "Co może robić w tym, co mu udostępniono",
+    "rightsCanBody": "Pisać i odpowiadać, reagować, dołączać pliki, pisać wiadomości bezpośrednie.",
+    "rightsUpsell": "Ustawianie uprawnień gości (pisanie, dołączanie, wzmianki, przypinanie): wersja Enterprise.",
+    "bannerUntil": "Gość w {{space}} · do {{date}}",
+    "bannerNoEnd": "Gość w {{space}}",
+    "noticeSoon": "Dostęp {{name}} kończy się {{when}}",
+    "noticeEnding": "Twój dostęp do {{space}} kończy się {{when}}",
+    "endedNotice": "Twój dostęp do {{space}} się zakończył",
+    "endedNoticeBody": "Twoje wiadomości i pliki zostają w przestrzeni. Porozmawiaj z osobami, które nią zarządzają, aby odzyskać dostęp."
   }
 }

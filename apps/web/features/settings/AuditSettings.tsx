@@ -7,7 +7,7 @@ import { getAudit } from "@/lib/data/api";
 import type { AuditEntry, Role } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
-import { formatDayHeading, formatTime, formatUtcDate } from "@/lib/i18n/format";
+import { formatDate, formatDayHeading, formatTime, formatUtcDate } from "@/lib/i18n/format";
 import { auditLine, dayKey, type Sentence, type Slot } from "./auditLogic";
 import { RoleDot, ROLE_LABEL, roleLabel } from "./roleChips";
 import { PERMISSION_TEXT } from "./permissionText";
@@ -43,6 +43,14 @@ const SENTENCE: Record<Sentence, TranslationKey> = {
   groupManagersChanged: key("audit.groupManagersChanged"),
   licenceInstalled: key("audit.licenceInstalled"),
   licenceRemoved: key("audit.licenceRemoved"),
+  guestExpiryFixed: key("audit.guestExpiryFixed"),
+  guestExpiryMoved: key("audit.guestExpiryMoved"),
+  guestExpiryRemoved: key("audit.guestExpiryRemoved"),
+  guestExpired: key("audit.guestExpired"),
+  guestReactivated: key("audit.guestReactivated"),
+  guestToMember: key("audit.guestToMember"),
+  memberToGuest: key("audit.memberToGuest"),
+  guestPurged: key("audit.guestPurged"),
   unknown: key("audit.unknown"),
 };
 
@@ -177,9 +185,18 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
       const text = roleText(name);
       return diff?.viaGroup ? t("audit.viaGroup", { role: text }) : text;
     };
+    // The end of an access, before and after: the two chips of a date line.
+    const dated = ["guestExpiryFixed", "guestExpiryMoved", "guestExpiryRemoved", "guestReactivated"].includes(line.sentence);
+    const endChip = (iso: unknown) => (typeof iso === "string" && iso ? t("audit.accessUntil", { date: formatDate(iso) }) : t("guests.noEnd"));
     return (
       <>
         <span>{pieces}</span>
+        {dated ? (
+          <span style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+            {line.values.after ? <span style={st.plus}>+ {endChip(line.values.after)}</span> : null}
+            {line.sentence !== "guestReactivated" || line.values.before ? <span style={st.minus}>{"\u2212"} {endChip(line.values.before)}</span> : null}
+          </span>
+        ) : null}
         {diff && (diff.added.length > 0 || diff.removed.length > 0) ? (
           <span style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
             {diff.added.map((name) => (
@@ -263,6 +280,9 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
                 <span style={st.time}>{formatTime(entry.at)}</span>
                 {entry.actor ? (
                   <Avatar name={entry.actor.name} src={entry.actor.avatarUrl ?? getAvatar(entry.actor.name)} size={24} />
+                ) : entry.action === "member.expired" || entry.action === "member.purged" ? (
+                  // The sweep, not a person: the product signs it.
+                  <Avatar name="Ruchoir" size={24} />
                 ) : (
                   <Avatar name="?" size={24} />
                 )}

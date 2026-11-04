@@ -49,6 +49,8 @@ export type Workspace = {
   mentions: number;
   /** How much this space notifies the caller, for its conversations left on `default`. */
   notifyLevel: NotifyLevel;
+  /** When the caller's own access ends (RFC 3339), for a guest given an end date. */
+  expiresAt?: string;
   /**
    * What the caller may do here, by permission name (`files.manage`, `channel.manage`...), when the
    * instance announces the `permissions` feature. Absent from an older instance: fall back to the

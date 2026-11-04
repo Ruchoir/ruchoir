@@ -1,5 +1,6 @@
 "use client";
 
+import { endedSpaces } from "./guestNotices.ts";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAvatar, getPresence, setChannelMembers, setCurrentUser, setSpaceRooms, setUserPresence } from "@/lib/data";
 import { isDesktop } from "@/lib/desktop/runtime";
@@ -385,6 +386,7 @@ function toAppNotification(
     read,
     reminder: n.reminder,
     emoji: n.emoji,
+    daysLeft: n.daysLeft,
   };
 }
 
@@ -923,7 +925,7 @@ function AppShell() {
         Promise.all(
           rest.map((id) => getChannelMessages(id).catch(() => ({ messages: [], nextBefore: undefined }))),
         ),
-        getNotifications().catch(() => ({ notifications: [], unreadCount: 0, nextBefore: undefined })),
+        getNotifications({ guestNotices: true }).catch(() => ({ notifications: [], unreadCount: 0, nextBefore: undefined })),
         getFolder(activeWs).catch(() => ({ folderId: undefined, breadcrumb: [], entries: [] as SpaceFile[] })),
       ]);
       if (loadingSpaceRef.current !== activeWs) return;
@@ -1177,6 +1179,8 @@ function AppShell() {
    * the effect's dependencies would tear the WebSocket down and rebuild it on each one.
    */
   const notifyRef = useRef<((toast: Toast) => void) | null>(null);
+  // The spaces whose end of access was already announced: the notice shows once.
+  const endedToldRef = useRef(new Set<string>());
   // The desktop app's bridge (null on the web), for effects that outlive a render.
   const desktop = useDesktop();
   // The account settings, kept in line with the server's (and the other devices').
@@ -1518,7 +1522,14 @@ function AppShell() {
         void getWorkspaces()
           .then((spaces) => {
             const fresh = spaces.find((w) => w.id === spaceId);
-            if (!fresh) return;
+            if (!fresh) {
+              // The space is gone from the list: a guest's access to it ended. Said once, whatever
+              // frames follow, and the space leaves the rail.
+              const gone = endedSpaces(liveRef.current.spaces, spaces, endedToldRef.current);
+              for (const space of gone) notifyRef.current?.({ tone: "warning", title: tRef.current("guests.endedNotice", { space: space.name }), description: tRef.current("guests.endedNoticeBody") });
+              if (gone.length > 0) setWorkspaces((prev) => prev.filter((w) => w.id !== spaceId));
+              return;
+            }
             setWorkspaces((prev) =>
               prev.map((w) => (w.id === spaceId ? { ...w, role: fresh.role, myPermissions: fresh.myPermissions, edition: fresh.edition, licence: fresh.licence } : w)),
             );
@@ -2167,7 +2178,7 @@ function AppShell() {
           });
       }
       // The inbox, for the notifications pushed while away.
-      void getNotifications()
+      void getNotifications({ guestNotices: true })
         .then((feed) => {
           if (liveRef.current.ws !== space) return;
           const { channels: chs, dms: dmList } = liveRef.current;
@@ -2766,7 +2777,13 @@ function AppShell() {
     setNotifRead(id, true);
     // A calendar reminder has no conversation: it opens its event in the calendar.
     if (!targetChannel) {
-      const reminder = notifs.find((n) => n.id === id)?.reminder;
+      const notice = notifs.find((n) => n.id === id);
+      // A guest notice is about access: its manager goes to the people, the guest has nothing to open.
+      if (notice?.kind === "guest_expiry_soon" || notice?.kind === "guest_access_ending") {
+        if (notice.kind === "guest_expiry_soon") openView("settings");
+        return;
+      }
+      const reminder = notice?.reminder;
       if (reminder) {
         setCalendarCompose(null);
         setCalendarFocus({ ...reminder, at: Date.now() });

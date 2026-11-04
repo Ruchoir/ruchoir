@@ -2260,7 +2260,16 @@
     "formerMembers_other": "{{count}} personnes qui ne sont plus dans l'espace",
     "groupDeletedBare": "{{actor}} a supprimé le groupe {{group}}",
     "licenceRemoved": "{{actor}} a retiré la licence",
-    "unknown": "{{actor}} a fait un changement ({{action}})"
+    "unknown": "{{actor}} a fait un changement ({{action}})",
+    "guestExpiryFixed": "{{actor}} a fixé la fin de l'accès de {{target}}",
+    "guestExpiryMoved": "{{actor}} a changé la date d'accès de {{target}}",
+    "guestExpiryRemoved": "{{actor}} a enlevé la date de fin de l'accès de {{target}}",
+    "guestExpired": "L'accès de {{target}} a pris fin : la date est atteinte",
+    "guestReactivated": "{{actor}} a réactivé l'accès de {{target}}",
+    "guestToMember": "{{actor}} a passé {{target}} d'invité à membre",
+    "memberToGuest": "{{actor}} a passé {{target}} de membre à invité",
+    "guestPurged": "L'accès de {{target}} a été supprimé après 90 jours",
+    "accessUntil": "Accès jusqu'au {{date}}"
   },
   "guests": {
     "endTitle": "Accès jusqu'au",
@@ -2334,6 +2343,25 @@
     "removeDate": "Enlever la date",
     "memberStatusNote": "Un membre voit tout l'espace et prend une place de la licence. Sa date de fin est alors effacée.",
     "guestStatusNote": "Un invité n'a accès qu'à ce qu'on lui ouvre et ne prend pas de place dans la licence.",
-    "seatsFullRest": "Pour passer une personne invitée membre, passez à une licence plus grande. {{name}} reste invité et garde son accès, et personne ne perd le sien."
+    "seatsFullRest": "Pour passer une personne invitée membre, passez à une licence plus grande. {{name}} reste invité et garde son accès, et personne ne perd le sien.",
+    "ceilingTitle": "Un invité ne peut jamais",
+    "ceilingDirectory": "Voir l'annuaire complet des membres",
+    "ceilingPeople": "Inviter, retirer ou changer les droits de quelqu'un",
+    "ceilingCreate": "Créer ou supprimer un canal, un groupe ou un rôle",
+    "ceilingModerate": "Modérer les messages, gérer un canal, un dossier ou un agenda",
+    "ceilingSettings": "Créer un lien public, lire le journal, changer les réglages",
+    "rightsSub": "Ce que peut faire une personne invitée dans {{space}}.",
+    "rightsFree": "Édition gratuite",
+    "rightsOpens": "Elle n'a accès qu'à ce qu'on lui ouvre",
+    "rightsOpensBody": "Un canal, un dossier ou un agenda se partage avec elle un par un, depuis « Accès » ou « Partager ».",
+    "rightsCan": "Ce qu'elle peut faire dans ce qu'on lui ouvre",
+    "rightsCanBody": "Écrire et répondre, réagir, joindre des fichiers, écrire en message direct.",
+    "rightsUpsell": "Régler les droits des invités (écrire, joindre, mentionner, épingler) : édition Entreprise.",
+    "bannerUntil": "Invité dans {{space}} · jusqu'au {{date}}",
+    "bannerNoEnd": "Invité dans {{space}}",
+    "noticeSoon": "L'accès de {{name}} se termine {{when}}",
+    "noticeEnding": "Votre accès à {{space}} se termine {{when}}",
+    "endedNotice": "Votre accès à {{space}} a pris fin",
+    "endedNoticeBody": "Vos messages et vos fichiers restent dans l'espace. Voyez avec les personnes qui le gèrent pour le retrouver."
   }
 }

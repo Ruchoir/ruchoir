@@ -59,12 +59,14 @@ export type RolesSettingsProps = {
   onChanged: () => Promise<void>;
   onSetMemberRoles: (userId: string, roleIds: string[]) => Promise<boolean>;
   onNotify: (toast: Toast) => void;
+  /** A role to open straight away (the guests' role, from "Droits des invités"). */
+  initialRoleId?: string;
 };
 
 /** The Roles tab: the fixed roles read in a community space, the ranked list in a licensed one. */
 export function RolesSettings(props: RolesSettingsProps) {
   const { roles, edition } = props;
-  const [editing, setEditing] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(props.initialRoleId ?? null);
   const role = editing ? roles.find((r) => r.id === editing) : undefined;
   if (role) {
     return (

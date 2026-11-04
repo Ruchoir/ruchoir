@@ -43,6 +43,8 @@ export type MembersSettingsProps = {
   /** The space's groups (empty when it lists none to the viewer). */
   groups: Group[];
   spaceId: string;
+  /** "Droits des invités": open the guests' role (licensed) or read the ceiling (community). */
+  onGuestRights?: () => void;
   /** The space's licence (owners only), to count seats in the guest dialogs. */
   licence?: { seats: number; used: number };
   /** A group's members changed: read the people and groups again. */
@@ -141,6 +143,7 @@ export function MembersSettings(props: MembersSettingsProps) {
           onManage={setManaging}
           onChangeRole={props.onChangeRole}
           onRemoveMember={props.onRemoveMember}
+          onGuestRights={props.onGuestRights}
         />
       ) : null}
       <EndedAccess spaceId={props.spaceId} spaceName={props.spaceName} myRights={props.myRights} onChanged={props.onGroupsChanged} onNotify={props.onNotify} />

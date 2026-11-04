@@ -25,6 +25,8 @@ const KIND_ICON: Record<NotifKind, string> = {
   calendar_cancel: "x",
   calendar_declined: "user-minus",
   calendar_shared: "users",
+  guest_expiry_soon: "clock",
+  guest_access_ending: "clock",
 };
 
 /** The answers an invitation offers from the inbox, for every date. */
@@ -304,7 +306,7 @@ function NotifRow({
         }}
       />
       <span style={{ position: "relative", flex: "none" }}>
-        {notif.reminder ? (
+        {notif.reminder || notif.kind.startsWith("guest_") ? (
           <span
             aria-hidden
             style={{ display: "grid", placeItems: "center", width: 32, height: 32, borderRadius: "var(--radius-md)", background: "var(--surface-sunken)", color: "var(--text-strong)" }}
@@ -314,7 +316,7 @@ function NotifRow({
         ) : (
           <Avatar name={notif.actor} src={getAvatar(notif.actor)} size={32} presence={getPresence(notif.actor)} />
         )}
-        {notif.reminder ? null : (
+        {notif.reminder || notif.kind.startsWith("guest_") ? null : (
         <span
             aria-hidden
             style={{

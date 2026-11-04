@@ -2325,7 +2325,16 @@
     "formerMembers_other": "{{count}} persone che non sono più nello spazio",
     "groupDeletedBare": "{{actor}} ha eliminato il gruppo {{group}}",
     "licenceRemoved": "{{actor}} ha rimosso la licenza",
-    "unknown": "{{actor}} ha fatto una modifica ({{action}})"
+    "unknown": "{{actor}} ha fatto una modifica ({{action}})",
+    "guestExpiryFixed": "{{actor}} ha fissato la fine dell'accesso di {{target}}",
+    "guestExpiryMoved": "{{actor}} ha cambiato la data di accesso di {{target}}",
+    "guestExpiryRemoved": "{{actor}} ha tolto la data di fine dell'accesso di {{target}}",
+    "guestExpired": "L'accesso di {{target}} è terminato: la data è stata raggiunta",
+    "guestReactivated": "{{actor}} ha riattivato l'accesso di {{target}}",
+    "guestToMember": "{{actor}} ha reso {{target}} membro, da ospite",
+    "memberToGuest": "{{actor}} ha reso {{target}} ospite, da membro",
+    "guestPurged": "L'accesso di {{target}} è stato eliminato dopo 90 giorni",
+    "accessUntil": "Accesso fino al {{date}}"
   },
   "guests": {
     "endTitle": "Accesso fino al",
@@ -2399,6 +2408,25 @@
     "removeDate": "Rimuovi la data",
     "memberStatusNote": "Un membro vede tutto lo spazio e occupa un posto della licenza. La sua data di fine viene allora cancellata.",
     "guestStatusNote": "Un ospite accede solo a ciò che gli viene aperto e non occupa un posto nella licenza.",
-    "seatsFullRest": "Per rendere membro un ospite, passa a una licenza più grande. {{name}} resta ospite e mantiene il suo accesso, e nessuno perde il proprio."
+    "seatsFullRest": "Per rendere membro un ospite, passa a una licenza più grande. {{name}} resta ospite e mantiene il suo accesso, e nessuno perde il proprio.",
+    "ceilingTitle": "Un ospite non può mai",
+    "ceilingDirectory": "Vedere la rubrica completa dei membri",
+    "ceilingPeople": "Invitare, rimuovere o cambiare i diritti di qualcuno",
+    "ceilingCreate": "Creare o eliminare un canale, un gruppo o un ruolo",
+    "ceilingModerate": "Moderare i messaggi, gestire un canale, una cartella o un calendario",
+    "ceilingSettings": "Creare un link pubblico, leggere il registro, cambiare le impostazioni",
+    "rightsSub": "Ciò che può fare un ospite in {{space}}.",
+    "rightsFree": "Edizione gratuita",
+    "rightsOpens": "Accede solo a ciò che gli viene aperto",
+    "rightsOpensBody": "Un canale, una cartella o un calendario si condivide con lui uno per uno, da «Accesso» o «Condividi».",
+    "rightsCan": "Ciò che può fare in ciò che gli viene aperto",
+    "rightsCanBody": "Scrivere e rispondere, reagire, allegare file, scrivere messaggi diretti.",
+    "rightsUpsell": "Regolare i diritti degli ospiti (scrivere, allegare, menzionare, fissare): edizione Enterprise.",
+    "bannerUntil": "Ospite in {{space}} · fino al {{date}}",
+    "bannerNoEnd": "Ospite in {{space}}",
+    "noticeSoon": "L'accesso di {{name}} termina {{when}}",
+    "noticeEnding": "Il tuo accesso a {{space}} termina {{when}}",
+    "endedNotice": "Il tuo accesso a {{space}} è terminato",
+    "endedNoticeBody": "I tuoi messaggi e file restano nello spazio. Parla con chi lo gestisce per riaverlo."
   }
 }

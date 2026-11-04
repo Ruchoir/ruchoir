@@ -2325,7 +2325,16 @@
     "formerMembers_other": "{{count}} personas que ya no están en el espacio",
     "groupDeletedBare": "{{actor}} eliminó el grupo {{group}}",
     "licenceRemoved": "{{actor}} ha retirado la licencia",
-    "unknown": "{{actor}} ha hecho un cambio ({{action}})"
+    "unknown": "{{actor}} ha hecho un cambio ({{action}})",
+    "guestExpiryFixed": "{{actor}} fijó el fin del acceso de {{target}}",
+    "guestExpiryMoved": "{{actor}} cambió la fecha de acceso de {{target}}",
+    "guestExpiryRemoved": "{{actor}} quitó la fecha de fin del acceso de {{target}}",
+    "guestExpired": "El acceso de {{target}} terminó: se alcanzó la fecha",
+    "guestReactivated": "{{actor}} reactivó el acceso de {{target}}",
+    "guestToMember": "{{actor}} pasó a {{target}} de invitado a miembro",
+    "memberToGuest": "{{actor}} pasó a {{target}} de miembro a invitado",
+    "guestPurged": "El acceso de {{target}} se eliminó tras 90 días",
+    "accessUntil": "Acceso hasta el {{date}}"
   },
   "guests": {
     "endTitle": "Acceso hasta",
@@ -2399,6 +2408,25 @@
     "removeDate": "Quitar la fecha",
     "memberStatusNote": "Un miembro ve todo el espacio y ocupa una plaza de la licencia. Su fecha de fin se borra entonces.",
     "guestStatusNote": "Un invitado solo accede a lo que se le abre y no ocupa plaza en la licencia.",
-    "seatsFullRest": "Para hacer miembro a un invitado, pasa a una licencia más grande. {{name}} sigue siendo invitado y conserva su acceso, y nadie pierde el suyo."
+    "seatsFullRest": "Para hacer miembro a un invitado, pasa a una licencia más grande. {{name}} sigue siendo invitado y conserva su acceso, y nadie pierde el suyo.",
+    "ceilingTitle": "Un invitado nunca puede",
+    "ceilingDirectory": "Ver el directorio completo de miembros",
+    "ceilingPeople": "Invitar, quitar o cambiar los derechos de alguien",
+    "ceilingCreate": "Crear o eliminar un canal, un grupo o un rol",
+    "ceilingModerate": "Moderar mensajes, gestionar un canal, una carpeta o un calendario",
+    "ceilingSettings": "Crear un enlace público, leer el registro, cambiar los ajustes",
+    "rightsSub": "Lo que puede hacer un invitado en {{space}}.",
+    "rightsFree": "Edición gratuita",
+    "rightsOpens": "Solo accede a lo que se le abre",
+    "rightsOpensBody": "Un canal, una carpeta o un calendario se comparte con él uno por uno, desde «Acceso» o «Compartir».",
+    "rightsCan": "Lo que puede hacer en lo que se le abre",
+    "rightsCanBody": "Escribir y responder, reaccionar, adjuntar archivos, escribir mensajes directos.",
+    "rightsUpsell": "Ajustar los derechos de los invitados (escribir, adjuntar, mencionar, fijar): edición Enterprise.",
+    "bannerUntil": "Invitado en {{space}} · hasta el {{date}}",
+    "bannerNoEnd": "Invitado en {{space}}",
+    "noticeSoon": "El acceso de {{name}} termina {{when}}",
+    "noticeEnding": "Tu acceso a {{space}} termina {{when}}",
+    "endedNotice": "Tu acceso a {{space}} ha terminado",
+    "endedNoticeBody": "Tus mensajes y archivos se quedan en el espacio. Habla con quienes lo gestionan para recuperarlo."
   }
 }

@@ -206,3 +206,16 @@ export function gestionControls(member: { role: string; manageable?: boolean }, 
     toGuest: manages && member.role === "member",
   };
 }
+
+/** The banner a guest sees under the space's name: with the end of their access, or without one. */
+export function guestBanner(role: string, expiresAt: string | undefined): { dated: true; until: string } | { dated: false } | null {
+  if (role !== "guest") return null;
+  return expiresAt ? { dated: true, until: expiresAt } : { dated: false };
+}
+
+/** A group whose people are all guests (and which has some): it carries the "Invités" tag. */
+export function isGuestsOnly(group: { memberIds: string[] }, people: { userId: string; role: string }[]): boolean {
+  if (group.memberIds.length === 0) return false;
+  const roles = new Map(people.map((p) => [p.userId, p.role]));
+  return group.memberIds.every((id) => roles.get(id) === "guest");
+}

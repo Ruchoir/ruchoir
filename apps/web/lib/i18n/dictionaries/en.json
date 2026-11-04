@@ -2234,7 +2234,16 @@
     "formerMembers_other": "{{count}} people no longer in the space",
     "groupDeletedBare": "{{actor}} deleted the group {{group}}",
     "licenceRemoved": "{{actor}} removed the licence",
-    "unknown": "{{actor}} made a change ({{action}})"
+    "unknown": "{{actor}} made a change ({{action}})",
+    "guestExpiryFixed": "{{actor}} set the end of {{target}}'s access",
+    "guestExpiryMoved": "{{actor}} changed {{target}}'s access date",
+    "guestExpiryRemoved": "{{actor}} removed the end date of {{target}}'s access",
+    "guestExpired": "{{target}}'s access ended: the date was reached",
+    "guestReactivated": "{{actor}} reactivated {{target}}'s access",
+    "guestToMember": "{{actor}} made {{target}} a member, from guest",
+    "memberToGuest": "{{actor}} made {{target}} a guest, from member",
+    "guestPurged": "{{target}}'s access was deleted after 90 days",
+    "accessUntil": "Access until {{date}}"
   },
   "guests": {
     "endTitle": "Access until",
@@ -2308,6 +2317,25 @@
     "removeDate": "Remove the date",
     "memberStatusNote": "A member sees the whole space and takes a seat of the licence. Their end date is then cleared.",
     "guestStatusNote": "A guest only reaches what is opened to them and takes no seat in the licence.",
-    "seatsFullRest": "To make a guest a member, move to a bigger licence. {{name}} stays a guest and keeps their access, and nobody loses theirs."
+    "seatsFullRest": "To make a guest a member, move to a bigger licence. {{name}} stays a guest and keeps their access, and nobody loses theirs.",
+    "ceilingTitle": "A guest can never",
+    "ceilingDirectory": "See the full member directory",
+    "ceilingPeople": "Invite, remove or change anyone's rights",
+    "ceilingCreate": "Create or delete a channel, a group or a role",
+    "ceilingModerate": "Moderate messages, manage a channel, a folder or a calendar",
+    "ceilingSettings": "Create a public link, read the log, change the settings",
+    "rightsSub": "What a guest can do in {{space}}.",
+    "rightsFree": "Free edition",
+    "rightsOpens": "They only reach what is opened to them",
+    "rightsOpensBody": "A channel, a folder or a calendar is shared with them one by one, from \"Access\" or \"Share\".",
+    "rightsCan": "What they can do in what is opened to them",
+    "rightsCanBody": "Write and reply, react, attach files, write direct messages.",
+    "rightsUpsell": "Set the guests' rights (write, attach, mention, pin): Enterprise edition.",
+    "bannerUntil": "Guest in {{space}} · until {{date}}",
+    "bannerNoEnd": "Guest in {{space}}",
+    "noticeSoon": "{{name}}'s access ends {{when}}",
+    "noticeEnding": "Your access to {{space}} ends {{when}}",
+    "endedNotice": "Your access to {{space}} has ended",
+    "endedNoticeBody": "Your messages and files stay in the space. Ask the people who manage it to get access back."
   }
 }

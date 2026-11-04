@@ -11,6 +11,8 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatUtcDate } from "@/lib/i18n/format";
 import { BackHeading } from "../app/BackHeading";
 import { MembersSettings, type SettingsMember } from "./MembersSettings";
+import { GuestRightsDialog } from "./CeilingSummary";
+import { rightsEntry } from "./guestCeiling.ts";
 import { RolesSettings } from "./RolesSettings";
 import { GroupsSettings } from "./GroupsSettings";
 import { AuditSettings } from "./AuditSettings";
@@ -272,6 +274,9 @@ export function WorkspaceSettings({
   const [tab, setTab] = useState<NavKey>("general");
   // A group opened from elsewhere (a role's people): the Groupes tab shows it straight away.
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  // "Droits des invités": the guests' role opened in the Rôles tab (licensed), or the read-only summary (community).
+  const [openRole, setOpenRole] = useState<string | null>(null);
+  const [ceilingOpen, setCeilingOpen] = useState(false);
   const sections = NAV.filter(([id]) =>
     id === "audit" ? canReadAudit : id === "groups" ? canManageGroups : id === "licence" ? canManageLicence : id === "general" || canManageMembers,
   );
@@ -406,6 +411,7 @@ export function WorkspaceSettings({
           {sections.map(([v, l, i]) => (
             <button key={v} style={navItem(v === tab, compact)} onClick={() => {
                 setOpenGroup(null);
+                setOpenRole(null);
                 setTab(v);
               }}>
               <Icon name={i} size={14} style={{ color: v === tab ? "var(--on-pastel)" : "var(--text-muted)" }} />
@@ -535,6 +541,13 @@ export function WorkspaceSettings({
               groups={groups}
               spaceId={spaceId}
               licence={licence}
+              onGuestRights={() => {
+                const guests = roles.find((r) => r.systemKey === "guests");
+                if (rightsEntry(edition) === "editor" && guests) {
+                  setOpenRole(guests.id);
+                  setTab("roles");
+                } else setCeilingOpen(true);
+              }}
               onGroupsChanged={onAccessChanged}
               onNotify={onNotify}
               canInvite={canInvite}
@@ -549,6 +562,8 @@ export function WorkspaceSettings({
 
           {tab === "roles" && canManageMembers ? (
             <RolesSettings
+              key={openRole ?? "roles"}
+              initialRoleId={openRole ?? undefined}
               spaceId={spaceId}
               spaceName={workspaceName}
               edition={edition}
@@ -587,6 +602,8 @@ export function WorkspaceSettings({
               onNotify={onNotify}
             />
           ) : null}
+
+          {ceilingOpen ? <GuestRightsDialog spaceName={workspaceName} pricingUrl={pricingUrl} onClose={() => setCeilingOpen(false)} /> : null}
 
           {tab === "audit" && canReadAudit ? <AuditSettings spaceId={spaceId} members={members} roles={roles} /> : null}
 

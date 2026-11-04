@@ -2234,7 +2234,16 @@
     "formerMembers_other": "{{count}} Personen, die nicht mehr im Bereich sind",
     "groupDeletedBare": "{{actor}} hat die Gruppe {{group}} gelöscht",
     "licenceRemoved": "{{actor}} hat die Lizenz entfernt",
-    "unknown": "{{actor}} hat eine Änderung vorgenommen ({{action}})"
+    "unknown": "{{actor}} hat eine Änderung vorgenommen ({{action}})",
+    "guestExpiryFixed": "{{actor}} hat das Ende des Zugangs von {{target}} festgelegt",
+    "guestExpiryMoved": "{{actor}} hat das Zugangsdatum von {{target}} geändert",
+    "guestExpiryRemoved": "{{actor}} hat das Enddatum des Zugangs von {{target}} entfernt",
+    "guestExpired": "Der Zugang von {{target}} ist beendet: Das Datum ist erreicht",
+    "guestReactivated": "{{actor}} hat den Zugang von {{target}} reaktiviert",
+    "guestToMember": "{{actor}} hat {{target}} vom Gast zum Mitglied gemacht",
+    "memberToGuest": "{{actor}} hat {{target}} vom Mitglied zum Gast gemacht",
+    "guestPurged": "Der Zugang von {{target}} wurde nach 90 Tagen gelöscht",
+    "accessUntil": "Zugang bis {{date}}"
   },
   "guests": {
     "endTitle": "Zugang bis",
@@ -2308,6 +2317,25 @@
     "removeDate": "Datum entfernen",
     "memberStatusNote": "Ein Mitglied sieht den ganzen Bereich und belegt einen Platz der Lizenz. Das Enddatum wird dann gelöscht.",
     "guestStatusNote": "Ein Gast erreicht nur, was ihm freigegeben wird, und belegt keinen Platz in der Lizenz.",
-    "seatsFullRest": "Um einen Gast zum Mitglied zu machen, wechseln Sie zu einer größeren Lizenz. {{name}} bleibt Gast und behält den Zugang, und niemand verliert den eigenen."
+    "seatsFullRest": "Um einen Gast zum Mitglied zu machen, wechseln Sie zu einer größeren Lizenz. {{name}} bleibt Gast und behält den Zugang, und niemand verliert den eigenen.",
+    "ceilingTitle": "Ein Gast kann nie",
+    "ceilingDirectory": "Das vollständige Mitgliederverzeichnis sehen",
+    "ceilingPeople": "Jemanden einladen, entfernen oder dessen Rechte ändern",
+    "ceilingCreate": "Einen Kanal, eine Gruppe oder eine Rolle erstellen oder löschen",
+    "ceilingModerate": "Nachrichten moderieren, einen Kanal, Ordner oder Kalender verwalten",
+    "ceilingSettings": "Einen öffentlichen Link erstellen, das Protokoll lesen, die Einstellungen ändern",
+    "rightsSub": "Was ein Gast in {{space}} tun kann.",
+    "rightsFree": "Kostenlose Edition",
+    "rightsOpens": "Er erreicht nur, was ihm freigegeben wird",
+    "rightsOpensBody": "Ein Kanal, ein Ordner oder ein Kalender wird einzeln mit ihm geteilt, über „Zugang“ oder „Teilen“.",
+    "rightsCan": "Was er in dem tun kann, was ihm freigegeben wird",
+    "rightsCanBody": "Schreiben und antworten, reagieren, Dateien anhängen, Direktnachrichten schreiben.",
+    "rightsUpsell": "Die Rechte der Gäste einstellen (schreiben, anhängen, erwähnen, anheften): Enterprise-Edition.",
+    "bannerUntil": "Gast in {{space}} · bis {{date}}",
+    "bannerNoEnd": "Gast in {{space}}",
+    "noticeSoon": "Der Zugang von {{name}} endet {{when}}",
+    "noticeEnding": "Ihr Zugang zu {{space}} endet {{when}}",
+    "endedNotice": "Ihr Zugang zu {{space}} ist beendet",
+    "endedNoticeBody": "Ihre Nachrichten und Dateien bleiben im Bereich. Wenden Sie sich an die Personen, die ihn verwalten, um wieder Zugang zu erhalten."
   }
 }

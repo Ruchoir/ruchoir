@@ -1,5 +1,6 @@
 "use client";
 
+import { isGuestsOnly } from "./guestLogic.ts";
 import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Card, Dialog, Field, Icon, Input, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
@@ -174,6 +175,7 @@ function GroupList({
                     <span style={st.title}>
                       {g.name}
                       {g.source === "directory" ? <Tag icon="refresh-cw">{t("groups.directoryTag")}</Tag> : null}
+                      {isGuestsOnly(g, members) ? <Tag tone="warning">{t("guests.sectionTitle")}</Tag> : null}
                     </span>
                     {g.description ? <span style={{ ...st.desc, maxWidth: "100%" }}>{g.description}</span> : null}
                   </span>

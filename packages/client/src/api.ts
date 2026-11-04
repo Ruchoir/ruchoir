@@ -85,6 +85,7 @@ type SpaceDto = {
   my_permissions?: string[];
   edition?: string;
   licence?: { seats: number; used: number; valid_until: string; expires_in_days: number };
+  expires_at?: string | null;
 };
 
 type RoleDto = {
@@ -483,6 +484,7 @@ function toWorkspace(dto: SpaceDto): Workspace {
     defaultChannelId: dto.default_channel_id,
     notifyLevel: toNotifyLevel(dto.notify_level),
     myPermissions: dto.my_permissions,
+    expiresAt: dto.expires_at ?? undefined,
     edition: dto.edition === "enterprise" || dto.edition === "frozen" ? dto.edition : "community",
     licence: dto.licence
       ? { seats: dto.licence.seats, used: dto.licence.used, validUntil: dto.licence.valid_until, expiresInDays: dto.licence.expires_in_days }
@@ -847,6 +849,9 @@ type NotificationDto = {
   emoji?: string;
   actor_id?: string;
   actor_name?: string;
+  /** For the guest notices: when the access ends, and how many days were left when it was written. */
+  ends_at?: string | null;
+  days_left?: number | null;
   preview: string;
   created_at: string;
   read: boolean;
@@ -884,7 +889,7 @@ export type ReminderInfo = {
 
 export type ApiNotification = {
   id: string;
-  kind: "mention" | "broadcast" | "reply" | "dm" | "message" | "reaction" | "edited" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared";
+  kind: "mention" | "broadcast" | "reply" | "dm" | "message" | "reaction" | "edited" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared" | "guest_expiry_soon" | "guest_access_ending";
   conversationId: string;
   /** The space it happened in, so the inbox can be shown for the space on screen. */
   spaceId: string;
@@ -905,6 +910,9 @@ export type ApiNotification = {
   calendarName?: string;
   /** For a `reaction` to one of the reader's messages: the emoji. */
   emoji?: string;
+  /** For a guest notice: when the access ends (RFC 3339), and the days that were left (7 or 1). */
+  endsAt?: string;
+  daysLeft?: number;
 };
 
 /**
@@ -927,6 +935,8 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
     dto.kind === "message" ||
     dto.kind === "reaction" ||
     dto.kind === "edited" ||
+    dto.kind === "guest_expiry_soon" ||
+    dto.kind === "guest_access_ending" ||
     dto.kind.startsWith("calendar_")
       ? (dto.kind as ApiNotification["kind"])
       : "mention";
@@ -956,6 +966,7 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
       : {}),
     ...(dto.kind === "calendar_shared" && dto.calendar_name ? { calendarName: dto.calendar_name } : {}),
     ...(dto.kind === "reaction" && dto.emoji ? { emoji: dto.emoji } : {}),
+    ...(dto.kind.startsWith("guest_") ? { endsAt: dto.ends_at ?? undefined, daysLeft: dto.days_left ?? undefined } : {}),
     actor: dto.actor_name ?? "",
     preview: dto.preview,
     createdAt: dto.created_at,
@@ -2982,13 +2993,15 @@ export function createApi(transport: Transport) {
 
   /** `GET /notifications`: the caller's in-app notification inbox. */
   async function getNotifications(
-    opts: { unread?: boolean; before?: string; limit?: number } = {},
+    opts: { unread?: boolean; before?: string; limit?: number; guestNotices?: boolean } = {},
     signal?: AbortSignal,
   ): Promise<NotificationFeed> {
     const params = new URLSearchParams();
     if (opts.unread) params.set("unread", "true");
     if (opts.before) params.set("before", opts.before);
     if (opts.limit) params.set("limit", String(opts.limit));
+    // The guest access notices are opt-in: an app that does not know them must not be sent them.
+    if (opts.guestNotices) params.set("guest_notices", "true");
     const query = params.toString();
     const page = await apiGet<NotificationPageDto>(`/notifications${query ? `?${query}` : ""}`, signal);
     return {
