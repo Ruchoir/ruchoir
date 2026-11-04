@@ -24,6 +24,12 @@ export function RoleChip({ label, colour, viaGroup }: { label: string; colour: R
   );
 }
 
+/** A role's colour as the filled circle of the roles list (mockup 4), edged in ink like the design system's marks. */
+export function RoleDot({ colour, size = 22 }: { colour: RoleColour; size?: number }) {
+  const { c } = useTheme();
+  return <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: c.ink, backgroundColor: colour === "line" ? c.lineStrong : c[colour] }} />;
+}
+
 const makeStyles = styleCache((shape) =>
   StyleSheet.create({
     chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, height: 26, borderRadius: 13, borderWidth: shape.hairline, alignSelf: "flex-start", maxWidth: "100%" },

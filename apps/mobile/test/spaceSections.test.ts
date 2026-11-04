@@ -40,11 +40,11 @@ test("the_licence_is_the_owners_and_needs_an_instance_with_licences", () => {
   assert.ok(!keys(view(community, true, { licences: false })).includes("licence"));
 });
 
-test("the_sections_still_to_come_are_not_listed_by_default", () => {
-  assert.deepEqual(READY, { roles: false, groups: false, audit: false, licence: false });
+test("the_sections_still_to_come_are_not_listed_by_default_but_roles_is_built", () => {
+  assert.deepEqual(READY, { roles: true, groups: false, audit: false, licence: false });
   const space = { ...community };
   const list = sectionsFor(spaceGates("owner", rightsOf(space)), true, space);
-  assert.deepEqual(keys(list), ["general", "members"]);
+  assert.deepEqual(keys(list), ["general", "members", "roles"]);
 });
 
 test("the_lines_say_the_counts", () => {

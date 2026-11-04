@@ -18,6 +18,8 @@ const BY_CODE: Record<string, string> = {
   permission_not_held: key("roles.refusal.permissionNotHeld"),
   beyond_guest_ceiling: key("roles.refusal.beyondGuestCeiling"),
   make_them_a_member_first: key("roles.refusal.memberFirst"),
+  role_name_taken: key("roles.refusal.nameTaken"),
+  role_name_reserved: key("roles.refusal.nameReserved"),
   bad_expiry: key("guests.refusalBadExpiry"),
   guest_only: key("guests.refusalGuestOnly"),
   access_ended: key("guests.refusalAccessEnded"),

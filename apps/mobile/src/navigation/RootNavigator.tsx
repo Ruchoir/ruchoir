@@ -63,7 +63,10 @@ import { MemberScreen } from "../screens/space/MemberScreen";
 import { SpaceNotifySheet } from "../screens/space/SpaceNotifySheet";
 import { SpaceGeneralScreen } from "../screens/space/SpaceGeneralScreen";
 import { SpaceMembersScreen } from "../screens/space/SpaceMembersScreen";
-import { SpaceAuditScreen, SpaceGroupsScreen, SpaceLicenceScreen, SpaceRolesScreen } from "../screens/space/SpacePlaceholders";
+import { SpaceAuditScreen, SpaceGroupsScreen, SpaceLicenceScreen } from "../screens/space/SpacePlaceholders";
+import { RoleCreateScreen } from "../screens/space/RoleCreateScreen";
+import { RoleEditorScreen } from "../screens/space/RoleEditorScreen";
+import { SpaceRolesScreen } from "../screens/space/SpaceRolesScreen";
 import { SpaceSettingsScreen } from "../screens/space/SpaceSettingsScreen";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
 import { NotificationsIntroScreen } from "../screens/account/NotificationsIntroScreen";
@@ -144,6 +147,8 @@ export function RootNavigator({ instanceId }: { instanceId: string }) {
         <Stack.Screen name="spaceGeneral" component={SpaceGeneralScreen} />
         <Stack.Screen name="spaceMembers" component={SpaceMembersScreen} />
         <Stack.Screen name="spaceRoles" component={SpaceRolesScreen} />
+        <Stack.Screen name="roleEditor" component={RoleEditorScreen} />
+        <Stack.Screen name="roleCreate" component={RoleCreateScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="spaceGroups" component={SpaceGroupsScreen} />
         <Stack.Screen name="spaceAudit" component={SpaceAuditScreen} />
         <Stack.Screen name="spaceLicence" component={SpaceLicenceScreen} />

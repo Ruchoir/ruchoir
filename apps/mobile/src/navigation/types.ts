@@ -136,6 +136,10 @@ export type RootParams = {
   spaceGeneral: undefined;
   spaceMembers: undefined;
   spaceRoles: undefined;
+  /** A role of the current space: its rights, its people, its name (the roles list opens it). */
+  roleEditor: { roleId: string };
+  /** A new role: its name and, optionally, the role it copies. */
+  roleCreate: undefined;
   spaceGroups: undefined;
   spaceAudit: undefined;
   spaceLicence: undefined;

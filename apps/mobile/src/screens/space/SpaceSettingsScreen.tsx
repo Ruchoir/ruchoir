@@ -58,7 +58,7 @@ export function SpaceSettingsScreen() {
   const { c } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
-  const { getSpaceMembers } = useApi();
+  const { getSpaceMembers, listRoles } = useApi();
   const { current } = useSpace();
   const { ready: rightsReady, supported, gates } = useRights();
   const licencesFeature = useFeature("licences");
@@ -70,8 +70,13 @@ export function SpaceSettingsScreen() {
   const members = useLoad(current ? `members:${current.id}` : null, (signal) => getSpaceMembers(current!.id, signal));
   useReloadOn((e) => (current ? affects.members(e, current.id) || affects.permissions(e, current.id) : false), members.reload, 500);
   const counts = members.data ? memberCounts(members.data) : undefined;
+  // The roles' figures for the line under Rôles, only for whoever reaches that section.
+  const rolesNeeded = ready && supported && gates.managePeople && current !== null;
+  const roles = useLoad(rolesNeeded ? `roles:${current.id}` : null, () => listRoles(current!.id));
+  useReloadOn((e) => (current ? affects.permissions(e, current.id) : false), roles.reload, 500);
+  const shownRoles = roles.data?.filter((r) => r.systemKey !== "members" && r.systemKey !== "guests");
 
-  const sections = !ready ? [] : sectionsFor(gates, supported, current, { counts: counts ? { people: counts.people, guests: counts.guests } : undefined, licences });
+  const sections = !ready ? [] : sectionsFor(gates, supported, current, { counts: { ...(counts ? { people: counts.people, guests: counts.guests } : {}), ...(shownRoles ? { roles: shownRoles.length, customRoles: shownRoles.filter((r) => !r.systemKey).length } : {}) }, licences });
   const tint: Record<SectionKey, string> = { general: c.sky, members: c.mint, roles: c.violet, groups: c.pink, audit: c.sun, licence: c.lime };
 
   // Nothing left to open (demoted, or their role edited, while here): back to where they came from.
