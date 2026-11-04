@@ -141,7 +141,8 @@ import { MemberGroupsSummary } from "@/features/groups/MemberGroups";
 import { MemberManagement, MemberRolesSummary } from "@/features/settings/MemberAccess";
 import { refusalMessage } from "@/features/settings/roleChips";
 import { canGiveAdministrator, rightsOf, spaceGates } from "./spaceGates";
-import { channelGates, createGates } from "@ruchoir/client/permissionsLogic";
+import { setProfileZone } from "@/features/settings/guestLogic.ts";
+import { applyRights, channelGates, createGates, pickZone } from "@ruchoir/client/permissionsLogic";
 import { ActivityView } from "./ActivityView";
 import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
 import {
@@ -473,7 +474,12 @@ function AppShell() {
   // The signed-in user, resolved from the session at boot. `currentUser` (the display name) is read
   // throughout the shell; it is empty until the session loads, but the app view is gated behind the
   // boot below, so nothing renders against an empty name.
-  const [session, setSession] = useState<SessionUser | null>(null);
+  const [session, setSessionState] = useState<SessionUser | null>(null);
+  // Guest and licence dates read in the profile zone, which the helper holds from the moment the session is set.
+  const setSession = useCallback((user: SessionUser | null) => {
+    setProfileZone(user?.timezone);
+    setSessionState(user);
+  }, []);
   const currentUser = session?.name ?? "";
   // An import runs in the server and outlives the screen that started it. Watched from up here so
   // that the sidebar can show it whatever the caller is doing. Anyone signed in may import; the
@@ -1151,7 +1157,7 @@ function AppShell() {
     return () => {
       active = false;
     };
-  }, [loadInitialData]);
+  }, [loadInitialData, setSession]);
 
   // What this instance supports, read once and kept for the whole session. Unauthenticated on
   // purpose: the screens that need it (password recovery, the invitation dialog) include ones shown
@@ -1571,6 +1577,8 @@ function AppShell() {
             })
             .catch(() => {});
           emitFileEvent({ type: "rights", spaceId });
+          // The calendars and what each lets the person do move with the rights too.
+          emitCalendarChanged("");
         }, 400);
         void getWorkspaces()
           .then((spaces) => {
@@ -1592,7 +1600,7 @@ function AppShell() {
               return;
             }
             setWorkspaces((prev) =>
-              prev.map((w) => (w.id === spaceId ? { ...w, role: fresh.role, myPermissions: fresh.myPermissions, edition: fresh.edition, licence: fresh.licence } : w)),
+              prev.map((w) => (w.id === spaceId ? applyRights(w, fresh) : w)),
             );
           })
           .catch(() => {});
@@ -3692,7 +3700,7 @@ function AppShell() {
     const fresh = spaces?.find((w) => w.id === space);
     if (fresh) {
       setWorkspaces((prev) =>
-        prev.map((w) => (w.id === space ? { ...w, role: fresh.role, myPermissions: fresh.myPermissions, edition: fresh.edition, licence: fresh.licence } : w)),
+        prev.map((w) => (w.id === space ? applyRights(w, fresh) : w)),
       );
     }
     await refreshAccess();
@@ -4322,7 +4330,7 @@ function AppShell() {
   // going blank. The content pane and its title fall back to whatever view the import was opened
   // over. Prefs and instance admin still replace the screen, so they are not folded in here.
   // The calendar draws times in the viewer's own zone: their profile's, else this browser's.
-  const viewerTimeZone = session?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const viewerTimeZone = pickZone(session?.timezone, Intl.DateTimeFormat().resolvedOptions().timeZone);
   const contentView = view === "import" ? prevView : view;
   const contentTitle = contentView === "channel" ? (dm ? dm.name : `# ${chan.name}`) : (VIEW_TITLES[contentView] ? t(VIEW_TITLES[contentView]) : wsName);
 
@@ -4734,7 +4742,7 @@ function AppShell() {
           about the account and the instance, never about the space underneath. */}
       {view === "instance-admin" && session?.isInstanceAdmin ? (
         <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)", paddingTop: "env(safe-area-inset-top)" }}>
-          <InstanceAdminScreen compact={compact} onClose={() => setView(prevView)} onNotify={showToast} />
+          <InstanceAdminScreen compact={compact} licences={canLicences} onClose={() => setView(prevView)} onNotify={showToast} />
         </div>
       ) : null}
       {/* A large modal, not a page: it floats over the space it came from on a dimmed scrim, so the

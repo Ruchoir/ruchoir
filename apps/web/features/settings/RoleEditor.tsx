@@ -13,14 +13,13 @@ import { viewAsState } from "../app/previewLogic.ts";
 import type { Toast } from "../app/types";
 import { GroupIcon } from "../groups/GroupIcon";
 import { rolePeople } from "./groupsLogic.ts";
+import { ROLE_COLOURS, ROLE_NAME_MAX } from "@ruchoir/client/permissionsLogic";
 import { refusalMessage, roleColour, roleLabel } from "./roleChips";
 import { FAMILY_TEXT, PERMISSION_TEXT } from "./permissionText";
 import { UsedInDialog } from "./UsedInDialog";
 import { startViewAs } from "./viewAs";
 import { changedPermissions, FAMILIES, GUEST_CEILING, permissionRow } from "./rolesLogic";
 
-/** The pastels a role may wear (`ROLE_COLOURS` in `apps/api/src/permissions/roles.rs`). */
-export const ROLE_COLOURS = ["sky", "mint", "violet", "pink", "peach", "lime", "sun"];
 
 /** Each pastel's name, for a screen reader. */
 const COLOUR_TEXT: Record<string, TranslationKey> = {
@@ -414,7 +413,7 @@ export function RoleEditor({ spaceId, role, roles, members, groups, onOpenGroup,
       {tab === "name" && custom ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 420, marginTop: 16 }}>
           <Field label={t("files.name")} htmlFor="role-name" error={nameError || undefined}>
-            <Input id="role-name" value={name} disabled={!editable || busy} onChange={(e) => setName(e.target.value)} />
+            <Input id="role-name" value={name} maxLength={ROLE_NAME_MAX} disabled={!editable || busy} onChange={(e) => setName(e.target.value)} />
           </Field>
           <Field label={t("calendar.colorLabel")}>
             <ColourPicker value={colour} onChange={setColour} disabled={!editable || busy} />

@@ -9,6 +9,7 @@ import { useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
 import { useDragReorder } from "../app/useDragReorder";
 import { refusalMessage, RoleDot, roleLabel } from "./roleChips";
+import { ROLE_NAME_MAX } from "@ruchoir/client/permissionsLogic";
 import { ColourPicker, RoleEditor } from "./RoleEditor";
 import { FAMILY_TEXT, PERMISSION_TEXT } from "./permissionText";
 import { viewAsState } from "../app/previewLogic.ts";
@@ -390,7 +391,7 @@ function CreateRoleDialog({ spaceId, copyable, onClose, onCreated }: { spaceId: 
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <Field label={t("files.name")} htmlFor="new-role-name" error={error || undefined}>
-          <Input id="new-role-name" value={name} autoFocus onChange={(e) => setName(e.target.value)} placeholder={t("roles.namePlaceholder")} />
+          <Input id="new-role-name" value={name} maxLength={ROLE_NAME_MAX} autoFocus onChange={(e) => setName(e.target.value)} placeholder={t("roles.namePlaceholder")} />
         </Field>
         <Field label={t("calendar.colorLabel")}>
           <ColourPicker value={colour} onChange={setColour} />

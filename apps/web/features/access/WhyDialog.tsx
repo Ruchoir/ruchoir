@@ -89,6 +89,7 @@ export function WhyDialog({
         target: named(group.target, t("why.hiddenTarget")),
         person: personName,
         permission: formatList(group.permissions.map(permissionName)),
+        count: sentence.count,
       },
     };
   };

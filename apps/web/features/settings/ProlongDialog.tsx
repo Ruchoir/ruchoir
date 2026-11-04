@@ -8,7 +8,7 @@ import { currentLocale } from "@/lib/i18n/current";
 import type { Toast } from "../app/types";
 import { EndDateField } from "./EndDateField";
 import { saveGuestExpiry } from "./guestActions.ts";
-import { browserZone, choiceRefusal, daysLeft, endLabel, expiryTone, inDaysLabel, type EndChoice } from "./guestLogic.ts";
+import { displayZone, choiceRefusal, daysLeft, endLabel, expiryTone, inDaysLabel, type EndChoice } from "./guestLogic.ts";
 import { refusalMessage } from "./roleChips";
 
 export type ProlongGuest = { userId: string; name: string; title?: string; expiresAt?: string };
@@ -34,7 +34,7 @@ export function ProlongDialog({
 }) {
   const { t } = useTranslation();
   const locale = currentLocale();
-  const zone = browserZone();
+  const zone = displayZone();
   const [now] = useState(() => new Date());
   const [choice, setChoice] = useState<EndChoice>("month");
   const [busy, setBusy] = useState(false);

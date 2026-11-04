@@ -1,14 +1,9 @@
 "use client";
 
 import { Icon } from "@/components/ds";
-import { ROLE_COLOURS } from "../settings/RoleEditor";
+import { groupColour } from "@ruchoir/client/permissionsLogic";
 
-/** The pastel a group wears, always the same for the same group. */
-export function groupColour(id: string): string {
-  let hash = 0;
-  for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return ROLE_COLOURS[hash % ROLE_COLOURS.length];
-}
+export { groupColour };
 
 /**
  * A group's square: one of the pastels, always the same for the same group. `framed` sets it in a

@@ -1,4 +1,5 @@
 import {
+  pickZone,
   daysLeft as sharedDaysLeft,
   guestRow as sharedGuestRow,
   type EndChoice,
@@ -55,13 +56,19 @@ export {
   guestRefusalKey,
 };
 
-/** The zone this browser reads dates in. */
-export function browserZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+/** The profile zone of the signed-in person, set by the app root (`setProfileZone`). */
+let profileZone: string | undefined;
+export function setProfileZone(zone: string | undefined): void {
+  profileZone = zone;
+}
+
+/** The one zone guest and licence dates are read in: the profile's when set (as the rest of the app), else this browser's. */
+export function displayZone(): string {
+  return pickZone(profileZone, Intl.DateTimeFormat().resolvedOptions().timeZone);
 }
 
 /** `daysLeft` in this browser's zone unless one is given (the apps pass their own). */
-export const daysLeft = (iso: string, now: Date, zone: string = browserZone()): number => sharedDaysLeft(iso, now, zone);
+export const daysLeft = (iso: string, now: Date, zone: string = displayZone()): number => sharedDaysLeft(iso, now, zone);
 
 /** `guestRow` in this browser's zone unless one is given. */
-export const guestRow = (guest: { expiresAt?: string }, now: Date, zone: string = browserZone()) => sharedGuestRow(guest, now, zone);
+export const guestRow = (guest: { expiresAt?: string }, now: Date, zone: string = displayZone()) => sharedGuestRow(guest, now, zone);

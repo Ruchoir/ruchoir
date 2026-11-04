@@ -10,7 +10,7 @@ import { RemoveMemberDialog } from "../app/dialogs";
 import type { Toast } from "../app/types";
 import { EndDateField } from "./EndDateField";
 import { askRemoval, confirmRemoval, reactivateGuestAccess, type Removal } from "./guestActions.ts";
-import { browserZone, canSeeEnded, choiceRefusal, endLabel, keepLabel, type EndChoice } from "./guestLogic.ts";
+import { displayZone, canSeeEnded, choiceRefusal, endLabel, keepLabel, type EndChoice } from "./guestLogic.ts";
 import { refusalMessage } from "./roleChips";
 
 const st: Record<string, CSSProperties> = {
@@ -140,7 +140,7 @@ function EndedRow({ item, onReactivate, onRemove }: { item: Ended; onReactivate:
         {item.title ? <div style={st.sub}>{item.title}</div> : null}
       </span>
       <span style={st.ended}>
-        <span style={{ fontSize: "var(--text-xs)", color: "var(--text-body)" }}>{t("guests.endedOn", { date: endLabel(item.endedAt, locale, browserZone()) })}</span>
+        <span style={{ fontSize: "var(--text-xs)", color: "var(--text-body)" }}>{t("guests.endedOn", { date: endLabel(item.endedAt, locale, displayZone()) })}</span>
         <span style={st.sub}>{keepLabel(item.endedAt, now, locale)}</span>
       </span>
       <Button size="sm" variant="secondary" iconLeft="refresh-cw" onClick={onReactivate}>
@@ -170,7 +170,7 @@ function ReactivateDialog({
   onNotify: (toast: Toast) => void;
 }) {
   const { t } = useTranslation();
-  const zone = browserZone();
+  const zone = displayZone();
   const [now] = useState(() => new Date());
   const [choice, setChoice] = useState<EndChoice>("month");
   const [busy, setBusy] = useState(false);

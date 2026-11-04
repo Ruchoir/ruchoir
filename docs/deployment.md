@@ -64,6 +64,15 @@ values that must differ inside it. `S3_ENDPOINT` is one: it stays on its publish
 since that file's value is only ever read by a run on the host, while the service points itself at
 the container name. `DATABASE_URL` and `VALKEY_URL` work the same way.
 
+### Licences and seats
+
+`RUCHOIR_PRICING_URL` (default `https://ruchoir.com/`, an `http://` or `https://` address, otherwise the
+API refuses to start) is where a space's owner is sent to buy more seats when its licence has none
+left, and to buy a licence when a paid feature asks for one. It travels in the `402` refusals
+(`seats_full`, `licence_required`) as `pricing_url`, and the apps show it as the link. Only the
+edition that sells seats ever refuses one: the community build never does. A self-hosted instance
+with its own sales page points it there.
+
 ## Email
 
 Set `RUCHOIR_SMTP_HOST` and its companions if you have a relay. With none the API logs messages

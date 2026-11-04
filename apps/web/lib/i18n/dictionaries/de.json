@@ -65,7 +65,23 @@
     "webPush": "Push-Benachrichtigungen",
     "webPushDescription": "Benachrichtigt Mitglieder auf ihren Geräten, wenn Ruchoir geschlossen ist. Jede Person aktiviert es für ihren Browser. Das Signal läuft über den Benachrichtigungsdienst des Browserherstellers (Google, Apple, Mozilla, Microsoft), ganz ohne Inhalt: kein Absender, keine Unterhaltung, kein Text. Deaktiviert, werden bestehende Abonnements verworfen.",
     "webPushOn": "Push-Benachrichtigungen aktiviert",
-    "webPushOff": "Push-Benachrichtigungen deaktiviert"
+    "webPushOff": "Push-Benachrichtigungen deaktiviert",
+    "licencesTitle": "Lizenzen der Bereiche",
+    "licencesIntro": "Die auf dieser Instanz installierten Lizenzen, die am frühesten endende zuerst. Nur Lesezugriff: Die Inhaber eines Bereichs installieren und entfernen dessen Lizenz in den Einstellungen des Bereichs.",
+    "licencesEmpty": "Kein Bereich hat eine installierte Lizenz.",
+    "licenceFrozen": "Eingefroren",
+    "licenceInvalid": "Nicht lesbar",
+    "licenceSeats_one": "{{used}} von {{count}} Platz",
+    "licenceSeats_other": "{{used}} von {{count}} Plätzen",
+    "licenceDaysLeft_one": "noch {{count}} Tag",
+    "licenceDaysLeft_other": "noch {{count}} Tage",
+    "licenceLastDay": "letzter Tag",
+    "licenceExpiredOn": "Abgelaufen am {{date}}",
+    "navLicences": "Lizenzen",
+    "licencesLoadFailed": "Die Lizenzen konnten nicht geladen werden.",
+    "licenceColHolder": "Lizenznehmer",
+    "licenceColEdition": "Edition",
+    "licenceColEnd": "Ablauf"
   },
   "notifPrompt": {
     "title": "Bescheid wissen, auch außerhalb des Tabs",
@@ -1446,7 +1462,8 @@
     "seatsPricingNewTab": "Preise ansehen (öffnet in einem neuen Tab)",
     "seatsNoPricing": "Wenden Sie sich an die Person, die die Lizenz verwaltet, um mehr Plätze zu erhalten.",
     "seatsOverNeeded_one": "{{count}} Platz nötig, {{free}} frei",
-    "seatsOverNeeded_other": "{{count}} Plätze nötig, {{free}} frei"
+    "seatsOverNeeded_other": "{{count}} Plätze nötig, {{free}} frei",
+    "producerText": "Text des Export-Tools (auf Englisch)"
   },
   "externalLink": {
     "title": "Achtung, Sie verlassen Ruchoir",
@@ -2660,7 +2677,8 @@
         "removed": "Basis: Die Basisrolle des Bereichs nimmt {{person}} das Recht {{permission}}."
       },
       "role": {
-        "granted": "Rolle: {{permission}} kommt von der Rolle {{role}}.",
+        "granted_one": "Rolle: {{permission}} kommt von der Rolle {{role}}.",
+        "granted_other": "Rolle: {{permission}} kommen von der Rolle {{role}}.",
         "removed": "Rolle: Die Rolle {{role}} nimmt {{permission}} weg."
       },
       "rule": {
@@ -2669,43 +2687,62 @@
       },
       "private_lock": {
         "granted": "Privatsperre: {{target}} öffnet diesen privaten Kanal ({{permission}}).",
-        "removed": "Privatsperre: Der Kanal ist privat, {{person}} verliert {{permission}}, solange keine Regel ihn öffnet."
+        "removed_one": "Privatsperre: Der Kanal ist privat, {{person}} verliert {{permission}}, solange keine Regel ihn öffnet.",
+        "removed_other": "Privatsperre: Der Kanal ist privat, {{person}} verliert {{permission}}, solange keine Regel ihn öffnet."
       },
       "guest_ceiling": {
-        "granted": "Gästegrenze: Ein Gast darf {{permission}} behalten.",
-        "removed": "Gästegrenze: {{person}} ist Gast, {{permission}} geht über das hinaus, was ein Gast haben darf."
+        "granted_one": "Gästegrenze: Ein Gast darf {{permission}} behalten.",
+        "granted_other": "Gästegrenze: Ein Gast darf {{permission}} behalten.",
+        "removed_one": "Gästegrenze: {{person}} ist Gast, {{permission}} geht über das hinaus, was ein Gast haben darf.",
+        "removed_other": "Gästegrenze: {{person}} ist Gast, {{permission}} gehen über das hinaus, was ein Gast haben darf."
       },
       "owner": {
-        "granted": "Inhaber: {{person}} besitzt den Bereich, {{permission}} wird gewährt.",
-        "removed": "Inhaber: {{permission}} wird trotz Inhaberstatus entzogen."
+        "granted_one": "Inhaber: {{person}} besitzt den Bereich, {{permission}} wird gewährt.",
+        "granted_other": "Inhaber: {{person}} besitzt den Bereich, {{permission}} werden gewährt.",
+        "removed_one": "Inhaber: {{permission}} wird trotz Inhaberstatus entzogen.",
+        "removed_other": "Inhaber: {{permission}} wird trotz Inhaberstatus entzogen."
       },
       "author": {
-        "granted": "Autor: {{person}} hat dieses Element erstellt, {{permission}} wird gewährt.",
-        "removed": "Autor: {{permission}} wird trotz Erstellung des Elements entzogen."
+        "granted_one": "Autor: {{person}} hat dieses Element erstellt, {{permission}} wird gewährt.",
+        "granted_other": "Autor: {{person}} hat dieses Element erstellt, {{permission}} werden gewährt.",
+        "removed_one": "Autor: {{permission}} wird trotz Erstellung des Elements entzogen.",
+        "removed_other": "Autor: {{permission}} wird trotz Erstellung des Elements entzogen."
       },
       "archived": {
-        "granted": "Archiviert: {{permission}} bleibt trotz Archivierung gewährt.",
-        "removed": "Archiviert: Das Element ist archiviert oder im Papierkorb, {{permission}} wird entzogen."
+        "granted_one": "Archiviert: {{permission}} bleibt trotz Archivierung gewährt.",
+        "granted_other": "Archiviert: {{permission}} bleiben trotz Archivierung gewährt.",
+        "removed_one": "Archiviert: Das Element ist archiviert oder im Papierkorb, {{permission}} wird entzogen.",
+        "removed_other": "Archiviert: Das Element ist archiviert oder im Papierkorb, {{permission}} werden entzogen."
       },
       "joined": {
-        "granted": "Kanalmitglied: {{person}} ist dem Kanal beigetreten, {{permission}} wird gewährt.",
-        "removed": "Kanalmitglied: {{person}} verliert {{permission}}, obwohl er im Kanal ist."
+        "granted_one": "Kanalmitglied: {{person}} ist dem Kanal beigetreten, {{permission}} wird gewährt.",
+        "granted_other": "Kanalmitglied: {{person}} ist dem Kanal beigetreten, {{permission}} werden gewährt.",
+        "removed_one": "Kanalmitglied: {{person}} verliert {{permission}}, obwohl er im Kanal ist.",
+        "removed_other": "Kanalmitglied: {{person}} verliert {{permission}}, obwohl er im Kanal ist."
       },
       "unseen": {
-        "granted": "Pfad: {{permission}} wird durch den Container des Elements gewährt.",
-        "removed": "Pfad: {{person}} kann den Container des Elements nicht öffnen, {{permission}} wird entzogen."
+        "granted_one": "Pfad: {{permission}} wird durch den Container des Elements gewährt.",
+        "granted_other": "Pfad: {{permission}} wird durch den Container des Elements gewährt.",
+        "removed_one": "Pfad: {{person}} kann den Container des Elements nicht öffnen, {{permission}} wird entzogen.",
+        "removed_other": "Pfad: {{person}} kann den Container des Elements nicht öffnen, {{permission}} werden entzogen."
       },
       "conversation": {
-        "granted": "Unterhaltung: {{person}} ist in der Unterhaltung, in der das Element geteilt wurde, {{permission}} wird gewährt.",
-        "removed": "Unterhaltung: {{permission}} wird für diese Unterhaltung entzogen."
+        "granted_one": "Unterhaltung: {{person}} ist in der Unterhaltung, in der das Element geteilt wurde, {{permission}} wird gewährt.",
+        "granted_other": "Unterhaltung: {{person}} ist in der Unterhaltung, in der das Element geteilt wurde, {{permission}} werden gewährt.",
+        "removed_one": "Unterhaltung: {{permission}} wird für diese Unterhaltung entzogen.",
+        "removed_other": "Unterhaltung: {{permission}} wird für diese Unterhaltung entzogen."
       },
       "message": {
-        "granted": "Nachricht: Das Element hängt an einer Nachricht, die {{person}} lesen kann, {{permission}} wird gewährt.",
-        "removed": "Nachricht: {{permission}} wird für diese Nachricht entzogen."
+        "granted_one": "Nachricht: Das Element hängt an einer Nachricht, die {{person}} lesen kann, {{permission}} wird gewährt.",
+        "granted_other": "Nachricht: Das Element hängt an einer Nachricht, die {{person}} lesen kann, {{permission}} werden gewährt.",
+        "removed_one": "Nachricht: {{permission}} wird für diese Nachricht entzogen.",
+        "removed_other": "Nachricht: {{permission}} wird für diese Nachricht entzogen."
       },
       "event": {
-        "granted": "Termin: Das Element ist mit einem Termin verknüpft, den {{person}} sehen kann, {{permission}} wird gewährt.",
-        "removed": "Termin: {{permission}} wird für diesen Termin entzogen."
+        "granted_one": "Termin: Das Element ist mit einem Termin verknüpft, den {{person}} sehen kann, {{permission}} wird gewährt.",
+        "granted_other": "Termin: Das Element ist mit einem Termin verknüpft, den {{person}} sehen kann, {{permission}} werden gewährt.",
+        "removed_one": "Termin: {{permission}} wird für diesen Termin entzogen.",
+        "removed_other": "Termin: {{permission}} wird für diesen Termin entzogen."
       }
     },
     "reason": {

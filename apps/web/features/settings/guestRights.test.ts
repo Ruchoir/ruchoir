@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { auditLine } from "./auditLogic.ts";
 import { CEILING_SENTENCES, GUEST_CEILING, rightsEntry } from "./guestCeiling.ts";
-import { guestBanner, isGuestsOnly } from "./guestLogic.ts";
+import { displayZone, guestBanner, isGuestsOnly, setProfileZone } from "./guestLogic.ts";
 
 test("the_banner_shows_the_end_or_none", () => {
   assert.deepEqual(guestBanner("guest", "2026-12-12T22:59:59Z"), { dated: true, until: "2026-12-12T22:59:59Z" });
@@ -186,4 +186,11 @@ test("no_guest_wording_agrees_with_an_assumed_gender", () => {
       }
     }
   }
+});
+
+test("guest_dates_use_the_profile_zone_when_one_is_set_else_the_browsers", () => {
+  setProfileZone("Asia/Tokyo");
+  assert.equal(displayZone(), "Asia/Tokyo");
+  setProfileZone(undefined);
+  assert.equal(displayZone(), Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
 });

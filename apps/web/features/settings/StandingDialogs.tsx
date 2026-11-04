@@ -9,7 +9,7 @@ import { currentLocale } from "@/lib/i18n/current";
 import { formatList } from "@/lib/i18n/format";
 import { EndDateField } from "./EndDateField";
 import { passerInvite, passerMembre } from "./guestActions.ts";
-import { browserZone, choiceRefusal, endLabel, seatsAfterInvite, standingGain, standingLoss, type EndChoice, type Line } from "./guestLogic.ts";
+import { displayZone, choiceRefusal, endLabel, seatsAfterInvite, standingGain, standingLoss, type EndChoice, type Line } from "./guestLogic.ts";
 import { refusalMessage } from "./roleChips";
 
 type Person = { userId: string; name: string; title?: string; role: string; roleIds?: string[]; expiresAt?: string };
@@ -65,7 +65,7 @@ export function PasserInviteDialog({
   onChanged: () => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const zone = browserZone();
+  const zone = displayZone();
   const [now] = useState(() => new Date());
   const [choice, setChoice] = useState<EndChoice>("none");
   const [busy, setBusy] = useState(false);
@@ -176,7 +176,7 @@ export function PasserMembreDialog({
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-          {[member.title, member.expiresAt ? t("guests.guestUntil", { date: endLabel(member.expiresAt, locale, browserZone(), new Date()) }) : t("guests.guestNoEnd")].filter(Boolean).join(" · ")}
+          {[member.title, member.expiresAt ? t("guests.guestUntil", { date: endLabel(member.expiresAt, locale, displayZone(), new Date()) }) : t("guests.guestNoEnd")].filter(Boolean).join(" · ")}
         </div>
         {full ? (
           <div role="alert" style={{ display: "flex", gap: 10, padding: "10px 12px", borderRadius: "var(--radius-item)", background: "var(--status-warning-bg)", border: "1px solid var(--status-warning-border)", color: "var(--status-warning-fg)", fontSize: "var(--text-xs)" }}>

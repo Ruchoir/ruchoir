@@ -3,7 +3,7 @@
 import { Icon } from "@/components/ds";
 import { useTranslation } from "@/lib/i18n";
 import { currentLocale } from "@/lib/i18n/current";
-import { browserZone, endLabel, guestBanner } from "@/features/settings/guestLogic.ts";
+import { displayZone, endLabel, guestBanner } from "@/features/settings/guestLogic.ts";
 
 /** A thin line under the space's name that reminds a guest where they are, and until when. */
 export function GuestBanner({ role, spaceName, expiresAt }: { role: string; spaceName: string; expiresAt?: string }) {
@@ -22,7 +22,7 @@ export function GuestBanner({ role, spaceName, expiresAt }: { role: string; spac
       <Icon name="user" size={14} style={{ flex: "none", marginTop: 1 }} />
       <span>
         {banner.dated
-          ? t("guests.bannerUntil", { space: spaceName, date: endLabel(banner.until, currentLocale(), browserZone(), new Date()) })
+          ? t("guests.bannerUntil", { space: spaceName, date: endLabel(banner.until, currentLocale(), displayZone(), new Date()) })
           : t("guests.bannerNoEnd", { space: spaceName })}
       </span>
     </div>

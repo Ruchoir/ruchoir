@@ -9,6 +9,7 @@ import {
   type InstanceSettings,
   type AdminUser,
 } from "@/lib/data/api";
+import { AdminLicences } from "./AdminLicences";
 import type { Toast } from "./types";
 
 /**
@@ -362,12 +363,13 @@ const screen: Record<string, CSSProperties> = {
 };
 
 /** The sections of the administration screen. */
-type AdminTab = "accounts" | "settings";
+type AdminTab = "accounts" | "settings" | "licences";
 
 /** The sections, with the dictionary key for each label rather than the label itself. */
 const ADMIN_NAV: [AdminTab, TranslationKey, IconName][] = [
   ["accounts", key("admin.navAccounts"), "users"],
   ["settings", key("admin.navSettings"), "settings"],
+  ["licences", key("admin.navLicences"), "key-round"],
 ];
 
 /** One nav entry, styled like the preferences one so the two screens read as the same furniture. */
@@ -405,10 +407,13 @@ export function InstanceAdminScreen({
   onClose,
   onNotify,
   compact = false,
+  licences = false,
 }: {
   onClose: () => void;
   onNotify?: (t: Toast) => void;
   compact?: boolean;
+  /** The instance lists the `licences` feature (the paid edition): its licences are readable here. */
+  licences?: boolean;
 }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<AdminTab>("accounts");
@@ -444,7 +449,7 @@ export function InstanceAdminScreen({
               : screen.nav
           }
         >
-          {ADMIN_NAV.map(([v, labelKey, icon]) => (
+          {ADMIN_NAV.filter(([v]) => v !== "licences" || licences).map(([v, labelKey, icon]) => (
             <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
               <Icon name={icon} size={14} style={{ color: "var(--text-muted)" }} />
               {t(labelKey)}
@@ -458,6 +463,11 @@ export function InstanceAdminScreen({
               <>
                 <h2 style={screen.h}>{t("admin.accountsTitle")}</h2>
                 <InstanceAdminSection onNotify={onNotify} />
+              </>
+            ) : tab === "licences" && licences ? (
+              <>
+                <h2 style={screen.h}>{t("admin.licencesTitle")}</h2>
+                <AdminLicences />
               </>
             ) : (
               <>

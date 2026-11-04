@@ -12,7 +12,7 @@ import { getAvatar } from "@/lib/data";
 import { key, type Translate, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { refusalOf } from "@/lib/data/api";
 import { EndDateField } from "@/features/settings/EndDateField";
-import { browserZone, choiceRefusal, presetToInstant, showsEndDate, type EndChoice } from "@/features/settings/guestLogic.ts";
+import { displayZone, choiceRefusal, presetToInstant, showsEndDate, type EndChoice } from "@/features/settings/guestLogic.ts";
 
 /** The other road offered inside a dialog: a rule, a word, and a card you can press. */
 const sep: Record<string, CSSProperties> = {
@@ -335,7 +335,7 @@ export function InviteDialog({
   const addressed = address.length > 0;
   const noRelay = emailDelivery === false;
   const guestEnd = showsEndDate(role);
-  const endBlocked = guestEnd && choiceRefusal(endChoice, new Date(), browserZone()) !== null;
+  const endBlocked = guestEnd && choiceRefusal(endChoice, new Date(), displayZone()) !== null;
 
   // An invitation that was taken up is finished, not broken. Listing it among the outstanding ones,
   // greyed out next to a Revoke button, read as a failure that still needed cleaning up.
@@ -352,7 +352,7 @@ export function InviteDialog({
     setError(null);
     setCopied(false);
     try {
-      const guestExpiresAt = guestEnd ? presetToInstant(endChoice, new Date(), browserZone()) : undefined;
+      const guestExpiresAt = guestEnd ? presetToInstant(endChoice, new Date(), displayZone()) : undefined;
       setCreated(await onCreate({ email: addressed ? address : undefined, role, ...(guestEnd ? { guestExpiresAt } : {}) }));
       setEmail("");
     } catch (err) {
@@ -429,7 +429,7 @@ export function InviteDialog({
 
         {guestEnd ? (
           <>
-            <EndDateField choice={endChoice} onChange={setEndChoice} now={new Date()} zone={browserZone()} variant="invite" />
+            <EndDateField choice={endChoice} onChange={setEndChoice} now={new Date()} zone={displayZone()} variant="invite" />
             <p style={{ ...inviteStyles.empty, display: "flex", alignItems: "center", gap: 6 }}>
               <Icon name="users" size={13} />
               {t("guests.noSeat")}
