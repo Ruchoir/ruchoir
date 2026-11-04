@@ -68,7 +68,9 @@ context and takes precedence here.
   and announces after commit; a request that changes nothing writes and announces nothing.
   The `rule.created|updated|deleted` payload is `{ target_kind, target_id, resource_name, target_name,
   before, after }` (the names are snapshots taken at write time). `role.previewed`, written by the
-  edition only, is `{ role_id, role_name, phase: "started" | "ended" }`.
+  edition (started, quit) and the core (sign-out), is `{ role_id, role_name, phase: "started" | "ended" }`
+  with `reason: "quit" | "signed_out"` on "ended" lines. "ended" lines come from Quitter or sign-out; a
+  preview that ends idle (the Valkey TTL lapsing) shows only as "started".
   **The system roles' view of a channel and write bit of a calendar belong to the legacy settings**
   (`channel_role_access`, `calendars.write_access`, which database triggers turn into rules): the
   routes write those two bits through `channels::set_role_admitted` and

@@ -731,6 +731,9 @@ pub async fn logout(
     jar: CookieJar,
 ) -> Result<(StatusCode, CookieJar), AuthError> {
     if let Some(id) = session::presented_id(&headers) {
+        if let Some(record) = session::get(&state.valkey, &id).await? {
+            crate::permissions::preview::end_on_sign_out(&state, &id, record.user_id).await;
+        }
         session::delete(&state.valkey, &id).await?;
         state.hub.close_session(&id);
     }
@@ -774,6 +777,11 @@ pub async fn logout_all(
 ) -> Result<(StatusCode, CookieJar), AuthError> {
     if let Some(id) = session::presented_id(&headers) {
         if let Some(record) = session::get(&state.valkey, &id).await? {
+            // The previews end (and are logged) before the sessions go: revoking them stops the
+            // previews without a word.
+            for id in session::ids_of(&state.valkey, record.user_id).await? {
+                crate::permissions::preview::end_on_sign_out(&state, &id, record.user_id).await;
+            }
             for id in session::delete_all(&state.valkey, record.user_id).await? {
                 state.hub.close_session(&id);
             }

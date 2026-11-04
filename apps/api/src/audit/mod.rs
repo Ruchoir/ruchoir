@@ -44,8 +44,10 @@ pub enum Action {
     RoleUpdated,
     RoleDeleted,
     RolesReordered,
-    /// Somebody started, or left, the read only view of the space as a role. Written by the
-    /// edition, with the payload `{ "role_id": uuid, "role_name": string, "phase": "started" | "ended" }`.
+    /// Somebody started, or left, the read only view of the space as a role. Payload
+    /// `{ "role_id": uuid, "role_name": string, "phase": "started" | "ended" }`, plus
+    /// `"reason": "quit" | "signed_out"` on an "ended" line. Started and quit by the edition; the
+    /// core writes the sign-out one. An idle end is not logged.
     RolePreviewed,
     /// A channel's reservation to some roles changed.
     ChannelReserved,

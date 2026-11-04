@@ -916,3 +916,83 @@ async fn a_preview_state_that_cannot_be_read_lets_no_write_through() {
         .expect("leave");
     assert_ne!(leave.status().as_u16(), 503);
 }
+
+async fn previewed_lines(fx: &Fixture) -> Vec<Value> {
+    fx.app
+        .db
+        .query_all_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT details FROM space_audit_log WHERE space_id = $1 AND action = 'role.previewed' \
+              ORDER BY at, id",
+            [fx.space.into()],
+        ))
+        .await
+        .expect("lines")
+        .into_iter()
+        .map(|row| row.try_get("", "details").expect("details"))
+        .collect()
+}
+
+#[tokio::test]
+async fn signing_out_ends_a_preview_and_says_so() {
+    let Some(fx) = fixture().await else { return };
+    let cookie = previewing(&fx, fx.admin, fx.space, fx.notes, "Notes").await;
+    let (status, _) = (
+        fx.app
+            .req(reqwest::Method::POST, "/api/v1/auth/logout", &cookie)
+            .send()
+            .await
+            .expect("logout")
+            .status()
+            .as_u16(),
+        (),
+    );
+    assert_eq!(status, 204);
+    assert!(preview::current(&fx.app.valkey, session_of(&cookie))
+        .await
+        .expect("current")
+        .is_none());
+    let lines = previewed_lines(&fx).await;
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert_eq!(lines[0]["phase"], "ended");
+    assert_eq!(lines[0]["reason"], "signed_out");
+    assert_eq!(lines[0]["role_id"], fx.notes.to_string());
+    assert_eq!(lines[0]["role_name"], "Notes");
+}
+
+#[tokio::test]
+async fn signing_out_everywhere_ends_every_preview_of_the_person() {
+    let Some(fx) = fixture().await else { return };
+    let one = previewing(&fx, fx.admin, fx.space, fx.notes, "Notes").await;
+    let two = previewing(&fx, fx.admin, fx.space, fx.notes, "Notes").await;
+    let response = fx
+        .app
+        .req(reqwest::Method::POST, "/api/v1/auth/logout/all", &one)
+        .send()
+        .await
+        .expect("logout all");
+    assert_eq!(response.status().as_u16(), 204);
+    for cookie in [&one, &two] {
+        assert!(preview::current(&fx.app.valkey, session_of(cookie))
+            .await
+            .expect("current")
+            .is_none());
+    }
+    let lines = previewed_lines(&fx).await;
+    assert_eq!(lines.len(), 2, "{lines:?}");
+    assert!(lines.iter().all(|l| l["reason"] == "signed_out"));
+}
+
+#[tokio::test]
+async fn signing_out_without_a_preview_logs_nothing() {
+    let Some(fx) = fixture().await else { return };
+    let cookie = fx.app.cookie_for(fx.admin).await;
+    let response = fx
+        .app
+        .req(reqwest::Method::POST, "/api/v1/auth/logout", &cookie)
+        .send()
+        .await
+        .expect("logout");
+    assert_eq!(response.status().as_u16(), 204);
+    assert!(previewed_lines(&fx).await.is_empty());
+}
