@@ -71,10 +71,9 @@ export function MemberRolesSummary({
         {held.map(({ role, via }) => (
           <RoleChip key={role.id} role={role} via={via} />
         ))}
-        {member.role !== "owner" && held.length === 0 ? (
-          <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-            {member.role === "guest" ? t("roles.guestCeiling") : t("roles.membersOnly")}
-          </span>
+        {member.role === "guest" ? <Tag tone="warning">{t("guests.guestTag")}</Tag> : null}
+        {member.role !== "owner" && member.role !== "guest" && held.length === 0 ? (
+          <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("roles.membersOnly")}</span>
         ) : null}
       </div>
       {!isSelf && viewerManages && member.manageable === false ? (

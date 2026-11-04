@@ -1874,6 +1874,8 @@ function AppShell() {
         presence: (presence[m.userId] ?? "offline") as Presence,
         bot: m.bot,
         avatar: m.avatarUrl,
+        // The member list carries the base role to everyone, so a guest is known as one by anyone.
+        guest: m.role === "guest",
       })),
     [members, presence],
   );

@@ -94,6 +94,8 @@ export type ThreadPanelProps = {
   presenceByName: Map<string, Presence>;
   /** Uploaded avatars by display name; absent means the generated one. */
   avatarByName: Map<string, string | undefined>;
+  /** The display names of the guests, for the "Invité" chip beside their name. */
+  guestNames?: Set<string>;
   /** Post a reply in this thread, and to its channel too when asked. */
   onSendReply: (text: string, alsoInChannel: boolean) => void;
   /**
@@ -134,6 +136,7 @@ export function ThreadPanel({
   rowActions,
   presenceByName,
   avatarByName,
+  guestNames,
   onSendReply,
   alsoInChannelLabel,
   editing,
@@ -277,6 +280,7 @@ export function ThreadPanel({
       canPin={false}
       authorPresence={presenceByName.get(m.author)}
       authorAvatar={avatarByName.get(m.author)}
+      authorGuest={guestNames?.has(m.author)}
       actions={rowActions(m)}
       readOnly={!!readOnlyNotice}
     />
