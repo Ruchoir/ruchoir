@@ -11,6 +11,8 @@ import { useDragReorder } from "../app/useDragReorder";
 import { refusalMessage, RoleDot, roleLabel } from "./roleChips";
 import { ColourPicker, RoleEditor } from "./RoleEditor";
 import { FAMILY_TEXT, PERMISSION_TEXT } from "./permissionText";
+import { viewAsState } from "../app/previewLogic.ts";
+import { startViewAs } from "./viewAs";
 import { FAMILIES, holdsEverything, orderAllowed, type RoleRowState, roleRowState } from "./rolesLogic";
 
 const st: Record<string, CSSProperties> = {
@@ -24,7 +26,7 @@ const st: Record<string, CSSProperties> = {
   name: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" },
   count: { width: 90, flex: "none", fontSize: "var(--text-xs)", color: "var(--text-body)" },
   sum: { width: 90, flex: "none", fontSize: "var(--text-xs)", color: "var(--text-body)" },
-  right: { width: 170, flex: "none", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 5, fontSize: "var(--text-2xs)", color: "var(--text-muted)" },
+  right: { width: 230, flex: "none", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 5, fontSize: "var(--text-2xs)", color: "var(--text-muted)" },
   sep: { padding: "8px 14px", fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-muted)", background: "var(--surface-sunken)", borderTop: "1px solid var(--border-subtle)" },
   note: { fontSize: "var(--text-2xs)", fontWeight: 400, color: "var(--text-muted)" },
   upsell: {
@@ -92,7 +94,7 @@ export function RolesSettings(props: RolesSettingsProps) {
 }
 
 /** The three fixed roles of a community space, read only, and the one discreet line about more. */
-function CommunityRoles({ roles, spaceName, pricingUrl }: RolesSettingsProps) {
+function CommunityRoles({ roles, spaceName, pricingUrl, myRights }: RolesSettingsProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<string | null>(null);
   const shown: { role: Role; tag: string; lead: string; warning?: boolean }[] = [];
@@ -129,6 +131,12 @@ function CommunityRoles({ roles, spaceName, pricingUrl }: RolesSettingsProps) {
           );
         })}
       </div>
+      {viewAsState({ manageable: true }, { edition: "community", canManageRoles: myRights.includes("roles.manage") }) === "locked" ? (
+        <p style={{ ...st.muted, display: "flex", alignItems: "center", gap: 6, margin: "12px 0 0" }}>
+          <Icon name="lock" size={13} />
+          {t("preview.locked")}
+        </p>
+      ) : null}
       <div style={st.upsell}>
         <Icon name="star" size={15} style={{ color: "var(--text-muted)" }} />
         <span style={{ flex: 1, minWidth: 200 }}>
@@ -229,6 +237,24 @@ function RankedRoles({ spaceId, roles, me, myRights, edition, onChanged, onNotif
     return null;
   };
 
+  /** "Voir en tant que" on a row the viewer manages; it does not open the editor. */
+  const viewAs = (role: Role) =>
+    viewAsState(role, { edition, canManageRoles: myRights.includes("roles.manage") }) === "button" ? (
+      <Button
+        size="sm"
+        variant="secondary"
+        iconLeft="eye"
+        aria-label={t("preview.viewAsFor", { role: roleLabel(role, t) })}
+        onClick={(e) => {
+          e.stopPropagation();
+          void startViewAs(spaceId, role, onNotify, t);
+        }}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        {t("preview.viewAs")}
+      </Button>
+    ) : null;
+
   const rowOf = (role: Role, index: number, dragIndex?: number) => {
     const state = roleRowState(role, { myTopRoleId, frozen });
     const opens = state === "edit" && myRights.includes("roles.manage");
@@ -265,7 +291,10 @@ function RankedRoles({ spaceId, roles, me, myRights, edition, onChanged, onNotif
         </span>
         <span style={st.count}>{role.systemKey === "members" ? t("roles.everyMember") : role.holders}</span>
         <span style={st.sum}>{holdsEverything(role) ? t("roles.allRights") : t("roles.rightsCount", { count: role.permissions.length })}</span>
-        <span style={st.right}>{right(state)}</span>
+        <span style={st.right}>
+          {viewAs(role)}
+          {right(state)}
+        </span>
       </div>
     );
   };
@@ -297,6 +326,12 @@ function RankedRoles({ spaceId, roles, me, myRights, edition, onChanged, onNotif
         <div style={st.sep}>{t("roles.baseSeparator")}</div>
         {base.map((role, i) => rowOf(role, i))}
       </Card>
+      {movable.some((r) => viewAsState(r, { edition, canManageRoles: myRights.includes("roles.manage") }) === "button") ? (
+        <p style={{ ...st.muted, display: "flex", alignItems: "flex-start", gap: 6, margin: "10px 0 0", lineHeight: 1.5 }}>
+          <Icon name="eye" size={13} style={{ marginTop: 2, flex: "none" }} />
+          {t("preview.hint")}
+        </p>
+      ) : null}
       {creating ? (
         <CreateRoleDialog
           spaceId={spaceId}

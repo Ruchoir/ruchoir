@@ -201,7 +201,10 @@ import { WorkspaceRail } from "./WorkspaceRail";
 import { readDeepLink } from "@/lib/dev/deeplink";
 import { lastChannelOf, rememberChannel } from "@/lib/lastChannel";
 import { useLayout, useTouch } from "./useLayout";
+import { configureClient } from "@ruchoir/client/config";
 import { oneLine } from "./preview";
+import { PreviewBanner } from "./PreviewBanner";
+import { previewToast } from "./previewLogic.ts";
 import { BottomTabs } from "./BottomTabs";
 import { UploadPanel } from "@/features/files/UploadPanel";
 import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchField, QuickLinks, SpaceMark } from "./mobile/MobileScreens";
@@ -2298,6 +2301,29 @@ function AppShell() {
     tRef.current = t;
   });
 
+  // A write refused because the space is looked at as a role: said once, wherever it came from, and
+  // the text typed stays where it is (the screens keep their own "not sent").
+  useEffect(() => {
+    let last = 0;
+    configureClient({
+      onPreviewReadOnly: () => {
+        const now = Date.now();
+        if (now - last < 2000) return;
+        last = now;
+        const toast = previewToast();
+        notifyRef.current?.({ tone: toast.tone, title: tRef.current(toast.titleKey), description: tRef.current(toast.bodyKey) });
+      },
+    });
+    return () => configureClient({ onPreviewReadOnly: undefined });
+  }, []);
+
+  // The server refuses the real-time connection of a previewing session: the screens do not move on
+  // their own until the preview ends. Said once when it starts.
+  const previewedRole = workspaces.find((w) => w.id === ws)?.preview?.roleId;
+  useEffect(() => {
+    if (previewedRole) notifyRef.current?.({ tone: "info", title: tRef.current("preview.realtime") });
+  }, [previewedRole]);
+
   /** Move to an authentication screen with a clean slate (no stale error, notice or pending flag). */
   const goToStage = (stage: AuthStage) => {
     setAuthError(null);
@@ -3384,6 +3410,9 @@ function AppShell() {
 
   /** The space on screen, when there is one: the name and role the two exit dialogs are about. */
   const currentWorkspace = workspaces.find((w) => w.id === ws);
+  const previewBanner = currentWorkspace?.preview ? (
+    <PreviewBanner spaceId={currentWorkspace.id} spaceName={currentWorkspace.name} preview={currentWorkspace.preview} onNotify={showToast} />
+  ) : null;
   /** What the caller holds in the open space, by permission name. */
   const myRights = rightsOf(currentWorkspace);
   /** The doors of the space's administration, each on the right the API checks behind it. */
@@ -5093,14 +5122,17 @@ function AppShell() {
     // Two columns: the space's list, railless, and what is open. Side panels cover the conversation
     // (see ChannelScreen's `overlayPanels`) rather than squeezing it.
     return (
-      <div style={{ height: "var(--ui-vh)", display: "flex", overflow: "hidden", background: "var(--surface-canvas)" }}>
-        <div
-          style={{ ...switchingStyle, flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}
-          aria-busy={switchingSpace || undefined}
-        >
-          {/* The calendar brings its own column, in place of the space's. */}
-          {contentView === "calendar" ? null : renderSidebar("tablet")}
-          {content}
+      <div style={{ height: "var(--ui-vh)", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--surface-canvas)" }}>
+        {previewBanner}
+        <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
+          <div
+            style={{ ...switchingStyle, flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}
+            aria-busy={switchingSpace || undefined}
+          >
+            {/* The calendar brings its own column, in place of the space's. */}
+            {contentView === "calendar" ? null : renderSidebar("tablet")}
+            {content}
+          </div>
         </div>
         {spaces}
         {you}
@@ -5110,14 +5142,17 @@ function AppShell() {
   }
 
   return (
-    <div style={{ height: "var(--ui-vh)", display: "flex", overflow: "hidden", background: "var(--surface-canvas)" }}>
-      {rail}
-      <div
-        style={{ ...switchingStyle, flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}
-        aria-busy={switchingSpace || undefined}
-      >
-        {contentView === "calendar" ? null : desktopSidebar}
-        {content}
+    <div style={{ height: "var(--ui-vh)", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--surface-canvas)" }}>
+      {previewBanner}
+      <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
+        {rail}
+        <div
+          style={{ ...switchingStyle, flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}
+          aria-busy={switchingSpace || undefined}
+        >
+          {contentView === "calendar" ? null : desktopSidebar}
+          {content}
+        </div>
       </div>
       {overlays}
     </div>

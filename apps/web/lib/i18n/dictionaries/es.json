@@ -2339,7 +2339,19 @@
     "memberToGuest": "{{actor}} pasó a {{target}} de miembro a invitado",
     "guestPurged": "El acceso de {{target}} se eliminó tras 90 días",
     "accessUntil": "Acceso hasta el {{date}}",
-    "accessTo": "Acceso a {{space}}"
+    "accessTo": "Acceso a {{space}}",
+    "ruleCreated": "{{actor}} dio acceso a {{target}} {{resource}}",
+    "ruleUpdated": "{{actor}} cambió el nivel de {{target}} {{resource}}",
+    "ruleCustomised": "{{actor}} personalizó el acceso de {{target}} {{resource}}",
+    "ruleDeleted": "{{actor}} quitó el acceso de {{target}} {{resource}}",
+    "ruleReserved": "{{actor}} reservó {{resource}}: todo el espacio ya no tiene acceso",
+    "rolePreviewed": "{{actor}} vio el espacio como {{role}}",
+    "previewLength": "Vista previa de solo lectura · {{minutes}} min",
+    "onChannel": "en el canal",
+    "onFile": "en el archivo o carpeta",
+    "onCalendar": "en la agenda",
+    "levelChip": "Nivel {{level}}",
+    "readersOfChannel": "los lectores de un canal"
   },
   "guests": {
     "endTitle": "Acceso hasta",
@@ -2539,7 +2551,9 @@
       "targetAboveYou": "Esta persona o grupo está por encima de usted: no puede modificar su acceso.",
       "reservationAdminsOnly": "Solo el propietario y los administradores pueden quitar el acceso a todo el mundo.",
       "guestCeiling": "Un invitado no puede superar el tope de invitados.",
-      "audienceFilesOnly": "Los lectores de un canal solo se eligen para archivos."
+      "audienceFilesOnly": "Los lectores de un canal solo se eligen para archivos.",
+      "baseRoleLevelsOnly": "Esta línea solo admite niveles.",
+      "permissionInBoth": "Un permiso no puede estar permitido y denegado a la vez."
     },
     "groupSub_one": "Grupo · {{count}} persona",
     "groupSub_many": "Grupo · {{count}} personas",
@@ -2580,7 +2594,17 @@
     "restore": "Restablecer la herencia",
     "audienceName": "Lectores de #{{name}}",
     "closestWins": "Gana la regla más cercana.",
-    "closestWinsBody": "Para {{name}}, este elemento está en «{{level}}» aunque la carpeta superior dé «{{parentLevel}}». Las demás entradas siguen a la carpeta."
+    "closestWinsBody": "Para {{name}}, este elemento está en «{{level}}» aunque la carpeta superior dé «{{parentLevel}}». Las demás entradas siguen a la carpeta.",
+    "usedIn": {
+      "file": "Archivo o carpeta",
+      "titleGroup": "No se puede eliminar el grupo {{name}}",
+      "titleRole": "No se puede eliminar el rol {{name}}",
+      "sub": "Hay reglas de acceso que lo nombran: al eliminarlo, una denegación podría desaparecer y abrir un acceso sin que nadie lo vea.",
+      "warnTitle": "{{name}} todavía se usa.",
+      "warnBody": "Quítalo primero de cada regla de abajo y vuelve a eliminarlo.",
+      "where": "Dónde se usa",
+      "hidden": "Un elemento que no puedes abrir"
+    }
   },
   "customise": {
     "title": "Personalizar: {{name}}",
@@ -2690,6 +2714,24 @@
       "message": "Por un mensaje",
       "event": "Por un evento",
       "other": "Por otro paso"
+    }
+  },
+  "preview": {
+    "viewAs": "Ver como",
+    "viewAsFor": "Ver el espacio como {{role}}",
+    "hint": "Disponible para los roles situados por debajo del tuyo, si puedes gestionar roles. Nunca ves más que tus propios permisos: la vista previa está limitada por ellos.",
+    "locked": "«Ver como» forma parte de la edición Enterprise.",
+    "banner": "Estás viendo {{space}} como {{role}}",
+    "note": "Solo lectura · termina tras {{minutes}} minutos sin actividad",
+    "quit": "Salir",
+    "realtime": "El tiempo real está en pausa durante la vista previa.",
+    "readOnlyTitle": "Acción rechazada: la vista previa es de solo lectura.",
+    "readOnlyBody": "Tu cambio no se guardó. Haz clic en Salir, arriba, para recuperar el control.",
+    "startFailed": "No se pudo iniciar la vista previa.",
+    "quitFailed": "No se pudo terminar la vista previa. Inténtalo de nuevo.",
+    "refusal": {
+      "baseRole": "Los roles base no se pueden ver en vista previa.",
+      "unavailable": "La vista previa no está disponible por ahora."
     }
   }
 }

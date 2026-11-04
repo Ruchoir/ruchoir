@@ -21,10 +21,16 @@ export type Slot =
   /** People named by id; `null` is a person no longer in the space (the account may well exist). */
   | { kind: "people"; names: (string | null)[] }
   | { kind: "role"; name: string; colour?: string }
+  /** Everyone: the members, or the guests. */
+  | { kind: "everyone"; guests: boolean }
+  /** The readers of a channel (a rule on a file). */
+  | { kind: "audience" }
+  /** What a rule is on: a channel, a file or folder, a calendar. */
+  | { kind: "resource"; of: "channel" | "file" | "calendar"; name: string }
   | { kind: "legacy"; roles: string[] };
 
 /** The families of the journal, in the order the filter lists them (the API's `category` values). */
-export const AUDIT_CATEGORIES = ["members", "roles", "groups", "channels", "calendars", "licence", "guests"] as const;
+export const AUDIT_CATEGORIES = ["members", "roles", "groups", "channels", "calendars", "licence", "guests", "access"] as const;
 export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
 
 /** The family a line is filed under: the API's, or members for one this app does not know. */
@@ -60,6 +66,12 @@ export type Sentence =
   | "groupManagersAdded"
   | "groupManagersRemoved"
   | "groupManagersChanged"
+  | "ruleCreated"
+  | "ruleUpdated"
+  | "ruleCustomised"
+  | "ruleDeleted"
+  | "ruleReserved"
+  | "rolePreviewed"
   | "licenceInstalled"
   | "licenceRemoved"
   | "guestExpiryFixed"
@@ -81,7 +93,7 @@ export type AuditLine = {
   /** Plain values: a channel's or calendar's name, seats, a date (ISO 8601), the action. */
   values: Record<string, string | number>;
   /** `viaGroup`: the roles come with a group, so each chip says "by the group". */
-  diff?: { kind: "permission" | "role"; added: string[]; removed: string[]; viaGroup?: boolean };
+  diff?: { kind: "permission" | "role" | "level"; added: string[]; removed: string[]; viaGroup?: boolean };
   /** The pastilles of a guest line: the standing taken or left, the access ended, a date. */
   chips?: { sign: "+" | "-"; what: "member" | "guest" | "until" | "space"; date?: string }[];
 };
@@ -104,7 +116,58 @@ function both(before: string[], after: string[]) {
 /** Who the user ids of a group line are, as the members list knows them (undefined: gone). */
 export type NameOf = (userId: string) => string | undefined;
 
-export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined): AuditLine {
+/** What the log keeps as ids for a rule's target: groups and roles are named from the space's lists. */
+export type Refs = {
+  group: NameOf;
+  role: (id: string) => { name: string; systemKey?: string } | undefined;
+};
+
+/** A rule's level as the log words it: a level name, `{ allow, deny }` for a custom one, or null. */
+type Shown = string | { allow?: unknown; deny?: unknown } | null | undefined;
+
+function ruleLine(entry: EntryLike, nameOf: NameOf, refs: Refs | undefined, line: (sentence: Sentence, extra?: Partial<AuditLine>) => AuditLine): AuditLine {
+  const d = entry.details ?? {};
+  const kind = entry.target.kind === "file" || entry.target.kind === "calendar" ? entry.target.kind : "channel";
+  const id = str(d.target_id);
+  let target: Slot;
+  let reserved = false;
+  switch (str(d.target_kind)) {
+    case "group":
+      target = { kind: "group", name: refs?.group(id) ?? "", id };
+      break;
+    case "role": {
+      target = { kind: "role", name: refs?.role(id)?.name ?? "" };
+      break;
+    }
+    case "everyone":
+      target = { kind: "everyone", guests: refs?.role(id)?.systemKey === "guests" };
+      reserved = true;
+      break;
+    case "audience":
+      target = { kind: "audience" };
+      break;
+    default:
+      target = { kind: "people", names: [id ? (nameOf(id) ?? null) : null] };
+  }
+  const before = d.before as Shown;
+  const after = d.after as Shown;
+  const level = (v: Shown): string[] => (typeof v === "string" ? [v] : []);
+  const custom = (v: Shown): { allow: string[]; deny: string[] } | undefined =>
+    v && typeof v === "object" ? { allow: strings(v.allow), deny: strings(v.deny) } : undefined;
+  const slots = { target, resource: { kind: "resource", of: kind, name: entry.target.label ?? "" } as Slot };
+  const values = { resourceKind: kind };
+  const permissions = (v: { allow: string[]; deny: string[] }): AuditLine["diff"] => ({ kind: "permission", added: v.allow, removed: v.deny });
+  const customAfter = custom(after);
+  if (entry.action === "rule.deleted") {
+    const gone = custom(before);
+    return line("ruleDeleted", { slots, values, diff: gone ? permissions({ allow: [], deny: [...gone.allow, ...gone.deny] }) : { kind: "level", added: [], removed: level(before) } });
+  }
+  if (customAfter) return line("ruleCustomised", { slots, values, diff: permissions(customAfter) });
+  if (reserved && after === "none" && kind === "channel") return line("ruleReserved", { slots, values, diff: { kind: "level", added: [], removed: level(before) } });
+  return line(entry.action === "rule.created" ? "ruleCreated" : "ruleUpdated", { slots, values, diff: { kind: "level", added: level(after), removed: level(before) } });
+}
+
+export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined, refs?: Refs): AuditLine {
   const d = entry.details ?? {};
   const actor: Slot = entry.actor ? { kind: "person", name: entry.actor.name } : { kind: "deleted" };
   // Names are read now by the API; once the thing is gone, the name the log kept is the answer.
@@ -218,6 +281,15 @@ export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined): A
       const ids = gone ? managers.removed : managers.added;
       return line(gone ? "groupManagersRemoved" : "groupManagersAdded", { slots: { ...slots, people: people(ids) }, values: { count: ids.length } });
     }
+    case "rule.created":
+    case "rule.updated":
+    case "rule.deleted":
+      return ruleLine(entry, nameOf, refs, line);
+    case "role.previewed":
+      return line("rolePreviewed", {
+        slots: { role: role(undefined) },
+        values: typeof d.seconds === "number" ? { minutes: Math.max(1, Math.round(d.seconds / 60)) } : {},
+      });
     case "licence.installed":
       return line("licenceInstalled", { values: { seats: typeof d.seats === "number" ? d.seats : 0, until: str(d.valid_until) } });
     case "licence.removed":

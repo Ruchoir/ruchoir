@@ -2274,7 +2274,19 @@
     "memberToGuest": "{{actor}} a passé {{target}} de membre à invité",
     "guestPurged": "L'accès de {{target}} a été supprimé après 90 jours",
     "accessUntil": "Accès jusqu'au {{date}}",
-    "accessTo": "Accès à {{space}}"
+    "accessTo": "Accès à {{space}}",
+    "ruleCreated": "{{actor}} a donné un accès à {{target}} {{resource}}",
+    "ruleUpdated": "{{actor}} a changé le niveau de {{target}} {{resource}}",
+    "ruleCustomised": "{{actor}} a personnalisé l'accès de {{target}} {{resource}}",
+    "ruleDeleted": "{{actor}} a retiré l'accès de {{target}} {{resource}}",
+    "ruleReserved": "{{actor}} a réservé {{resource}} : tout l'espace n'y a plus accès",
+    "rolePreviewed": "{{actor}} a regardé l'espace en tant que {{role}}",
+    "previewLength": "Aperçu en lecture seule · {{minutes}} min",
+    "onChannel": "sur le canal",
+    "onFile": "sur le fichier ou dossier",
+    "onCalendar": "sur l'agenda",
+    "levelChip": "Niveau {{level}}",
+    "readersOfChannel": "les lecteurs d'un canal"
   },
   "guests": {
     "endTitle": "Accès jusqu'au",
@@ -2474,7 +2486,9 @@
       "targetAboveYou": "Cette personne ou ce groupe est au-dessus de vous : vous ne pouvez pas modifier son accès.",
       "reservationAdminsOnly": "Seuls le propriétaire et les administrateurs peuvent retirer l'accès à tout le monde.",
       "guestCeiling": "Un invité ne peut pas dépasser le plafond des invités.",
-      "audienceFilesOnly": "Les lecteurs d'un canal ne se choisissent que pour des fichiers."
+      "audienceFilesOnly": "Les lecteurs d'un canal ne se choisissent que pour des fichiers.",
+      "baseRoleLevelsOnly": "Cette ligne se règle par niveau uniquement.",
+      "permissionInBoth": "Un droit ne peut pas être à la fois autorisé et refusé."
     },
     "groupSub_one": "Groupe · {{count}} personne",
     "groupSub_many": "Groupe · {{count}} personnes",
@@ -2515,7 +2529,17 @@
     "restore": "Rétablir l'héritage",
     "audienceName": "Lecteurs de #{{name}}",
     "closestWins": "La règle la plus proche gagne.",
-    "closestWinsBody": "Pour {{name}}, cet élément est réglé sur « {{level}} » même si le dossier du dessus donne « {{parentLevel}} ». Les autres entrées continuent de suivre le dossier."
+    "closestWinsBody": "Pour {{name}}, cet élément est réglé sur « {{level}} » même si le dossier du dessus donne « {{parentLevel}} ». Les autres entrées continuent de suivre le dossier.",
+    "usedIn": {
+      "file": "Fichier ou dossier",
+      "titleGroup": "Impossible de supprimer le groupe {{name}}",
+      "titleRole": "Impossible de supprimer le rôle {{name}}",
+      "sub": "Des règles d'accès le nomment : en le supprimant, un refus pourrait disparaître et ouvrir un accès sans que personne ne le voie.",
+      "warnTitle": "{{name}} est encore utilisé.",
+      "warnBody": "Retirez-le d'abord de chaque règle ci-dessous, puis revenez le supprimer.",
+      "where": "Où il est utilisé",
+      "hidden": "Un élément que vous ne pouvez pas ouvrir"
+    }
   },
   "customise": {
     "title": "Personnaliser : {{name}}",
@@ -2625,6 +2649,24 @@
       "message": "Par un message",
       "event": "Par un événement",
       "other": "Par une autre étape"
+    }
+  },
+  "preview": {
+    "viewAs": "Voir en tant que",
+    "viewAsFor": "Voir l'espace en tant que {{role}}",
+    "hint": "Disponible pour les rôles placés sous le vôtre, si vous pouvez gérer les rôles. Vous ne voyez jamais plus que vos propres droits : l'aperçu est borné par eux.",
+    "locked": "« Voir en tant que » est réservé à l'édition Entreprise.",
+    "banner": "Vous voyez {{space}} en tant que {{role}}",
+    "note": "Lecture seule · se termine après {{minutes}} minutes sans activité",
+    "quit": "Quitter",
+    "realtime": "Temps réel suspendu pendant l'aperçu.",
+    "readOnlyTitle": "Action refusée : l'aperçu est en lecture seule.",
+    "readOnlyBody": "Votre modification n'a pas été enregistrée. Cliquez sur Quitter, en haut, pour reprendre la main.",
+    "startFailed": "L'aperçu n'a pas pu démarrer.",
+    "quitFailed": "L'aperçu n'a pas pu se terminer. Réessayez.",
+    "refusal": {
+      "baseRole": "Les rôles de base ne s'affichent pas en aperçu.",
+      "unavailable": "L'aperçu est indisponible pour le moment."
     }
   }
 }

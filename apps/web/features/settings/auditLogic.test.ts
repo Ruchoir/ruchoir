@@ -185,3 +185,51 @@ test("a_group_rename_and_an_empty_description_stay_readable", () => {
   const created = auditLine(entry("group.created", { target: { kind: "group", id: "g1" }, details: { name: "Comptabilité" } }));
   assert.deepEqual(created.slots.group, { kind: "group", name: "Comptabilité", id: "g1" });
 });
+
+const rule = (action: string, details: Record<string, unknown>, target = { kind: "channel", id: "c1", label: "compta" }) => entry(action, { target, details });
+const refs = {
+  group: (id: string) => (id === "g1" ? "Comptabilité" : undefined),
+  role: (id: string) => (id === "r-members" ? { name: "Members", systemKey: "members" } : id === "r-guests" ? { name: "Guests", systemKey: "guests" } : id === "r1" ? { name: "Comptable" } : undefined),
+};
+
+test("every_rule_action_has_a_sentence", () => {
+  // Created: the target, the resource, and the level as a single chip.
+  const created = auditLine(rule("rule.created", { target_kind: "group", target_id: "g1", before: null, after: "contribute" }), () => undefined, refs);
+  assert.equal(created.sentence, "ruleCreated");
+  assert.deepEqual(created.slots.target, { kind: "group", name: "Comptabilité", id: "g1" });
+  assert.deepEqual(created.slots.resource, { kind: "resource", of: "channel", name: "compta" });
+  assert.deepEqual(created.diff, { kind: "level", added: ["contribute"], removed: [] });
+  assert.equal(created.values.resourceKind, "channel");
+  // Updated between two levels: the level before and after as two chips.
+  const changed = auditLine(rule("rule.updated", { target_kind: "user", target_id: "u1", before: "read", after: "contribute" }, { kind: "calendar", id: "k", label: "Chantiers" }), (id) => (id === "u1" ? "Nadia" : undefined), refs);
+  assert.equal(changed.sentence, "ruleUpdated");
+  assert.deepEqual(changed.slots.target, { kind: "people", names: ["Nadia"] });
+  assert.deepEqual(changed.diff, { kind: "level", added: ["contribute"], removed: ["read"] });
+  assert.equal(changed.values.resourceKind, "calendar");
+  // Updated to a rule that matches no preset: the permissions added and denied.
+  const custom = auditLine(rule("rule.updated", { target_kind: "group", target_id: "g1", before: "contribute", after: { allow: ["message.pin"], deny: ["message.mention_all"] } }), () => undefined, refs);
+  assert.equal(custom.sentence, "ruleCustomised");
+  assert.deepEqual(custom.diff, { kind: "permission", added: ["message.pin"], removed: ["message.mention_all"] });
+  // Deleted: the level that went.
+  const deleted = auditLine(rule("rule.deleted", { target_kind: "role", target_id: "r1", before: "read", after: null }), () => undefined, refs);
+  assert.equal(deleted.sentence, "ruleDeleted");
+  assert.deepEqual(deleted.slots.target, { kind: "role", name: "Comptable" });
+  assert.deepEqual(deleted.diff, { kind: "level", added: [], removed: ["read"] });
+  // Everyone down to none on a channel is a reservation.
+  const reserved = auditLine(rule("rule.updated", { target_kind: "everyone", target_id: "r-members", before: "contribute", after: "none" }), () => undefined, refs);
+  assert.equal(reserved.sentence, "ruleReserved");
+  assert.deepEqual(reserved.diff, { kind: "level", added: [], removed: ["contribute"] });
+  // Everyone reads as the members, or the guests.
+  const guests = auditLine(rule("rule.created", { target_kind: "everyone", target_id: "r-guests", before: null, after: "read" }), () => undefined, refs);
+  assert.deepEqual(guests.slots.target, { kind: "everyone", guests: true });
+  // A line the log keeps without a name is still a sentence.
+  assert.equal(auditLine(rule("rule.created", {}), () => undefined, refs).sentence, "ruleCreated");
+});
+
+test("a_preview_is_a_line_of_the_journal", () => {
+  const line = auditLine(entry("role.previewed", { target: { kind: "role", id: "r1", label: "Comptable" }, details: { role_name: "Comptable", seconds: 360 } }));
+  assert.equal(line.sentence, "rolePreviewed");
+  assert.deepEqual(line.slots.role, { kind: "role", name: "Comptable", colour: undefined });
+  assert.equal(line.values.minutes, 6);
+  assert.equal(auditLine(entry("role.previewed", { target: { kind: "role", id: "r1", label: "Comptable" } })).values.minutes, undefined);
+});

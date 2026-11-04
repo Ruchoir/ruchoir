@@ -51,3 +51,11 @@ test("a_401_tells_why", async () => {
   await assert.rejects(apiRequest("POST", "/auth/password", {}));
   assert.deepEqual(codes, ["invalid_credentials"]);
 });
+
+test("a_write_refused_by_a_preview_calls_onPreviewReadOnly", async () => {
+  fakeFetch({ status: 403, body: { error: "preview_read_only" } }, { status: 403, body: { error: "forbidden", reason: "preview_read_only" } }, { status: 403, body: { error: "forbidden", reason: "cannot_grant" } });
+  let heard = 0;
+  configureClient({ baseUrl: "https://a.test", onPreviewReadOnly: () => heard++ });
+  for (let i = 0; i < 3; i++) await apiRequest("PUT", "/x").catch(() => {});
+  assert.equal(heard, 2);
+});

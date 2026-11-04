@@ -322,6 +322,9 @@ function findHardCoded(source, path) {
  * Each entry is that claim, made once, in writing.
  */
 const ALLOWED_DUPLICATES = new Set([
+  // The desktop tray's "Quitter" closes the app; the preview band's leaves "Voir en tant que" and
+  // returns to one's own rights. Same French word, two actions, free to be worded apart elsewhere.
+  "preview.quit",
   // The composer's group hint (a head count while the channel roster loads) and a reaction's
   // reactors list read the same today; they are two screens, free to part ways in any language.
   "composer.groupHeadCount_one",

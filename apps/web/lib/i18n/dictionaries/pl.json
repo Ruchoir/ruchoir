@@ -2430,7 +2430,19 @@
     "memberToGuest": "{{actor}} zmienił(a) {{target}} z członka w gościa",
     "guestPurged": "Dostęp dla {{target}} został usunięty po 90 dniach",
     "accessUntil": "Dostęp do {{date}}",
-    "accessTo": "Dostęp do {{space}}"
+    "accessTo": "Dostęp do {{space}}",
+    "ruleCreated": "{{actor}} nadał dostęp dla {{target}} {{resource}}",
+    "ruleUpdated": "{{actor}} zmienił poziom dla {{target}} {{resource}}",
+    "ruleCustomised": "{{actor}} dostosował dostęp dla {{target}} {{resource}}",
+    "ruleDeleted": "{{actor}} usunął dostęp dla {{target}} {{resource}}",
+    "ruleReserved": "{{actor}} zarezerwował {{resource}}: cała przestrzeń nie ma już dostępu",
+    "rolePreviewed": "{{actor}} obejrzał przestrzeń jako {{role}}",
+    "previewLength": "Podgląd tylko do odczytu · {{minutes}} min",
+    "onChannel": "w kanale",
+    "onFile": "w pliku lub folderze",
+    "onCalendar": "w kalendarzu",
+    "levelChip": "Poziom {{level}}",
+    "readersOfChannel": "czytelnicy kanału"
   },
   "guests": {
     "endTitle": "Dostęp do",
@@ -2630,7 +2642,9 @@
       "targetAboveYou": "Ta osoba lub grupa stoi wyżej od Ciebie: nie możesz zmienić jej dostępu.",
       "reservationAdminsOnly": "Tylko właściciel i administratorzy mogą odebrać dostęp wszystkim.",
       "guestCeiling": "Gość nie może przekroczyć limitu gości.",
-      "audienceFilesOnly": "Czytelników kanału można wybrać tylko dla plików."
+      "audienceFilesOnly": "Czytelników kanału można wybrać tylko dla plików.",
+      "baseRoleLevelsOnly": "Ta pozycja przyjmuje tylko poziomy.",
+      "permissionInBoth": "Uprawnienie nie może być jednocześnie dozwolone i odmówione."
     },
     "groupSub_one": "Grupa · {{count}} osoba",
     "groupSub_few": "Grupa · {{count}} osoby",
@@ -2679,7 +2693,17 @@
     "restore": "Przywróć dziedziczenie",
     "audienceName": "Czytelnicy #{{name}}",
     "closestWins": "Wygrywa najbliższa reguła.",
-    "closestWinsBody": "Dla {{name}} ten element ma poziom „{{level}}”, nawet jeśli folder wyżej daje „{{parentLevel}}”. Pozostałe wpisy nadal podążają za folderem."
+    "closestWinsBody": "Dla {{name}} ten element ma poziom „{{level}}”, nawet jeśli folder wyżej daje „{{parentLevel}}”. Pozostałe wpisy nadal podążają za folderem.",
+    "usedIn": {
+      "file": "Plik lub folder",
+      "titleGroup": "Nie można usunąć grupy {{name}}",
+      "titleRole": "Nie można usunąć roli {{name}}",
+      "sub": "Reguły dostępu go wskazują: po usunięciu odmowa mogłaby zniknąć i otworzyć dostęp, nikt by tego nie zauważył.",
+      "warnTitle": "{{name}} jest nadal używane.",
+      "warnBody": "Najpierw usuń je z każdej reguły poniżej, potem wróć, aby je usunąć.",
+      "where": "Gdzie jest używane",
+      "hidden": "Element, którego nie możesz otworzyć"
+    }
   },
   "customise": {
     "title": "Dostosuj: {{name}}",
@@ -2789,6 +2813,24 @@
       "message": "Przez wiadomość",
       "event": "Przez wydarzenie",
       "other": "Przez inny krok"
+    }
+  },
+  "preview": {
+    "viewAs": "Zobacz jako",
+    "viewAsFor": "Zobacz przestrzeń jako {{role}}",
+    "hint": "Dostępne dla ról poniżej Twojej, jeśli możesz zarządzać rolami. Nigdy nie widzisz więcej niż Twoje uprawnienia: podgląd jest nimi ograniczony.",
+    "locked": "„Zobacz jako” to część wersji Enterprise.",
+    "banner": "Oglądasz {{space}} jako {{role}}",
+    "note": "Tylko odczyt · kończy się po {{minutes}} min bez aktywności",
+    "quit": "Wyjdź",
+    "realtime": "Czas rzeczywisty jest wstrzymany podczas podglądu.",
+    "readOnlyTitle": "Akcja odrzucona: podgląd jest tylko do odczytu.",
+    "readOnlyBody": "Twoja zmiana nie została zapisana. Kliknij Wyjdź na górze, aby odzyskać kontrolę.",
+    "startFailed": "Nie udało się uruchomić podglądu.",
+    "quitFailed": "Nie udało się zakończyć podglądu. Spróbuj ponownie.",
+    "refusal": {
+      "baseRole": "Ról bazowych nie można podglądać.",
+      "unavailable": "Podgląd jest chwilowo niedostępny."
     }
   }
 }

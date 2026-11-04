@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { Button, Dialog, Field, Input } from "@/components/ds";
 import { deleteGroup, refusalOf } from "@/lib/data/api";
-import type { Group, Role } from "@/lib/data/types";
+import type { Group, Role, UsedIn } from "@/lib/data/types";
 import { useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
 import { refusalMessage, roleLabel } from "./roleChips";
+import { UsedInDialog } from "./UsedInDialog";
 
 export type Common = { spaceId: string; group: Group; onChanged: () => Promise<void>; onNotify: (toast: Toast) => void };
 
@@ -23,6 +24,8 @@ export function DeleteGroupDialog({
   const { t } = useTranslation();
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
+  /** Where the group is named by rules, when the server refused the deletion for that. */
+  const [usedIn, setUsedIn] = useState<UsedIn[] | null>(null);
 
   const remove = async () => {
     setBusy(true);
@@ -33,10 +36,17 @@ export function DeleteGroupDialog({
       onNotify({ tone: "success", title: t("groups.deleted"), description: group.name });
       onDeleted();
     } catch (err) {
+      const refusal = refusalOf(err);
+      if (refusal?.code === "group_has_rules" && refusal.usedIn) {
+        setUsedIn(refusal.usedIn);
+        return;
+      }
       onClose();
       onNotify({ tone: "danger", title: t("roles.saveFailed"), description: refusalMessage(refusalOf(err), t, t("space.retry")) });
     }
   };
+
+  if (usedIn) return <UsedInDialog of="group" name={group.name} usedIn={usedIn} onClose={onClose} />;
 
   return (
     <Dialog

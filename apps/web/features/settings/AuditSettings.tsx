@@ -3,11 +3,13 @@
 import { type CSSProperties, Fragment, type ReactNode, useCallback, useEffect, useState } from "react";
 import { Avatar, Button, Card, Icon, Select, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
-import { getAudit } from "@/lib/data/api";
-import type { AuditEntry, Role } from "@/lib/data/types";
+import { getAudit, listGroups } from "@/lib/data/api";
+import type { AuditEntry, Group, Role } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatDayHeading, formatDayMonth, formatLongDate, formatTime, formatUtcDate } from "@/lib/i18n/format";
+import { levelLabelKey } from "../access/accessLogic.ts";
+import { tk } from "../access/EntryRow";
 import { auditLine, dayKey, lineCategory, type Sentence, type Slot } from "./auditLogic";
 import { RoleDot, ROLE_LABEL, roleLabel } from "./roleChips";
 import { PERMISSION_TEXT } from "./permissionText";
@@ -41,6 +43,12 @@ const SENTENCE: Record<Sentence, TranslationKey> = {
   groupManagersAdded: key("audit.groupManagersAdded"),
   groupManagersRemoved: key("audit.groupManagersRemoved"),
   groupManagersChanged: key("audit.groupManagersChanged"),
+  ruleCreated: key("audit.ruleCreated"),
+  ruleUpdated: key("audit.ruleUpdated"),
+  ruleCustomised: key("audit.ruleCustomised"),
+  ruleDeleted: key("audit.ruleDeleted"),
+  ruleReserved: key("audit.ruleReserved"),
+  rolePreviewed: key("audit.rolePreviewed"),
   licenceInstalled: key("audit.licenceInstalled"),
   licenceRemoved: key("audit.licenceRemoved"),
   guestExpiryFixed: key("audit.guestExpiryFixed"),
@@ -65,7 +73,11 @@ const CATEGORY: Record<string, TranslationKey> = {
   calendars: key("calendar.calendars"),
   licence: key("licence.title"),
   guests: key("guests.sectionTitle"),
+  access: key("access.tab"),
 };
+
+/** What a rule is on, said with its preposition: "sur le canal". */
+const RESOURCE_WORD = { channel: key("audit.onChannel"), file: key("audit.onFile"), calendar: key("audit.onCalendar") } as const;
 
 /** A line's tag says "Groupe", the filter lists "Groupes": every other family reads the same in both. */
 const TAG: Record<string, TranslationKey> = { ...CATEGORY, groups: key("groups.colGroup"), guests: key("role.guest") };
@@ -128,6 +140,15 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
     void load();
   }, [load]);
 
+  // The groups a rule names, by id; the log keeps ids. A failure leaves them unnamed.
+  const [spaceGroups, setSpaceGroups] = useState<Group[]>([]);
+  useEffect(() => {
+    let active = true;
+    void listGroups(spaceId).then((g) => active && setSpaceGroups(g)).catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [spaceId]);
   const nameById = new Map(members.map((m) => [m.userId, m.name]));
   const colourOf = (name: string) => roles.find((r) => r.name === name)?.colour;
   // The log keeps a role's stored name ("Administrator"); a system role reads in the reader's language.
@@ -170,13 +191,26 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
           </>
         );
       }
+      case "everyone":
+        return <b style={{ color: "var(--text-strong)" }}>{s.guests ? t("access.allGuests") : t("channel.everyoneInSpace")}</b>;
+      case "audience":
+        return <b style={{ color: "var(--text-strong)" }}>{t("audit.readersOfChannel")}</b>;
+      case "resource":
+        return (
+          <>
+            {t(RESOURCE_WORD[s.of])} <b style={{ color: "var(--text-strong)" }}>{s.of === "channel" ? `#${s.name}` : s.name}</b>
+          </>
+        );
       case "legacy":
         return <b style={{ color: "var(--text-strong)" }}>{s.roles.map((r) => t(ROLE_LABEL[r] ?? key("role.member"))).join(", ")}</b>;
     }
   };
 
   const sentence = (entry: AuditEntry): ReactNode => {
-    const line = auditLine(entry, (id) => nameById.get(id));
+    const line = auditLine(entry, (id) => nameById.get(id), {
+      group: (id) => spaceGroups.find((g) => g.id === id)?.name,
+      role: (id) => roles.find((r) => r.id === id),
+    });
     const fill: Record<string, string | number> = {};
     for (const name of Object.keys(line.slots)) fill[name] = `${MARK}${name}${MARK}`;
     for (const [name, value] of Object.entries(line.values)) fill[name] = name === "until" && typeof value === "string" ? formatUtcDate(value) : name === "date" && typeof value === "string" ? formatDayMonth(value) : value;
@@ -187,6 +221,12 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
     const diff = line.diff;
     const label = (name: string) => {
       if (diff?.kind === "permission") return PERMISSION_TEXT[name] ? t(PERMISSION_TEXT[name].title) : name;
+      if (diff?.kind === "level") {
+        const kind = line.values.resourceKind === "file" || line.values.resourceKind === "calendar" ? line.values.resourceKind : "channel";
+        const level = t(tk(levelLabelKey(kind, name as "none" | "read" | "contribute" | "manage")));
+        // One chip alone says it is a level; two read as a change from one to the other.
+        return diff.added.length > 0 && diff.removed.length > 0 ? level : t("audit.levelChip", { level });
+      }
       const text = roleText(name);
       return diff?.viaGroup ? t("audit.viaGroup", { role: text }) : text;
     };
@@ -226,6 +266,9 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
               </span>
             ))}
           </span>
+        ) : null}
+        {typeof line.values.minutes === "number" ? (
+          <span style={{ display: "block", marginTop: 4, color: "var(--text-muted)" }}>{t("audit.previewLength", { minutes: line.values.minutes })}</span>
         ) : null}
       </>
     );
@@ -305,7 +348,11 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
                   <Avatar name="?" size={24} />
                 )}
                 <span style={st.text}>{sentence(entry)}</span>
-                {TAG[lineCategory(entry)] ? <Tag>{t(TAG[lineCategory(entry)])}</Tag> : null}
+                {entry.action === "role.previewed" ? (
+                  <Tag>{t("files.previewAction")}</Tag>
+                ) : TAG[lineCategory(entry)] ? (
+                  <Tag>{t(TAG[lineCategory(entry)])}</Tag>
+                ) : null}
               </div>
             ))}
           </Card>

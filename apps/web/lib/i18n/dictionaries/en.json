@@ -2248,7 +2248,19 @@
     "memberToGuest": "{{actor}} made {{target}} a guest, from member",
     "guestPurged": "{{target}}'s access was deleted after 90 days",
     "accessUntil": "Access until {{date}}",
-    "accessTo": "Access to {{space}}"
+    "accessTo": "Access to {{space}}",
+    "ruleCreated": "{{actor}} gave {{target}} access {{resource}}",
+    "ruleUpdated": "{{actor}} changed the level of {{target}} {{resource}}",
+    "ruleCustomised": "{{actor}} customised the access of {{target}} {{resource}}",
+    "ruleDeleted": "{{actor}} removed the access of {{target}} {{resource}}",
+    "ruleReserved": "{{actor}} reserved {{resource}}: the whole space no longer has access",
+    "rolePreviewed": "{{actor}} viewed the space as {{role}}",
+    "previewLength": "Read-only preview · {{minutes}} min",
+    "onChannel": "on the channel",
+    "onFile": "on the file or folder",
+    "onCalendar": "on the calendar",
+    "levelChip": "Level {{level}}",
+    "readersOfChannel": "the readers of a channel"
   },
   "guests": {
     "endTitle": "Access until",
@@ -2448,7 +2460,9 @@
       "targetAboveYou": "This person or group ranks above you: you cannot change their access.",
       "reservationAdminsOnly": "Only the owner and administrators can take access away from everyone.",
       "guestCeiling": "A guest cannot go beyond the guest ceiling.",
-      "audienceFilesOnly": "The readers of a channel can only be chosen for files."
+      "audienceFilesOnly": "The readers of a channel can only be chosen for files.",
+      "baseRoleLevelsOnly": "This line only takes levels.",
+      "permissionInBoth": "A permission cannot be both allowed and denied."
     },
     "groupSub_one": "Group · {{count}} person",
     "groupSub_other": "Group · {{count}} people",
@@ -2481,7 +2495,17 @@
     "restore": "Restore inheritance",
     "audienceName": "Readers of #{{name}}",
     "closestWins": "The closest rule wins.",
-    "closestWinsBody": "For {{name}}, this item is set to \"{{level}}\" even though the folder above gives \"{{parentLevel}}\". The other entries keep following the folder."
+    "closestWinsBody": "For {{name}}, this item is set to \"{{level}}\" even though the folder above gives \"{{parentLevel}}\". The other entries keep following the folder.",
+    "usedIn": {
+      "file": "File or folder",
+      "titleGroup": "Cannot delete the group {{name}}",
+      "titleRole": "Cannot delete the role {{name}}",
+      "sub": "Access rules name it: deleting it could make a denial disappear and open access without anyone seeing it.",
+      "warnTitle": "{{name}} is still in use.",
+      "warnBody": "Remove it from each rule below first, then come back to delete it.",
+      "where": "Where it is used",
+      "hidden": "An item you cannot open"
+    }
   },
   "customise": {
     "title": "Customise: {{name}}",
@@ -2591,6 +2615,24 @@
       "message": "By a message",
       "event": "By an event",
       "other": "By another step"
+    }
+  },
+  "preview": {
+    "viewAs": "View as",
+    "viewAsFor": "View the space as {{role}}",
+    "hint": "Available for the roles placed below yours, if you can manage roles. You never see more than your own permissions: the preview is capped by them.",
+    "locked": "\"View as\" is part of the Enterprise edition.",
+    "banner": "You are viewing {{space}} as {{role}}",
+    "note": "Read only · ends after {{minutes}} minutes of inactivity",
+    "quit": "Quit",
+    "realtime": "Real time is paused during the preview.",
+    "readOnlyTitle": "Action refused: the preview is read only.",
+    "readOnlyBody": "Your change was not saved. Click Quit at the top to take control again.",
+    "startFailed": "The preview could not start.",
+    "quitFailed": "The preview could not end. Try again.",
+    "refusal": {
+      "baseRole": "The base roles cannot be previewed.",
+      "unavailable": "The preview is unavailable right now."
     }
   }
 }

@@ -2339,7 +2339,19 @@
     "memberToGuest": "{{actor}} ha reso {{target}} ospite, da membro",
     "guestPurged": "L'accesso di {{target}} è stato eliminato dopo 90 giorni",
     "accessUntil": "Accesso fino al {{date}}",
-    "accessTo": "Accesso a {{space}}"
+    "accessTo": "Accesso a {{space}}",
+    "ruleCreated": "{{actor}} ha dato accesso a {{target}} {{resource}}",
+    "ruleUpdated": "{{actor}} ha cambiato il livello di {{target}} {{resource}}",
+    "ruleCustomised": "{{actor}} ha personalizzato l'accesso di {{target}} {{resource}}",
+    "ruleDeleted": "{{actor}} ha rimosso l'accesso di {{target}} {{resource}}",
+    "ruleReserved": "{{actor}} ha riservato {{resource}}: tutto lo spazio non ha più accesso",
+    "rolePreviewed": "{{actor}} ha visualizzato lo spazio come {{role}}",
+    "previewLength": "Anteprima in sola lettura · {{minutes}} min",
+    "onChannel": "sul canale",
+    "onFile": "sul file o cartella",
+    "onCalendar": "sul calendario",
+    "levelChip": "Livello {{level}}",
+    "readersOfChannel": "i lettori di un canale"
   },
   "guests": {
     "endTitle": "Accesso fino al",
@@ -2539,7 +2551,9 @@
       "targetAboveYou": "Questa persona o questo gruppo è al di sopra di lei: non può modificarne l'accesso.",
       "reservationAdminsOnly": "Solo il proprietario e gli amministratori possono togliere l'accesso a tutti.",
       "guestCeiling": "Un ospite non può superare il limite degli ospiti.",
-      "audienceFilesOnly": "I lettori di un canale si scelgono solo per i file."
+      "audienceFilesOnly": "I lettori di un canale si scelgono solo per i file.",
+      "baseRoleLevelsOnly": "Questa riga accetta solo livelli.",
+      "permissionInBoth": "Un permesso non può essere consentito e negato insieme."
     },
     "groupSub_one": "Gruppo · {{count}} persona",
     "groupSub_many": "Gruppo · {{count}} persone",
@@ -2580,7 +2594,17 @@
     "restore": "Ripristina l'ereditarietà",
     "audienceName": "Lettori di #{{name}}",
     "closestWins": "Vince la regola più vicina.",
-    "closestWinsBody": "Per {{name}}, questo elemento è impostato su «{{level}}» anche se la cartella sopra dà «{{parentLevel}}». Le altre voci continuano a seguire la cartella."
+    "closestWinsBody": "Per {{name}}, questo elemento è impostato su «{{level}}» anche se la cartella sopra dà «{{parentLevel}}». Le altre voci continuano a seguire la cartella.",
+    "usedIn": {
+      "file": "File o cartella",
+      "titleGroup": "Impossibile eliminare il gruppo {{name}}",
+      "titleRole": "Impossibile eliminare il ruolo {{name}}",
+      "sub": "Alcune regole di accesso lo nominano: eliminandolo, un rifiuto potrebbe sparire e aprire un accesso senza che nessuno lo veda.",
+      "warnTitle": "{{name}} è ancora in uso.",
+      "warnBody": "Toglilo prima da ogni regola qui sotto, poi torna a eliminarlo.",
+      "where": "Dove è usato",
+      "hidden": "Un elemento che non puoi aprire"
+    }
   },
   "customise": {
     "title": "Personalizza: {{name}}",
@@ -2690,6 +2714,24 @@
       "message": "Da un messaggio",
       "event": "Da un evento",
       "other": "Da un altro passaggio"
+    }
+  },
+  "preview": {
+    "viewAs": "Visualizza come",
+    "viewAsFor": "Visualizza lo spazio come {{role}}",
+    "hint": "Disponibile per i ruoli sotto il tuo, se puoi gestire i ruoli. Non vedi mai più dei tuoi permessi: l'anteprima ne è limitata.",
+    "locked": "«Visualizza come» fa parte dell'edizione Enterprise.",
+    "banner": "Stai visualizzando {{space}} come {{role}}",
+    "note": "Sola lettura · termina dopo {{minutes}} minuti di inattività",
+    "quit": "Esci",
+    "realtime": "Il tempo reale è sospeso durante l'anteprima.",
+    "readOnlyTitle": "Azione rifiutata: l'anteprima è in sola lettura.",
+    "readOnlyBody": "La tua modifica non è stata salvata. Fai clic su Esci, in alto, per riprendere il controllo.",
+    "startFailed": "Non è stato possibile avviare l'anteprima.",
+    "quitFailed": "Non è stato possibile terminare l'anteprima. Riprova.",
+    "refusal": {
+      "baseRole": "I ruoli di base non si possono visualizzare in anteprima.",
+      "unavailable": "L'anteprima non è disponibile al momento."
     }
   }
 }

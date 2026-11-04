@@ -135,6 +135,16 @@ export function refusalMessage(refusal: Refusal | undefined, t: T, fallback: str
       return t("access.refusal.guestCeiling");
     case "audience_files_only":
       return t("access.refusal.audienceFilesOnly");
+    case "base_role_levels_only":
+      return t("access.refusal.baseRoleLevelsOnly");
+    case "permission_in_both":
+      return t("access.refusal.permissionInBoth");
+    case "base_role_not_previewable":
+      return t("preview.refusal.baseRole");
+    case "preview_read_only":
+      return t("preview.readOnlyTitle");
+    case "preview_unavailable":
+      return t("preview.refusal.unavailable");
     default:
       return fallback;
   }

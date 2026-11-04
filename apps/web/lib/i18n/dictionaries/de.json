@@ -2248,7 +2248,19 @@
     "memberToGuest": "{{actor}} hat {{target}} vom Mitglied zum Gast gemacht",
     "guestPurged": "Der Zugang von {{target}} wurde nach 90 Tagen gelöscht",
     "accessUntil": "Zugang bis {{date}}",
-    "accessTo": "Zugang zu {{space}}"
+    "accessTo": "Zugang zu {{space}}",
+    "ruleCreated": "{{actor}} hat {{target}} Zugriff gegeben {{resource}}",
+    "ruleUpdated": "{{actor}} hat die Stufe von {{target}} geändert {{resource}}",
+    "ruleCustomised": "{{actor}} hat den Zugriff von {{target}} angepasst {{resource}}",
+    "ruleDeleted": "{{actor}} hat den Zugriff von {{target}} entfernt {{resource}}",
+    "ruleReserved": "{{actor}} hat {{resource}} reserviert: Der ganze Bereich hat keinen Zugriff mehr",
+    "rolePreviewed": "{{actor}} hat den Bereich als {{role}} angesehen",
+    "previewLength": "Schreibgeschützte Vorschau · {{minutes}} Min.",
+    "onChannel": "im Kanal",
+    "onFile": "bei der Datei oder dem Ordner",
+    "onCalendar": "im Kalender",
+    "levelChip": "Stufe {{level}}",
+    "readersOfChannel": "die Leser eines Kanals"
   },
   "guests": {
     "endTitle": "Zugang bis",
@@ -2448,7 +2460,9 @@
       "targetAboveYou": "Diese Person oder Gruppe steht über Ihnen: Sie können ihren Zugriff nicht ändern.",
       "reservationAdminsOnly": "Nur der Eigentümer und die Administratoren können allen den Zugriff entziehen.",
       "guestCeiling": "Ein Gast kann die Gäste-Obergrenze nicht überschreiten.",
-      "audienceFilesOnly": "Die Leser eines Kanals lassen sich nur für Dateien wählen."
+      "audienceFilesOnly": "Die Leser eines Kanals lassen sich nur für Dateien wählen.",
+      "baseRoleLevelsOnly": "Diese Zeile lässt sich nur über Stufen einstellen.",
+      "permissionInBoth": "Ein Recht kann nicht zugleich erlaubt und verweigert sein."
     },
     "groupSub_one": "Gruppe · {{count}} Person",
     "groupSub_other": "Gruppe · {{count}} Personen",
@@ -2481,7 +2495,17 @@
     "restore": "Vererbung wiederherstellen",
     "audienceName": "Leser von #{{name}}",
     "closestWins": "Die nächstgelegene Regel gilt.",
-    "closestWinsBody": "Für {{name}} ist dieses Element auf „{{level}}“ eingestellt, auch wenn der Ordner darüber „{{parentLevel}}“ vergibt. Die übrigen Einträge folgen weiter dem Ordner."
+    "closestWinsBody": "Für {{name}} ist dieses Element auf „{{level}}“ eingestellt, auch wenn der Ordner darüber „{{parentLevel}}“ vergibt. Die übrigen Einträge folgen weiter dem Ordner.",
+    "usedIn": {
+      "file": "Datei oder Ordner",
+      "titleGroup": "Die Gruppe {{name}} kann nicht gelöscht werden",
+      "titleRole": "Die Rolle {{name}} kann nicht gelöscht werden",
+      "sub": "Zugriffsregeln nennen es: Beim Löschen könnte eine Verweigerung verschwinden und einen Zugriff öffnen, ohne dass es jemand sieht.",
+      "warnTitle": "{{name}} wird noch verwendet.",
+      "warnBody": "Entfernen Sie es zuerst aus jeder Regel unten und kommen Sie dann zum Löschen zurück.",
+      "where": "Wo es verwendet wird",
+      "hidden": "Ein Element, das Sie nicht öffnen können"
+    }
   },
   "customise": {
     "title": "Anpassen: {{name}}",
@@ -2591,6 +2615,24 @@
       "message": "Durch eine Nachricht",
       "event": "Durch einen Termin",
       "other": "Durch einen anderen Schritt"
+    }
+  },
+  "preview": {
+    "viewAs": "Ansehen als",
+    "viewAsFor": "Den Bereich als {{role}} ansehen",
+    "hint": "Verfügbar für Rollen unterhalb Ihrer eigenen, wenn Sie Rollen verwalten können. Sie sehen nie mehr als Ihre eigenen Rechte: Die Vorschau ist daran begrenzt.",
+    "locked": "„Ansehen als“ gehört zur Enterprise-Edition.",
+    "banner": "Sie sehen {{space}} als {{role}}",
+    "note": "Nur Lesen · endet nach {{minutes}} Minuten ohne Aktivität",
+    "quit": "Beenden",
+    "realtime": "Echtzeit ist während der Vorschau pausiert.",
+    "readOnlyTitle": "Aktion abgelehnt: Die Vorschau ist schreibgeschützt.",
+    "readOnlyBody": "Ihre Änderung wurde nicht gespeichert. Klicken Sie oben auf Beenden, um wieder die Kontrolle zu übernehmen.",
+    "startFailed": "Die Vorschau konnte nicht gestartet werden.",
+    "quitFailed": "Die Vorschau konnte nicht beendet werden. Versuchen Sie es erneut.",
+    "refusal": {
+      "baseRole": "Die Basisrollen lassen sich nicht in der Vorschau ansehen.",
+      "unavailable": "Die Vorschau ist im Moment nicht verfügbar."
     }
   }
 }

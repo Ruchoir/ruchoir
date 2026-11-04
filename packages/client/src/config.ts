@@ -36,6 +36,11 @@ export type ClientOptions = {
    */
   onUnauthorized: (code?: string) => void;
   /**
+   * Called when a write is refused because the session is looking at the space as a role (`403
+   * preview_read_only`), before the error is thrown: the app says so once, wherever the write came from.
+   */
+  onPreviewReadOnly?: () => void;
+  /**
    * Send every multipart upload as one in-memory `ArrayBuffer` (with its own `Content-Type`) instead
    * of a `FormData`. Set by the desktop app only: its webview's custom protocol drops the file-backed
    * parts of a multipart body (WebView2 and WebKit), so uploads arrived empty. The web and the phone

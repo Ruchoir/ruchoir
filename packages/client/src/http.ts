@@ -113,6 +113,7 @@ export function makeTransport(getOptions: () => ClientOptions): Transport {
     if (!res.ok) {
       // The options of the moment the answer came, so the instance that refused is the one told.
       if (res.status === 401) options.onUnauthorized(errorCodeOf(body));
+      if (res.status === 403 && (errorCodeOf(body) === "preview_read_only" || reasonOf(body) === "preview_read_only")) options.onPreviewReadOnly?.();
       throw new ApiError(res.status, apiErrorMessage(body, res.status), body);
     }
     // An empty answer (204) is `undefined`, as documented above, not the `null` used for "no body".
@@ -168,6 +169,11 @@ export function apiErrorMessage(body: unknown, status: number): string {
 }
 
 /** The API's machine-readable error code in an error body (`{ "error": "invalid_code", … }`). */
+function reasonOf(body: unknown): string | undefined {
+  if (body && typeof body === "object" && "reason" in body && typeof body.reason === "string") return body.reason;
+  return undefined;
+}
+
 function errorCodeOf(body: unknown): string | undefined {
   if (body && typeof body === "object" && "error" in body && typeof body.error === "string") return body.error;
   return undefined;
