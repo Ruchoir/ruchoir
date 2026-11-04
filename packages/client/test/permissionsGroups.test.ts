@@ -1,7 +1,8 @@
+// Run with `pnpm --filter @ruchoir/client test` (Node's own runner, types stripped by Node).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { groupMentionHits, groupPeople, groupRow, rolesViaGroups, selfRoleKey, sortGroups } from "./groupsLogic.ts";
+import { groupMentionHits, groupPeople, groupRow, rolesViaGroups, selfRoleKey, sortGroups } from "../src/permissionsLogic/groups.ts";
 
 const group = (id: string, name: string, over: Partial<{ memberIds: string[]; managerIds: string[]; roleIds: string[]; source: "manual" | "directory" }> = {}) => ({
   id,

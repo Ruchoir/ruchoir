@@ -1,7 +1,8 @@
+// Run with `pnpm --filter @ruchoir/client test` (Node's own runner, types stripped by Node).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { bannerOf, shouldShowToast, previewGone, previewToast, shouldToastRefusal, viewAsState } from "./previewLogic.ts";
+import { bannerOf, shouldShowToast, previewGone, previewToast, shouldToastRefusal, viewAsState } from "../src/permissionsLogic/preview.ts";
 
 const role = (over: Partial<{ systemKey: "administrator" | "members" | "guests"; manageable: boolean }> = {}) => ({ manageable: true, ...over });
 

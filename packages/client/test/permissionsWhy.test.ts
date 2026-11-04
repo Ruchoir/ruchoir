@@ -1,8 +1,9 @@
+// Run with `pnpm --filter @ruchoir/client test` (Node's own runner, types stripped by Node).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { joinSentences, levelWordKey, cardsOf, outline, locksQuiet, groupSteps, labelOf, alreadyVia, cardOf, reasonKey, roleSentence, STEP_KINDS, stepSentence, type StepLike } from "./whyLogic.ts";
+import { joinSentences, levelWordKey, cardsOf, outline, locksQuiet, groupSteps, labelOf, alreadyVia, cardOf, reasonKey, roleSentence, STEP_KINDS, stepSentence, type StepLike } from "../src/permissionsLogic/why.ts";
 
 const step = (over: Partial<StepLike> = {}): StepLike => ({ n: 1, kind: "base", permission: "files.view", effect: "granted", ...over });
 
@@ -21,7 +22,7 @@ test("a_role_via_a_group_names_the_group", () => {
 test("every_step_kind_has_a_sentence", () => {
   assert.equal(STEP_KINDS.length, 13);
   for (const locale of ["fr", "en", "de", "es", "it", "pl"]) {
-    const dict = JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
+    const dict = JSON.parse(readFileSync(new URL(`../../../apps/web/lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
     const has = (key: string) => key.split(".").reduce<unknown>((at, part) => (at as Record<string, unknown> | undefined)?.[part], dict) !== undefined;
     for (const kind of STEP_KINDS) {
       for (const effect of ["granted", "removed"] as const) {
@@ -89,7 +90,7 @@ test("why_names_the_place_and_level_of_a_rule", () => {
   assert.deepEqual(cardOf(result, rule({ kind: "file", id: "4c440343-9480-50e5-b217-ff831ed67e79", name: "Compta", hidden: false })).reason, { n: 4, kind: "rule" });
   // Other kinds keep their short reason.
   for (const locale of ["fr", "en", "de", "es", "it", "pl"]) {
-    const dict = JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
+    const dict = JSON.parse(readFileSync(new URL(`../../../apps/web/lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
     for (const key of ["why.reason.ruleOn", "why.reason.ruleOnHidden", "access.level.custom", "access.level.none"]) {
       assert.ok(key.split(".").reduce<unknown>((at, part) => (at as Record<string, unknown> | undefined)?.[part], dict) !== undefined, `${locale}: ${key}`);
     }
@@ -244,7 +245,7 @@ test("joined_rule_sentences_start_with_a_capital", () => {
 
 test("a_granted_rule_agrees_with_the_number_of_permissions", () => {
   const plural = (locale: string, key: string, count: number) => {
-    const dict = JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
+    const dict = JSON.parse(readFileSync(new URL(`../../../apps/web/lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
     const lookup = (k: string) => k.split(".").reduce<unknown>((at, p) => (at as Record<string, unknown> | undefined)?.[p], dict) as string | undefined;
     const form = new Intl.PluralRules(locale).select(count);
     return lookup(`${key}_${form}`) ?? lookup(`${key}_other`);

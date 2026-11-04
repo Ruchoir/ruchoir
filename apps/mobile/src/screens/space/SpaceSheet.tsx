@@ -10,6 +10,7 @@ import { ApiProvider } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import { canAdminister } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
+import { useRights } from "../../space/rights";
 import { useSpace } from "../../space/SpaceProvider";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
@@ -35,6 +36,7 @@ export function SpaceSheet() {
   const { spaces, current, select } = useSpace();
   const accounts = useAccounts();
   const leave = useLeaveSpace();
+  const { supported, gates } = useRights();
   const sections = groupSpaces(accounts.accounts, accounts.summaries);
   const activeId = accounts.active?.id;
   const several = sections.length > 1;
@@ -90,11 +92,11 @@ export function SpaceSheet() {
           <Text variant="smallStrong" tone="muted" style={styles.section}>
             {current.name}
           </Text>
-          {canAdminister(current.role) ? (
-            <>
-              <ActionRow icon={UserPlus} tint={c.pink} title={t("spaceAdmin.invite")} onPress={() => open("invite")} />
-              <ActionRow icon={Settings} tint={c.sky} title={t("spaceAdmin.settings")} onPress={() => open("spaceSettings")} />
-            </>
+          {(supported ? gates.invite : canAdminister(current.role)) ? (
+            <ActionRow icon={UserPlus} tint={c.pink} title={t("spaceAdmin.invite")} onPress={() => open("invite")} />
+          ) : null}
+          {(supported ? gates.openSettings : canAdminister(current.role)) ? (
+            <ActionRow icon={Settings} tint={c.sky} title={t("spaceAdmin.settings")} onPress={() => open("spaceSettings")} />
           ) : null}
           <ActionRow icon={Bell} tint={c.sun} title={t("spaceAdmin.notifications")} onPress={() => open("spaceNotify")} />
           <ActionRow

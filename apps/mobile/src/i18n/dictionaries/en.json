@@ -84,7 +84,8 @@
   "tabs": {
     "discussions": "Conversations",
     "agenda": "Calendar",
-    "files": "Files"
+    "files": "Files",
+    "channels": "Channels"
   },
   "spaces": {
     "title": "Spaces",
@@ -156,7 +157,8 @@
     "save": "Save the message",
     "unsave": "Remove from saved",
     "savedDone": "Message saved",
-    "unsavedDone": "Removed from saved"
+    "unsavedDone": "Removed from saved",
+    "file": "File"
   },
   "common": {
     "back": "Back",
@@ -321,7 +323,10 @@
     "countDeclined_other": "{{count}} no",
     "countWaiting_one": "{{count}} waiting",
     "countWaiting_other": "{{count}} waiting",
-    "organizedBy": "Organised by {{name}}"
+    "organizedBy": "Organised by {{name}}",
+    "calendars": "Calendars",
+    "channel": "Channel",
+    "title": "Calendar"
   },
   "discussions": {
     "filterAll": "All",
@@ -801,7 +806,8 @@
     "favourite": "Add to favourites",
     "unfavourite": "Remove from favourites",
     "favourites": "Favourite channels",
-    "directMessages": "Direct messages"
+    "directMessages": "Direct messages",
+    "space": "Space"
   },
   "welcome": {
     "title": "Your team, in one place",
@@ -1052,6 +1058,29 @@
     "invisibleText": "Offline for the others",
     "failed": "Status not saved"
   },
+  "spaceSections": {
+    "roles": "Roles",
+    "groups": "Groups",
+    "audit": "Audit log",
+    "licence": "Licence",
+    "generalLine": "Name, icon, arrival channel",
+    "rolesLine": "Roles and their rights",
+    "groupsLine": "The space's groups",
+    "auditLine": "The space's changes",
+    "auditCommunity": "The last 30 days",
+    "licenceSeats": "Enterprise licence · {{used}}/{{seats}} seats",
+    "licenceEnterprise": "Enterprise licence",
+    "licenceFrozen": "Licence expired",
+    "licenceCommunity": "Community edition",
+    "soonTitle": "Coming soon",
+    "soonText": "This section arrives in a later version of the app.",
+    "rolesCount_one": "{{count}} role",
+    "rolesCount_other": "{{count}} roles",
+    "rolesCustom_one": "{{count}} custom",
+    "rolesCustom_other": "{{count}} custom",
+    "groupsCount_one": "{{count}} group",
+    "groupsCount_other": "{{count}} groups"
+  },
   "spaceAdmin": {
     "invite": "Invite people",
     "settings": "Space settings",
@@ -1267,5 +1296,267 @@
     "webPushOff": "Push notifications off",
     "hint": "Instance settings, access to accounts",
     "issueConfirm": "Issue a password reset link for {{name}}?"
+  },
+  "access": {
+    "readOnly": {
+      "archived": "This channel is archived: its access can no longer be changed.",
+      "trashed": "This item is in the trash: its access can no longer be changed.",
+      "licenceRequired": "You can view this access without changing it: delegating access management is part of the Enterprise edition.",
+      "licenceFrozen": "Changes are suspended: this space's licence is frozen. You can view the access.",
+      "notAllowed": "You can view this access, but not change it."
+    },
+    "usedIn": {
+      "file": "File or folder"
+    },
+    "allGuests": "All guests",
+    "level": {
+      "file": {
+        "contribute": "Edit"
+      },
+      "manage": "Manage",
+      "channel": {
+        "contribute": "Take part"
+      },
+      "calendar": {
+        "contribute": "Write"
+      },
+      "none": "No access",
+      "read": "Read",
+      "custom": "Custom"
+    },
+    "publicLink": "Public link",
+    "levelDesc": {
+      "channel": {
+        "read": "See the channel and react.",
+        "contribute": "Read, write, attach, pin, mention everyone.",
+        "manage": "Moderate, manage the members and the channel settings."
+      },
+      "file": {
+        "read": "See the file or folder.",
+        "contribute": "See, create and edit.",
+        "manage": "All of that, plus managing access and the public link."
+      },
+      "calendar": {
+        "read": "See the calendar.",
+        "contribute": "See and write events.",
+        "manage": "Manage everything in the calendar."
+      }
+    },
+    "freeManage": {
+      "title": {
+        "folder": "Who has access to a folder is set from the space settings.",
+        "file": "Who has access to a file is set from the space settings.",
+        "calendar": "Who has access to a calendar is set from the space settings.",
+        "channel": "Who has access to a channel is set from the space settings."
+      },
+      "body": {
+        "file": "Your Manage level on {{name}} lets you rename it, delete it and create a public link. To change who has access, ask {{who}}.",
+        "calendar": "Your Manage level on {{name}} lets you rename it, edit it and delete it. To change who has access, ask {{who}}.",
+        "channel": "Your Manage level on {{name}} lets you moderate messages and set up the channel. To change who has access, ask {{who}}."
+      },
+      "upsell": {
+        "folder": "Delegating the sharing of a folder to those who manage it: Enterprise edition.",
+        "file": "Delegating the sharing of a file to those who manage it: Enterprise edition.",
+        "calendar": "Delegating the sharing of a calendar to those who manage it: Enterprise edition.",
+        "channel": "Delegating the sharing of a channel to those who manage it: Enterprise edition."
+      }
+    },
+    "delegation": {
+      "folder": "You manage this folder: you set its access, within your own rights.",
+      "file": "You manage this file: you set its access, within your own rights.",
+      "calendar": "You manage this calendar: you set its access, within your own rights.",
+      "channel": "You manage this channel: you set its access, within your own rights."
+    }
+  },
+  "licence": {
+    "installed": "Licence installed",
+    "removed": "Licence removed"
+  },
+  "groups": {
+    "noSelfRole": "Nobody gives themselves a role, through a group either: you cannot change the roles of a group you belong to.",
+    "noSelfJoin": "You cannot add yourself to a group that carries roles."
+  },
+  "guests": {
+    "endedNotice": "Your access to {{space}} has ended",
+    "endedNoticeBody": "Your messages and files stay in the space. Ask the people who manage it to get access back.",
+    "leftNotice": "You are no longer part of {{space}}",
+    "loseView": "The view over the whole space: public channels they have not joined, the space's files and calendars. Only what is opened to them explicitly stays.",
+    "loseDirectory": "The directory: they only see the people they share a conversation with.",
+    "loseCeiling": "Everything the guests' ceiling forbids: creating a channel, inviting, moderating, managing a folder or a calendar.",
+    "keepChannels": "The channels they have already joined and their direct messages.",
+    "keepMessages": "Their messages and files.",
+    "keepGroups": "Their groups, under the guests' ceiling.",
+    "keepRoles": "Their roles {{roles}}, under the guests' ceiling.",
+    "gainView": "They would see the whole space.",
+    "gainSeat": "They would take a seat of the licence.",
+    "gainClearsDate": "Their end date would be cleared.",
+    "refusalBadExpiry": "The end date must be in the future, within the next five years.",
+    "refusalGuestOnly": "Only a guest can have an end date: this person is a member.",
+    "refusalAccessEnded": "This access has already ended: reactivate it to give it a new date.",
+    "refusalNotEnded": "This access has not ended: there is nothing to reactivate.",
+    "endedForGood": "This access ended too long ago to be reactivated."
+  },
+  "perm": {
+    "spaceSettings": "Set up the space",
+    "spaceSettingsDesc": "Choose the arrival channel and the order of the channels.",
+    "membersView": "See the directory",
+    "membersViewDesc": "See the full list of members.",
+    "membersInvite": "Invite people",
+    "membersInviteDesc": "Send invitations to join the space.",
+    "membersManage": "Manage members",
+    "membersManageDesc": "Remove people and change their standing, below your own role.",
+    "rolesManage": "Manage roles",
+    "rolesManageDesc": "Create, edit and give the roles placed below yours.",
+    "groupsManage": "Manage groups",
+    "groupsManageDesc": "Create and edit groups of people.",
+    "auditView": "Read the log",
+    "auditViewDesc": "See the history of changes to rights.",
+    "channelsCreate": "Create channels",
+    "channelsCreateDesc": "Open a new channel.",
+    "channelsDelete": "Delete channels",
+    "channelsDeleteDesc": "Erase a channel and its history.",
+    "calendarsCreate": "Create calendars",
+    "calendarsCreateDesc": "Open a new calendar for the whole space.",
+    "dmStart": "Write privately",
+    "dmStartDesc": "Start a private conversation.",
+    "filesTrashPurge": "Empty the trash",
+    "filesTrashPurgeDesc": "Erase for good what is in the space's trash.",
+    "channelView": "See channels",
+    "channelViewDesc": "See the channels and their history.",
+    "messageSend": "Write",
+    "messageSendDesc": "Write messages and reply.",
+    "messageReact": "React",
+    "messageReactDesc": "Add reactions to messages.",
+    "messageAttach": "Attach files",
+    "messageAttachDesc": "Attach files to messages.",
+    "messageMentionAll": "Mention the whole channel",
+    "messageMentionAllDesc": "Use @channel and @here.",
+    "messagePin": "Pin",
+    "messagePinDesc": "Pin messages.",
+    "messageManage": "Moderate messages",
+    "messageManageDesc": "Delete other people's messages and remove their pins.",
+    "channelMembersManage": "Manage channel members",
+    "channelMembersManageDesc": "Add people to a channel and remove them.",
+    "channelManage": "Manage channels",
+    "channelManageDesc": "Rename, change the topic or type, archive, set their rules.",
+    "filesView": "See files",
+    "filesViewDesc": "See, preview and download.",
+    "filesCreate": "Add files",
+    "filesCreateDesc": "Upload files and create folders.",
+    "filesEdit": "Edit files",
+    "filesEditDesc": "Edit their content in the editor.",
+    "filesManage": "Manage files",
+    "filesManageDesc": "Rename, move, delete, handle versions and sharing.",
+    "filesPublicLink": "Create public links",
+    "filesPublicLinkDesc": "Share a file through a public link.",
+    "calendarView": "See calendars",
+    "calendarViewDesc": "See the calendars and their events.",
+    "calendarWrite": "Write in calendars",
+    "calendarWriteDesc": "Create, change and delete events.",
+    "calendarManage": "Manage calendars",
+    "calendarManageDesc": "A calendar's name, colour, settings, deletion and rules."
+  },
+  "gsearch": {
+    "files": "Files"
+  },
+  "preview": {
+    "readOnlyTitle": "Action refused: the preview is read only.",
+    "readOnlyBody": "Your change was not saved. Click Quit at the top to take control again.",
+    "readOnlyBodySend": "Your message was not sent. Click Quit at the top to take control again."
+  },
+  "why": {
+    "role": {
+      "direct": "{{person}} holds {{role}}.",
+      "directAndGroup": "{{person}} holds {{role}}, and also gets it through the group {{groups}}.",
+      "viaGroup": "{{person}} gets {{role}} through the group {{groups}}."
+    },
+    "step": {
+      "unknown": "Another step changes {{permission}}.",
+      "base": {
+        "granted": "Base: the space's base role gives {{person}} {{permission}}.",
+        "removed": "Base: the space's base role takes {{permission}} from {{person}}."
+      },
+      "role": {
+        "granted": "Role: {{permission}} comes from the role {{role}}.",
+        "removed": "Role: the role {{role}} takes {{permission}} away."
+      },
+      "rule": {
+        "granted": "Rule on {{where}}: {{target}} gets {{permission}}.",
+        "removed": "Rule on {{where}}: {{target}} loses {{permission}}."
+      },
+      "private_lock": {
+        "granted": "Private lock: {{target}} opens this private channel ({{permission}}).",
+        "removed": "Private lock: the channel is private, so {{person}} loses {{permission}} unless a rule opens it."
+      },
+      "guest_ceiling": {
+        "granted": "Guest ceiling: a guest may keep {{permission}}.",
+        "removed": "Guest ceiling: {{person}} is a guest, and {{permission}} is more than a guest can hold."
+      },
+      "owner": {
+        "granted": "Owner: {{person}} owns the space, so {{permission}} is granted.",
+        "removed": "Owner: {{permission}} is taken away despite ownership."
+      },
+      "author": {
+        "granted": "Author: {{person}} created this item, so {{permission}} is granted.",
+        "removed": "Author: {{permission}} is taken away despite having created the item."
+      },
+      "archived": {
+        "granted": "Archived: {{permission}} stays granted despite the archiving.",
+        "removed": "Archived: the item is archived or in the trash, so {{permission}} is taken away."
+      },
+      "joined": {
+        "granted": "Channel member: {{person}} joined the channel, so {{permission}} is granted.",
+        "removed": "Channel member: {{person}} loses {{permission}} despite being in the channel."
+      },
+      "unseen": {
+        "granted": "Path: {{permission}} is granted through what contains the item.",
+        "removed": "Path: {{person}} cannot open what contains the item, so {{permission}} is taken away."
+      },
+      "conversation": {
+        "granted": "Conversation: {{person}} is in the conversation where the item was shared, so {{permission}} is granted.",
+        "removed": "Conversation: {{permission}} is taken away for this conversation."
+      },
+      "message": {
+        "granted": "Message: the item is attached to a message {{person}} can read, so {{permission}} is granted.",
+        "removed": "Message: {{permission}} is taken away for this message."
+      },
+      "event": {
+        "granted": "Event: the item is linked to an event {{person}} can see, so {{permission}} is granted.",
+        "removed": "Event: {{permission}} is taken away for this event."
+      }
+    },
+    "reason": {
+      "other": "By another step",
+      "none": "No rule grants it",
+      "base": "By the base role",
+      "role": "By a role",
+      "rule": "By a rule",
+      "private_lock": "By the private lock",
+      "guest_ceiling": "By the guest ceiling",
+      "owner": "As the owner",
+      "author": "As the author",
+      "archived": "Because it is archived",
+      "joined": "As a channel member",
+      "unseen": "By the path",
+      "conversation": "By a conversation",
+      "message": "By a message",
+      "event": "By an event",
+      "ruleOn": "By a rule on {{where}}, level {{level}}",
+      "ruleOnHidden": "By a rule on a hidden location, level {{level}}",
+      "askManage": "Needs the right to manage"
+    },
+    "card": {
+      "view": "View"
+    }
+  },
+  "channel": {
+    "everyoneInSpace": "Everyone in the space"
+  },
+  "role": {
+    "admin": "Administrator"
+  },
+  "roles": {
+    "everyone": "@members",
+    "guests": "@guests"
   }
 }

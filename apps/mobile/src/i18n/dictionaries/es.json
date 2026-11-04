@@ -84,7 +84,8 @@
   "tabs": {
     "discussions": "Conversaciones",
     "agenda": "Agenda",
-    "files": "Archivos"
+    "files": "Archivos",
+    "channels": "Canales"
   },
   "spaces": {
     "title": "Espacios",
@@ -106,10 +107,10 @@
   "system": {
     "memberJoined": "{{who}} se unió al espacio.",
     "memberLeft": "{{who}} salió del espacio.",
-    "memberRemoved": "{{who}} fue expulsado del espacio.",
+    "memberRemoved": "{{who}} ya no forma parte del espacio.",
     "channelJoined": "{{who}} se unió al canal.",
     "channelLeft": "{{who}} salió del canal.",
-    "channelRemoved": "{{who}} fue expulsado del canal.",
+    "channelRemoved": "{{who}} ya no forma parte del canal.",
     "channelCreated": "Se creó el canal.",
     "channelRenamed": "{{who}} cambió el nombre del canal a #{{detail}}.",
     "channelTopicChanged": "{{who}} cambió el tema del canal: {{detail}}",
@@ -158,7 +159,8 @@
     "save": "Guardar el mensaje",
     "unsave": "Quitar de guardados",
     "savedDone": "Mensaje guardado",
-    "unsavedDone": "Quitado de guardados"
+    "unsavedDone": "Quitado de guardados",
+    "file": "Archivo"
   },
   "common": {
     "back": "Atrás",
@@ -345,7 +347,10 @@
     "countWaiting_one": "{{count}} pendiente",
     "countWaiting_many": "{{count}} pendientes",
     "countWaiting_other": "{{count}} pendientes",
-    "organizedBy": "Organizado por {{name}}"
+    "organizedBy": "Organizado por {{name}}",
+    "calendars": "Calendarios",
+    "channel": "Canal",
+    "title": "Calendario"
   },
   "discussions": {
     "filterAll": "Todo",
@@ -841,7 +846,7 @@
     "roleChanged": "Rol de {{name}} modificado",
     "roleFailed": "No se pudo cambiar el rol.",
     "remove": "Quitar del canal",
-    "removed": "{{name}} quitado del canal",
+    "removed": "{{name}} ya no está en el canal",
     "removeFailed": "No se pudo quitar a la persona.",
     "added_many": "{{count}} personas añadidas"
   },
@@ -849,7 +854,8 @@
     "favourite": "Añadir a favoritos",
     "unfavourite": "Quitar de favoritos",
     "favourites": "Canales favoritos",
-    "directMessages": "Mensajes directos"
+    "directMessages": "Mensajes directos",
+    "space": "Espacio"
   },
   "welcome": {
     "title": "Su equipo, en un solo lugar",
@@ -1101,6 +1107,32 @@
     "invisibleText": "Desconectado para los demás",
     "failed": "Estado no guardado"
   },
+  "spaceSections": {
+    "roles": "Roles",
+    "groups": "Grupos",
+    "audit": "Registro",
+    "licence": "Licencia",
+    "generalLine": "Nombre, icono, canal de llegada",
+    "rolesLine": "Los roles y sus derechos",
+    "groupsLine": "Los grupos del espacio",
+    "auditLine": "Los cambios del espacio",
+    "auditCommunity": "Los últimos 30 días",
+    "licenceSeats": "Licencia Enterprise · {{used}}/{{seats}} plazas",
+    "licenceEnterprise": "Licencia Enterprise",
+    "licenceFrozen": "Licencia caducada",
+    "licenceCommunity": "Edición comunitaria",
+    "soonTitle": "Próximamente",
+    "soonText": "Esta sección llegará en una próxima versión de la app.",
+    "rolesCount_one": "{{count}} rol",
+    "rolesCount_many": "{{count}} roles",
+    "rolesCount_other": "{{count}} roles",
+    "rolesCustom_one": "{{count}} personalizado",
+    "rolesCustom_many": "{{count}} personalizados",
+    "rolesCustom_other": "{{count}} personalizados",
+    "groupsCount_one": "{{count}} grupo",
+    "groupsCount_many": "{{count}} grupos",
+    "groupsCount_other": "{{count}} grupos"
+  },
   "spaceAdmin": {
     "invite": "Invitar a personas",
     "settings": "Ajustes del espacio",
@@ -1111,7 +1143,7 @@
     "leaveTitle": "¿Salir de {{name}}?",
     "leaveBody": "Perderá el acceso a sus canales, sus mensajes y sus archivos. Para volver necesitará una nueva invitación. Lo que escribió allí se queda.",
     "leaveConfirm": "Salir",
-    "leaveLastOwner": "Es el último propietario de este espacio. Nombre a otro propietario o elimine el espacio.",
+    "leaveLastOwner": "Es la única persona propietaria de este espacio. Nombre a otra persona propietaria o elimine el espacio.",
     "left": "Ha salido del espacio",
     "leaveFailed": "No se ha podido salir del espacio.",
     "general": "General",
@@ -1243,13 +1275,13 @@
   },
   "channelInvite": {
     "title": "Invitar a #{{name}}",
-    "hint": "La persona recibe una invitación de un solo uso, se une al espacio como invitada y solo ve este canal.",
+    "hint": "La persona recibe una invitación de un solo uso, se une al espacio como persona invitada y solo ve este canal.",
     "forbidden": "Solo quienes gestionan este canal pueden invitar a él.",
     "refused": "Dirección rechazada, o canal archivado."
   },
   "saved": {
     "title": "Mensajes guardados",
-    "hint": "Los que tienes a mano",
+    "hint": "Los mensajes que tienes a mano",
     "empty": "Nada guardado",
     "emptyText": "Guarda un mensaje desde su menú (pulsación larga) para encontrarlo aquí.",
     "removeTitle": "¿Quitar este mensaje de guardados?",
@@ -1323,5 +1355,267 @@
     "webPushOff": "Notificaciones push desactivadas",
     "hint": "Ajustes de la instancia, acceso a las cuentas",
     "issueConfirm": "¿Emitir un enlace de restablecimiento de contraseña para {{name}}?"
+  },
+  "access": {
+    "readOnly": {
+      "archived": "Este canal está archivado: su acceso ya no se puede modificar.",
+      "trashed": "Este elemento está en la papelera: su acceso ya no se puede modificar.",
+      "licenceRequired": "Puedes consultar este acceso sin modificarlo: delegar la gestión del acceso es propio de la edición Enterprise.",
+      "licenceFrozen": "Los cambios están suspendidos: la licencia de este espacio está congelada. Puedes consultar el acceso.",
+      "notAllowed": "Puedes consultar este acceso, pero no modificarlo."
+    },
+    "usedIn": {
+      "file": "Archivo o carpeta"
+    },
+    "allGuests": "Todos los invitados",
+    "level": {
+      "file": {
+        "contribute": "Editar"
+      },
+      "manage": "Gestionar",
+      "channel": {
+        "contribute": "Participar"
+      },
+      "calendar": {
+        "contribute": "Escribir"
+      },
+      "none": "Sin acceso",
+      "read": "Leer",
+      "custom": "Personalizado"
+    },
+    "publicLink": "Enlace público",
+    "levelDesc": {
+      "channel": {
+        "read": "Ver el canal y reaccionar.",
+        "contribute": "Leer, escribir, adjuntar, fijar, mencionar a todos.",
+        "manage": "Moderar, gestionar los miembros y los ajustes del canal."
+      },
+      "file": {
+        "read": "Ver el archivo o la carpeta.",
+        "contribute": "Ver, crear y editar.",
+        "manage": "Todo eso, y además gestionar el acceso y el enlace público."
+      },
+      "calendar": {
+        "read": "Ver la agenda.",
+        "contribute": "Ver y escribir eventos.",
+        "manage": "Gestionar todo en la agenda."
+      }
+    },
+    "freeManage": {
+      "title": {
+        "folder": "Quién tiene acceso a una carpeta se ajusta desde los ajustes del espacio.",
+        "file": "Quién tiene acceso a un archivo se ajusta desde los ajustes del espacio.",
+        "calendar": "Quién tiene acceso a una agenda se ajusta desde los ajustes del espacio.",
+        "channel": "Quién tiene acceso a un canal se ajusta desde los ajustes del espacio."
+      },
+      "body": {
+        "file": "Tu nivel Gestionar en {{name}} te permite renombrarlo, eliminarlo y crear un enlace público. Para cambiar quién tiene acceso, pídeselo a {{who}}.",
+        "calendar": "Tu nivel Gestionar en {{name}} te permite renombrarla, modificarla y eliminarla. Para cambiar quién tiene acceso, pídeselo a {{who}}.",
+        "channel": "Tu nivel Gestionar en {{name}} te permite moderar los mensajes y ajustar el canal. Para cambiar quién tiene acceso, pídeselo a {{who}}."
+      },
+      "upsell": {
+        "folder": "Delegar el uso compartido de una carpeta a quienes la gestionan: edición Enterprise.",
+        "file": "Delegar el uso compartido de un archivo a quienes lo gestionan: edición Enterprise.",
+        "calendar": "Delegar el uso compartido de una agenda a quienes la gestionan: edición Enterprise.",
+        "channel": "Delegar el uso compartido de un canal a quienes lo gestionan: edición Enterprise."
+      }
+    },
+    "delegation": {
+      "folder": "Gestionas esta carpeta: ajustas su acceso, dentro de tus propios permisos.",
+      "file": "Gestionas este archivo: ajustas su acceso, dentro de tus propios permisos.",
+      "calendar": "Gestionas esta agenda: ajustas su acceso, dentro de tus propios permisos.",
+      "channel": "Gestionas este canal: ajustas su acceso, dentro de tus propios permisos."
+    }
+  },
+  "licence": {
+    "installed": "Licencia instalada",
+    "removed": "Licencia retirada"
+  },
+  "groups": {
+    "noSelfRole": "Nadie se da un rol a sí mismo, tampoco a través de un grupo: no puedes cambiar los roles de un grupo del que formas parte.",
+    "noSelfJoin": "No puedes añadirte a ti mismo a un grupo que lleva roles."
+  },
+  "guests": {
+    "endedNotice": "Tu acceso a {{space}} ha terminado",
+    "endedNoticeBody": "Tus mensajes y archivos se quedan en el espacio. Habla con quienes lo gestionan para recuperarlo.",
+    "leftNotice": "Ya no formas parte de {{space}}",
+    "loseView": "La vista de todo el espacio: canales públicos a los que no se ha unido, archivos y calendarios del espacio. Solo se queda lo que se le abre expresamente.",
+    "loseDirectory": "El directorio: solo ve a las personas con las que comparte una conversación.",
+    "loseCeiling": "Todo lo que prohíbe el techo de los invitados: crear un canal, invitar, moderar, gestionar una carpeta o un calendario.",
+    "keepChannels": "Los canales a los que ya se ha unido y sus mensajes directos.",
+    "keepMessages": "Sus mensajes y archivos.",
+    "keepGroups": "Sus grupos, bajo el techo de los invitados.",
+    "keepRoles": "Sus roles {{roles}}, bajo el techo de los invitados.",
+    "gainView": "Vería todo el espacio.",
+    "gainSeat": "Ocuparía una plaza de la licencia.",
+    "gainClearsDate": "Su fecha de fin se borraría.",
+    "refusalBadExpiry": "La fecha de fin debe ser futura y estar dentro de los próximos cinco años.",
+    "refusalGuestOnly": "Solo un invitado puede tener fecha de fin: esta persona es miembro.",
+    "refusalAccessEnded": "Este acceso ya ha terminado: reactívalo para darle una nueva fecha.",
+    "refusalNotEnded": "Este acceso no ha terminado: no hay nada que reactivar.",
+    "endedForGood": "Este acceso terminó hace demasiado tiempo para reactivarlo."
+  },
+  "perm": {
+    "spaceSettings": "Configurar el espacio",
+    "spaceSettingsDesc": "Elegir el canal de llegada y el orden de los canales.",
+    "membersView": "Ver el directorio",
+    "membersViewDesc": "Ver la lista completa de miembros.",
+    "membersInvite": "Invitar a personas",
+    "membersInviteDesc": "Enviar invitaciones para unirse al espacio.",
+    "membersManage": "Gestionar los miembros",
+    "membersManageDesc": "Retirar a personas y cambiar su estatus, por debajo de tu propio rol.",
+    "rolesManage": "Gestionar los roles",
+    "rolesManageDesc": "Crear, modificar y asignar los roles situados por debajo del tuyo.",
+    "groupsManage": "Gestionar los grupos",
+    "groupsManageDesc": "Crear y modificar grupos de personas.",
+    "auditView": "Leer el registro",
+    "auditViewDesc": "Consultar el historial de cambios de permisos.",
+    "channelsCreate": "Crear canales",
+    "channelsCreateDesc": "Abrir un canal nuevo.",
+    "channelsDelete": "Eliminar canales",
+    "channelsDeleteDesc": "Borrar un canal y su historial.",
+    "calendarsCreate": "Crear calendarios",
+    "calendarsCreateDesc": "Abrir un calendario nuevo para todo el espacio.",
+    "dmStart": "Escribir en privado",
+    "dmStartDesc": "Empezar una conversación privada.",
+    "filesTrashPurge": "Vaciar la papelera",
+    "filesTrashPurgeDesc": "Borrar definitivamente lo que hay en la papelera del espacio.",
+    "channelView": "Ver los canales",
+    "channelViewDesc": "Ver los canales y su historial.",
+    "messageSend": "Escribir",
+    "messageSendDesc": "Escribir mensajes y responder.",
+    "messageReact": "Reaccionar",
+    "messageReactDesc": "Añadir reacciones a los mensajes.",
+    "messageAttach": "Adjuntar archivos",
+    "messageAttachDesc": "Adjuntar archivos a los mensajes.",
+    "messageMentionAll": "Mencionar a todo el canal",
+    "messageMentionAllDesc": "Usar @canal y @aquí.",
+    "messagePin": "Fijar",
+    "messagePinDesc": "Fijar mensajes.",
+    "messageManage": "Moderar los mensajes",
+    "messageManageDesc": "Eliminar los mensajes de los demás y quitar sus fijaciones.",
+    "channelMembersManage": "Gestionar los miembros de los canales",
+    "channelMembersManageDesc": "Añadir y retirar personas de un canal.",
+    "channelManage": "Gestionar los canales",
+    "channelManageDesc": "Renombrar, cambiar el tema o el tipo, archivar, ajustar sus reglas.",
+    "filesView": "Ver los archivos",
+    "filesViewDesc": "Ver, previsualizar y descargar.",
+    "filesCreate": "Añadir archivos",
+    "filesCreateDesc": "Subir archivos y crear carpetas.",
+    "filesEdit": "Modificar los archivos",
+    "filesEditDesc": "Modificar su contenido en el editor.",
+    "filesManage": "Gestionar los archivos",
+    "filesManageDesc": "Renombrar, mover, eliminar, gestionar las versiones y el uso compartido.",
+    "filesPublicLink": "Crear enlaces públicos",
+    "filesPublicLinkDesc": "Compartir un archivo con un enlace público.",
+    "calendarView": "Ver los calendarios",
+    "calendarViewDesc": "Ver los calendarios y sus eventos.",
+    "calendarWrite": "Escribir en los calendarios",
+    "calendarWriteDesc": "Crear, modificar y eliminar eventos.",
+    "calendarManage": "Gestionar los calendarios",
+    "calendarManageDesc": "Nombre, color, ajustes, eliminación y reglas de un calendario."
+  },
+  "gsearch": {
+    "files": "Archivos"
+  },
+  "preview": {
+    "readOnlyTitle": "Acción rechazada: la vista previa es de solo lectura.",
+    "readOnlyBody": "Tu cambio no se guardó. Haz clic en Salir, arriba, para recuperar el control.",
+    "readOnlyBodySend": "Tu mensaje no se envió. Haz clic en Salir, arriba, para recuperar el control."
+  },
+  "why": {
+    "role": {
+      "direct": "{{person}} tiene el rol {{role}}.",
+      "directAndGroup": "{{person}} tiene {{role}} y también lo recibe por el grupo {{groups}}.",
+      "viaGroup": "{{person}} recibe {{role}} por el grupo {{groups}}."
+    },
+    "step": {
+      "unknown": "Otro paso modifica {{permission}}.",
+      "base": {
+        "granted": "Base: el rol base del espacio da {{permission}} a {{person}}.",
+        "removed": "Base: el rol base del espacio quita {{permission}} a {{person}}."
+      },
+      "role": {
+        "granted": "Rol: {{permission}} viene del rol {{role}}.",
+        "removed": "Rol: el rol {{role}} quita {{permission}}."
+      },
+      "rule": {
+        "granted": "Regla en {{where}}: {{target}} recibe {{permission}}.",
+        "removed": "Regla en {{where}}: {{target}} pierde {{permission}}."
+      },
+      "private_lock": {
+        "granted": "Cerrojo privado: {{target}} abre este canal privado ({{permission}}).",
+        "removed": "Cerrojo privado: el canal es privado, {{person}} pierde {{permission}} mientras una regla no lo abra."
+      },
+      "guest_ceiling": {
+        "granted": "Techo de invitados: un invitado puede conservar {{permission}}.",
+        "removed": "Techo de invitados: {{person}} tiene el estatus de invitado y {{permission}} supera lo que puede tener un invitado."
+      },
+      "owner": {
+        "granted": "Propietario: {{person}} es propietario del espacio, así que {{permission}} se concede.",
+        "removed": "Propietario: {{permission}} se quita a pesar de ser propietario."
+      },
+      "author": {
+        "granted": "Autor: {{person}} creó este elemento, así que {{permission}} se concede.",
+        "removed": "Autor: {{permission}} se quita a pesar de haber creado el elemento."
+      },
+      "archived": {
+        "granted": "Archivado: {{permission}} sigue concedido a pesar del archivo.",
+        "removed": "Archivado: el elemento está archivado o en la papelera, así que {{permission}} se quita."
+      },
+      "joined": {
+        "granted": "Miembro del canal: {{person}} se unió al canal, así que {{permission}} se concede.",
+        "removed": "Miembro del canal: {{person}} pierde {{permission}} a pesar de estar en el canal."
+      },
+      "unseen": {
+        "granted": "Ruta: {{permission}} se concede por lo que contiene el elemento.",
+        "removed": "Ruta: {{person}} no puede abrir lo que contiene el elemento, así que {{permission}} se quita."
+      },
+      "conversation": {
+        "granted": "Conversación: {{person}} está en la conversación donde se compartió el elemento, así que {{permission}} se concede.",
+        "removed": "Conversación: {{permission}} se quita para esta conversación."
+      },
+      "message": {
+        "granted": "Mensaje: el elemento está adjunto a un mensaje que {{person}} puede leer, así que {{permission}} se concede.",
+        "removed": "Mensaje: {{permission}} se quita para este mensaje."
+      },
+      "event": {
+        "granted": "Evento: el elemento está vinculado a un evento que {{person}} puede ver, así que {{permission}} se concede.",
+        "removed": "Evento: {{permission}} se quita para este evento."
+      }
+    },
+    "reason": {
+      "other": "Por otro paso",
+      "none": "Ninguna regla lo concede",
+      "base": "Por el rol base",
+      "role": "Por un rol",
+      "rule": "Por una regla",
+      "private_lock": "Por el cerrojo privado",
+      "guest_ceiling": "Por el techo de invitados",
+      "owner": "Por ser propietario",
+      "author": "Por ser autor",
+      "archived": "Por estar archivado",
+      "joined": "Por ser miembro del canal",
+      "unseen": "Por la ruta",
+      "conversation": "Por una conversación",
+      "message": "Por un mensaje",
+      "event": "Por un evento",
+      "ruleOn": "Por una regla en {{where}}, nivel {{level}}",
+      "ruleOnHidden": "Por una regla en una ubicación oculta, nivel {{level}}",
+      "askManage": "Pide poder gestionar"
+    },
+    "card": {
+      "view": "Ver"
+    }
+  },
+  "channel": {
+    "everyoneInSpace": "Todo el espacio"
+  },
+  "role": {
+    "admin": "Administrador"
+  },
+  "roles": {
+    "everyone": "@miembros",
+    "guests": "@invitados"
   }
 }

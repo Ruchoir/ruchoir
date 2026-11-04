@@ -33,7 +33,7 @@ export function SpaceProvider({ instanceId, children }: { instanceId: string; ch
 
   // Unread counts move with every message and notification.
   useReloadOn(
-    (e) => e.type === "message" || e.type === "notification" || e.type === "readCursor" || e.type === "spaces",
+    (e) => e.type === "message" || e.type === "notification" || e.type === "readCursor" || e.type === "spaces" || e.type === "permissions",
     spaces.reload,
     1200,
   );

@@ -34,9 +34,11 @@ const WEB_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 /** Where each app keeps its sources, its dictionaries and (the web only) its translation debt. */
 /** The calendar logic both apps share speaks through their dictionaries: each app is audited with it. */
 const SHARED_CALENDAR = "../../packages/client/src/calendarLogic";
+/** The permissions logic both apps share names its keys the same way. */
+const SHARED_PERMISSIONS = "../../packages/client/src/permissionsLogic";
 const APPS = {
-  web: { root: WEB_ROOT, scan: ["app", "components", "features", "lib", SHARED_CALENDAR], dict: "lib/i18n/dictionaries", debt: "tools/i18n-audit/untranslated.json" },
-  mobile: { root: resolve(WEB_ROOT, "../mobile"), scan: ["src", SHARED_CALENDAR], dict: "src/i18n/dictionaries", debt: null },
+  web: { root: WEB_ROOT, scan: ["app", "components", "features", "lib", SHARED_CALENDAR, SHARED_PERMISSIONS], dict: "lib/i18n/dictionaries", debt: "tools/i18n-audit/untranslated.json" },
+  mobile: { root: resolve(WEB_ROOT, "../mobile"), scan: ["src", SHARED_CALENDAR, SHARED_PERMISSIONS], dict: "src/i18n/dictionaries", debt: null },
 };
 const appArg = process.argv.indexOf("--app");
 const APP = APPS[appArg >= 0 ? process.argv[appArg + 1] : "web"];
@@ -322,6 +324,15 @@ function findHardCoded(source, path) {
  * Each entry is that claim, made once, in writing.
  */
 const ALLOWED_DUPLICATES = new Set([
+  // The shared permissions logic names these web keys, so the phone's dictionaries carry them beside
+  // the phone's own tab and screen titles with the same French words ("Agenda", "Fichiers", "Canaux",
+  // "Canal", "Écrire", "Administrateur"): a family name, a permission name and a role are not a tab.
+  "calendar.title",
+  "gsearch.files",
+  "tabs.channels",
+  "calendar.channel",
+  "perm.messageSend",
+  "role.admin",
   // The desktop tray's "Quitter" closes the app; the preview band's leaves "Voir en tant que" and
   // returns to one's own rights. Same French word, two actions, free to be worded apart elsewhere.
   "preview.quit",
@@ -432,6 +443,16 @@ function valueAt(dict, path) {
 /** The shape of a dictionary key: `section.name`, or `section.group.name`. */
 const KEY_SHAPE = /^[a-z][\w]*(\.[A-Za-z]\w*)+$/;
 
+/** The keys (and plural bases) of the web's French dictionary, the reference the shared logic names its keys from. */
+let webKeySet;
+function webKeys() {
+  if (!webKeySet) {
+    const fr = JSON.parse(readFileSync(join(WEB_ROOT, "lib/i18n/dictionaries/fr.json"), "utf8"));
+    webKeySet = new Set(keyPaths(fr).flatMap((key) => [key, pluralBase(key) ?? key]));
+  }
+  return webKeySet;
+}
+
 /**
  * Keys the source asks for, and where.
  *
@@ -441,6 +462,7 @@ const KEY_SHAPE = /^[a-z][\w]*(\.[A-Za-z]\w*)+$/;
  */
 function usedKeys(files) {
   const used = new Map();
+  const sharedDir = join(WEB_ROOT, SHARED_PERMISSIONS);
   for (const file of files) {
     const source = readFileSync(file, "utf8");
     const relPath = relative(ROOT, file);
@@ -453,6 +475,17 @@ function usedKeys(files) {
     };
     for (const match of source.matchAll(/\b(?:t|key|tRef\.current)\(\s*["']([\w.]+)["']/g)) {
       record(match[1], match.index);
+    }
+    // The shared permissions logic hands keys to the screens as plain strings (`"access.level.edit"`),
+    // so a string shaped like a key that the web's dictionary answers counts as asked for, in both apps.
+    if (file.startsWith(sharedDir)) {
+      for (const literal of source.matchAll(/["'`]([A-Za-z][\w]*(?:\.[A-Za-z]\w*)+)["'`]/g)) {
+        if (webKeys().has(literal[1])) record(literal[1], literal.index);
+      }
+      // A key built from a template (`access.level.${kind}`): every key under its fixed head is asked for.
+      for (const template of source.matchAll(/`([A-Za-z][\w]*(?:\.[A-Za-z]\w*)*\.)\$\{/g)) {
+        for (const key of webKeys()) if (key.startsWith(template[1])) record(key, template.index);
+      }
     }
     // `<Trans i18nKey={…}>` holds its key in an attribute, and sometimes chooses between two.
     for (const attr of source.matchAll(/i18nKey=\{?\s*([^}]+)/g)) {

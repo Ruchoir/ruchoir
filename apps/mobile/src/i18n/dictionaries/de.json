@@ -84,7 +84,8 @@
   "tabs": {
     "discussions": "Unterhaltungen",
     "agenda": "Kalender",
-    "files": "Dateien"
+    "files": "Dateien",
+    "channels": "Kanäle"
   },
   "spaces": {
     "title": "Bereiche",
@@ -156,7 +157,8 @@
     "save": "Nachricht speichern",
     "unsave": "Aus Gespeicherten entfernen",
     "savedDone": "Nachricht gespeichert",
-    "unsavedDone": "Aus Gespeicherten entfernt"
+    "unsavedDone": "Aus Gespeicherten entfernt",
+    "file": "Datei"
   },
   "common": {
     "back": "Zurück",
@@ -321,7 +323,10 @@
     "countDeclined_other": "{{count}} Nein",
     "countWaiting_one": "{{count}} ausstehend",
     "countWaiting_other": "{{count}} ausstehend",
-    "organizedBy": "Organisiert von {{name}}"
+    "organizedBy": "Organisiert von {{name}}",
+    "calendars": "Kalender",
+    "channel": "Kanal",
+    "title": "Kalender"
   },
   "discussions": {
     "filterAll": "Alle",
@@ -629,7 +634,7 @@
     "delete": "Löschen",
     "cancel": "Abbrechen",
     "broadcastChannel": "Benachrichtigt alle Mitglieder des Kanals",
-    "broadcastHere": "Benachrichtigt nur die gerade Verbundenen",
+    "broadcastHere": "Benachrichtigt nur Personen, die gerade verbunden sind",
     "archived": "Dieser Kanal ist archiviert: Hier wird nicht mehr geschrieben.",
     "notMember": "Treten Sie dem Kanal bei, um darin zu schreiben.",
     "join": "Beitreten",
@@ -801,7 +806,8 @@
     "favourite": "Zu Favoriten hinzufügen",
     "unfavourite": "Aus Favoriten entfernen",
     "favourites": "Favorisierte Kanäle",
-    "directMessages": "Direktnachrichten"
+    "directMessages": "Direktnachrichten",
+    "space": "Bereich"
   },
   "welcome": {
     "title": "Ihr Team an einem Ort",
@@ -1052,6 +1058,29 @@
     "invisibleText": "Für andere offline",
     "failed": "Status nicht gespeichert"
   },
+  "spaceSections": {
+    "roles": "Rollen",
+    "groups": "Gruppen",
+    "audit": "Protokoll",
+    "licence": "Lizenz",
+    "generalLine": "Name, Symbol, Ankunftskanal",
+    "rolesLine": "Die Rollen und ihre Rechte",
+    "groupsLine": "Die Gruppen des Bereichs",
+    "auditLine": "Die Änderungen des Bereichs",
+    "auditCommunity": "Die letzten 30 Tage",
+    "licenceSeats": "Enterprise-Lizenz · {{used}}/{{seats}} Plätze",
+    "licenceEnterprise": "Enterprise-Lizenz",
+    "licenceFrozen": "Lizenz abgelaufen",
+    "licenceCommunity": "Community-Edition",
+    "soonTitle": "Bald verfügbar",
+    "soonText": "Dieser Bereich kommt in einer späteren Version der App.",
+    "rolesCount_one": "{{count}} Rolle",
+    "rolesCount_other": "{{count}} Rollen",
+    "rolesCustom_one": "{{count}} eigene",
+    "rolesCustom_other": "{{count}} eigene",
+    "groupsCount_one": "{{count}} Gruppe",
+    "groupsCount_other": "{{count}} Gruppen"
+  },
   "spaceAdmin": {
     "invite": "Personen einladen",
     "settings": "Einstellungen des Bereichs",
@@ -1062,7 +1091,7 @@
     "leaveTitle": "{{name}} verlassen?",
     "leaveBody": "Sie verlieren den Zugriff auf seine Kanäle, Nachrichten und Dateien. Für eine Rückkehr brauchen Sie eine neue Einladung. Was Sie dort geschrieben haben, bleibt.",
     "leaveConfirm": "Verlassen",
-    "leaveLastOwner": "Sie sind der letzte Eigentümer dieses Bereichs. Ernennen Sie einen anderen Eigentümer oder löschen Sie den Bereich.",
+    "leaveLastOwner": "Sie sind die letzte Eigentümerin oder der letzte Eigentümer dieses Bereichs. Machen Sie jemand anderen zur Eigentümerin oder zum Eigentümer, oder löschen Sie den Bereich.",
     "left": "Bereich verlassen",
     "leaveFailed": "Der Bereich konnte nicht verlassen werden.",
     "general": "Allgemein",
@@ -1267,5 +1296,267 @@
     "webPushOff": "Push-Benachrichtigungen deaktiviert",
     "hint": "Instanzeinstellungen, Zugang zu Konten",
     "issueConfirm": "Einen Link zum Zurücksetzen des Passworts für {{name}} ausstellen?"
+  },
+  "access": {
+    "readOnly": {
+      "archived": "Dieser Kanal ist archiviert: Sein Zugriff kann nicht mehr geändert werden.",
+      "trashed": "Dieses Element liegt im Papierkorb: Sein Zugriff kann nicht mehr geändert werden.",
+      "licenceRequired": "Sie können diesen Zugriff ansehen, aber nicht ändern: Die Delegation der Zugriffsverwaltung gehört zur Enterprise-Edition.",
+      "licenceFrozen": "Änderungen sind ausgesetzt: Die Lizenz dieses Bereichs ist eingefroren. Sie können den Zugriff ansehen.",
+      "notAllowed": "Sie können diesen Zugriff ansehen, aber nicht ändern."
+    },
+    "usedIn": {
+      "file": "Datei oder Ordner"
+    },
+    "allGuests": "Alle Gäste",
+    "level": {
+      "file": {
+        "contribute": "Bearbeiten"
+      },
+      "manage": "Verwalten",
+      "channel": {
+        "contribute": "Mitmachen"
+      },
+      "calendar": {
+        "contribute": "Schreiben"
+      },
+      "none": "Kein Zugriff",
+      "read": "Lesen",
+      "custom": "Angepasst"
+    },
+    "publicLink": "Öffentlicher Link",
+    "levelDesc": {
+      "channel": {
+        "read": "Den Kanal sehen und reagieren.",
+        "contribute": "Lesen, schreiben, anhängen, anheften, alle erwähnen.",
+        "manage": "Moderieren, Mitglieder und Kanaleinstellungen verwalten."
+      },
+      "file": {
+        "read": "Die Datei oder den Ordner sehen.",
+        "contribute": "Sehen, erstellen und bearbeiten.",
+        "manage": "Alles davon, dazu Zugriff und öffentlichen Link verwalten."
+      },
+      "calendar": {
+        "read": "Den Kalender sehen.",
+        "contribute": "Termine sehen und schreiben.",
+        "manage": "Alles im Kalender verwalten."
+      }
+    },
+    "freeManage": {
+      "title": {
+        "folder": "Wer Zugriff auf einen Ordner hat, wird in den Bereichseinstellungen festgelegt.",
+        "file": "Wer Zugriff auf eine Datei hat, wird in den Bereichseinstellungen festgelegt.",
+        "calendar": "Wer Zugriff auf einen Kalender hat, wird in den Bereichseinstellungen festgelegt.",
+        "channel": "Wer Zugriff auf einen Kanal hat, wird in den Bereichseinstellungen festgelegt."
+      },
+      "body": {
+        "file": "Ihre Stufe Verwalten für {{name}} erlaubt Ihnen, sie umzubenennen, zu löschen und einen öffentlichen Link zu erstellen. Um den Zugriff zu ändern, wenden Sie sich an {{who}}.",
+        "calendar": "Ihre Stufe Verwalten für {{name}} erlaubt Ihnen, ihn umzubenennen, zu bearbeiten und zu löschen. Um den Zugriff zu ändern, wenden Sie sich an {{who}}.",
+        "channel": "Ihre Stufe Verwalten für {{name}} erlaubt Ihnen, Nachrichten zu moderieren und den Kanal einzurichten. Um den Zugriff zu ändern, wenden Sie sich an {{who}}."
+      },
+      "upsell": {
+        "folder": "Das Teilen eines Ordners an die Personen zu delegieren, die ihn verwalten: Enterprise-Edition.",
+        "file": "Das Teilen einer Datei an die Personen zu delegieren, die sie verwalten: Enterprise-Edition.",
+        "calendar": "Das Teilen eines Kalenders an die Personen zu delegieren, die ihn verwalten: Enterprise-Edition.",
+        "channel": "Das Teilen eines Kanals an die Personen zu delegieren, die ihn verwalten: Enterprise-Edition."
+      }
+    },
+    "delegation": {
+      "folder": "Sie verwalten diesen Ordner: Sie legen seinen Zugriff fest, im Rahmen Ihrer eigenen Rechte.",
+      "file": "Sie verwalten diese Datei: Sie legen ihren Zugriff fest, im Rahmen Ihrer eigenen Rechte.",
+      "calendar": "Sie verwalten diesen Kalender: Sie legen seinen Zugriff fest, im Rahmen Ihrer eigenen Rechte.",
+      "channel": "Sie verwalten diesen Kanal: Sie legen seinen Zugriff fest, im Rahmen Ihrer eigenen Rechte."
+    }
+  },
+  "licence": {
+    "installed": "Lizenz installiert",
+    "removed": "Lizenz entfernt"
+  },
+  "groups": {
+    "noSelfRole": "Niemand gibt sich selbst eine Rolle, auch nicht über eine Gruppe: Sie können die Rollen einer Gruppe, der Sie angehören, nicht ändern.",
+    "noSelfJoin": "Sie können sich nicht selbst zu einer Gruppe hinzufügen, die Rollen trägt."
+  },
+  "guests": {
+    "endedNotice": "Ihr Zugang zu {{space}} ist beendet",
+    "endedNoticeBody": "Ihre Nachrichten und Dateien bleiben im Bereich. Wenden Sie sich an die Personen, die ihn verwalten, um wieder Zugang zu erhalten.",
+    "leftNotice": "Sie gehören nicht mehr zu {{space}}",
+    "loseView": "Die Sicht auf den ganzen Bereich: öffentliche Kanäle, denen die Person nicht beigetreten ist, Dateien und Kalender des Bereichs. Nur was ausdrücklich freigegeben ist, bleibt.",
+    "loseDirectory": "Das Verzeichnis: Die Person sieht nur noch die Menschen, mit denen sie ein Gespräch teilt.",
+    "loseCeiling": "Alles, was die Obergrenze für Gäste verbietet: einen Kanal erstellen, einladen, moderieren, einen Ordner oder Kalender verwalten.",
+    "keepChannels": "Die Kanäle, denen die Person schon beigetreten ist, und ihre Direktnachrichten.",
+    "keepMessages": "Ihre Nachrichten und Dateien.",
+    "keepGroups": "Ihre Gruppen, unter der Obergrenze für Gäste.",
+    "keepRoles": "Ihre Rollen {{roles}}, unter der Obergrenze für Gäste.",
+    "gainView": "Die Person würde den ganzen Bereich sehen.",
+    "gainSeat": "Die Person würde einen Platz der Lizenz belegen.",
+    "gainClearsDate": "Das Enddatum würde gelöscht.",
+    "refusalBadExpiry": "Das Enddatum muss in der Zukunft liegen, innerhalb der nächsten fünf Jahre.",
+    "refusalGuestOnly": "Nur ein Gast kann ein Enddatum haben: Diese Person ist Mitglied.",
+    "refusalAccessEnded": "Dieser Zugang ist bereits beendet: Reaktivieren Sie ihn, um ein neues Datum zu setzen.",
+    "refusalNotEnded": "Dieser Zugang ist nicht beendet: Es gibt nichts zu reaktivieren.",
+    "endedForGood": "Dieser Zugang ist zu lange beendet, um reaktiviert zu werden."
+  },
+  "perm": {
+    "spaceSettings": "Bereich einrichten",
+    "spaceSettingsDesc": "Den Ankunftskanal und die Reihenfolge der Kanäle wählen.",
+    "membersView": "Verzeichnis sehen",
+    "membersViewDesc": "Die vollständige Mitgliederliste sehen.",
+    "membersInvite": "Personen einladen",
+    "membersInviteDesc": "Einladungen in den Bereich verschicken.",
+    "membersManage": "Mitglieder verwalten",
+    "membersManageDesc": "Personen entfernen und ihren Status ändern, unterhalb Ihrer eigenen Rolle.",
+    "rolesManage": "Rollen verwalten",
+    "rolesManageDesc": "Rollen unterhalb Ihrer eigenen erstellen, bearbeiten und vergeben.",
+    "groupsManage": "Gruppen verwalten",
+    "groupsManageDesc": "Personengruppen erstellen und bearbeiten.",
+    "auditView": "Protokoll lesen",
+    "auditViewDesc": "Den Verlauf der Rechteänderungen einsehen.",
+    "channelsCreate": "Kanäle erstellen",
+    "channelsCreateDesc": "Einen neuen Kanal eröffnen.",
+    "channelsDelete": "Kanäle löschen",
+    "channelsDeleteDesc": "Einen Kanal samt Verlauf löschen.",
+    "calendarsCreate": "Kalender erstellen",
+    "calendarsCreateDesc": "Einen neuen Kalender für den ganzen Bereich anlegen.",
+    "dmStart": "Privat schreiben",
+    "dmStartDesc": "Ein privates Gespräch beginnen.",
+    "filesTrashPurge": "Papierkorb leeren",
+    "filesTrashPurgeDesc": "Endgültig löschen, was im Papierkorb des Bereichs liegt.",
+    "channelView": "Kanäle sehen",
+    "channelViewDesc": "Die Kanäle und ihren Verlauf sehen.",
+    "messageSend": "Schreiben",
+    "messageSendDesc": "Nachrichten schreiben und antworten.",
+    "messageReact": "Reagieren",
+    "messageReactDesc": "Reaktionen zu Nachrichten hinzufügen.",
+    "messageAttach": "Dateien anhängen",
+    "messageAttachDesc": "Dateien an Nachrichten anhängen.",
+    "messageMentionAll": "Den ganzen Kanal erwähnen",
+    "messageMentionAllDesc": "@Kanal und @hier verwenden.",
+    "messagePin": "Anheften",
+    "messagePinDesc": "Nachrichten anheften.",
+    "messageManage": "Nachrichten moderieren",
+    "messageManageDesc": "Nachrichten anderer löschen und ihre Anheftungen entfernen.",
+    "channelMembersManage": "Kanalmitglieder verwalten",
+    "channelMembersManageDesc": "Personen zu einem Kanal hinzufügen und entfernen.",
+    "channelManage": "Kanäle verwalten",
+    "channelManageDesc": "Umbenennen, Thema oder Typ ändern, archivieren, ihre Regeln festlegen.",
+    "filesView": "Dateien sehen",
+    "filesViewDesc": "Sehen, in der Vorschau öffnen und herunterladen.",
+    "filesCreate": "Dateien hinzufügen",
+    "filesCreateDesc": "Dateien hochladen und Ordner anlegen.",
+    "filesEdit": "Dateien bearbeiten",
+    "filesEditDesc": "Ihren Inhalt im Editor bearbeiten.",
+    "filesManage": "Dateien verwalten",
+    "filesManageDesc": "Umbenennen, verschieben, löschen, Versionen und Freigaben verwalten.",
+    "filesPublicLink": "Öffentliche Links erstellen",
+    "filesPublicLinkDesc": "Eine Datei über einen öffentlichen Link teilen.",
+    "calendarView": "Kalender sehen",
+    "calendarViewDesc": "Die Kalender und ihre Termine sehen.",
+    "calendarWrite": "In Kalender schreiben",
+    "calendarWriteDesc": "Termine erstellen, ändern und löschen.",
+    "calendarManage": "Kalender verwalten",
+    "calendarManageDesc": "Name, Farbe, Einstellungen, Löschung und Regeln eines Kalenders."
+  },
+  "gsearch": {
+    "files": "Dateien"
+  },
+  "preview": {
+    "readOnlyTitle": "Aktion abgelehnt: Die Vorschau ist schreibgeschützt.",
+    "readOnlyBody": "Ihre Änderung wurde nicht gespeichert. Klicken Sie oben auf Beenden, um wieder die Kontrolle zu übernehmen.",
+    "readOnlyBodySend": "Ihre Nachricht wurde nicht gesendet. Klicken Sie oben auf Beenden, um wieder die Kontrolle zu übernehmen."
+  },
+  "why": {
+    "role": {
+      "direct": "{{person}} hat die Rolle {{role}}.",
+      "directAndGroup": "{{person}} hat {{role}} und erhält die Rolle auch über die Gruppe {{groups}}.",
+      "viaGroup": "{{person}} erhält {{role}} über die Gruppe {{groups}}."
+    },
+    "step": {
+      "unknown": "Ein weiterer Schritt ändert {{permission}}.",
+      "base": {
+        "granted": "Basis: Die Basisrolle des Bereichs gibt {{person}} das Recht {{permission}}.",
+        "removed": "Basis: Die Basisrolle des Bereichs nimmt {{person}} das Recht {{permission}}."
+      },
+      "role": {
+        "granted": "Rolle: {{permission}} kommt von der Rolle {{role}}.",
+        "removed": "Rolle: Die Rolle {{role}} nimmt {{permission}} weg."
+      },
+      "rule": {
+        "granted": "Regel bei {{where}}: {{target}} erhält {{permission}}.",
+        "removed": "Regel bei {{where}}: {{target}} verliert {{permission}}."
+      },
+      "private_lock": {
+        "granted": "Privatsperre: {{target}} öffnet diesen privaten Kanal ({{permission}}).",
+        "removed": "Privatsperre: Der Kanal ist privat, {{person}} verliert {{permission}}, solange keine Regel ihn öffnet."
+      },
+      "guest_ceiling": {
+        "granted": "Gästegrenze: Ein Gast darf {{permission}} behalten.",
+        "removed": "Gästegrenze: {{person}} ist Gast, {{permission}} geht über das hinaus, was ein Gast haben darf."
+      },
+      "owner": {
+        "granted": "Inhaber: {{person}} besitzt den Bereich, {{permission}} wird gewährt.",
+        "removed": "Inhaber: {{permission}} wird trotz Inhaberstatus entzogen."
+      },
+      "author": {
+        "granted": "Autor: {{person}} hat dieses Element erstellt, {{permission}} wird gewährt.",
+        "removed": "Autor: {{permission}} wird trotz Erstellung des Elements entzogen."
+      },
+      "archived": {
+        "granted": "Archiviert: {{permission}} bleibt trotz Archivierung gewährt.",
+        "removed": "Archiviert: Das Element ist archiviert oder im Papierkorb, {{permission}} wird entzogen."
+      },
+      "joined": {
+        "granted": "Kanalmitglied: {{person}} ist dem Kanal beigetreten, {{permission}} wird gewährt.",
+        "removed": "Kanalmitglied: {{person}} verliert {{permission}}, obwohl er im Kanal ist."
+      },
+      "unseen": {
+        "granted": "Pfad: {{permission}} wird durch den Container des Elements gewährt.",
+        "removed": "Pfad: {{person}} kann den Container des Elements nicht öffnen, {{permission}} wird entzogen."
+      },
+      "conversation": {
+        "granted": "Unterhaltung: {{person}} ist in der Unterhaltung, in der das Element geteilt wurde, {{permission}} wird gewährt.",
+        "removed": "Unterhaltung: {{permission}} wird für diese Unterhaltung entzogen."
+      },
+      "message": {
+        "granted": "Nachricht: Das Element hängt an einer Nachricht, die {{person}} lesen kann, {{permission}} wird gewährt.",
+        "removed": "Nachricht: {{permission}} wird für diese Nachricht entzogen."
+      },
+      "event": {
+        "granted": "Termin: Das Element ist mit einem Termin verknüpft, den {{person}} sehen kann, {{permission}} wird gewährt.",
+        "removed": "Termin: {{permission}} wird für diesen Termin entzogen."
+      }
+    },
+    "reason": {
+      "other": "Durch einen anderen Schritt",
+      "none": "Keine Regel gewährt es",
+      "base": "Durch die Basisrolle",
+      "role": "Durch eine Rolle",
+      "rule": "Durch eine Regel",
+      "private_lock": "Durch die Privatsperre",
+      "guest_ceiling": "Durch die Gästegrenze",
+      "owner": "Als Inhaber",
+      "author": "Als Autor",
+      "archived": "Weil archiviert",
+      "joined": "Als Kanalmitglied",
+      "unseen": "Durch den Pfad",
+      "conversation": "Durch eine Unterhaltung",
+      "message": "Durch eine Nachricht",
+      "event": "Durch einen Termin",
+      "ruleOn": "Durch eine Regel bei {{where}}, Stufe {{level}}",
+      "ruleOnHidden": "Durch eine Regel an einem verborgenen Ort, Stufe {{level}}",
+      "askManage": "Setzt das Recht zum Verwalten voraus"
+    },
+    "card": {
+      "view": "Ansehen"
+    }
+  },
+  "channel": {
+    "everyoneInSpace": "Der ganze Bereich"
+  },
+  "role": {
+    "admin": "Administrator"
+  },
+  "roles": {
+    "everyone": "@Mitglieder",
+    "guests": "@Gäste"
   }
 }
