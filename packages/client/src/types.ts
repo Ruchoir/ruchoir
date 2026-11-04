@@ -297,7 +297,8 @@ export type WhyStep = {
 
 /** "Pourquoi ?": why a person has, or lacks, each permission of a resource. */
 export type WhyView = {
-  person: { id: string; name: string; standing: "owner" | "member" | "guest" | string };
+  /** `roles`: every role the person holds beyond the base ones, whether or not a step names it. */
+  person: { id: string; name: string; standing: "owner" | "member" | "guest" | string; roles: WhyRole[] };
   steps: WhyStep[];
   /** One line per permission of the resource's family; `reasonStep` is the `n` of the deciding step. */
   result: { permission: string; granted: boolean; reasonStep?: number }[];

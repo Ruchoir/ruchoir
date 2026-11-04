@@ -8,6 +8,7 @@ import { explainAccess } from "@/lib/data/api";
 import type { AccessKind, Role, WhyView } from "@/lib/data/types";
 import { key, useTranslation } from "@/lib/i18n";
 import { PERMISSION_TEXT } from "../settings/permissionText";
+import { RoleChip } from "../settings/roleChips";
 import { tk } from "./EntryRow";
 import { formatList } from "@/lib/i18n/format";
 import { levelLabelKey } from "./accessLogic.ts";
@@ -108,13 +109,27 @@ export function WhyDialog({
       case "base":
         return labelled(t("why.label.base"), t(para.group.effect === "removed" ? key("why.para.base.removed") : key("why.para.base.granted"), { permission: list(para.group.permissions), person: personName }));
       case "roles": {
-        const phrases = para.roles.map((role) => {
-          const name = named({ kind: "role", id: role.id, name: role.name, hidden: false }, role.name);
-          const groups = role.viaGroups.map((g) => g.name).join(", ");
-          if (role.viaGroups.length === 0) return t("why.para.roleDirect", { role: name });
-          return t(role.direct ? key("why.para.roleBoth") : key("why.para.roleVia"), { role: name, groups });
+        // Each role as a chip (with the group icon when a group carries it) and how it is held.
+        const parts = para.roles.map((role) => {
+          const groups = role.viaGroups.map((g) => g.name);
+          const how = groups.length === 0 ? t("why.para.viaDirect") : t(role.direct ? key("why.para.viaBoth") : key("why.para.viaGroup"), { groups: groups.join(", ") });
+          const full = roles.find((r) => r.id === role.id);
+          const chip = full ? <RoleChip role={full} via={groups} /> : <strong>{named({ kind: "role", id: role.id, name: role.name, hidden: false }, role.name)}</strong>;
+          return (
+            <span key={role.id}>
+              {chip} {how}
+            </span>
+          );
         });
-        return labelled(t("why.label.roles"), t("why.para.roles", { list: formatList(phrases) }));
+        return (
+          <>
+            <strong>{t("why.label.roles")}{sep}</strong>
+            {parts.map((part, n) => (
+              <span key={n}>{n > 0 ? ", " : ""}{part}</span>
+            ))}
+            .
+          </>
+        );
       }
       case "space": {
         const name = named({ kind: "role", id: para.role.id, name: para.role.name, hidden: false }, para.role.name);
@@ -186,7 +201,7 @@ export function WhyDialog({
               {why.steps.length === 0 ? (
                 <li style={{ padding: "12px 14px", fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>{t("why.noSteps")}</li>
               ) : null}
-              {(why.steps.length === 0 ? [] : outline(why.steps, chain)).map((para, i) => (
+              {(why.steps.length === 0 ? [] : outline(why.steps, chain, why.person.roles)).map((para, i) => (
                 <li key={i} style={{ display: "flex", gap: 12, padding: "10px 14px", borderTop: i === 0 ? 0 : "1px solid var(--border-subtle)", alignItems: "flex-start" }}>
                   <span
                     aria-hidden

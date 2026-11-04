@@ -2680,10 +2680,6 @@
         "granted": "the space's base role gives {{person}} {{permission}}.",
         "removed": "the space's base role takes {{permission}} from {{person}}."
       },
-      "roles": "{{list}}.",
-      "roleVia": "{{role}} received through the group {{groups}}",
-      "roleDirect": "{{role}} given directly",
-      "roleBoth": "{{role}} given directly and received through the group {{groups}}",
       "space": {
         "granted": "{{role}} allows: {{permission}}.",
         "removed": "{{role}} takes away: {{permission}}."
@@ -2695,7 +2691,10 @@
       },
       "level": {
         "none": "no rule for {{person}}, their groups or their roles. The rule above keeps applying."
-      }
+      },
+      "viaGroup": "received through the group {{groups}}",
+      "viaDirect": "given directly",
+      "viaBoth": "given directly and received through the group {{groups}}"
     }
   },
   "preview": {

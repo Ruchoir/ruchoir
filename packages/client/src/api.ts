@@ -213,7 +213,7 @@ type AccessDto = {
 };
 type WhyRoleDto = { id: string; name: string; direct: boolean; via_groups: { id: string; name: string }[] };
 type WhyDto = {
-  person: { id: string; name: string; standing: string };
+  person: { id: string; name: string; standing: string; roles?: WhyRoleDto[] };
   steps: {
     n: number;
     kind: string;
@@ -281,7 +281,12 @@ function toAccessView(dto: AccessDto): AccessView {
 
 function toWhyView(dto: WhyDto): WhyView {
   return {
-    person: dto.person,
+    person: {
+      id: dto.person.id,
+      name: dto.person.name,
+      standing: dto.person.standing,
+      roles: (dto.person.roles ?? []).map((r) => ({ id: r.id, name: r.name, direct: r.direct, viaGroups: r.via_groups })),
+    },
     steps: dto.steps.map((s) => ({
       n: s.n,
       kind: s.kind,

@@ -75,7 +75,7 @@ test("access_writes_send_what_the_routes_expect", async () => {
 test("why_maps_from_the_wire", async () => {
   const calls = fakeFetch({
     body: {
-      person: { id: "u1", name: "Ana", standing: "guest" },
+      person: { id: "u1", name: "Ana", standing: "guest", roles: [{ id: "r3", name: "Communication", direct: false, via_groups: [{ id: "g2", name: "Communication" }] }] },
       steps: [
         { n: 1, kind: "role", permission: "files.read", effect: "granted",
           role: { id: "r2", name: "Design", direct: false, via_groups: [{ id: "g1", name: "Studio" }] } },
@@ -87,7 +87,7 @@ test("why_maps_from_the_wire", async () => {
   });
   const why = await api().explainAccess("s1", "file", "f1", "u1");
   assert.ok(calls[0].url.endsWith("/api/v1/spaces/s1/access/file/f1/why?user_id=u1"));
-  assert.deepEqual(why.person, { id: "u1", name: "Ana", standing: "guest" });
+  assert.deepEqual(why.person, { id: "u1", name: "Ana", standing: "guest", roles: [{ id: "r3", name: "Communication", direct: false, viaGroups: [{ id: "g2", name: "Communication" }] }] });
   assert.deepEqual(why.steps[0].role, { id: "r2", name: "Design", direct: false, viaGroups: [{ id: "g1", name: "Studio" }] });
   assert.equal(why.steps[1].effect, "removed");
   assert.equal(why.steps[1].target?.name, "Ana");

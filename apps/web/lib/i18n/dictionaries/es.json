@@ -2779,10 +2779,6 @@
         "granted": "el rol base del espacio da {{permission}} a {{person}}.",
         "removed": "el rol base del espacio quita {{permission}} a {{person}}."
       },
-      "roles": "{{list}}.",
-      "roleVia": "{{role}} recibido por el grupo {{groups}}",
-      "roleDirect": "{{role}} asignado directamente",
-      "roleBoth": "{{role}} asignado directamente y recibido por el grupo {{groups}}",
       "space": {
         "granted": "{{role}} permite: {{permission}}.",
         "removed": "{{role}} quita: {{permission}}."
@@ -2794,7 +2790,10 @@
       },
       "level": {
         "none": "ninguna regla para {{person}}, sus grupos o sus roles. Sigue aplicándose la regla de arriba."
-      }
+      },
+      "viaGroup": "recibido por el grupo {{groups}}",
+      "viaDirect": "asignado directamente",
+      "viaBoth": "asignado directamente y recibido por el grupo {{groups}}"
     }
   },
   "preview": {

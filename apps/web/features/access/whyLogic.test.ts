@@ -192,11 +192,21 @@ test("why_reads_as_the_chain_of_levels", () => {
     step({ n: 4, kind: "rule", permission: "files.create", target: group, level: compta, ruleLevel: "contribute" }),
   ];
   const chain = [{ id: ID.admin, name: "Compta", item: false }, { id: ID.members, name: "2026", item: false }, { id: ID.guests, name: "Devis", item: true }];
-  const para = outline(steps, chain);
+  // The person's own list: Communication grants nothing here, so no step names it, yet it is listed.
+  const held = [
+    { id: ID.custom, name: "Comptable", direct: false, viaGroups: [{ id: ID.custom, name: "Comptabilité" }] },
+    { id: ID.guests, name: "Communication", direct: false, viaGroups: [{ id: ID.guests, name: "Communication" }] },
+  ];
+  const para = outline(steps, chain, held);
   assert.deepEqual(para.map((p) => p.type), ["base", "roles", "space", "level", "level", "level", "quiet"]);
   // The roles line comes from the role steps, with the groups that carry them.
   const roles = para[1];
   assert.equal(roles.type === "roles" && roles.roles[0].viaGroups[0].name, "Comptabilité");
+  assert.deepEqual(roles.type === "roles" && roles.roles.map((r) => r.name), ["Comptable", "Communication"]);
+  // Without the person's list (an older server), the roles the steps name still show.
+  assert.deepEqual(outline(steps, chain).find((p) => p.type === "roles")?.type === "roles" && (outline(steps, chain).find((p) => p.type === "roles") as { roles: { name: string }[] }).roles.map((r) => r.name), ["Comptable"]);
+  // A person with no role beyond the base has no roles line.
+  assert.equal(outline([step({ kind: "base" })], chain, []).some((p) => p.type === "roles"), false);
   // One line per level of the chain, outermost first; a rule's permissions are grouped in one sentence.
   const levels = para.filter((p) => p.type === "level");
   assert.deepEqual(levels.map((l) => l.type === "level" && [l.name, l.item, l.rules.length]), [["Compta", false, 1], ["2026", false, 0], ["Devis", true, 0]]);

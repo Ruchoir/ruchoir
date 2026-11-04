@@ -213,13 +213,15 @@ const LOCKS = ["private_lock", "guest_ceiling", "owner", "archived"];
  * level of the chain (each folder from the top, then the item) with its rules, then the locks.
  * Every step the API gives appears once.
  */
-export function outline(steps: StepLike[], chain: ChainLevel[]): Paragraph[] {
+export function outline(steps: StepLike[], chain: ChainLevel[], held: RoleLike[] = []): Paragraph[] {
   const groups = groupSteps(steps);
   const out: Paragraph[] = [];
   for (const g of groups.filter((g) => g.kind === "base")) out.push({ type: "base", group: g });
 
   const roleSteps = groups.filter((g) => g.kind === "role" && g.role);
-  const roles: RoleLike[] = [];
+  // The person's own list first (every role they hold, even one no step names), then any role a step
+  // names that the list lacks (an older server sends no list).
+  const roles: RoleLike[] = [...held];
   for (const g of roleSteps) if (g.role && !roles.some((r) => r.id === g.role!.id)) roles.push(g.role);
   if (roles.length > 0) out.push({ type: "roles", roles });
   for (const g of roleSteps) if (g.role) out.push({ type: "space", role: g.role, permissions: g.permissions, effect: g.effect });

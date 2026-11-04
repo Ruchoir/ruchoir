@@ -2680,10 +2680,6 @@
         "granted": "die Basisrolle des Bereichs gibt {{person}} {{permission}}.",
         "removed": "die Basisrolle des Bereichs nimmt {{person}} {{permission}}."
       },
-      "roles": "{{list}}.",
-      "roleVia": "{{role}} über die Gruppe {{groups}}",
-      "roleDirect": "{{role}} direkt vergeben",
-      "roleBoth": "{{role}} direkt vergeben und über die Gruppe {{groups}}",
       "space": {
         "granted": "{{role}} erlaubt: {{permission}}.",
         "removed": "{{role}} nimmt weg: {{permission}}."
@@ -2695,7 +2691,10 @@
       },
       "level": {
         "none": "keine Regel für {{person}}, ihre Gruppen oder Rollen. Die Regel darüber gilt weiter."
-      }
+      },
+      "viaGroup": "über die Gruppe {{groups}}",
+      "viaDirect": "direkt vergeben",
+      "viaBoth": "direkt vergeben und über die Gruppe {{groups}}"
     }
   },
   "preview": {
