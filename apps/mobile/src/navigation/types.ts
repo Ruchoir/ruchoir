@@ -139,8 +139,8 @@ export type RootParams = {
   spaceGroups: undefined;
   spaceAudit: undefined;
   spaceLicence: undefined;
-  /** A member of the current space: the roles the caller may give, removing them. */
-  spaceMember: { userId: string };
+  /** A member of the current space: Profil and Gestion. `prolong` opens on the guest's end date. */
+  spaceMember: { userId: string; prolong?: true };
   /** The current space's deletion, its name to type (owner). */
   spaceDelete: undefined;
   /** How much the current space notifies me. */
