@@ -28,7 +28,7 @@ use uuid::Uuid;
 
 use super::catalogue::{Permission, PermissionSet};
 use super::check::{self, Resource};
-use super::delegation::rank_of;
+use super::delegation::{rank_of, Rank};
 use super::engine::Standing;
 use super::groups::Paid;
 use super::levels::{
@@ -38,8 +38,8 @@ use super::levels::{
 use super::load;
 use super::rules::{
     current_rule, delete_rule, describe, editor_of, ensure_writable, level_name, lock_resource,
-    log_rule, write_rule, Aim, Editor, EditorKind, Existing, ResourceRef, RuleSubject, Shown,
-    TargetRef,
+    log_rule, rank_above, write_rule, Aim, Editor, EditorKind, Existing, ResourceRef, RuleSubject,
+    Shown, TargetRef,
 };
 use super::system_roles::GUEST_CEILING;
 use crate::audit::Action;
@@ -713,6 +713,11 @@ async fn access_dto(
         });
     }
 
+    // Who is denied what, person by person, is for the people who edit the access: a reader sees
+    // the allows (who has it) and the groups and roles, not the individual restrictions.
+    if editor.is_none() {
+        lines.retain(|line| !matches!(line.cover, Cover::User(_)) || line.dto.deny.is_empty());
+    }
     // A guest sees what covers them: themselves, their groups, the guests line, what they hold.
     let people = load::people(db, space_id, Some(viewer)).await?;
     if let Some(person) = people
@@ -1022,6 +1027,31 @@ pub(crate) async fn resolve(
                 .map(|row| row.try_get("", "top"))
                 .transpose()?
                 .flatten();
+            // Someone in it who stands above the editor, whatever roles the group carries.
+            let people = txn
+                .query_one_raw(Statement::from_sql_and_values(
+                    DbBackend::Postgres,
+                    "SELECT coalesce(bool_or(m.standing = 'owner'), false) AS owner, \
+                            max(CASE WHEN m.standing = 'guest' THEN NULL ELSE \
+                                (SELECT max(r.position) FROM space_role_holdings h \
+                                   JOIN space_roles r ON r.id = h.role_id \
+                                  WHERE h.space_id = m.space_id AND h.user_id = m.user_id) END) AS top \
+                       FROM space_group_members gm \
+                       JOIN space_members m ON m.space_id = gm.space_id AND m.user_id = gm.user_id \
+                      WHERE gm.group_id = $1",
+                    [id.into()],
+                ))
+                .await?;
+            let editor_rank = rank_of(txn, space_id, editor_user).await?;
+            let member_above = match (people, editor_rank) {
+                (Some(row), Some(editor_rank)) => {
+                    let owner: bool = row.try_get("", "owner")?;
+                    let top: Option<i32> = row.try_get("", "top")?;
+                    (owner && rank_above(editor_rank, Rank::Owner))
+                        || top.is_some_and(|p| rank_above(editor_rank, Rank::Position(p)))
+                }
+                _ => false,
+            };
             Resolved {
                 subject: RuleSubject::Group(id),
                 tref: TargetRef {
@@ -1029,6 +1059,7 @@ pub(crate) async fn resolve(
                     aim: Aim::Group {
                         editor_in,
                         top_position,
+                        member_above,
                     },
                 },
                 sys: None,

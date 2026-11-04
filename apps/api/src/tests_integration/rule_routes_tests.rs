@@ -1986,3 +1986,479 @@ async fn a_repeated_everyone_write_writes_nothing_and_says_nothing() {
     super::group_routes_tests::expect_no_permissions_changed(&mut watching).await;
     assert_eq!(audit_rows(&app.db, fx.space_id).await.len(), written);
 }
+
+// -- security review fixes ----------------------------------------------------------------------
+
+fn id_of(entry: &Value) -> Uuid {
+    entry["id"].as_str().expect("id").parse().expect("uuid")
+}
+
+#[tokio::test]
+async fn lifting_a_restriction_needs_what_it_restores() {
+    let Some(app) = licensed().await else { return };
+    let fx = ladder(&app.db).await;
+
+    // A channel moderator cannot undo "Tout l'espace = Lire": it restores sending for everyone.
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    join_as(&app.db, channel, fx.member, "admin").await;
+    let (status, body) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        everyone(),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let line = id_of(everyone_entry(&body));
+    let (status, body) = remove(&app, fx.member, fx.space_id, "channel", channel, line).await;
+    assert_eq!((status, &body["reason"]), (403, &json!("cannot_grant")));
+    // Lowering the deny is lifting it too.
+    let (status, body) = put(
+        &app,
+        fx.member,
+        fx.space_id,
+        "channel",
+        channel,
+        everyone(),
+        "contribute",
+    )
+    .await;
+    assert_eq!((status, &body["reason"]), (403, &json!("cannot_grant")));
+    let (status, body) = read(&app, fx.admin, fx.space_id, "channel", channel).await;
+    assert_eq!(status, 200);
+    assert_eq!(everyone_entry(&body)["level"], "read", "still Lire");
+    let (status, _) = remove(&app, fx.admin, fx.space_id, "channel", channel, line).await;
+    assert_eq!(status, 204, "a space administrator holds what it restores");
+
+    // The author of a file, the same.
+    let mine = make_node(&app.db, fx.space_id, fx.member, "mine.txt", "file", None).await;
+    let (status, body) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "file",
+        mine,
+        everyone(),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let line = id_of(everyone_entry(&body));
+    let (status, body) = remove(&app, fx.member, fx.space_id, "file", mine, line).await;
+    assert_eq!((status, &body["reason"]), (403, &json!("cannot_grant")));
+    let (status, _) = remove(&app, fx.admin, fx.space_id, "file", mine, line).await;
+    assert_eq!(status, 204);
+
+    // A local editor (a paid delegation), for any target.
+    let theirs = make_node(&app.db, fx.space_id, fx.owner, "theirs.txt", "file", None).await;
+    let group = make_group(&app.db, fx.space_id, "Equipe").await;
+    stored(
+        &app.db,
+        fx.space_id,
+        ("file_id", theirs),
+        ("user_id", fx.member),
+        &["files.view", "files.manage"],
+        &[],
+    )
+    .await;
+    let (status, body) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "file",
+        theirs,
+        everyone(),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let line = id_of(everyone_entry(&body));
+    let (status, body) = remove(&app, fx.member, fx.space_id, "file", theirs, line).await;
+    assert_eq!((status, &body["reason"]), (403, &json!("cannot_grant")));
+    let blocked = stored(
+        &app.db,
+        fx.space_id,
+        ("file_id", theirs),
+        ("group_id", group),
+        &["files.view"],
+        &["files.edit"],
+    )
+    .await;
+    let (status, body) = put(
+        &app,
+        fx.member,
+        fx.space_id,
+        "file",
+        theirs,
+        group_target(group),
+        "read",
+    )
+    .await;
+    assert_eq!((status, &body["reason"]), (403, &json!("cannot_grant")));
+    let (status, body) = remove(&app, fx.member, fx.space_id, "file", theirs, blocked).await;
+    assert_eq!((status, &body["reason"]), (403, &json!("cannot_grant")));
+    let (status, _) = remove(&app, fx.admin, fx.space_id, "file", theirs, blocked).await;
+    assert_eq!(status, 204);
+}
+
+#[tokio::test]
+async fn a_guest_author_is_no_editor() {
+    let Some(app) = licensed().await else { return };
+    let fx = ladder(&app.db).await;
+    let group = make_group(&app.db, fx.space_id, "Equipe").await;
+    // A guest's own upload, in reach of the guest (a person rule opens it).
+    let file = make_node(&app.db, fx.space_id, fx.guest, "invite.txt", "file", None).await;
+    stored(
+        &app.db,
+        fx.space_id,
+        ("file_id", file),
+        ("user_id", fx.guest),
+        &["files.view"],
+        &[],
+    )
+    .await;
+    let (status, body) = read(&app, fx.guest, fx.space_id, "file", file).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["may"]["edit"], false);
+    assert_eq!(body["may"]["reason"], "not_allowed");
+    let (status, _) = put(
+        &app,
+        fx.guest,
+        fx.space_id,
+        "file",
+        file,
+        group_target(group),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 403);
+    assert_eq!(
+        rule_count(&app.db, "file_id", file, ("group_id", group)).await,
+        0
+    );
+}
+
+#[tokio::test]
+async fn an_administrator_does_not_open_a_private_channel_they_are_not_in() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let secret = make_channel(&app.db, fx.space_id, "secret", "private").await;
+    let group = make_group(&app.db, fx.space_id, "Equipe").await;
+    let why = format!("{}/why", path(fx.space_id, "channel", secret));
+    let someone = stored(
+        &app.db,
+        fx.space_id,
+        ("channel_id", secret),
+        ("group_id", group),
+        &["channel.view"],
+        &[],
+    )
+    .await;
+
+    // The administrator is a stranger to it, whatever they write.
+    assert_eq!(
+        read(&app, fx.admin, fx.space_id, "channel", secret).await.0,
+        403
+    );
+    assert_eq!(
+        call(&app, fx.admin, reqwest::Method::GET, &why, None)
+            .await
+            .0,
+        404
+    );
+    let (status, _) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        secret,
+        user_target(fx.admin),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 403, "no silent way in through a rule on themselves");
+    assert_eq!(
+        rule_count(&app.db, "channel_id", secret, ("user_id", fx.admin)).await,
+        0
+    );
+    assert!(
+        !can(
+            &app,
+            &fx,
+            fx.admin,
+            Resource::Channel(secret),
+            Permission::ChannelView
+        )
+        .await
+    );
+    let (status, _) = remove(&app, fx.admin, fx.space_id, "channel", secret, someone).await;
+    assert_eq!(status, 403);
+    assert_eq!(
+        rule_count(&app.db, "channel_id", secret, ("group_id", group)).await,
+        1
+    );
+
+    // The owner reads without joining, and so manages.
+    assert_eq!(
+        read(&app, fx.owner, fx.space_id, "channel", secret).await.0,
+        200
+    );
+    assert_eq!(
+        call(&app, fx.owner, reqwest::Method::GET, &why, None)
+            .await
+            .0,
+        200
+    );
+    // The channel's own moderator manages it.
+    join_as(&app.db, secret, fx.member, "admin").await;
+    let (status, body) = put(
+        &app,
+        fx.member,
+        fx.space_id,
+        "channel",
+        secret,
+        group_target(group),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    // An administrator who is in the channel is a space editor again.
+    join_as(&app.db, secret, fx.admin, "member").await;
+    assert_eq!(
+        read(&app, fx.admin, fx.space_id, "channel", secret).await.0,
+        200
+    );
+    let (status, _) = remove(&app, fx.admin, fx.space_id, "channel", secret, someone).await;
+    assert_eq!(status, 204);
+}
+
+#[tokio::test]
+async fn an_author_may_aim_a_rule_at_a_group_that_holds_someone_above_them_no_more() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let mine = make_node(&app.db, fx.space_id, fx.member, "mine.txt", "file", None).await;
+    let boss = make_group(&app.db, fx.space_id, "Direction").await;
+    put_in_group(&app.db, boss, fx.space_id, fx.admin, false).await;
+    let peers = make_group(&app.db, fx.space_id, "Pairs").await;
+    put_in_group(&app.db, peers, fx.space_id, fx.member, false).await;
+
+    // A group with an administrator in it is above an author, whatever roles it carries.
+    let (status, body) = put(
+        &app,
+        fx.member,
+        fx.space_id,
+        "file",
+        mine,
+        group_target(boss),
+        "read",
+    )
+    .await;
+    assert_eq!((status, &body["reason"]), (403, &json!("target_above_you")));
+    // An owner in it as well.
+    let owners = make_group(&app.db, fx.space_id, "Fondateurs").await;
+    put_in_group(&app.db, owners, fx.space_id, fx.owner, false).await;
+    let (status, body) = put(
+        &app,
+        fx.member,
+        fx.space_id,
+        "file",
+        mine,
+        group_target(owners),
+        "read",
+    )
+    .await;
+    assert_eq!((status, &body["reason"]), (403, &json!("target_above_you")));
+    // A group the author is in is already refused; one of equals is not.
+    let friends = make_group(&app.db, fx.space_id, "Amis").await;
+    let friend = make_user(&app.db, "friend").await;
+    exec(
+        &app.db,
+        "INSERT INTO space_members (space_id, user_id, role) VALUES ($1, $2, 'member')",
+        vec![fx.space_id.into(), friend.into()],
+    )
+    .await;
+    put_in_group(&app.db, friends, fx.space_id, friend, false).await;
+    let (status, body) = put(
+        &app,
+        fx.member,
+        fx.space_id,
+        "file",
+        mine,
+        group_target(friends),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    // The administrator is not held by it.
+    let (status, _) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "file",
+        mine,
+        group_target(boss),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200);
+}
+
+#[tokio::test]
+async fn an_author_shares_with_a_channel_they_read_but_never_denies_it() {
+    let Some(app) = licensed().await else { return };
+    let fx = ladder(&app.db).await;
+    let mine = make_node(&app.db, fx.space_id, fx.member, "mine.txt", "file", None).await;
+    let room = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let target = json!({ "kind": "audience", "id": room });
+
+    let (status, body) = put(
+        &app,
+        fx.member,
+        fx.space_id,
+        "file",
+        mine,
+        target.clone(),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let (status, body) = put(
+        &app,
+        fx.member,
+        fx.space_id,
+        "file",
+        mine,
+        target.clone(),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let line = id_of(
+        body["entries"]
+            .as_array()
+            .expect("entries")
+            .iter()
+            .find(|e| e["target"]["kind"] == "audience")
+            .expect("audience line"),
+    );
+    // A deny aimed at readers they are among is refused, and so is taking one away.
+    let (status, body) = put(
+        &app,
+        fx.member,
+        fx.space_id,
+        "file",
+        mine,
+        json!({ "kind": "audience", "id": room }),
+        "none",
+    )
+    .await;
+    assert_eq!((status, &body["reason"]), (403, &json!("target_above_you")));
+    let (status, body) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "file",
+        mine,
+        target.clone(),
+        "none",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    // They no longer hold the view the deny took from the readers, so they cannot raise it back.
+    let (status, _) = put(&app, fx.member, fx.space_id, "file", mine, target, "read").await;
+    assert_eq!(status, 403);
+    let (status, body) = remove(&app, fx.member, fx.space_id, "file", mine, line).await;
+    assert_eq!((status, &body["reason"]), (403, &json!("target_above_you")));
+}
+
+#[tokio::test]
+async fn a_group_in_use_names_only_what_the_caller_can_open() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let open = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let secret = make_channel(&app.db, fx.space_id, "secret", "private").await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    for channel in [open, secret] {
+        stored(
+            &app.db,
+            fx.space_id,
+            ("channel_id", channel),
+            ("group_id", group),
+            &["channel.view"],
+            &[],
+        )
+        .await;
+    }
+    // A folder hidden from the members: the administrator opens it, the group manager does not need to.
+    let url = format!("/api/v1/spaces/{}/groups/{group}", fx.space_id);
+    let (status, body) = call(&app, fx.admin, reqwest::Method::DELETE, &url, None).await;
+    assert_eq!(status, 409, "{body}");
+    let used = body["used_in"].as_array().expect("used_in");
+    assert_eq!(used.len(), 2, "{body}");
+    assert!(used.contains(&json!({ "kind": "channel", "id": open, "name": "salon" })));
+    assert!(
+        used.contains(&json!({ "kind": "channel", "hidden": true })),
+        "the private channel the administrator never joined is not named: {body}"
+    );
+    assert!(!body.to_string().contains(&secret.to_string()));
+    assert!(!body.to_string().contains("secret"));
+    // The owner reads private channels without joining.
+    let (status, body) = call(&app, fx.owner, reqwest::Method::DELETE, &url, None).await;
+    assert_eq!(status, 409, "{body}");
+    assert!(body["used_in"]
+        .as_array()
+        .expect("used_in")
+        .contains(&json!({ "kind": "channel", "id": secret, "name": "secret" })));
+}
+
+#[tokio::test]
+async fn person_level_denies_are_shown_to_editors_only() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let friend = make_user(&app.db, "friend").await;
+    exec(
+        &app.db,
+        "INSERT INTO space_members (space_id, user_id, role) VALUES ($1, $2, 'member')",
+        vec![fx.space_id.into(), friend.into()],
+    )
+    .await;
+    let file = make_node(&app.db, fx.space_id, fx.owner, "plan.txt", "file", None).await;
+    stored(
+        &app.db,
+        fx.space_id,
+        ("file_id", file),
+        ("user_id", fx.member),
+        &[],
+        &["files.edit"],
+    )
+    .await;
+    stored(
+        &app.db,
+        fx.space_id,
+        ("file_id", file),
+        ("user_id", friend),
+        &["files.view"],
+        &[],
+    )
+    .await;
+
+    let (status, body) = read(&app, fx.admin, fx.space_id, "file", file).await;
+    assert_eq!(status, 200);
+    assert!(
+        entry_of(&body, "user", fx.member).is_some(),
+        "editors see it"
+    );
+    let (status, body) = read(&app, friend, fx.space_id, "file", file).await;
+    assert_eq!(status, 200);
+    assert!(
+        entry_of(&body, "user", fx.member).is_none(),
+        "a reader does not learn who is denied what: {body}"
+    );
+    assert!(
+        entry_of(&body, "user", friend).is_some(),
+        "an allow is not hidden"
+    );
+}

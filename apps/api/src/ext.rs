@@ -51,9 +51,9 @@ pub use crate::permissions::roles::{roles_of, validate_role_name, RoleDto, ROLE_
 /// Who edits a resource's access and the one decision every rule write goes through, the writes
 /// themselves (log entry included), and where a group or a role is still named by a rule.
 pub use crate::permissions::rules::{
-    current_rule, delete_rule, describe, editor_of, ensure_writable, level_name, lock_resource,
-    log_rule, uses_of, write_rule, Aim, Editor, EditorKind, Existing, Named, ResourceRef,
-    RuleRefusal, RuleRow, RuleSubject, Shown, TargetRef, UsedIn,
+    current_rule, delete_rule, describe, editor_of, ensure_writable, hide_unopened, level_name,
+    lock_resource, log_rule, uses_of, write_rule, Aim, Editor, EditorKind, Existing, Named,
+    ResourceRef, RuleRefusal, RuleRow, RuleSubject, Shown, TargetRef, UsedIn,
 };
 pub use crate::permissions::system_roles::GUEST_CEILING;
 /// Close a session's realtime connections (sockets and streams) on this instance, the person's

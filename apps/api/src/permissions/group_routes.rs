@@ -23,7 +23,7 @@ use super::groups::{
     actor, decide, group, groups_of, name_taken, validate_group_name, GroupAct, GroupActor,
     GroupRow, GroupSource,
 };
-use super::rules::{uses_of, Named};
+use super::rules::{hide_unopened, uses_of, Named};
 use crate::audit::{record, Action, Target};
 use crate::auth::extract::AuthSession;
 use crate::messaging::error::ApiError;
@@ -405,6 +405,8 @@ pub async fn delete_group(
     // the resource to everyone it was keeping out.
     let used = uses_of(&txn, space_id, Named::Group(group_id)).await?;
     if !used.is_empty() {
+        // Names only for what the caller can open; the rest is a kind and nothing else.
+        let used = hide_unopened(&state.db, space_id, session.user_id, used).await?;
         return Err(ApiError::ConflictUsedIn {
             code: "group_has_rules",
             message: "This group is named by rules; remove them first.",

@@ -135,28 +135,40 @@ fn pick_kind(facts: EditorFacts) -> Option<EditorKind> {
     }
 }
 
+/// What the resource's own row says about `user_id`, when it is the space's.
+#[derive(Debug, Clone, Copy)]
+struct RowFacts {
+    /// A channel's owner or admin.
+    moderator: bool,
+    /// The author of a file or folder.
+    author: bool,
+    /// A private channel.
+    private: bool,
+}
+
 /// What the resource's own row says about `user_id`: `None` when it is not the space's.
 async fn resource_facts(
     db: &impl ConnectionTrait,
     space_id: Uuid,
     user_id: Uuid,
     resource: ResourceRef,
-) -> Result<Option<(bool, bool)>, DbErr> {
-    // (is a channel owner or admin, is the author)
+) -> Result<Option<RowFacts>, DbErr> {
     let (sql, moderator_column) = match resource {
         ResourceRef::Channel(_) => (
             "SELECT coalesce((SELECT m.role IN ('owner', 'admin') FROM channel_members m \
-                               WHERE m.channel_id = c.id AND m.user_id = $3), false) AS flag \
+                               WHERE m.channel_id = c.id AND m.user_id = $3), false) AS flag, \
+                    c.type = 'private' AS private \
                FROM channels c WHERE c.id = $2 AND c.space_id = $1",
             true,
         ),
         ResourceRef::File(_) => (
-            "SELECT coalesce(f.owner_id = $3, false) AS flag \
+            "SELECT coalesce(f.owner_id = $3, false) AS flag, false AS private \
                FROM files f WHERE f.id = $2 AND f.space_id = $1",
             false,
         ),
         ResourceRef::Calendar(_) => (
-            "SELECT false AS flag FROM calendars c WHERE c.id = $2 AND c.space_id = $1",
+            "SELECT false AS flag, false AS private \
+               FROM calendars c WHERE c.id = $2 AND c.space_id = $1",
             false,
         ),
     };
@@ -171,7 +183,11 @@ async fn resource_facts(
         return Ok(None);
     };
     let flag: bool = row.try_get("", "flag")?;
-    Ok(Some((flag && moderator_column, flag && !moderator_column)))
+    Ok(Some(RowFacts {
+        moderator: flag && moderator_column,
+        author: flag && !moderator_column,
+        private: row.try_get("", "private")?,
+    }))
 }
 
 /// Whether `user_id` may edit `resource`'s access, and as what. `None` for someone who may not
@@ -186,8 +202,7 @@ pub async fn editor_of(
     let Some(rank) = rank_of(&state.db, space_id, user_id).await? else {
         return Ok(None);
     };
-    let Some((moderator, author)) = resource_facts(&state.db, space_id, user_id, resource).await?
-    else {
+    let Some(row) = resource_facts(&state.db, space_id, user_id, resource).await? else {
         return Ok(None);
     };
     // A guest's channel role and authorship are no standing: only a rule can make them an editor,
@@ -195,12 +210,19 @@ pub async fn editor_of(
     let guest = standing(&state.db, space_id, user_id).await? == Some(Standing::Guest);
     let on_resource = effective(&state.db, space_id, user_id, resource.engine()).await?;
     let at_space = space_rights(&state.db, space_id, user_id).await?;
+    // Only the Owner reads a private channel without joining it: an administrator who cannot view
+    // one is a stranger to it, so neither a space-level right nor the manage permission the lock
+    // leaves them makes them its editor (they could otherwise write a rule on themselves and open
+    // the lock). Its own moderators have joined it.
+    let shut_out = row.private && rank != Rank::Owner && !on_resource.contains(resource.view());
     let facts = EditorFacts {
         owner: rank == Rank::Owner,
-        space_manage: at_space.contains(resource.manage()),
-        channel_moderator: moderator && !guest,
-        author: author && !guest,
-        local_manage: on_resource.contains(resource.manage()),
+        space_manage: at_space.contains(resource.manage()) && !shut_out,
+        channel_moderator: row.moderator && !guest,
+        author: row.author && !guest,
+        // The author fact gives a guest the manage permission on their own upload: that is no
+        // delegation, a guest holds nothing here but what a rule gives them below the ceiling.
+        local_manage: on_resource.contains(resource.manage()) && !guest && !shut_out,
     };
     let Some(kind) = pick_kind(facts) else {
         return Ok(None);
@@ -234,10 +256,12 @@ pub enum Aim {
         system: bool,
         editor_holds: bool,
     },
-    /// A group: whether the editor is in it, and the highest position among the roles it carries.
+    /// A group: whether the editor is in it, the highest position among the roles it carries, and
+    /// whether one of its people stands strictly above the editor.
     Group {
         editor_in: bool,
         top_position: Option<i32>,
+        member_above: bool,
     },
     /// A person.
     User {
@@ -348,8 +372,9 @@ pub fn ensure_writable(
     }
     // Rules 3 and the reservation, for the editors who are not Owner or Space.
     let strong = matches!(editor.kind, EditorKind::Owner | EditorKind::Space);
+    let stored_deny = existing.map_or(PermissionSet::EMPTY, |e| e.deny);
     if !strong {
-        if aimed_at_or_above(editor, target) {
+        if aimed_at_or_above(editor, target, deny != stored_deny) {
             return Err(RuleRefusal::Forbidden("target_above_you"));
         }
         if matches!(target.aim, Aim::Everyone { .. }) {
@@ -364,6 +389,11 @@ pub fn ensure_writable(
                 return Err(RuleRefusal::Forbidden("reservation_admins_only"));
             }
         }
+    }
+    // Lifting is granting: what the write stops denying (a delete, a lower level, any target) is
+    // something the editor must hold themselves, or a restriction they cannot grant comes undone.
+    if !stored_deny.minus(deny).minus(editor.rights).is_empty() {
+        return Err(RuleRefusal::Forbidden("cannot_grant"));
     }
     let guest = matches!(
         target.aim,
@@ -407,7 +437,7 @@ fn position_above(rank: Rank, position: i32) -> bool {
 }
 
 /// Whether `other` stands strictly above `rank` (an owner above everyone who is not one).
-fn rank_above(rank: Rank, other: Rank) -> bool {
+pub(super) fn rank_above(rank: Rank, other: Rank) -> bool {
     match other {
         Rank::Owner => rank != Rank::Owner,
         Rank::Position(theirs) => position_above(rank, theirs),
@@ -415,13 +445,14 @@ fn rank_above(rank: Rank, other: Rank) -> bool {
 }
 
 /// Rule 3 for the editors below Owner and Space: the target is the editor, a group they are in, a
-/// role they hold, or a person, role or group (by the roles it carries) strictly above their rank.
-/// Equal-rank others are allowed. "Everyone" names no one above; an audience is the editor's own
-/// when they read its channel.
-fn aimed_at_or_above(editor: &Editor, target: &TargetRef) -> bool {
+/// role they hold, or a person, role or group (by the roles it carries, or the people in it)
+/// strictly above their rank. Equal-rank others are allowed. "Everyone" names no one above. An
+/// audience is the editor's own when they read its channel: they may share with it (rule 2 caps
+/// what), but a write that adds or takes away a deny (`denies_change`) is refused.
+fn aimed_at_or_above(editor: &Editor, target: &TargetRef, denies_change: bool) -> bool {
     match target.aim {
         Aim::Everyone { .. } => false,
-        Aim::Audience { editor_reads } => editor_reads,
+        Aim::Audience { editor_reads } => editor_reads && denies_change,
         Aim::Role {
             position,
             editor_holds,
@@ -430,7 +461,12 @@ fn aimed_at_or_above(editor: &Editor, target: &TargetRef) -> bool {
         Aim::Group {
             editor_in,
             top_position,
-        } => editor_in || top_position.is_some_and(|p| position_above(editor.rank, p)),
+            member_above,
+        } => {
+            editor_in
+                || member_above
+                || top_position.is_some_and(|p| position_above(editor.rank, p))
+        }
         Aim::User {
             is_editor, rank, ..
         } => is_editor || rank_above(editor.rank, rank),
@@ -442,8 +478,52 @@ fn aimed_at_or_above(editor: &Editor, target: &TargetRef) -> bool {
 pub struct UsedIn {
     /// `channel`, `file` or `calendar`.
     pub kind: &'static str,
-    pub id: Uuid,
-    pub name: String,
+    /// Absent when the caller cannot open that place.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// A place the caller cannot open: no id, no name.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hidden: bool,
+}
+
+fn is_false(flag: &bool) -> bool {
+    !*flag
+}
+
+/// What a caller is told of the places that name a group or a role: the name of what they can
+/// open, and only the kind of the rest (a private channel or a hidden folder is not theirs to
+/// learn through a refusal).
+pub async fn hide_unopened(
+    db: &sea_orm::DatabaseConnection,
+    space_id: Uuid,
+    viewer: Uuid,
+    used: Vec<UsedIn>,
+) -> Result<Vec<UsedIn>, DbErr> {
+    let mut shown = Vec::with_capacity(used.len());
+    for place in used {
+        let Some(id) = place.id else {
+            shown.push(place);
+            continue;
+        };
+        let (resource, permission) = match place.kind {
+            "channel" => (Resource::Channel(id), Permission::ChannelView),
+            "file" => (Resource::File(id), Permission::FilesView),
+            _ => (Resource::Calendar(id), Permission::CalendarView),
+        };
+        if super::check::can(db, space_id, viewer, resource, permission).await? {
+            shown.push(place);
+        } else {
+            shown.push(UsedIn {
+                kind: place.kind,
+                id: None,
+                name: None,
+                hidden: true,
+            });
+        }
+    }
+    Ok(shown)
 }
 
 /// Whom a rule is aimed at, for [`uses_of`].
@@ -492,8 +572,9 @@ pub async fn uses_of(
                 "file" => "file",
                 _ => "calendar",
             },
-            id: row.try_get("", "id")?,
-            name: row.try_get("", "name")?,
+            id: Some(row.try_get("", "id")?),
+            name: Some(row.try_get("", "name")?),
+            hidden: false,
         });
     }
     Ok(used)
@@ -826,6 +907,7 @@ mod tests {
         at(Aim::Group {
             editor_in: false,
             top_position: None,
+            member_above: false,
         })
     }
 
@@ -1088,6 +1170,7 @@ mod tests {
             at(Aim::Group {
                 editor_in: true,
                 top_position: None,
+                member_above: false,
             }),
             role(3, true),
             // Strictly above: a person, an owner, a group by its top role, a role.
@@ -1096,6 +1179,13 @@ mod tests {
             at(Aim::Group {
                 editor_in: false,
                 top_position: Some(11),
+                member_above: false,
+            }),
+            // A group by who is in it, whatever roles it carries.
+            at(Aim::Group {
+                editor_in: false,
+                top_position: None,
+                member_above: true,
             }),
             role(11, false),
         ];
@@ -1132,10 +1222,12 @@ mod tests {
             at(Aim::Group {
                 editor_in: false,
                 top_position: Some(10),
+                member_above: false,
             }),
             at(Aim::Group {
                 editor_in: false,
                 top_position: None,
+                member_above: false,
             }),
             role(10, false),
             role(2, false),
@@ -1191,12 +1283,16 @@ mod tests {
     }
 
     #[test]
-    fn nobody_lifts_a_rule_aimed_at_the_readers_they_are_among() {
+    fn nobody_denies_or_undenies_the_readers_they_are_among() {
         let deny = set(&[P::FilesView]);
         let nothing = PermissionSet::EMPTY;
         let stored = Some(Existing {
             allow: nothing,
             deny,
+        });
+        let allowed = Some(Existing {
+            allow: read(FILE),
+            deny: nothing,
         });
         let mine = at(Aim::Audience { editor_reads: true });
         let others = at(Aim::Audience {
@@ -1208,16 +1304,30 @@ mod tests {
             EditorKind::Local,
         ] {
             let who = licensed(kind);
-            // Create, change and delete are all refused when they read that channel.
+            // Adding a deny, taking one away (by a change or a delete) are refused when they read
+            // that channel.
             for (allow, deny, existing) in [
-                (read(FILE), nothing, None),
+                (nothing, deny, None),
+                (nothing, deny, allowed),
                 (read(FILE), nothing, stored),
                 (nothing, nothing, stored),
-                (nothing, deny, None),
             ] {
                 assert_eq!(
                     write(&who, FILE, mine, allow, deny, existing),
                     Err(RuleRefusal::Forbidden("target_above_you")),
+                    "{kind:?}"
+                );
+            }
+            // Creating, raising, keeping or removing an allow is theirs to do: rule 2 caps it.
+            for (allow, deny, existing) in [
+                (read(FILE), nothing, None),
+                (read(FILE), nothing, allowed),
+                (nothing, nothing, allowed),
+                (nothing, deny, stored),
+            ] {
+                assert_eq!(
+                    write(&who, FILE, mine, allow, deny, existing),
+                    Ok(()),
                     "{kind:?}"
                 );
             }
@@ -1230,6 +1340,67 @@ mod tests {
             assert_eq!(
                 write(&licensed(kind), FILE, mine, nothing, nothing, stored),
                 Ok(())
+            );
+        }
+    }
+
+    #[test]
+    fn lifting_a_restriction_needs_what_it_restores() {
+        let lire = super::super::levels::rule_sets(
+            Kind::File,
+            Target::Everyone,
+            super::super::levels::Level::Read,
+        )
+        .unwrap();
+        let nothing = PermissionSet::EMPTY;
+        let everyone = at(Aim::Everyone { guests: false });
+        let stored = Some(Existing {
+            allow: lire.0,
+            deny: lire.1,
+        });
+        let blocked = Some(Existing {
+            allow: read(FILE),
+            deny: set(&[P::FilesEdit]),
+        });
+        for kind in [
+            EditorKind::ChannelModerator,
+            EditorKind::Author,
+            EditorKind::Local,
+            EditorKind::Space,
+            EditorKind::Owner,
+        ] {
+            let mut who = licensed(kind);
+            // Holding the view only: neither deleting Lire nor lowering any deny is theirs.
+            who.rights = read(FILE);
+            let refused = Err(RuleRefusal::Forbidden("cannot_grant"));
+            let outcome =
+                |allow, deny, existing, target| write(&who, FILE, target, allow, deny, existing);
+            assert_eq!(
+                outcome(nothing, nothing, stored, everyone),
+                refused,
+                "{kind:?}"
+            );
+            assert_eq!(
+                outcome(read(FILE), nothing, blocked, group()),
+                refused,
+                "{kind:?}"
+            );
+            assert_eq!(
+                outcome(read(FILE), set(&[P::FilesEdit]), blocked, group()),
+                Ok(()),
+                "{kind:?}: the deny is kept"
+            );
+            assert_eq!(
+                outcome(read(FILE), lire.1, stored, everyone),
+                Ok(()),
+                "{kind:?}: nothing is lifted"
+            );
+            // Holding what the deny took away is enough.
+            who.rights = PermissionSet::ALL;
+            assert_eq!(
+                write(&who, FILE, everyone, nothing, nothing, stored),
+                Ok(()),
+                "{kind:?}"
             );
         }
     }
@@ -1458,6 +1629,7 @@ mod tests {
             Aim::Group {
                 editor_in: false,
                 top_position: None,
+                member_above: false,
             },
             Aim::User {
                 is_editor: false,

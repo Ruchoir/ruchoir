@@ -376,7 +376,7 @@ async fn why_names_the_private_lock_and_its_lift() {
     let group = make_group(&app.db, fx.space_id, "Direction").await;
     put_in_group(&app.db, group, fx.space_id, fx.member, false).await;
 
-    let (status, body) = why(&app, fx.admin, fx.space_id, "channel", channel, fx.member).await;
+    let (status, body) = why(&app, fx.owner, fx.space_id, "channel", channel, fx.member).await;
     assert_eq!(status, 200, "{body}");
     let lock = steps(&body)
         .iter()
@@ -397,7 +397,7 @@ async fn why_names_the_private_lock_and_its_lift() {
         &[],
     )
     .await;
-    let (_, body) = why(&app, fx.admin, fx.space_id, "channel", channel, fx.member).await;
+    let (_, body) = why(&app, fx.owner, fx.space_id, "channel", channel, fx.member).await;
     let lift = steps(&body)
         .iter()
         .find(|s| s["kind"] == "private_lock")
@@ -478,7 +478,10 @@ async fn why_never_reveals_a_resource_the_caller_cannot_see() {
     let secret = make_channel(&app.db, fx.space_id, "secret", "private").await;
     let (status, _) = why(&app, fx.member, fx.space_id, "channel", secret, fx.member).await;
     assert_eq!(status, 404);
+    // An administrator who never joined it is a stranger to it too: only the owner reads it.
     let (status, _) = why(&app, fx.admin, fx.space_id, "channel", secret, fx.member).await;
+    assert_eq!(status, 404);
+    let (status, _) = why(&app, fx.owner, fx.space_id, "channel", secret, fx.member).await;
     assert_eq!(status, 200);
     // A kind that does not exist, and a resource of nowhere, are not found either.
     let (status, _) = why(

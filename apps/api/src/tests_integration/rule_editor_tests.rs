@@ -355,8 +355,9 @@ async fn uses_of_lists_where_a_group_or_a_role_is_named() {
         .expect("uses");
     let want = |kind: &'static str, id: Uuid, name: &str| UsedIn {
         kind,
-        id,
-        name: name.to_owned(),
+        id: Some(id),
+        name: Some(name.to_owned()),
+        hidden: false,
     };
     assert_eq!(used.len(), 3, "{used:?}");
     for expected in [
