@@ -149,6 +149,18 @@ pub struct EntryDto {
     /// The view of a channel or the write bit of a calendar is the legacy setting of the system
     /// role (`allowed_roles`, `write_access`).
     pub via_legacy: bool,
+    /// Who last set this rule, for the people who edit this access; null for everybody else, for
+    /// a rule nobody is known to have set, and for someone who has left the space.
+    pub set_by: Option<SetByDto>,
+    /// When that was (RFC 3339), on the same terms as `set_by`.
+    pub set_at: Option<String>,
+}
+
+/// The person who last set a rule.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct SetByDto {
+    pub id: Uuid,
+    pub name: String,
 }
 
 /// What the caller may do in this dialog, each flag drawn from [`ensure_writable`]'s own rules.
@@ -236,6 +248,9 @@ struct StoredRow {
     user_standing: Option<String>,
     channel_name: Option<String>,
     group_has_guests: bool,
+    /// Who last set the rule, when they are still in the space.
+    set_by: Option<SetByDto>,
+    set_at: Option<String>,
 }
 
 async fn rows_on(
@@ -252,6 +267,9 @@ async fn rows_on(
                 r.system_key, r.name::text AS role_name, g.name::text AS group_name, \
                 u.display_name AS user_name, m.standing AS user_standing, \
                 c.name::text AS channel_name, \
+                CASE WHEN am.user_id IS NOT NULL THEN o.set_by END AS set_by, \
+                au.display_name AS set_by_name, \
+                to_char(o.set_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS set_at, \
                 EXISTS (SELECT 1 FROM space_group_members gm \
                           JOIN space_members sm ON sm.space_id = gm.space_id AND sm.user_id = gm.user_id \
                          WHERE gm.group_id = o.group_id AND sm.standing = 'guest' \
@@ -262,10 +280,14 @@ async fn rows_on(
            LEFT JOIN users u ON u.id = o.user_id \
            LEFT JOIN space_members m ON m.space_id = o.space_id AND m.user_id = o.user_id \
            LEFT JOIN channels c ON c.id = o.audience_channel_id \
+           LEFT JOIN users au ON au.id = o.set_by \
+           LEFT JOIN space_members am ON am.space_id = o.space_id AND am.user_id = o.set_by \
+                                     AND {active_am} \
           WHERE o.space_id = $1 AND o.{col} = ANY($2) \
           ORDER BY o.created_at, o.id",
         col = resource.column(),
         active_sm = active_sql!("sm"),
+        active_am = active_sql!("am"),
     );
     let mut rows = Vec::new();
     for row in db
@@ -294,6 +316,14 @@ async fn rows_on(
             user_standing: row.try_get("", "user_standing")?,
             channel_name: row.try_get("", "channel_name")?,
             group_has_guests: row.try_get("", "group_has_guests")?,
+            set_by: match (
+                row.try_get::<Option<Uuid>>("", "set_by")?,
+                row.try_get::<Option<String>>("", "set_by_name")?,
+            ) {
+                (Some(id), Some(name)) => Some(SetByDto { id, name }),
+                _ => None,
+            },
+            set_at: row.try_get("", "set_at")?,
         });
     }
     Ok(rows)
@@ -461,6 +491,8 @@ async fn line_of(
                 && !row.allow.intersect(GUEST_CEILING).is_empty(),
             guest,
             via_legacy: sys.is_some_and(|s| legacy_bit(kind, s).is_some()),
+            set_by: row.set_by.clone(),
+            set_at: row.set_at.clone(),
         },
         cover,
         rank,
@@ -723,6 +755,8 @@ async fn access_dto(
                 clamped: false,
                 guest: false,
                 via_legacy: legacy_bit(kind, sys).is_some(),
+                set_by: None,
+                set_at: None,
             },
             cover,
             rank,
@@ -733,6 +767,11 @@ async fn access_dto(
     // the allows (who has it) and the groups and roles, not the individual restrictions.
     if editor.is_none() {
         lines.retain(|line| !matches!(line.cover, Cover::User(_)) || line.dto.deny.is_empty());
+        // Who set a rule is for the same people: nobody else learns it.
+        for line in &mut lines {
+            line.dto.set_by = None;
+            line.dto.set_at = None;
+        }
     }
     // A guest sees what covers them: themselves, their groups, the guests line, what they hold.
     let people = load::people(db, space_id, Some(viewer)).await?;

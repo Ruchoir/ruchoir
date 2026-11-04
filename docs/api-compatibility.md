@@ -126,6 +126,13 @@ visibility and every right above the guest ceiling. The change between guest and
 as `member.standing_changed` (`before`, `after`: `guest` or `member`) besides `member.role_changed`,
 and announced with `permissions.changed`.
 
+Each entry of the access dialog (`GET .../access/{kind}/{id}`, and the answers of its writes) carries
+`set_by` (`{ "id", "name" }`) and `set_at` (RFC 3339): who last created or changed that rule, and
+when. They are filled only for a reader who may edit that resource's access; for everybody else, for
+a rule written before they were recorded, for a line no rule stands behind, and for an author who
+has left the space, both are `null` (`set_by` alone is `null` once the account is gone). The fields
+only grow the entries: nothing else changed.
+
 The last two are the enterprise edition's own names, listed after the instance's by that build
 only (`Edition::features`). What every instance of this version answers, whatever its edition,
 needs no name: a space's `edition` and, for its owners, `licence`; `GET .../roles` and

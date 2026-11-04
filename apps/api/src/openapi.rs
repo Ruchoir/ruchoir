@@ -298,6 +298,7 @@ use utoipa::OpenApi;
         crate::permissions::rule_routes::AccessSummaryDto,
         crate::permissions::rule_routes::AccessChangeDto,
         crate::permissions::rule_routes::AccessMayDto,
+        crate::permissions::rule_routes::SetByDto,
         crate::permissions::rule_routes::EntryDto,
         crate::permissions::why::WhyDto,
         crate::permissions::why::WhyPersonDto,

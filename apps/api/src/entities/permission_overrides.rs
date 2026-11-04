@@ -25,6 +25,9 @@ pub struct Model {
     pub allow: Vec<String>,
     pub deny: Vec<String>,
     pub created_by: Option<Uuid>,
+    /// Who last created or changed the rule, and when (null before they were recorded).
+    pub set_by: Option<Uuid>,
+    pub set_at: Option<TimeDateTimeWithTimeZone>,
     pub created_at: TimeDateTimeWithTimeZone,
     pub updated_at: TimeDateTimeWithTimeZone,
 }
