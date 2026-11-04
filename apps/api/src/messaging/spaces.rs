@@ -558,9 +558,10 @@ pub async fn update_member_role(
     let actor = crate::permissions::membership::active(&state.db, space_id, session.user_id)
         .await?
         .ok_or(ApiError::Forbidden)?;
-    let actor_rank = crate::permissions::delegation::rank_of(&state.db, space_id, session.user_id)
-        .await?
-        .ok_or(ApiError::Forbidden)?;
+    let actor_rank =
+        crate::permissions::delegation::actor_rank(&state.db, space_id, session.user_id)
+            .await?
+            .ok_or(ApiError::Forbidden)?;
     // Acting on one's own membership is caught by the rank rule below (nobody ranks below
     // themselves), but it is worth refusing by name: it is the one case a client could reach by
     // accident rather than by trying.

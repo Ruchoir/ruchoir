@@ -461,10 +461,11 @@ pub(super) async fn channel_member_count(
     db: &DatabaseConnection,
     channel_id: Uuid,
 ) -> Result<u64, ApiError> {
-    Ok(channel_members::Entity::find()
-        .filter(channel_members::Column::ChannelId.eq(channel_id))
-        .count(db)
-        .await?)
+    Ok(
+        crate::permissions::membership::channel_members_active(db, channel_id)
+            .await?
+            .len() as u64,
+    )
 }
 
 /// `POST /api/v1/spaces/{space_id}/dm`: open (or fetch) a direct message with a set of users.

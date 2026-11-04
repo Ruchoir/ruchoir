@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use super::catalogue::{Permission, PermissionSet};
 use super::check::Resource;
-use super::delegation::{rank_of, Rank};
+use super::delegation::{actor_rank, Rank};
 use super::membership::active_sql;
 use crate::auth::extract::AuthSession;
 use crate::messaging::error::ApiError;
@@ -111,7 +111,7 @@ pub async fn roles_of(
     viewer: Uuid,
 ) -> Result<Vec<RoleDto>, ApiError> {
     let rights = super::check::space_rights(db, space_id, viewer).await?;
-    let rank = rank_of(db, space_id, viewer)
+    let rank = actor_rank(db, space_id, viewer)
         .await?
         .ok_or(ApiError::Forbidden)?;
     let manages = rights.contains(Permission::RolesManage);

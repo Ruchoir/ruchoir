@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use super::catalogue::{Permission, PermissionSet};
 use super::check::space_rights;
-use super::delegation::{rank_of, Rank, RoleRow};
+use super::delegation::{actor_rank, Rank, RoleRow};
 use super::membership::active_sql;
 use crate::edition::Entitlement;
 use crate::messaging::error::ApiError;
@@ -188,7 +188,7 @@ pub async fn actor(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<Option<GroupActor>, ApiError> {
-    let Some(rank) = rank_of(&state.db, space_id, user_id).await? else {
+    let Some(rank) = actor_rank(&state.db, space_id, user_id).await? else {
         return Ok(None);
     };
     let rights = space_rights(&state.db, space_id, user_id).await?;

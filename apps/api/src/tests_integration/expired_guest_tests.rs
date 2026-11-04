@@ -464,27 +464,43 @@ async fn an_active_guest_and_a_member_are_unchanged() {
     assert_eq!(status, 204);
 }
 
-/// Every read of `space_members` outside `permissions/membership.rs` is one that is meant to see
-/// people whose access ended (management, the owner lookups, the writes and the import) and is on
-/// this list, with its file and function. A new read must go through `membership`, or be added here
-/// with its reason.
+/// Every read of `space_members`, and every read of `channel_members` that decides an audience, a
+/// count or a list, outside `permissions/membership.rs` is either filtered by the shared definition
+/// of "active" in the same statement, or is on one of these lists with its file, function and reason.
+/// A new read must go through `membership`, or be added here with its reason.
 #[test]
 fn no_bare_space_members_reads() {
-    const ALLOWED: &[(&str, &str)] = &[
+    // (file, function): management screens and the rows the engine itself loads.
+    const SPACE_MEMBERS: &[(&str, &str)] = &[
         // management: sees ended guests
         ("messaging/spaces.rs", "update_member_role"),
         ("messaging/spaces.rs", "remove_member"),
         ("messaging/spaces.rs", "leave_space"),
-        ("messaging/invitations.rs", "accept_invitation"),
         ("permissions/delegation.rs", "rank_of"),
         ("calendar/authz.rs", "create_space_default"),
         // the edition's seat count: guests are not counted
         ("edition.rs", "seats_used"),
-        // the rows the permission engine itself loads
-        ("permissions/load.rs", "PEOPLE"),
-        // writes and the import
+        // writes and the import (a row there already blocks the insert)
         ("importer/routes.rs", "invite_one"),
         ("importer/run.rs", "import_conversations"),
+    ];
+    const CHANNEL_MEMBERS: &[(&str, &str)] = &[
+        // filtered by the engine (`channel.view` among the members)
+        ("messaging/authz.rs", "channel_audience"),
+        // filtered by the active set right after
+        ("messaging/authz.rs", "visible_member_ids"),
+        // only narrows a pool that is already the active set
+        ("calendar/attendees.rs", "search_invitees"),
+        // the caller's own rows
+        ("files/views.rs", "shared_with_me"),
+        ("notify/prefs.rs", "scopes"),
+        ("messaging/conversations.rs", "unread_messages_by_space"),
+        // narrows candidates the notification path already took from the engine
+        ("notify/prefs.rs", "every_message_recipients"),
+        // write side: who is in already, to not add twice
+        ("messaging/channels.rs", "add_channel_members"),
+        // the engine's own load
+        ("permissions/load.rs", "memberships"),
     ];
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
     let mut stack = vec![root.clone()];
@@ -512,18 +528,20 @@ fn no_bare_space_members_reads() {
                 continue;
             }
             let text = std::fs::read_to_string(&path).expect("read");
-            let mut function = String::from("(top level)");
             let lines: Vec<&str> = text.lines().collect();
-            // A raw statement is fine when it carries the shared definition of "active" nearby.
-            let marked = |at: usize| {
-                lines[at.saturating_sub(3)..(at + 12).min(lines.len())]
-                    .iter()
-                    .any(|l| {
-                        l.contains("active_sql!")
-                            || l.contains("ACTIVE_SQL")
-                            || l.contains("{active}")
-                    })
+            // The statement that starts at `at`: up to its `.await` or its closing `);`.
+            let statement = |at: usize| -> String {
+                let mut end = at;
+                while end + 1 < lines.len()
+                    && end < at + 30
+                    && !lines[end].contains(".await")
+                    && !lines[end].trim_end().ends_with(");")
+                {
+                    end += 1;
+                }
+                lines[at..=end].join("\n")
             };
+            let mut function = String::from("(top level)");
             for (at, line) in lines.iter().enumerate() {
                 let trimmed = (*line).trim_start();
                 if let Some(rest) = trimmed
@@ -545,13 +563,23 @@ fn no_bare_space_members_reads() {
                 {
                     function = rest.split(':').next().unwrap_or("").trim().to_owned();
                 }
-                let reads = line.contains("space_members::Entity::")
+                let space_read = line.contains("space_members::Entity::")
                     && !line.contains("delete_by_id")
                     || line.contains("FROM space_members")
                     || line.contains("JOIN space_members");
-                if reads
-                    && !marked(at)
-                    && !ALLOWED.contains(&(relative.as_str(), function.as_str()))
+                let channel_read = line.contains("channel_members::Entity::find()")
+                    || line.contains("FROM channel_members")
+                    || line.contains("JOIN channel_members");
+                let here = (relative.as_str(), function.as_str());
+                let filtered = || {
+                    let sql = statement(at);
+                    sql.contains("active_sql!")
+                        || sql.contains("ACTIVE_SQL")
+                        || sql.contains("{active}")
+                        || sql.contains("active_condition")
+                };
+                if (space_read && !filtered() && !SPACE_MEMBERS.contains(&here))
+                    || (channel_read && !CHANNEL_MEMBERS.contains(&here))
                 {
                     offenders.push(format!("{relative} in {function}: {}", trimmed.trim()));
                 }
@@ -560,7 +588,216 @@ fn no_bare_space_members_reads() {
     }
     assert!(
         offenders.is_empty(),
-        "bare reads of space_members; go through permissions::membership or allow-list them:\n{}",
+        "bare reads; go through permissions::membership or allow-list them:\n{}",
         offenders.join("\n")
     );
+}
+
+/// Put people in the channel the way joining does, bypassing the routes.
+async fn join(app: &TestApp, channel: Uuid, users: &[Uuid]) {
+    for user in users {
+        exec(
+            &app.db,
+            "INSERT INTO channel_members (channel_id, user_id, role) VALUES ($1, $2, 'member')",
+            vec![channel.into(), (*user).into()],
+        )
+        .await
+        .expect("channel member");
+    }
+}
+
+/// Every frame type that reaches `ws` within a short window.
+async fn frame_types(ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>) -> Vec<String> {
+    let deadline = tokio::time::Instant::now() + Duration::from_millis(1200);
+    let mut seen = Vec::new();
+    while let Ok(Some(frame)) = tokio::time::timeout_at(deadline, ws.next()).await {
+        if let Ok(WsMessage::Text(text)) = frame {
+            if let Ok(event) = serde_json::from_str::<Value>(text.as_str()) {
+                if let Some(kind) = event["type"].as_str() {
+                    seen.push(kind.to_owned());
+                }
+            }
+        }
+    }
+    seen
+}
+
+#[tokio::test]
+async fn an_expired_guest_in_a_channel_hears_counts_and_lists_nothing() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    join(&app, fx.general, &[fx.member, fx.active, fx.expired]).await;
+    let owner = app.cookie_for(fx.owner).await;
+    let expired = app.cookie_for(fx.expired).await;
+    let active = app.cookie_for(fx.active).await;
+
+    // Not counted, not listed.
+    let (_, channels) = get_json(
+        &app,
+        &format!("/api/v1/spaces/{}/channels", fx.space),
+        &owner,
+    )
+    .await;
+    let general = channels
+        .as_array()
+        .expect("channels")
+        .iter()
+        .find(|c| c["id"] == fx.general.to_string())
+        .expect("general");
+    assert_eq!(
+        general["member_count"], 3,
+        "owner, member and the running guest"
+    );
+    let (_, listed) = get_json(
+        &app,
+        &format!("/api/v1/channels/{}/members", fx.general),
+        &owner,
+    )
+    .await;
+    let listed = ids(&listed, "user_id");
+    assert_eq!(listed.len(), 3, "{listed:?}");
+    assert!(!listed.contains(&fx.expired.to_string()));
+
+    // Hears nothing: a joining notice and a role change reach the others, not them.
+    let mut ended_ws = app.connect_ws(&expired).await;
+    let mut running_ws = app.connect_ws(&active).await;
+    let newcomer = make_user(&app.db, "newcomer").await;
+    crate::testkit::add_member(&app.db, fx.space, newcomer, "member").await;
+    let (status, body) = call(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/v1/channels/{}/members", fx.general),
+        &owner,
+        Some(json!({ "user_ids": [newcomer] })),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let (status, body) = call(
+        &app,
+        reqwest::Method::PATCH,
+        &format!("/api/v1/channels/{}/members/{}", fx.general, fx.member),
+        &owner,
+        Some(json!({ "role": "admin" })),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let running = frame_types(&mut running_ws).await;
+    assert!(
+        running.contains(&"message.created".to_owned()),
+        "{running:?}"
+    );
+    assert!(
+        running.contains(&"channel.membership".to_owned()),
+        "{running:?}"
+    );
+    let ended = frame_types(&mut ended_ws).await;
+    assert!(
+        !ended
+            .iter()
+            .any(|k| k == "message.created" || k == "channel.membership"),
+        "{ended:?}"
+    );
+}
+
+#[tokio::test]
+async fn an_ended_guest_cannot_come_back_through_an_invitation_link() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let owner = app.cookie_for(fx.owner).await;
+    let expired = app.cookie_for(fx.expired).await;
+    let (status, body) = call(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/v1/spaces/{}/invitations", fx.space),
+        &owner,
+        Some(json!({ "role": "member" })),
+    )
+    .await;
+    assert!(status == 200 || status == 201, "{status} {body}");
+    let created: Value = serde_json::from_str(&body).expect("json");
+    let token = created["url"]
+        .as_str()
+        .expect("url")
+        .rsplit(['/', '='])
+        .next()
+        .expect("token")
+        .to_owned();
+    let uses = |app: &TestApp| {
+        let db = app.db.clone();
+        let space = fx.space;
+        async move {
+            space_invitations::Entity::find()
+                .filter(space_invitations::Column::SpaceId.eq(space))
+                .one(&db)
+                .await
+                .expect("invitation")
+                .expect("row")
+                .uses
+        }
+    };
+    let before = uses(&app).await;
+    let (status, ended_body) = call(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/v1/invitations/{token}/accept"),
+        &expired,
+        None,
+    )
+    .await;
+    let (unknown_status, unknown_body) = call(
+        &app,
+        reqwest::Method::POST,
+        "/api/v1/invitations/not-a-real-token/accept",
+        &expired,
+        None,
+    )
+    .await;
+    assert_eq!(status, 404, "{ended_body}");
+    assert_eq!((status, ended_body), (unknown_status, unknown_body));
+    assert_eq!(uses(&app).await, before, "no use is spent");
+    let rows = channel_members::Entity::find()
+        .filter(channel_members::Column::ChannelId.eq(fx.general))
+        .filter(channel_members::Column::UserId.eq(fx.expired))
+        .count(&app.db)
+        .await
+        .expect("count");
+    assert_eq!(rows, 0, "nothing is written");
+}
+
+#[tokio::test]
+async fn an_ended_guest_cannot_act_on_ranks() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let expired = app.cookie_for(fx.expired).await;
+    let space = fx.space;
+    // Roles read, a group made, an invitation to the admin role, a member removed: refused.
+    for (method, path, body) in [
+        (
+            reqwest::Method::GET,
+            format!("/api/v1/spaces/{space}/roles"),
+            None,
+        ),
+        (
+            reqwest::Method::POST,
+            format!("/api/v1/spaces/{space}/groups"),
+            Some(json!({ "name": "Sneaky" })),
+        ),
+        (
+            reqwest::Method::POST,
+            format!("/api/v1/spaces/{space}/invitations"),
+            Some(json!({ "role": "admin" })),
+        ),
+        (
+            reqwest::Method::DELETE,
+            format!("/api/v1/spaces/{space}/members/{}", fx.active),
+            None,
+        ),
+    ] {
+        let (status, text) = call(&app, method, &path, &expired, body).await;
+        assert_eq!(status, 403, "{path}: {text}");
+    }
+    let actor = crate::permissions::delegation::actor_rank(&app.db, space, fx.expired)
+        .await
+        .expect("rank");
+    assert!(actor.is_none(), "an ended guest has no rank as an actor");
 }

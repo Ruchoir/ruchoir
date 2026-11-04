@@ -309,10 +309,8 @@ async fn write_channel_notice_with(
             return;
         }
     };
-    let Ok(members) = channel_members::Entity::find()
-        .filter(channel_members::Column::ChannelId.eq(channel_id))
-        .all(&state.db)
-        .await
+    let Ok(members) =
+        crate::permissions::membership::channel_members_active(&state.db, channel_id).await
     else {
         return;
     };
@@ -943,10 +941,8 @@ pub async fn list_channel_members(
         return Err(ApiError::Forbidden);
     }
 
-    let memberships = channel_members::Entity::find()
-        .filter(channel_members::Column::ChannelId.eq(channel_id))
-        .all(&state.db)
-        .await?;
+    let memberships =
+        crate::permissions::membership::channel_members_active(&state.db, channel_id).await?;
     let ids: Vec<Uuid> = memberships.iter().map(|m| m.user_id).collect();
     let by_id: std::collections::HashMap<Uuid, users::Model> = users::Entity::find()
         .filter(users::Column::Id.is_in(ids))
@@ -1347,11 +1343,7 @@ async fn announce_membership(
 ) {
     let mut audience = vec![user_id];
     if change == "role" {
-        match channel_members::Entity::find()
-            .filter(channel_members::Column::ChannelId.eq(channel.id))
-            .all(&state.db)
-            .await
-        {
+        match crate::permissions::membership::channel_members_active(&state.db, channel.id).await {
             Ok(members) => audience.extend(
                 members
                     .into_iter()
@@ -1388,13 +1380,12 @@ async fn channel_audience(
 ) -> Result<Vec<Uuid>, ApiError> {
     if channel_type == "private" {
         // Its members, and the space's owner, who sees it listed whether or not they are in it.
-        let mut audience: Vec<Uuid> = channel_members::Entity::find()
-            .filter(channel_members::Column::ChannelId.eq(channel_id))
-            .all(db)
-            .await?
-            .into_iter()
-            .map(|m| m.user_id)
-            .collect();
+        let mut audience: Vec<Uuid> =
+            crate::permissions::membership::channel_members_active(db, channel_id)
+                .await?
+                .into_iter()
+                .map(|m| m.user_id)
+                .collect();
         for owner in check::owners(db, space_id).await? {
             if !audience.contains(&owner) {
                 audience.push(owner);

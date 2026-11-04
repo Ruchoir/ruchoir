@@ -108,10 +108,10 @@ pub async fn create_invitation(
     // holds `roles.manage` and ranks above it (rule 1). Without this, anyone who may invite could
     // hand out the role above their own, through a second account.
     if role == "admin" {
-        use crate::permissions::delegation::{fixed_role_position, rank_of};
+        use crate::permissions::delegation::{actor_rank, fixed_role_position};
         let rights =
             crate::permissions::check::space_rights(&state.db, space_id, session.user_id).await?;
-        let rank = rank_of(&state.db, space_id, session.user_id)
+        let rank = actor_rank(&state.db, space_id, session.user_id)
             .await?
             .ok_or(ApiError::Forbidden)?;
         let above = fixed_role_position(&state.db, space_id, "admin")
@@ -444,10 +444,15 @@ pub async fn accept_invitation(
         }
     }
 
-    // management: sees ended guests (a returning guest is reactivated by a later step).
-    let existing = space_members::Entity::find_by_id((record.space_id, session.user_id))
-        .one(&state.db)
-        .await?;
+    // A guest whose access ended is not "already a member", and a link does not bring them back:
+    // reactivation by a manager is the only way. Answered like an unknown link, nothing written.
+    let existing =
+        match crate::permissions::membership::any(&state.db, record.space_id, session.user_id)
+            .await?
+        {
+            Some(row) if row.ended => return Err(ApiError::NotFound),
+            other => other.map(|row| row.model),
+        };
     let already_member = existing.is_some();
     // The arrival notice written into the channel, when there was a real arrival and the space has a
     // public channel to write it in. Published after the commit, like every other message.

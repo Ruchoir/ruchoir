@@ -509,7 +509,17 @@ pub async fn visible_member_ids(
             .await?;
         visible.extend(from_dms.into_iter().map(|p| p.user_id));
     }
-    Ok(visible.into_iter().collect())
+    // Someone whose access ended can still hold a row in a shared channel: they are not visible.
+    let still_in: HashSet<Uuid> =
+        membership::active_among(db, space_id, visible.iter().copied().collect())
+            .await?
+            .into_iter()
+            .map(|m| m.user_id)
+            .collect();
+    Ok(visible
+        .into_iter()
+        .filter(|id| still_in.contains(id))
+        .collect())
 }
 
 /// Whether a user belongs to a space. Space membership is the outer boundary: every channel and DM

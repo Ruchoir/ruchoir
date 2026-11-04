@@ -45,14 +45,12 @@ pub fn active_condition() -> Condition {
 
 /// A membership row and whether its access has ended (as of the database's clock).
 #[derive(Clone, Debug)]
-#[allow(dead_code)] // used by the ended-access screens (task 5)
 pub struct Membership {
     pub model: space_members::Model,
     pub ended: bool,
 }
 
 #[derive(FromQueryResult)]
-#[allow(dead_code)] // used by `any` (task 5)
 struct WithEnded {
     #[sea_orm(nested)]
     model: space_members::Model,
@@ -143,6 +141,32 @@ pub async fn active_users_in<C: ConnectionTrait>(
         .await
 }
 
+/// The rows of a channel's members who are still in its space: someone whose access ended keeps
+/// their row (for reactivation) but is not heard, counted or listed.
+pub async fn channel_members_active<C: ConnectionTrait>(
+    db: &C,
+    channel_id: Uuid,
+) -> Result<Vec<crate::entities::channel_members::Model>, DbErr> {
+    use crate::entities::{channel_members, channels};
+    let Some(channel) = channels::Entity::find_by_id(channel_id).one(db).await? else {
+        return Ok(Vec::new());
+    };
+    let rows = channel_members::Entity::find()
+        .filter(channel_members::Column::ChannelId.eq(channel_id))
+        .all(db)
+        .await?;
+    let ids: Vec<Uuid> = rows.iter().map(|m| m.user_id).collect();
+    let active: std::collections::HashSet<Uuid> = active_among(db, channel.space_id, ids)
+        .await?
+        .into_iter()
+        .map(|m| m.user_id)
+        .collect();
+    Ok(rows
+        .into_iter()
+        .filter(|m| active.contains(&m.user_id))
+        .collect())
+}
+
 /// The spaces `user_id` is actively in.
 pub async fn spaces_of<C: ConnectionTrait>(db: &C, user_id: Uuid) -> Result<Vec<Uuid>, DbErr> {
     space_members::Entity::find()
@@ -173,7 +197,6 @@ pub async fn ended<C: ConnectionTrait>(
 
 /// The row of `user_id` in the space, ended or not. For management only (reactivating, removing);
 /// everything else asks [`active`].
-#[allow(dead_code)] // used by the ended-access screens (task 5)
 pub async fn any<C: ConnectionTrait>(
     db: &C,
     space_id: Uuid,
