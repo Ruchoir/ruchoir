@@ -2462,3 +2462,204 @@ async fn person_level_denies_are_shown_to_editors_only() {
         "an allow is not hidden"
     );
 }
+
+// -- the public write path (`write_entry`), as an edition calls it ---------------------------------
+
+use crate::auth::extract::AuthSession;
+use crate::permissions::catalogue::PermissionSet;
+use crate::permissions::levels::{rule_sets, Kind, Level, Target};
+use crate::permissions::rule_routes::{write_entry, Change, Pick};
+use crate::permissions::rules::ResourceRef;
+
+fn session_of(user: Uuid) -> AuthSession {
+    AuthSession {
+        user_id: user,
+        session_id: "test".to_owned(),
+        mfa_level: "none".to_owned(),
+    }
+}
+
+/// The error code of a refused write: the `BadRequestCode` code, `not_found`, or `other`.
+fn refusal<T>(result: Result<T, crate::messaging::error::ApiError>) -> &'static str {
+    use crate::messaging::error::ApiError;
+    match result {
+        Ok(_) => "ok",
+        Err(ApiError::BadRequestCode { code, .. }) => code,
+        Err(ApiError::NotFound) => "not_found",
+        Err(_) => "other",
+    }
+}
+
+#[tokio::test]
+async fn write_entry_validates_the_sets_itself() {
+    let Some(app) = licensed().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let owner = session_of(fx.owner);
+    let go = |allow: PermissionSet, deny: PermissionSet| {
+        write_entry(
+            &app.state,
+            &owner,
+            fx.space_id,
+            ResourceRef::Channel(channel),
+            Pick::Group(group),
+            Change::Sets { allow, deny },
+        )
+    };
+    // A space-level permission is no rule on a channel, whatever the caller built.
+    let invite = PermissionSet::of(&[Permission::MembersInvite]);
+    assert_eq!(
+        refusal(go(invite, PermissionSet::EMPTY).await),
+        "wrong_family"
+    );
+    assert_eq!(
+        refusal(go(PermissionSet::EMPTY, invite).await),
+        "wrong_family"
+    );
+    // A permission of another family.
+    let files = PermissionSet::of(&[Permission::FilesView]);
+    assert_eq!(
+        refusal(go(files, PermissionSet::EMPTY).await),
+        "wrong_family"
+    );
+    // One permission on both sides.
+    let send = PermissionSet::of(&[Permission::MessageSend]);
+    assert_eq!(refusal(go(send, send).await), "permission_in_both");
+    assert!(rules_on(&app.db, "channel_id", channel).await.is_empty());
+}
+
+#[tokio::test]
+async fn sets_on_a_base_role_must_be_exactly_a_level() {
+    let Some(app) = licensed().await else { return };
+    let fx = ladder(&app.db).await;
+    let calendar = space_calendar(&app.db, fx.space_id, "admins").await;
+    let (allow, deny) =
+        rule_sets(Kind::Calendar, Target::Everyone, Level::Contribute).expect("sets");
+    let missing_write = allow.minus(PermissionSet::of(&[Permission::CalendarWrite]));
+    assert_ne!(missing_write, allow, "Contribute carries calendar.write");
+    let owner = session_of(fx.owner);
+    let go = |allow, deny| {
+        write_entry(
+            &app.state,
+            &owner,
+            fx.space_id,
+            ResourceRef::Calendar(calendar),
+            Pick::Everyone(None),
+            Change::Sets { allow, deny },
+        )
+    };
+    assert_eq!(
+        refusal(go(missing_write, deny).await),
+        "base_role_levels_only"
+    );
+    assert_eq!(write_access(&app.db, calendar).await, "admins");
+    assert!(rules_on(&app.db, "calendar_id", calendar).await.is_empty());
+    // The exact sets of the level are the level.
+    assert_eq!(refusal(go(allow, deny).await), "ok");
+    assert_eq!(write_access(&app.db, calendar).await, "members");
+}
+
+#[tokio::test]
+async fn empty_sets_are_a_deletion() {
+    let Some(app) = licensed().await else { return };
+    let fx = ladder(&app.db).await;
+    let admin = session_of(fx.admin);
+    let empty = Change::Sets {
+        allow: PermissionSet::EMPTY,
+        deny: PermissionSet::EMPTY,
+    };
+
+    // Bridged: two calendars in the same state, one closed by DELETE, one by empty sets.
+    let by_delete = space_calendar(&app.db, fx.space_id, "members").await;
+    let by_sets = space_calendar(&app.db, fx.space_id, "members").await;
+    for calendar in [by_delete, by_sets] {
+        let (status, _) = put(
+            &app,
+            fx.admin,
+            fx.space_id,
+            "calendar",
+            calendar,
+            everyone(),
+            "read",
+        )
+        .await;
+        assert_eq!(status, 200);
+    }
+    let (_, body) = read(&app, fx.admin, fx.space_id, "calendar", by_delete).await;
+    let rule_id: Option<Uuid> = everyone_entry(&body)["id"]
+        .as_str()
+        .map(|s| s.parse().expect("uuid"));
+    assert!(
+        rule_id.is_some(),
+        "the lowered calendar keeps a rule: {body}"
+    );
+    let deleted_with_rule = match rule_id {
+        Some(id) => {
+            remove(&app, fx.admin, fx.space_id, "calendar", by_delete, id)
+                .await
+                .0
+        }
+        None => 404,
+    };
+    let sets_result = refusal(
+        write_entry(
+            &app.state,
+            &admin,
+            fx.space_id,
+            ResourceRef::Calendar(by_sets),
+            Pick::Everyone(None),
+            empty,
+        )
+        .await,
+    );
+    // Same answer as DELETE on the same state (a rule there: gone; none: not found)...
+    assert_eq!(
+        sets_result == "ok",
+        deleted_with_rule == 204,
+        "{sets_result} / {deleted_with_rule}"
+    );
+    // ...and the same legacy setting afterwards.
+    assert_eq!(
+        write_access(&app.db, by_sets).await,
+        write_access(&app.db, by_delete).await
+    );
+
+    // Not bridged: a group's rule on a channel, then none.
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let clear = || {
+        write_entry(
+            &app.state,
+            &admin,
+            fx.space_id,
+            ResourceRef::Channel(channel),
+            Pick::Group(group),
+            empty,
+        )
+    };
+    // No rule: not a silent no-op, a 404 like DELETE.
+    assert_eq!(refusal(clear().await), "not_found");
+    let (status, _) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        group_target(group),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(refusal(clear().await), "ok");
+    assert_eq!(
+        rule_count(&app.db, "channel_id", channel, ("group_id", group)).await,
+        0
+    );
+    let actions: Vec<String> = audit_rows(&app.db, fx.space_id)
+        .await
+        .into_iter()
+        .map(|(a, _)| a)
+        .collect();
+    assert_eq!(actions.last().map(String::as_str), Some("rule.deleted"));
+}

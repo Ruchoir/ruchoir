@@ -865,43 +865,57 @@ pub fn pick_of(target: &AccessTargetRequest) -> Result<Pick, ApiError> {
     }
 }
 
-/// The sets a fine rule names on `resource`: every name must be a permission of the catalogue
-/// (`unknown_permission`) that a rule on this kind of resource can set, of its own family
-/// (`wrong_family`), and none in both lists (`permission_in_both`).
-pub fn sets_from_names(
+/// Checks the sets of a fine rule on `resource`: every permission is one a rule on this kind of
+/// resource can set, of its own family (`wrong_family`), and none is on both sides
+/// (`permission_in_both`). The one place this is decided: names and hand-built sets both pass here.
+fn check_sets(
     resource: ResourceRef,
-    allow: &[String],
-    deny: &[String],
-) -> Result<(PermissionSet, PermissionSet), ApiError> {
+    allow: PermissionSet,
+    deny: PermissionSet,
+) -> Result<(), ApiError> {
     let family = match resource.kind() {
         Kind::Channel => super::catalogue::Family::Channel,
         Kind::File => super::catalogue::Family::Files,
         Kind::Calendar => super::catalogue::Family::Calendar,
     };
-    let read = |names: &[String]| -> Result<PermissionSet, ApiError> {
-        let mut set = PermissionSet::EMPTY;
-        for name in names {
-            let permission = Permission::parse(name).ok_or(ApiError::BadRequestCode {
-                code: "unknown_permission",
-                message: "This permission does not exist.",
-            })?;
-            if permission.family() != family || !permission.resource_level() {
-                return Err(ApiError::BadRequestCode {
-                    code: "wrong_family",
-                    message: "This permission cannot be set on this kind of resource.",
-                });
-            }
-            set.insert(permission);
-        }
-        Ok(set)
-    };
-    let (allow, deny) = (read(allow)?, read(deny)?);
+    if allow
+        .union(deny)
+        .iter()
+        .any(|p| p.family() != family || !p.resource_level())
+    {
+        return Err(ApiError::BadRequestCode {
+            code: "wrong_family",
+            message: "This permission cannot be set on this kind of resource.",
+        });
+    }
     if !allow.intersect(deny).is_empty() {
         return Err(ApiError::BadRequestCode {
             code: "permission_in_both",
             message: "A permission is either allowed or denied, not both.",
         });
     }
+    Ok(())
+}
+
+/// The sets a fine rule names on `resource`: every name must be a permission of the catalogue
+/// (`unknown_permission`), then the sets are checked as [`write_entry`] checks them.
+pub fn sets_from_names(
+    resource: ResourceRef,
+    allow: &[String],
+    deny: &[String],
+) -> Result<(PermissionSet, PermissionSet), ApiError> {
+    let read = |names: &[String]| -> Result<PermissionSet, ApiError> {
+        let mut set = PermissionSet::EMPTY;
+        for name in names {
+            set.insert(Permission::parse(name).ok_or(ApiError::BadRequestCode {
+                code: "unknown_permission",
+                message: "This permission does not exist.",
+            })?);
+        }
+        Ok(set)
+    };
+    let (allow, deny) = (read(allow)?, read(deny)?);
+    check_sets(resource, allow, deny)?;
     Ok((allow, deny))
 }
 
@@ -1351,6 +1365,10 @@ pub enum Change {
 /// of the enterprise edition: lock the resource, decide on the editor as the lock leaves them
 /// ([`ensure_writable`], paid gate included), write the rule or the legacy setting it stands for,
 /// keep the Administrator at Manage, log, announce. Answers the dialog as it is now.
+///
+/// Callers outside this crate still go through the paid gate in [`ensure_writable`] (unchanged),
+/// and `Change::Sets` is validated here ([`check_sets`]), whatever built it. Empty sets are a
+/// deletion, on the very path of `DELETE .../entries/{rule_id}`.
 pub async fn write_entry(
     state: &AppState,
     session: &AuthSession,
@@ -1364,6 +1382,14 @@ pub async fn write_entry(
         .await?
         .ok_or(ApiError::Forbidden)?;
     let kind = resource.kind();
+    if let Change::Sets { allow, deny } = change {
+        check_sets(resource, allow, deny)?;
+        if allow.is_empty() && deny.is_empty() {
+            delete_by(state, session, space_id, resource, Which::Target(pick)).await?;
+            let editor = editor_of(state, space_id, session.user_id, resource).await?;
+            return access_dto(state, space_id, session.user_id, resource, editor.as_ref()).await;
+        }
+    }
 
     let txn = state.db.begin().await?;
     lock_resource(&txn, space_id, resource).await?;
@@ -1372,6 +1398,22 @@ pub async fn write_entry(
         .ok_or(ApiError::Forbidden)?;
     let target = resolve(state, &txn, space_id, session.user_id, pick).await?;
     let class = target.subject.class();
+    let bridged = target.sys.filter(|&sys| legacy_bit(kind, sys).is_some());
+    // A base role's view (channel) or write bit (calendar) lives in the legacy settings, so only
+    // a level can be written there: the sets must be exactly a level's, which are what rule 2 and
+    // the guest ceiling then check.
+    if let (Some(_), Change::Sets { allow, deny }) = (bridged, change) {
+        let exact = [Level::None, Level::Read, Level::Contribute, Level::Manage]
+            .into_iter()
+            .any(|level| rule_sets(kind, class, level) == Ok((allow, deny)));
+        if !exact {
+            return Err(ApiError::BadRequestCode {
+                code: "base_role_levels_only",
+                message:
+                    "Everyone and the Administrator take levels, not single permissions, here.",
+            });
+        }
+    }
     let (allow, deny) = match change {
         Change::Level(level) => match rule_sets(kind, class, level) {
             Ok(sets) => sets,
@@ -1397,7 +1439,6 @@ pub async fn write_entry(
     )
     .map_err(|refusal| refusal.into_api(&state.config.pricing_url))?;
 
-    let bridged = target.sys.filter(|&sys| legacy_bit(kind, sys).is_some());
     // The level the write stands for, when it is one: what the legacy settings and the
     // Administrator's keep are driven by.
     let level = match change {
@@ -1493,28 +1534,6 @@ pub async fn write_entry(
         }
     } else if existing.is_some_and(|e| (e.allow, e.deny) == (allow, deny)) {
         false
-    } else if matches!(change, Change::Sets { .. }) && allow.is_empty() && deny.is_empty() {
-        // A fine rule of nothing is no rule: the row goes (ensure_writable has judged it as the
-        // removal of what it held).
-        match stored {
-            Some(rule) => {
-                delete_rule(
-                    &txn,
-                    space_id,
-                    session.user_id,
-                    resource,
-                    target.subject,
-                    rule.id,
-                    Shown {
-                        before: describe(kind, class, rule.allow, rule.deny),
-                        after: serde_json::Value::Null,
-                    },
-                )
-                .await?;
-                true
-            }
-            None => false,
-        }
     } else {
         write_rule(
             &txn,
@@ -1574,33 +1593,71 @@ pub async fn delete_entry(
     Path((space_id, kind, resource_id, rule_id)): Path<(Uuid, String, Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     let resource = resource_of(&kind, resource_id)?;
-    editor_of(&state, space_id, session.user_id, resource)
+    delete_by(&state, &session, space_id, resource, Which::Rule(rule_id)).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Which rule a deletion means: the line's id, or whoever it is aimed at.
+enum Which {
+    Rule(Uuid),
+    Target(Pick),
+}
+
+/// The one deletion of a rule, for `DELETE .../entries/{rule_id}` and for fine rules written empty:
+/// decided like a write of nothing over what is there, the legacy setting of a base role put back,
+/// logged and announced. `404` when the resource has no such rule.
+async fn delete_by(
+    state: &AppState,
+    session: &AuthSession,
+    space_id: Uuid,
+    resource: ResourceRef,
+    which: Which,
+) -> Result<(), ApiError> {
+    editor_of(state, space_id, session.user_id, resource)
         .await?
         .ok_or(ApiError::Forbidden)?;
     let kind = resource.kind();
 
     let txn = state.db.begin().await?;
     lock_resource(&txn, space_id, resource).await?;
-    let editor = editor_of(&state, space_id, session.user_id, resource)
+    let editor = editor_of(state, space_id, session.user_id, resource)
         .await?
         .ok_or(ApiError::Forbidden)?;
-    let found = rows_on(&txn, space_id, resource, &[resource.id()])
-        .await?
-        .into_iter()
-        .find(|row| row.id == rule_id)
-        .ok_or(ApiError::NotFound)?;
-    let pick = if let Some(role) = found.role_id {
-        Pick::Role(role)
-    } else if let Some(group) = found.group_id {
-        Pick::Group(group)
-    } else if let Some(user) = found.user_id {
-        Pick::User(user)
-    } else if let Some(channel) = found.audience_id {
-        Pick::Audience(channel)
-    } else {
-        return Err(ApiError::NotFound);
+    let rows = rows_on(&txn, space_id, resource, &[resource.id()]).await?;
+    let (found, target) = match which {
+        Which::Rule(rule_id) => {
+            let found = rows
+                .into_iter()
+                .find(|row| row.id == rule_id)
+                .ok_or(ApiError::NotFound)?;
+            let pick = if let Some(role) = found.role_id {
+                Pick::Role(role)
+            } else if let Some(group) = found.group_id {
+                Pick::Group(group)
+            } else if let Some(user) = found.user_id {
+                Pick::User(user)
+            } else if let Some(channel) = found.audience_id {
+                Pick::Audience(channel)
+            } else {
+                return Err(ApiError::NotFound);
+            };
+            let target = resolve(state, &txn, space_id, session.user_id, pick).await?;
+            (found, target)
+        }
+        Which::Target(pick) => {
+            let target = resolve(state, &txn, space_id, session.user_id, pick).await?;
+            let subject = target.subject.id();
+            let found = rows
+                .into_iter()
+                .find(|row| {
+                    [row.role_id, row.group_id, row.user_id, row.audience_id]
+                        .contains(&Some(subject))
+                })
+                .ok_or(ApiError::NotFound)?;
+            (found, target)
+        }
     };
-    let target = resolve(&state, &txn, space_id, session.user_id, pick).await?;
+    let rule_id = found.id;
     let existing = Existing {
         allow: found.allow,
         deny: found.deny,
@@ -1641,11 +1698,11 @@ pub async fn delete_entry(
         None => false,
     };
     txn.commit().await?;
-    super::changed::announce(&state, space_id).await;
+    super::changed::announce(state, space_id).await;
     if view_moved {
-        tell_channel(&state, resource, session.user_id).await;
+        tell_channel(state, resource, session.user_id).await;
     }
-    Ok(StatusCode::NO_CONTENT)
+    Ok(())
 }
 
 #[cfg(test)]
