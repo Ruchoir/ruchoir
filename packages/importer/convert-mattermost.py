@@ -26,7 +26,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 PRODUCER = "ruchoir-convert-mattermost 0.1.0"
 
 # Mattermost narrates events as posts with a `type`. Only the ones with an equivalent here cross,
@@ -193,6 +193,9 @@ class Converter:
         self.user_spaces: dict[str, list[str]] = defaultdict(list)
         # What each person kept, per conversation: a favourite, a reading position.
         self.member_state: dict[str, list[dict]] = defaultdict(list)
+        # One line per person and team (format 2), and who moderates which conversation.
+        self.memberships: list[dict] = []
+        self.moderators: dict[str, list[str]] = defaultdict(list)
         self.dropped_system: set[str] = set()
         self.untranslated_emoji: set[str] = set()
         self.source_version = "unknown"
@@ -243,13 +246,27 @@ class Converter:
         }
         # Membership lives on the account, not on the channel: this is where a channel's roster
         # comes from, and where we learn which spaces someone belongs to.
+        # Roles are space-separated words ("team_user team_admin"). A guest account, or a guest of
+        # one team, is a guest and holds nothing else; `system_admin` alone says nothing about a
+        # team, so it does not make anybody an administrator of one.
+        system_guest = "system_guest" in str(user.get("roles") or "").split()
         for team in user.get("teams") or []:
             self.user_spaces[username].append(team["name"])
+            team_roles = str(team.get("roles") or "").split()
+            if system_guest or "team_guest" in team_roles:
+                role = "guest"
+            elif "team_admin" in team_roles:
+                role = "admin"
+            else:
+                role = "member"
+            self.memberships.append({"space": team["name"], "user": username, "role": role})
             for channel in team.get("channels") or []:
                 key = f"{team['name']}/{channel['name']}"
                 self.channels.setdefault(key, {"members": []})
                 self.channels[key]["members"].append(username)
                 self._remember_state(key, username, channel)
+                if role != "guest" and "channel_admin" in str(channel.get("roles") or "").split():
+                    self.moderators[key].append(username)
 
     def _remember_state(self, channel_key: str, username: str, membership: dict) -> None:
         """A favourite and a reading position belong to a person, not to the conversation.
@@ -460,11 +477,14 @@ class Converter:
             state = self.member_state.get(channel["id"])
             if state:
                 channel["member_state"] = sorted(state, key=lambda e: e["user"])
+            if self.moderators.get(channel["id"]):
+                channel["moderators"] = sorted(self.moderators[channel["id"]])
         self._write_jsonl("spaces.jsonl", self.spaces.values())
         self._write_jsonl("users.jsonl", self.users.values())
         self._write_jsonl("channels.jsonl", channels)
         self._write_jsonl("messages.jsonl", self.messages)
         self._write_jsonl("files.jsonl", self.files.values())
+        self._write_jsonl("members.jsonl", sorted(self.memberships, key=lambda m: (m["space"], m["user"])))
 
         limits = [
             "Archived channels are absent from a Mattermost bulk export: what was archived there does not arrive here at all.",
@@ -474,6 +494,8 @@ class Converter:
             "Only Mattermost notices with an equivalent here cross (joining or leaving a channel or a team). Purpose, header and rename notices are dropped.",
             "Channel notification preferences are not carried over: what someone chose to be notified about in another product is not worth moving.",
             "Bots are not imported as accounts: their posts arrive attributed to an absent author.",
+            "Mattermost user groups are not exported: a bulk export carries none. Team administrators arrive as administrators, guest accounts as guests and channel administrators as moderators of their channel.",
+            "Les groupes d'utilisateurs de Mattermost ne sont pas exportés : un export en masse n'en contient pas. Les administrateurs d'équipe arrivent administrateurs, les comptes invités invités et les administrateurs de canal modérateurs de leur canal.",
         ]
         if self.dropped_system:
             limits.append(
@@ -498,10 +520,11 @@ class Converter:
                 "channels": len(channels),
                 "messages": len(self.messages),
                 "files": len(self.files),
+                "members": len(self.memberships),
             },
             "checksums": {
                 name: "sha256:" + digest(self.out / name)
-                for name in ("spaces.jsonl", "users.jsonl", "channels.jsonl", "messages.jsonl", "files.jsonl")
+                for name in ("spaces.jsonl", "users.jsonl", "channels.jsonl", "messages.jsonl", "files.jsonl", "members.jsonl")
             },
             "limits": limits,
         }

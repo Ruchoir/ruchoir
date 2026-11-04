@@ -418,6 +418,82 @@ class ConverterCase(unittest.TestCase):
         messages = read_jsonl(self.convert(rows), "messages.jsonl")
         self.assertEqual(len({m["id"] for m in messages}), 2)
 
+    # -- roles, guests and channel moderators (format 2) -------------------------------------------
+    def members(self, out: Path) -> dict[tuple, dict]:
+        return {(m["space"], m["user"]): m for m in read_jsonl(out, "members.jsonl")}
+
+    def with_roles(self, *people: dict) -> list[dict]:
+        return [team("atelier"), team("direction", "I"), channel("general"), *people]
+
+    def test_a_team_admin_is_an_administrator_of_that_team_only(self) -> None:
+        alice = user("alice", teams=("atelier", "direction"))
+        alice["user"]["teams"][0]["roles"] = "team_user team_admin"
+        alice["user"]["teams"][1]["roles"] = "team_user"
+        members = self.members(self.convert(self.with_roles(alice)))
+        self.assertEqual(members[("atelier", "alice")]["role"], "admin")
+        self.assertEqual(members[("direction", "alice")]["role"], "member")
+
+    def test_a_guest_account_is_a_guest(self) -> None:
+        bob = user("bob", teams=("atelier", "direction"), roles="system_guest")
+        carol = user("carol")
+        carol["user"]["teams"][0]["roles"] = "team_guest"
+        dave = user("dave")
+        members = self.members(self.convert(self.with_roles(bob, carol, dave)))
+        self.assertEqual(members[("atelier", "bob")]["role"], "guest")
+        self.assertEqual(members[("direction", "bob")]["role"], "guest")
+        self.assertEqual(members[("atelier", "carol")]["role"], "guest")
+        self.assertEqual(members[("atelier", "dave")]["role"], "member")
+
+    def test_a_channel_admin_is_a_moderator_of_that_channel(self) -> None:
+        rows = [
+            team("atelier"), channel("general"), channel("autre"),
+            user("alice", channels=[{"name": "general", "roles": "channel_user channel_admin"},
+                                    {"name": "autre", "roles": "channel_user"}]),
+            user("bob", channels=[{"name": "general", "roles": "channel_user"}]),
+        ]
+        channels = by_id(self.convert(rows), "channels.jsonl")
+        self.assertEqual(channels["atelier/general"]["moderators"], ["alice"])
+        self.assertNotIn("moderators", channels["atelier/autre"])
+
+    def test_system_admin_alone_is_not_a_team_administrator(self) -> None:
+        alice = user("alice", roles="system_admin system_user")
+        alice["user"]["teams"][0]["roles"] = "team_user"
+        members = self.members(self.convert(self.with_roles(alice)))
+        self.assertEqual(members[("atelier", "alice")]["role"], "member")
+
+    def test_a_person_in_two_teams_gets_two_lines(self) -> None:
+        out = self.convert(self.with_roles(user("alice", teams=("atelier", "direction"))))
+        self.assertEqual(len([m for m in read_jsonl(out, "members.jsonl") if m["user"] == "alice"]), 2)
+
+    def test_moderators_are_a_subset_of_members(self) -> None:
+        rows = [
+            team("atelier"), channel("general"),
+            user("alice", channels=[{"name": "general", "roles": "channel_admin"}]),
+            user("bob", channels=[{"name": "general", "roles": "channel_admin"}], roles="system_guest"),
+        ]
+        out = self.convert(rows)
+        general = by_id(out, "channels.jsonl")["atelier/general"]
+        self.assertTrue(set(general["moderators"]) <= set(general["members"]))
+        # A guest holds no role, a moderator seat included.
+        self.assertEqual(general["moderators"], ["alice"])
+        report = validator.validate(out)
+        self.assertEqual((report.errors, report.warnings), ([], []))
+
+    def test_the_manifest_is_format_2_with_counts(self) -> None:
+        out = self.convert(self.with_roles(user("alice"), user("bob", teams=("atelier", "direction"))))
+        manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["format_version"], 2)
+        self.assertEqual(manifest["counts"]["members"], 3)
+        self.assertIn("members.jsonl", manifest["checksums"])
+        self.assertFalse(any("no roles" in line for line in manifest["limits"]))
+
+    def test_user_groups_are_declared_not_exported(self) -> None:
+        out = self.convert(self.base())
+        limits = json.loads((out / "manifest.json").read_text(encoding="utf-8"))["limits"]
+        self.assertTrue(any("user groups are not exported" in line for line in limits))
+        self.assertTrue(any("groupes d'utilisateurs de Mattermost ne sont pas exportés" in line for line in limits))
+        self.assertFalse((out / "groups.jsonl").exists())
+
     # -- the whole thing ---------------------------------------------------------------------------
     def test_the_output_satisfies_the_contract_checker(self) -> None:
         relative = "20260913/x/note.txt"
