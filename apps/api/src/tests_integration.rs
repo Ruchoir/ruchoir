@@ -12182,6 +12182,10 @@ mod guest_expiry_tests;
 #[cfg(test)]
 mod expired_guest_tests;
 
+/// An invitation carrying the guest's end date.
+#[cfg(test)]
+mod guest_invitation_tests;
+
 // --- The six-digit code sent next to the verification link ---
 
 /// A fresh pending account, as registration leaves it: its id and address.

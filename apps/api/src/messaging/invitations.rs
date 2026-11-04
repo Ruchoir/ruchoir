@@ -56,6 +56,9 @@ const MAX_TTL_HOURS: i64 = 24 * 30;
 /// Length of a token in its hex form (32 bytes).
 const TOKEN_LEN: usize = 64;
 
+/// How far ahead a guest's end date may lie.
+const MAX_GUEST_YEARS: i64 = 5;
+
 /// The `system_event` discriminator written into the channel when someone joins. The client turns it
 /// into a sentence; the database never stores one.
 const JOINED_EVENT: &str = "member_joined";
@@ -121,6 +124,7 @@ pub async fn create_invitation(
             return Err(ApiError::ForbiddenBecause("role_above_you"));
         }
     }
+    let guest_expires_at = guest_end(body.guest_expires_at.as_deref(), role)?;
     if super::edition_view::takes_a_seat(role) {
         super::edition_view::ensure_a_seat(&state, space_id).await?;
     }
@@ -149,11 +153,37 @@ pub async fn create_invitation(
             max_uses,
             ttl_hours,
             channel_id: None,
+            guest_expires_at,
             inviter: session.user_id,
         },
     )
     .await?;
     Ok((StatusCode::CREATED, Json(created)))
+}
+
+/// The end date an invitation hands its guest, checked: only a guest invitation carries one, it
+/// must lie ahead, and no further than [`MAX_GUEST_YEARS`] years (a date beyond is a typo or an
+/// access that is not temporary). It only restricts the access, so it needs no right beyond
+/// inviting.
+fn guest_end(raw: Option<&str>, role: &str) -> Result<Option<OffsetDateTime>, ApiError> {
+    let Some(raw) = raw else { return Ok(None) };
+    if role != "guest" {
+        return Err(ApiError::BadRequestCode {
+            code: "guest_only",
+            message: "only a guest invitation can carry an end date",
+        });
+    }
+    let bad = || ApiError::BadRequestCode {
+        code: "bad_expiry",
+        message: "the end date must be a date in the future, within five years",
+    };
+    let end = OffsetDateTime::parse(raw.trim(), &time::format_description::well_known::Rfc3339)
+        .map_err(|_| bad())?;
+    let now = OffsetDateTime::now_utc();
+    if end <= now || end > now + Duration::days(365 * MAX_GUEST_YEARS) {
+        return Err(bad());
+    }
+    Ok(Some(end))
 }
 
 /// `POST /api/v1/channels/{channel_id}/invitations`: bring someone from outside into one group.
@@ -207,6 +237,7 @@ pub async fn invite_to_channel(
             max_uses: Some(1),
             ttl_hours: DEFAULT_TTL_HOURS,
             channel_id: Some(channel_id),
+            guest_expires_at: None,
             inviter: session.user_id,
         },
     )
@@ -222,6 +253,7 @@ struct Issue {
     max_uses: Option<i32>,
     ttl_hours: i64,
     channel_id: Option<Uuid>,
+    guest_expires_at: Option<OffsetDateTime>,
     inviter: Uuid,
 }
 
@@ -242,7 +274,7 @@ async fn issue(state: &AppState, issue: Issue) -> Result<CreatedInvitationDto, A
         revoked_at: Set(None),
         created_at: Set(now),
         channel_id: Set(issue.channel_id),
-        ..Default::default()
+        guest_expires_at: Set(issue.guest_expires_at),
     }
     .insert(&state.db)
     .await?;
@@ -482,6 +514,11 @@ pub async fn accept_invitation(
                 super::edition_view::ensure_a_seat(&state, record.space_id).await?;
             }
             let now = OffsetDateTime::now_utc();
+            // The end handed to the guest may have passed since the link was checked: then it is
+            // as unusable as any other, and nothing is written.
+            if record.guest_expires_at.is_some_and(|end| end <= now) {
+                return Err(ApiError::NotFound);
+            }
             let txn = state.db.begin().await?;
             space_members::ActiveModel {
                 space_id: Set(record.space_id),
@@ -489,6 +526,7 @@ pub async fn accept_invitation(
                 role: Set(record.role.clone()),
                 invited_by: Set(record.created_by),
                 joined_at: Set(now),
+                expires_at: Set(record.guest_expires_at),
                 ..Default::default()
             }
             .insert(&txn)
@@ -503,7 +541,11 @@ pub async fn accept_invitation(
                 Some(session.user_id),
                 crate::audit::Action::MemberJoined,
                 crate::audit::Target::Member(session.user_id),
-                serde_json::json!({ "role": record.role, "invited_by": record.created_by }),
+                serde_json::json!({
+                    "role": record.role,
+                    "invited_by": record.created_by,
+                    "guest_expires_at": record.guest_expires_at.map(rfc3339),
+                }),
             )
             .await?;
 
@@ -720,6 +762,7 @@ async fn usable_invitation(
 fn is_usable(record: &space_invitations::Model, now: OffsetDateTime) -> bool {
     record.revoked_at.is_none()
         && record.expires_at.is_none_or(|expiry| expiry > now)
+        && record.guest_expires_at.is_none_or(|end| end > now)
         && record.max_uses.is_none_or(|max| record.uses < max)
 }
 
@@ -838,6 +881,7 @@ fn to_dto(
         uses: record.uses,
         max_uses: record.max_uses,
         expires_at: record.expires_at.map(rfc3339),
+        guest_expires_at: record.guest_expires_at.map(rfc3339),
         created_at: rfc3339(record.created_at),
         usable: is_usable(record, now),
         status: status_of(record, now).to_owned(),

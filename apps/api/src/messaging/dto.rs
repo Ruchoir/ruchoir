@@ -792,6 +792,10 @@ pub struct InvitationDto {
     /// RFC 3339 expiry, when it expires.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<String>,
+    /// RFC 3339 end of access handed to the guest this invitation admits; absent for no end date
+    /// and for every invitation that is not a guest's. Unrelated to the link's own `expires_at`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guest_expires_at: Option<String>,
     pub created_at: String,
     /// Whether it would be accepted right now: not revoked, not expired, uses left.
     pub usable: bool,
@@ -856,6 +860,11 @@ pub struct CreateInvitationRequest {
     /// Maximum acceptances. Defaults to 1 for an addressed invitation, unlimited for a link.
     #[serde(default)]
     pub max_uses: Option<i32>,
+    /// RFC 3339 end of the guest's access, applied when they join. Only with `role: "guest"`
+    /// (`guest_only` otherwise); in the past or beyond five years is `bad_expiry`. Omit for no
+    /// end date.
+    #[serde(default)]
+    pub guest_expires_at: Option<String>,
 }
 
 /// A new channel to create in a space.

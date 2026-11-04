@@ -78,6 +78,12 @@ A group mentioned by name (`@Comptabilité`) is stored as `group` in the message
 reaches an older app as an ordinary mention notification (`kind` `mention`) with the text
 unchanged: no new field, no new event.
 
+An invitation may carry the end of a guest's access: `guest_expires_at` (RFC 3339, optional) on
+`POST /api/v1/spaces/{id}/invitations` and on the invitation it returns. It is accepted only with
+`role: "guest"` (`400 guest_only`), must lie ahead and within five years (`400 bad_expiry`), and is
+copied to the guest when they join. An older app sends no such field and gets an invitation with no
+end date, as before; an older instance ignores the field.
+
 The last two are the enterprise edition's own names, listed after the instance's by that build
 only (`Edition::features`). What every instance of this version answers, whatever its edition,
 needs no name: a space's `edition` and, for its owners, `licence`; `GET .../roles` and

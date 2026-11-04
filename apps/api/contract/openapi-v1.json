@@ -1230,6 +1230,13 @@
               "null"
             ]
           },
+          "guest_expires_at": {
+            "description": "RFC 3339 end of the guest's access, applied when they join. Only with `role: \"guest\"`\n(`guest_only` otherwise); in the past or beyond five years is `bad_expiry`. Omit for no\nend date.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "max_uses": {
             "description": "Maximum acceptances. Defaults to 1 for an addressed invitation, unlimited for a link.",
             "format": "int32",
@@ -2553,6 +2560,13 @@
           },
           "expires_at": {
             "description": "RFC 3339 expiry, when it expires.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guest_expires_at": {
+            "description": "RFC 3339 end of access handed to the guest this invitation admits; absent for no end date\nand for every invitation that is not a guest's. Unrelated to the link's own `expires_at`.",
             "type": [
               "string",
               "null"
