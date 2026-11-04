@@ -167,6 +167,32 @@ pub async fn channel_members_active<C: ConnectionTrait>(
         .collect())
 }
 
+/// [`channel_members_active`] counted for many channels of one space at once: two queries however
+/// many channels, the space's active set loaded once. Channels with nobody are absent.
+pub async fn channel_member_counts<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    channel_ids: Vec<Uuid>,
+) -> Result<std::collections::HashMap<Uuid, u64>, DbErr> {
+    use crate::entities::channel_members;
+    let rows = channel_members::Entity::find()
+        .filter(channel_members::Column::ChannelId.is_in(channel_ids))
+        .all(db)
+        .await?;
+    let ids: std::collections::BTreeSet<Uuid> = rows.iter().map(|m| m.user_id).collect();
+    let active: std::collections::HashSet<Uuid> =
+        active_among(db, space_id, ids.into_iter().collect())
+            .await?
+            .into_iter()
+            .map(|m| m.user_id)
+            .collect();
+    let mut counts = std::collections::HashMap::new();
+    for row in rows.iter().filter(|m| active.contains(&m.user_id)) {
+        *counts.entry(row.channel_id).or_insert(0) += 1;
+    }
+    Ok(counts)
+}
+
 /// The spaces `user_id` is actively in.
 pub async fn spaces_of<C: ConnectionTrait>(db: &C, user_id: Uuid) -> Result<Vec<Uuid>, DbErr> {
     space_members::Entity::find()

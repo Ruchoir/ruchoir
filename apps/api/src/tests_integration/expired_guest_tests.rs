@@ -626,12 +626,44 @@ async fn frame_types(ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>) -> Vec
 async fn an_expired_guest_in_a_channel_hears_counts_and_lists_nothing() {
     let Some(app) = boot().await else { return };
     let fx = fx(&app).await;
-    join(&app, fx.general, &[fx.member, fx.active, fx.expired]).await;
+    // A guest who is running when the sockets open, and ends later.
+    let late = guest_ending(&app.db, fx.space, "1 hour").await;
+    join(&app, fx.general, &[fx.member, fx.active, fx.expired, late]).await;
     let owner = app.cookie_for(fx.owner).await;
-    let expired = app.cookie_for(fx.expired).await;
+    let late_cookie = app.cookie_for(late).await;
     let active = app.cookie_for(fx.active).await;
 
-    // Not counted, not listed.
+    let mut late_ws = app.connect_ws(&late_cookie).await;
+    let mut running_ws = app.connect_ws(&active).await;
+    let newcomer = make_user(&app.db, "newcomer").await;
+    crate::testkit::add_member(&app.db, fx.space, newcomer, "member").await;
+    let path = format!("/api/v1/channels/{}/members", fx.general);
+    let add = |user: Uuid| {
+        call(
+            &app,
+            reqwest::Method::POST,
+            &path,
+            &owner,
+            Some(json!({ "user_ids": [user] })),
+        )
+    };
+    // While they are active, the frame reaches them: the later silence is not an artefact.
+    assert_eq!(add(newcomer).await.0, 200);
+    let before = frame_types(&mut late_ws).await;
+    assert!(before.contains(&"message.created".to_owned()), "{before:?}");
+    frame_types(&mut running_ws).await;
+
+    // Their access ends.
+    exec(
+        &app.db,
+        "UPDATE space_members SET expires_at = now() - interval '1 second' \
+         WHERE space_id = $1 AND user_id = $2",
+        vec![fx.space.into(), late.into()],
+    )
+    .await
+    .expect("expire");
+
+    // Not counted, not listed (two ended guests, one running, the member and the owner).
     let (_, channels) = get_json(
         &app,
         &format!("/api/v1/spaces/{}/channels", fx.space),
@@ -645,8 +677,8 @@ async fn an_expired_guest_in_a_channel_hears_counts_and_lists_nothing() {
         .find(|c| c["id"] == fx.general.to_string())
         .expect("general");
     assert_eq!(
-        general["member_count"], 3,
-        "owner, member and the running guest"
+        general["member_count"], 4,
+        "owner, member, newcomer, running guest"
     );
     let (_, listed) = get_json(
         &app,
@@ -655,23 +687,14 @@ async fn an_expired_guest_in_a_channel_hears_counts_and_lists_nothing() {
     )
     .await;
     let listed = ids(&listed, "user_id");
-    assert_eq!(listed.len(), 3, "{listed:?}");
+    assert_eq!(listed.len(), 4, "{listed:?}");
+    assert!(!listed.contains(&late.to_string()));
     assert!(!listed.contains(&fx.expired.to_string()));
 
-    // Hears nothing: a joining notice and a role change reach the others, not them.
-    let mut ended_ws = app.connect_ws(&expired).await;
-    let mut running_ws = app.connect_ws(&active).await;
-    let newcomer = make_user(&app.db, "newcomer").await;
-    crate::testkit::add_member(&app.db, fx.space, newcomer, "member").await;
-    let (status, body) = call(
-        &app,
-        reqwest::Method::POST,
-        &format!("/api/v1/channels/{}/members", fx.general),
-        &owner,
-        Some(json!({ "user_ids": [newcomer] })),
-    )
-    .await;
-    assert_eq!(status, 200, "{body}");
+    // Hears nothing more: another joining notice and a role change reach the others only.
+    let second = make_user(&app.db, "second").await;
+    crate::testkit::add_member(&app.db, fx.space, second, "member").await;
+    assert_eq!(add(second).await.0, 200);
     let (status, body) = call(
         &app,
         reqwest::Method::PATCH,
@@ -690,13 +713,69 @@ async fn an_expired_guest_in_a_channel_hears_counts_and_lists_nothing() {
         running.contains(&"channel.membership".to_owned()),
         "{running:?}"
     );
-    let ended = frame_types(&mut ended_ws).await;
+    let ended = frame_types(&mut late_ws).await;
     assert!(
         !ended
             .iter()
             .any(|k| k == "message.created" || k == "channel.membership"),
         "{ended:?}"
     );
+}
+
+/// The channel list counts every channel's people in a fixed number of queries.
+#[tokio::test]
+async fn channel_counts_come_in_one_pass() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let mut channels = vec![fx.general];
+    for n in 0..4 {
+        let id = Uuid::new_v4();
+        exec(
+            &app.db,
+            "INSERT INTO conversations (id, space_id, kind) VALUES ($1, $2, 'channel')",
+            vec![id.into(), fx.space.into()],
+        )
+        .await
+        .expect("conversation");
+        exec(
+            &app.db,
+            "INSERT INTO channels (id, space_id, name, type) VALUES ($1, $2, $3, 'public')",
+            vec![id.into(), fx.space.into(), format!("extra-{n}").into()],
+        )
+        .await
+        .expect("channel");
+        channels.push(id);
+    }
+    for channel in &channels {
+        join(&app, *channel, &[fx.member, fx.active, fx.expired]).await;
+    }
+    // A separate connection, so only this call is counted.
+    let url = std::env::var("RUCHOIR_TEST_DATABASE_URL").expect("url");
+    let mut db = sea_orm::Database::connect(url).await.expect("connect");
+    let seen = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counter = seen.clone();
+    db.set_metric_callback(move |_| {
+        counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    });
+    let counts = membership::channel_member_counts(&db, fx.space, channels.clone())
+        .await
+        .expect("counts");
+    assert_eq!(
+        seen.load(std::sync::atomic::Ordering::SeqCst),
+        2,
+        "two queries for five channels"
+    );
+    for channel in &channels {
+        let expected = if *channel == fx.general { 3 } else { 2 };
+        assert_eq!(counts[channel], expected, "the people still in the space");
+        assert_eq!(
+            membership::channel_members_active(&db, *channel)
+                .await
+                .expect("one")
+                .len() as u64,
+            counts[channel]
+        );
+    }
 }
 
 #[tokio::test]

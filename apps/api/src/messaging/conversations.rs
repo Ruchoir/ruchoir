@@ -217,6 +217,9 @@ pub async fn list_channels(
         crate::permissions::check::effective_many(&state.db, space_id, session.user_id, &ids)
             .await?;
 
+    let counts =
+        crate::permissions::membership::channel_member_counts(&state.db, space_id, ids.clone())
+            .await?;
     let mut out = Vec::new();
     for channel in all {
         // Private channels are visible only to their members and to the space's owner; public and
@@ -232,7 +235,7 @@ pub async fn list_channels(
             .await?;
         let favorite = membership.as_ref().map(|m| m.favorite).unwrap_or(false);
         let unread = unread_count(&state.db, channel.id, session.user_id).await?;
-        let member_count = channel_member_count(&state.db, channel.id).await?;
+        let member_count = counts.get(&channel.id).copied().unwrap_or(0);
         let last_message = preview(&state.db, channel.id, session.user_id, true).await?;
         let allowed_roles = super::authz::channel_allowed_roles(&state.db, channel.id)
             .await?
