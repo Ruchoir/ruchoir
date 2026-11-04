@@ -11291,6 +11291,15 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "description": "Count the guest access notices in the announced unread count",
+            "in": "query",
+            "name": "guest_notices",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -12550,7 +12559,7 @@
             }
           },
           {
-            "description": "Only one family: `members`, `roles`, `groups`, `channels`, `calendars`, `licence` or `access`.",
+            "description": "Only one family: `members`, `guests`, `roles`, `groups`, `channels`, `calendars`, `licence` or `access`.",
             "in": "query",
             "name": "category",
             "required": false,

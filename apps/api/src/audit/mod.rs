@@ -140,20 +140,20 @@ impl Action {
         }
     }
 
-    /// The family the screen filters by: `members`, `roles`, `groups`, `channels`, `calendars`, `licence`, `access`.
+    /// The family the screen filters by: `members`, `guests`, `roles`, `groups`, `channels`, `calendars`, `licence`, `access`.
     pub fn category(self) -> &'static str {
         match self {
             Action::MemberJoined
             | Action::MemberLeft
             | Action::MemberRemoved
             | Action::MemberRoleChanged
-            | Action::MemberExpired
+            | Action::OwnershipTransferred
+            | Action::MemberRolesChanged => "members",
+            Action::MemberExpired
             | Action::MemberPurged
             | Action::MemberExpirySet
             | Action::MemberReactivated
-            | Action::MemberStandingChanged
-            | Action::OwnershipTransferred
-            | Action::MemberRolesChanged => "members",
+            | Action::MemberStandingChanged => "guests",
             Action::RoleCreated
             | Action::RoleUpdated
             | Action::RoleDeleted
