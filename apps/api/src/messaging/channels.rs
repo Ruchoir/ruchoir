@@ -101,6 +101,35 @@ async fn set_allowed_roles<C: sea_orm::ConnectionTrait>(
     Ok(())
 }
 
+/// Tell the members who may read the channel that it changed (its summary, and so its place in their
+/// sidebar). Every member of the space is a candidate, whatever the new visibility: a channel turned
+/// private has to leave the sidebar of those who are not in it, and they can only learn that from this
+/// event. The payload carries no per-caller state, so nothing private about a member leaks with it.
+pub(crate) async fn publish_channel_updated(
+    state: &AppState,
+    channel: &channels::Model,
+    actor: Uuid,
+) -> Result<(), ApiError> {
+    let (space_id, channel_id) = (channel.space_id, channel.id);
+    let summary = ChannelSummaryDto {
+        id: channel_id,
+        space_id,
+        name: channel.name.clone(),
+        channel_type: channel.channel_type.clone(),
+        topic: channel.topic.clone(),
+    };
+    let audience = space_member_ids(&state.db, space_id, actor).await?;
+    let audience = visible_only(&state.db, space_id, channel_id, audience).await?;
+    state
+        .hub
+        .publish(
+            audience,
+            RealtimeEnvelope::channel_updated(channel_id, &summary),
+        )
+        .await;
+    Ok(())
+}
+
 /// Let one legacy role (`owner`, `admin`, `member` or `guest`) reach the channel, or keep it out:
 /// what the access dialog's "Tout l'espace" and Administrator lines write for the view of a channel
 /// (the rules of the system roles are derived from `channel_role_access`, never written beside it).
@@ -608,25 +637,7 @@ pub async fn update_channel(
 
     let updated = active.update(&state.db).await?;
 
-    // Every member of the space is told, whatever the new visibility: a channel turned private has
-    // to leave the sidebar of those who are not in it, and they can only learn that from this event.
-    // The payload carries no per-caller state, so nothing private about a member leaks with it.
-    let summary = ChannelSummaryDto {
-        id: updated.id,
-        space_id,
-        name: updated.name.clone(),
-        channel_type: updated.channel_type.clone(),
-        topic: updated.topic.clone(),
-    };
-    let audience = space_member_ids(&state.db, space_id, session.user_id).await?;
-    let audience = visible_only(&state.db, space_id, channel_id, audience).await?;
-    state
-        .hub
-        .publish(
-            audience,
-            RealtimeEnvelope::channel_updated(channel_id, &summary),
-        )
-        .await;
+    publish_channel_updated(&state, &updated, session.user_id).await?;
     // Then the change goes into the channel's own history, said by whoever made it.
     for (event, detail) in change_notices(&channel, &updated, access_changed) {
         write_channel_notice_with(&state, channel_id, Some(session.user_id), event, detail).await;

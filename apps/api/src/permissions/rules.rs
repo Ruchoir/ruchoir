@@ -193,18 +193,25 @@ pub async fn editor_of(
     // A guest's channel role and authorship are no standing: only a rule can make them an editor,
     // and the guest ceiling keeps the manage permission from them.
     let guest = standing(&state.db, space_id, user_id).await? == Some(Standing::Guest);
-    let rights = effective(&state.db, space_id, user_id, resource.engine()).await?;
+    let on_resource = effective(&state.db, space_id, user_id, resource.engine()).await?;
+    let at_space = space_rights(&state.db, space_id, user_id).await?;
     let facts = EditorFacts {
         owner: rank == Rank::Owner,
-        space_manage: space_rights(&state.db, space_id, user_id)
-            .await?
-            .contains(resource.manage()),
+        space_manage: at_space.contains(resource.manage()),
         channel_moderator: moderator && !guest,
         author: author && !guest,
-        local_manage: rights.contains(resource.manage()),
+        local_manage: on_resource.contains(resource.manage()),
     };
     let Some(kind) = pick_kind(facts) else {
         return Ok(None);
+    };
+    // Rule 2 reads what the editor holds. An Owner or Space editor holds the family's permissions
+    // at space level: lowering "everyone" on a resource must not take from them the means to raise
+    // it again. The others hold what the resource leaves them.
+    let rights = if matches!(kind, EditorKind::Owner | EditorKind::Space) {
+        at_space.intersect(PermissionSet::of_family(resource.manage().family()))
+    } else {
+        on_resource
     };
     let paid = Paid::from(&state.edition.entitlement(&state.db, space_id).await?);
     Ok(Some(Editor {
@@ -700,7 +707,7 @@ pub async fn write_rule(
     } else {
         Action::RuleUpdated
     };
-    record_rule(txn, space_id, actor, action, resource, subject, shown).await?;
+    log_rule(txn, space_id, actor, action, resource, subject, shown).await?;
     Ok(written)
 }
 
@@ -729,7 +736,7 @@ pub async fn delete_rule(
     if gone == 0 {
         return Err(ApiError::NotFound);
     }
-    record_rule(
+    log_rule(
         txn,
         space_id,
         actor,
@@ -742,7 +749,8 @@ pub async fn delete_rule(
     Ok(())
 }
 
-async fn record_rule(
+/// Put a rule's entry in the log without writing the rule (a level the legacy settings carry).
+pub async fn log_rule(
     txn: &impl ConnectionTrait,
     space_id: Uuid,
     actor: Uuid,

@@ -1159,12 +1159,11 @@ async fn tout_l_espace_aucun_acces_is_the_reservation() {
         )
         .await
     );
-    // Back to Participer, the sends come back; the group's rule is still there. (The owner does it:
-    // an administrator no longer holds the sends here once everyone is denied them, and rule 2
-    // keeps anyone from granting what they do not hold on the resource.)
+    // Back to Participer, the sends come back; the group's rule is still there. The administrator
+    // does it too: lowering everyone took nothing from the means to raise it again.
     let (status, body) = put(
         &app,
-        fx.owner,
+        fx.admin,
         fx.space_id,
         "channel",
         channel,
@@ -1596,4 +1595,344 @@ async fn deleting_a_missing_rule_is_a_not_found() {
     .await;
     assert_eq!(status, 404);
     assert_eq!(rules_on(&app.db, "channel_id", other).await.len(), 1);
+}
+
+async fn members_rows(db: &DatabaseConnection, channel: Uuid) -> Vec<(Vec<String>, Vec<String>)> {
+    db.query_all_raw(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT o.allow, o.deny FROM permission_overrides o JOIN space_roles r ON r.id = o.role_id \
+          WHERE o.channel_id = $1 AND r.system_key = 'members'",
+        [channel.into()],
+    ))
+    .await
+    .expect("rows")
+    .into_iter()
+    .map(|row| (row.try_get("", "allow").expect("allow"), row.try_get("", "deny").expect("deny")))
+    .collect()
+}
+
+#[tokio::test]
+async fn a_plain_admin_lowers_everyone_and_raises_it_back() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let calendar = space_calendar(&app.db, fx.space_id, "members").await;
+    for (kind, id, low, high) in [
+        ("channel", channel, "read", "contribute"),
+        ("calendar", calendar, "read", "contribute"),
+    ] {
+        let (status, body) = put(&app, fx.admin, fx.space_id, kind, id, everyone(), low).await;
+        assert_eq!(status, 200, "{body}");
+        let levels = body["may"]["manage_target_levels"]
+            .as_array()
+            .expect("levels");
+        assert!(levels.contains(&json!("manage")), "{kind}: {levels:?}");
+        let (status, body) = put(&app, fx.admin, fx.space_id, kind, id, everyone(), high).await;
+        assert_eq!(status, 200, "{kind}: {body}");
+        assert_eq!(everyone_entry(&body)["level"], high);
+    }
+}
+
+#[tokio::test]
+async fn administrators_keep_gerer_when_everyone_is_lowered() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let calendar = space_calendar(&app.db, fx.space_id, "members").await;
+    let admin_role = system_role(&app.db, fx.space_id, "administrator").await;
+
+    let (status, body) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        everyone(),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let line = entry_of(&body, "role", admin_role).expect("the administrator line");
+    assert_eq!(line["level"], "manage");
+    assert!(line["id"].is_string(), "{line}");
+    let channel_ref = Resource::Channel(channel);
+    assert!(can(&app, &fx, fx.admin, channel_ref, Permission::MessageManage).await);
+    assert!(can(&app, &fx, fx.admin, channel_ref, Permission::ChannelManage).await);
+    assert!(!can(&app, &fx, fx.member, channel_ref, Permission::MessageSend).await);
+    // Both writes are in the log.
+    let log = audit_rows(&app.db, fx.space_id).await;
+    let kinds: Vec<(&str, &str)> = log
+        .iter()
+        .map(|(a, d)| (a.as_str(), d["target_kind"].as_str().expect("kind")))
+        .collect();
+    assert_eq!(
+        kinds,
+        [("rule.created", "everyone"), ("rule.created", "role")]
+    );
+    assert_eq!(log[1].1["after"], "manage");
+
+    // The same on a calendar.
+    let (status, body) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "calendar",
+        calendar,
+        everyone(),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        entry_of(&body, "role", admin_role).expect("line")["level"],
+        "manage"
+    );
+    assert!(
+        can(
+            &app,
+            &fx,
+            fx.admin,
+            Resource::Calendar(calendar),
+            Permission::CalendarManage
+        )
+        .await
+    );
+
+    // An Administrator rule that already speaks is left alone.
+    let other = make_channel(&app.db, fx.space_id, "autre", "public").await;
+    stored(
+        &app.db,
+        fx.space_id,
+        ("channel_id", other),
+        ("role_id", admin_role),
+        &["message.react"],
+        &[],
+    )
+    .await;
+    let (status, _) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        other,
+        everyone(),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200);
+    let rows = db_rows(&app.db, other, admin_role).await;
+    assert_eq!(rows, vec![vec!["message.react".to_owned()]]);
+    // Gérer for everyone writes no Administrator line.
+    let third = make_channel(&app.db, fx.space_id, "troisieme", "public").await;
+    let (_, body) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        third,
+        everyone(),
+        "manage",
+    )
+    .await;
+    assert!(
+        db_rows(&app.db, third, admin_role).await.is_empty(),
+        "{body}"
+    );
+}
+
+async fn db_rows(db: &DatabaseConnection, channel: Uuid, role: Uuid) -> Vec<Vec<String>> {
+    db.query_all_raw(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT allow FROM permission_overrides WHERE channel_id = $1 AND role_id = $2",
+        [channel.into(), role.into()],
+    ))
+    .await
+    .expect("rows")
+    .into_iter()
+    .map(|row| row.try_get("", "allow").expect("allow"))
+    .collect()
+}
+
+#[tokio::test]
+async fn reserving_a_channel_tells_the_sidebars() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let mut watching = app.connect_ws(&app.cookie_for(fx.owner).await).await;
+    // A rule that does not touch the view bit says nothing to the sidebars.
+    let (status, _) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        group_target(group),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200);
+    super::group_routes_tests::expect_permissions_changed(&mut watching, fx.space_id).await;
+    let (status, _) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        everyone(),
+        "none",
+    )
+    .await;
+    assert_eq!(status, 200);
+    let event = wait_for_type(&mut watching, "channel.updated").await;
+    assert_eq!(event["payload"]["id"], channel.to_string());
+    // And the removal of that line does too.
+    let (_, body) = read(&app, fx.admin, fx.space_id, "channel", channel).await;
+    let line = everyone_entry(&body);
+    let rule: Uuid = line["id"]
+        .as_str()
+        .expect("the stored line")
+        .parse()
+        .expect("uuid");
+    let (status, _) = remove(&app, fx.admin, fx.space_id, "channel", channel, rule).await;
+    assert_eq!(status, 204);
+    wait_for_type(&mut watching, "channel.updated").await;
+}
+
+#[tokio::test]
+async fn a_group_is_clamped_only_when_it_holds_guests() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let plain = make_group(&app.db, fx.space_id, "Equipe").await;
+    let mixed = make_group(&app.db, fx.space_id, "Equipe mixte").await;
+    put_in_group(&app.db, plain, fx.space_id, fx.member, false).await;
+    put_in_group(&app.db, mixed, fx.space_id, fx.guest, false).await;
+    put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        group_target(plain),
+        "manage",
+    )
+    .await;
+    let (_, body) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        group_target(mixed),
+        "manage",
+    )
+    .await;
+    assert_eq!(
+        entry_of(&body, "group", plain).expect("plain")["clamped"],
+        false
+    );
+    assert_eq!(
+        entry_of(&body, "group", mixed).expect("mixed")["clamped"],
+        true
+    );
+}
+
+#[tokio::test]
+async fn nothing_is_stored_for_a_level_the_legacy_setting_carries_alone() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    let (status, _) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        everyone(),
+        "read",
+    )
+    .await;
+    assert_eq!(status, 200);
+    let (status, body) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        everyone(),
+        "none",
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    // Only the reservation's own deny of the view remains: no leftover allow of the old level.
+    assert_eq!(
+        members_rows(&app.db, channel).await,
+        vec![(vec![], vec!["channel.view".to_owned()])]
+    );
+    let log = audit_rows(&app.db, fx.space_id).await;
+    assert_eq!(log.len(), 3, "{log:?}");
+    assert_eq!(log[2].0, "rule.updated");
+    assert_eq!(log[2].1["before"], "read");
+    assert_eq!(log[2].1["after"], "none");
+}
+
+#[tokio::test]
+async fn a_folder_the_viewer_cannot_open_is_not_named() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let folder = make_node(&app.db, fx.space_id, fx.owner, "Direction", "folder", None).await;
+    let file = make_node(
+        &app.db,
+        fx.space_id,
+        fx.owner,
+        "plan.txt",
+        "file",
+        Some(folder),
+    )
+    .await;
+    let group = make_group(&app.db, fx.space_id, "Equipe").await;
+    stored(
+        &app.db,
+        fx.space_id,
+        ("file_id", folder),
+        ("group_id", group),
+        &["files.view"],
+        &[],
+    )
+    .await;
+    // The member cannot open the folder but was shared the file.
+    stored(
+        &app.db,
+        fx.space_id,
+        ("file_id", folder),
+        ("user_id", fx.member),
+        &[],
+        &["files.view"],
+    )
+    .await;
+    stored(
+        &app.db,
+        fx.space_id,
+        ("file_id", file),
+        ("user_id", fx.member),
+        &["files.view"],
+        &[],
+    )
+    .await;
+
+    let (status, body) = read(&app, fx.member, fx.space_id, "file", file).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["resource"]["parent"]["hidden"], true);
+    assert!(body["resource"]["parent"].get("name").is_none(), "{body}");
+    let line = entry_of(&body, "group", group).expect("inherited line");
+    assert_eq!(line["inherited_from"]["hidden"], true);
+    assert!(line["inherited_from"].get("id").is_none());
+    assert!(line["inherited_from"].get("name").is_none());
+    // Whoever can open the folder sees its name.
+    let (_, body) = read(&app, fx.admin, fx.space_id, "file", file).await;
+    assert_eq!(
+        entry_of(&body, "group", group).expect("line")["inherited_from"]["name"],
+        "Direction"
+    );
 }

@@ -504,7 +504,7 @@ async fn a_guest_author_and_a_former_member_edit_nothing() {
 }
 
 #[tokio::test]
-async fn a_space_editor_holds_on_the_resource_only_what_the_resource_leaves_them() {
+async fn a_space_editor_holds_the_family_at_space_level_whatever_the_resource_leaves() {
     let Some(app) = boot().await else { return };
     let fx = ladder(&app.db).await;
     let file = make_file(&app.db, fx.space_id, fx.owner, "secret.txt").await;
@@ -524,7 +524,11 @@ async fn a_space_editor_holds_on_the_resource_only_what_the_resource_leaves_them
         .expect("editor")
         .expect("space editor");
     assert_eq!(editor.kind, EditorKind::Space);
-    // Rule 2 reads these rights: what the resource took away cannot be granted from here.
-    assert!(!editor.rights.contains(Permission::FilesEdit));
+    // Rule 2 reads the family at space level: what the resource took away can still be granted.
+    assert!(editor.rights.contains(Permission::FilesEdit));
     assert!(editor.rights.contains(Permission::FilesView));
+    assert!(
+        !editor.rights.contains(Permission::ChannelView),
+        "the family only"
+    );
 }

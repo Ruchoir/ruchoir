@@ -1589,7 +1589,7 @@
             "type": "array"
           },
           "clamped": {
-            "description": "A group whose level reaches what a guest can never hold: its guests get less.",
+            "description": "A group holding guests whose level reaches what a guest can never hold: its guests get less.",
             "type": "boolean"
           },
           "deny": {
@@ -3452,22 +3452,34 @@
       "NamedRefDto": {
         "description": "A thing of the space, named: the folder an entry is inherited from, a file's parent.",
         "properties": {
+          "hidden": {
+            "description": "A folder the viewer cannot open: no id, no name.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "id": {
+            "description": "Absent when the viewer cannot open that folder.",
             "format": "uuid",
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "kind": {
             "description": "`file` (a folder is a file) for now.",
             "type": "string"
           },
           "name": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "kind",
-          "id",
-          "name"
+          "kind"
         ],
         "type": "object"
       },

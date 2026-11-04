@@ -216,6 +216,60 @@ pub fn level_of(
     }
 }
 
+/// A system role a rule can be aimed at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SystemRole {
+    Members,
+    Guests,
+    Administrator,
+}
+
+impl SystemRole {
+    /// The role of a `system_key`.
+    pub fn of(key: Option<&str>) -> Option<SystemRole> {
+        match key {
+            Some("members") => Some(SystemRole::Members),
+            Some("guests") => Some(SystemRole::Guests),
+            Some("administrator") => Some(SystemRole::Administrator),
+            _ => None,
+        }
+    }
+}
+
+/// [`level_of`] for a stored rule of a known system role, which also knows what the legacy
+/// settings say beside the rule:
+///
+/// - a calendar open to members stores nothing about the write bit (the base role holds it), but
+///   that bit is what makes "Ecrire" differ from "Lire": it reads as the allow it stands for;
+/// - an Administrator's denied view on a channel (the reservation leaves them out) reads as "no
+///   access" rather than custom.
+pub fn read_system_rule(
+    kind: Kind,
+    target: Target,
+    role: Option<SystemRole>,
+    allow: PermissionSet,
+    deny: PermissionSet,
+) -> LevelRead {
+    let write = Permission::CalendarWrite;
+    if kind == Kind::Calendar
+        && role == Some(SystemRole::Members)
+        && !deny.contains(write)
+        && !(allow.is_empty() && deny.is_empty())
+    {
+        return level_of(kind, target, allow.union(PermissionSet::of(&[write])), deny);
+    }
+    if kind == Kind::Channel && role == Some(SystemRole::Administrator) {
+        let view = PermissionSet::of(&[Permission::ChannelView]);
+        let read = level_of(kind, target, allow.minus(view), deny.minus(view));
+        return match (deny.contains(Permission::ChannelView), read) {
+            (false, read) => read,
+            (true, LevelRead::NoRule) => LevelRead::Level(Level::None),
+            (true, _) => LevelRead::Custom,
+        };
+    }
+    level_of(kind, target, allow, deny)
+}
+
 /// Whether a guest may hold the level: nothing in it may sit above the guest ceiling.
 pub fn guest_may(kind: Kind, level: Level) -> bool {
     level_sets(kind, level).intersect(GUEST_CEILING).is_empty()
@@ -440,6 +494,68 @@ mod tests {
         );
         let sum = summary(Kind::Channel, allow, deny);
         assert_eq!(sum, vec![(P::MessagePin, TriState::Unset)]);
+    }
+
+    #[test]
+    fn a_system_rule_reads_with_what_the_legacy_settings_say() {
+        let admin = Some(SystemRole::Administrator);
+        let members = Some(SystemRole::Members);
+        let cal = |p: &[P]| PermissionSet::of(p);
+        // Members: no write bit stored on a calendar means write_access = members (Ecrire).
+        assert_eq!(
+            read_system_rule(
+                Kind::Calendar,
+                Target::Everyone,
+                members,
+                cal(&[P::CalendarView]),
+                cal(&[P::CalendarManage])
+            ),
+            LevelRead::Level(Level::Contribute)
+        );
+        // A denied write bit is Lire.
+        assert_eq!(
+            read_system_rule(
+                Kind::Calendar,
+                Target::Everyone,
+                members,
+                cal(&[P::CalendarView]),
+                cal(&[P::CalendarManage, P::CalendarWrite])
+            ),
+            LevelRead::Level(Level::Read)
+        );
+        // Nothing stored is no rule, not Ecrire.
+        assert_eq!(
+            read_system_rule(
+                Kind::Calendar,
+                Target::Everyone,
+                members,
+                PermissionSet::EMPTY,
+                PermissionSet::EMPTY
+            ),
+            LevelRead::NoRule
+        );
+        // The Administrator left out of a channel reads as no access; with more it is custom.
+        let target = Target::Role { system: true };
+        assert_eq!(
+            read_system_rule(
+                Kind::Channel,
+                target,
+                admin,
+                PermissionSet::EMPTY,
+                cal(&[P::ChannelView])
+            ),
+            LevelRead::Level(Level::None)
+        );
+        assert_eq!(
+            read_system_rule(
+                Kind::Channel,
+                target,
+                admin,
+                cal(&[P::MessageReact]),
+                cal(&[P::ChannelView])
+            ),
+            LevelRead::Custom
+        );
     }
 
     #[test]

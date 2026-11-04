@@ -21,7 +21,7 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::routing::{delete, get, put};
 use axum::{Json, Router};
-use sea_orm::{ConnectionTrait, DbBackend, DbErr, Statement, TransactionTrait};
+use sea_orm::{ConnectionTrait, DbBackend, DbErr, EntityTrait, Statement, TransactionTrait};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -32,15 +32,17 @@ use super::delegation::rank_of;
 use super::engine::Standing;
 use super::groups::Paid;
 use super::levels::{
-    level_of, level_sets, nearest_level, rule_sets, summary, Kind, Level, LevelError, LevelRead,
-    Target, TriState,
+    level_sets, nearest_level, read_system_rule, rule_sets, summary, Kind, Level, LevelError,
+    LevelRead, SystemRole as Sys, Target, TriState,
 };
 use super::load;
 use super::rules::{
     current_rule, delete_rule, describe, editor_of, ensure_writable, level_name, lock_resource,
-    write_rule, Aim, Editor, EditorKind, Existing, ResourceRef, RuleSubject, Shown, TargetRef,
+    log_rule, write_rule, Aim, Editor, EditorKind, Existing, ResourceRef, RuleSubject, Shown,
+    TargetRef,
 };
 use super::system_roles::GUEST_CEILING;
+use crate::audit::Action;
 use crate::auth::extract::AuthSession;
 use crate::messaging::error::ApiError;
 use crate::state::AppState;
@@ -66,8 +68,14 @@ pub fn router() -> Router<AppState> {
 pub struct NamedRefDto {
     /// `file` (a folder is a file) for now.
     pub kind: &'static str,
-    pub id: Uuid,
-    pub name: String,
+    /// Absent when the viewer cannot open that folder.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// A folder the viewer cannot open: no id, no name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hidden: Option<bool>,
 }
 
 /// The resource the dialog is about.
@@ -129,7 +137,7 @@ pub struct EntryDto {
     /// The folder a file's inherited line comes from; never editable here.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inherited_from: Option<NamedRefDto>,
-    /// A group whose level reaches what a guest can never hold: its guests get less.
+    /// A group holding guests whose level reaches what a guest can never hold: its guests get less.
     pub clamped: bool,
     /// The target is a guest.
     pub guest: bool,
@@ -180,25 +188,6 @@ fn kind_word(resource: ResourceRef) -> &'static str {
     }
 }
 
-/// Which system role a rule is aimed at, when it is one.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Sys {
-    Members,
-    Guests,
-    Administrator,
-}
-
-impl Sys {
-    fn of(key: Option<&str>) -> Option<Sys> {
-        match key {
-            Some("members") => Some(Sys::Members),
-            Some("guests") => Some(Sys::Guests),
-            Some("administrator") => Some(Sys::Administrator),
-            _ => None,
-        }
-    }
-}
-
 /// Whether the legacy settings own a bit of this system role's rule on this kind of resource: the
 /// view of a channel for all three, the write bit of a calendar for members and Administrator.
 fn legacy_bit(kind: Kind, sys: Sys) -> Option<Permission> {
@@ -207,44 +196,6 @@ fn legacy_bit(kind: Kind, sys: Sys) -> Option<Permission> {
         (Kind::Calendar, Sys::Members | Sys::Administrator) => Some(Permission::CalendarWrite),
         _ => None,
     }
-}
-
-/// How a stored rule of a system role reads: [`level_of`], except that an Administrator's denied
-/// view on a channel (the reservation leaves them out) reads as "no access" rather than custom.
-fn read_level(
-    kind: Kind,
-    class: Target,
-    sys: Option<Sys>,
-    allow: PermissionSet,
-    deny: PermissionSet,
-) -> LevelRead {
-    // A calendar open to members writes nothing about the write bit (the base role holds it), but
-    // it is what makes "Écrire" differ from "Lire": read it as the allow it stands for.
-    let write = PermissionSet::of(&[Permission::CalendarWrite]);
-    if kind == Kind::Calendar
-        && sys == Some(Sys::Members)
-        && !deny.contains(Permission::CalendarWrite)
-    {
-        return level_of(kind, class, allow.union(write), deny);
-    }
-    if kind == Kind::Channel && sys == Some(Sys::Administrator) {
-        let view = Permission::ChannelView;
-        let (rest_allow, rest_deny) = (
-            allow.minus(PermissionSet::of(&[view])),
-            deny.minus(PermissionSet::of(&[view])),
-        );
-        let read = level_of(kind, class, rest_allow, rest_deny);
-        return if deny.contains(view) {
-            if read == LevelRead::NoRule {
-                LevelRead::Level(Level::None)
-            } else {
-                LevelRead::Custom
-            }
-        } else {
-            read
-        };
-    }
-    level_of(kind, class, allow, deny)
 }
 
 /// The highest level a base role's permissions already cover.
@@ -276,6 +227,7 @@ struct StoredRow {
     user_name: Option<String>,
     user_standing: Option<String>,
     channel_name: Option<String>,
+    group_has_guests: bool,
 }
 
 async fn rows_on(
@@ -289,7 +241,10 @@ async fn rows_on(
                 o.audience_channel_id, o.allow, o.deny, \
                 r.system_key, r.name::text AS role_name, g.name::text AS group_name, \
                 u.display_name AS user_name, m.standing AS user_standing, \
-                c.name::text AS channel_name \
+                c.name::text AS channel_name, \
+                EXISTS (SELECT 1 FROM space_group_members gm \
+                          JOIN space_members sm ON sm.space_id = gm.space_id AND sm.user_id = gm.user_id \
+                         WHERE gm.group_id = o.group_id AND sm.standing = 'guest') AS group_has_guests \
            FROM permission_overrides o \
            LEFT JOIN space_roles r ON r.id = o.role_id \
            LEFT JOIN space_groups g ON g.id = o.group_id \
@@ -326,6 +281,7 @@ async fn rows_on(
             user_name: row.try_get("", "user_name")?,
             user_standing: row.try_get("", "user_standing")?,
             channel_name: row.try_get("", "channel_name")?,
+            group_has_guests: row.try_get("", "group_has_guests")?,
         });
     }
     Ok(rows)
@@ -454,7 +410,7 @@ async fn line_of(
         return Ok(None);
     };
 
-    let read = read_level(kind, class, sys, row.allow, row.deny);
+    let read = read_system_rule(kind, class, sys, row.allow, row.deny);
     let (level, shown_summary) = match read {
         LevelRead::NoRule => return Ok(None),
         LevelRead::Level(level) => (level_name(level), None),
@@ -488,7 +444,9 @@ async fn line_of(
             deny: names(row.deny),
             summary: shown_summary,
             inherited_from,
-            clamped: class == Target::Group && !row.allow.intersect(GUEST_CEILING).is_empty(),
+            clamped: class == Target::Group
+                && row.group_has_guests
+                && !row.allow.intersect(GUEST_CEILING).is_empty(),
             guest,
             via_legacy: sys.is_some_and(|s| legacy_bit(kind, s).is_some()),
         },
@@ -655,18 +613,44 @@ async fn access_dto(
         ResourceRef::File(id) => chain_of(db, space_id, id).await?,
         _ => vec![(resource.id(), head.name.clone())],
     };
-    let parent = nodes.get(1).map(|(id, name)| NamedRefDto {
-        kind: "file",
-        id: *id,
-        name: name.clone(),
-    });
+    // The folders above, named only to a viewer who can open them.
+    let mut folders: HashMap<Uuid, NamedRefDto> = HashMap::new();
+    for (id, name) in nodes.iter().skip(1) {
+        let opens = check::can(
+            db,
+            space_id,
+            viewer,
+            Resource::File(*id),
+            Permission::FilesView,
+        )
+        .await?;
+        folders.insert(
+            *id,
+            if opens {
+                NamedRefDto {
+                    kind: "file",
+                    id: Some(*id),
+                    name: Some(name.clone()),
+                    hidden: None,
+                }
+            } else {
+                NamedRefDto {
+                    kind: "file",
+                    id: None,
+                    name: None,
+                    hidden: Some(true),
+                }
+            },
+        );
+    }
+    let parent = nodes.get(1).and_then(|(id, _)| folders.get(id).cloned());
     let ids: Vec<Uuid> = nodes.iter().map(|(id, _)| *id).collect();
     let stored = rows_on(db, space_id, resource, &ids).await?;
 
     // Closest wins: a target already read on a nearer item hides the same target further up.
     let mut seen: HashSet<(u8, Uuid)> = HashSet::new();
     let mut lines: Vec<Line> = Vec::new();
-    for (depth, (node, node_name)) in nodes.iter().enumerate() {
+    for (depth, (node, _)) in nodes.iter().enumerate() {
         for row in stored.iter().filter(|row| row.node == *node) {
             let key = if let Some(id) = row.role_id {
                 (0, id)
@@ -682,11 +666,11 @@ async fn access_dto(
             if seen.contains(&key) {
                 continue;
             }
-            let inherited = (depth > 0).then(|| NamedRefDto {
-                kind: "file",
-                id: *node,
-                name: node_name.clone(),
-            });
+            let inherited = if depth > 0 {
+                folders.get(node).cloned()
+            } else {
+                None
+            };
             if let Some(line) = line_of(state, space_id, viewer, kind, row, inherited).await? {
                 seen.insert(key);
                 lines.push(line);
@@ -1127,8 +1111,8 @@ async fn write_legacy(
     resource: ResourceRef,
     sys: Sys,
     level: Option<Level>,
-) -> Result<(), ApiError> {
-    match (resource, sys) {
+) -> Result<bool, ApiError> {
+    Ok(match (resource, sys) {
         (ResourceRef::Channel(channel), _) => {
             let role = match sys {
                 Sys::Members => "member",
@@ -1137,13 +1121,89 @@ async fn write_legacy(
             };
             let admitted = level != Some(Level::None);
             crate::messaging::channels::set_role_admitted(txn, space_id, channel, role, admitted)
-                .await?;
+                .await?
         }
         (ResourceRef::Calendar(calendar), Sys::Members) => {
             let writes = level.is_none_or(|l| l >= Level::Contribute);
             crate::calendar::calendars::set_members_write(txn, calendar, writes).await?;
+            false
         }
-        _ => {}
+        _ => false,
+    })
+}
+
+/// Writing "everyone" below Gérer on a channel or a calendar keeps the Administrator at Gérer there:
+/// when no Administrator rule says otherwise, one is written at that level (its own log entry), so
+/// administrators keep moderating what they are no longer carried through by the base. Returns
+/// whether it wrote, and whether that moved the legacy view bit of a channel.
+async fn keep_administrators(
+    txn: &impl ConnectionTrait,
+    space_id: Uuid,
+    actor: Uuid,
+    resource: ResourceRef,
+) -> Result<Option<bool>, ApiError> {
+    let kind = resource.kind();
+    if kind == Kind::File {
+        return Ok(None);
+    }
+    let Some(admin) = role_facts(txn, space_id, None, Some("administrator")).await? else {
+        return Ok(None);
+    };
+    let subject = RuleSubject::Role {
+        id: admin.id,
+        system: true,
+    };
+    let class = subject.class();
+    if let Some(rule) = current_rule(txn, space_id, resource, subject).await? {
+        let read = read_system_rule(kind, class, Some(Sys::Administrator), rule.allow, rule.deny);
+        // Whatever an Administrator rule already says is left alone.
+        if read != LevelRead::NoRule {
+            return Ok(None);
+        }
+    }
+    let Ok((allow, deny)) = rule_sets(kind, class, Level::Manage) else {
+        return Ok(None);
+    };
+    let (allow, deny) = strip(kind, Sys::Administrator, allow, deny);
+    write_rule(
+        txn,
+        space_id,
+        actor,
+        resource,
+        subject,
+        allow,
+        deny,
+        Shown {
+            before: serde_json::Value::Null,
+            after: serde_json::Value::from(level_name(Level::Manage)),
+        },
+    )
+    .await?;
+    let moved = write_legacy(
+        txn,
+        space_id,
+        resource,
+        Sys::Administrator,
+        Some(Level::Manage),
+    )
+    .await?;
+    Ok(Some(moved))
+}
+
+/// After a commit that moved a channel's legacy view bit, the sidebars of the people it reaches (or
+/// stopped reaching) are told, as the older settings route tells them.
+async fn tell_channel(
+    state: &AppState,
+    resource: ResourceRef,
+    actor: Uuid,
+) -> Result<(), ApiError> {
+    if let ResourceRef::Channel(id) = resource {
+        if let Some(channel) = crate::entities::channels::Entity::find_by_id(id)
+            .one(&state.db)
+            .await?
+        {
+            crate::messaging::channels::publish_channel_updated(state, &channel, actor).await?;
+        }
     }
     Ok(())
 }
@@ -1191,13 +1251,17 @@ pub async fn put_entry(
     let resource = resource_of(&kind, resource_id)?;
     let level = parse_level(&body.level)?;
     let pick = pick_of(&body.target)?;
-    let editor = editor_of(&state, space_id, session.user_id, resource)
+    // A cheap refusal first; the decision is taken on the editor as the locked state leaves them.
+    editor_of(&state, space_id, session.user_id, resource)
         .await?
         .ok_or(ApiError::Forbidden)?;
     let kind = resource.kind();
 
     let txn = state.db.begin().await?;
     lock_resource(&txn, space_id, resource).await?;
+    let editor = editor_of(&state, space_id, session.user_id, resource)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
     let target = resolve(&state, &txn, space_id, session.user_id, pick).await?;
     let class = target.subject.class();
     let (allow, deny) = match rule_sets(kind, class, level) {
@@ -1223,9 +1287,10 @@ pub async fn put_entry(
     .map_err(|refusal| refusal.into_api(&state.config.pricing_url))?;
 
     let bridged = target.sys.filter(|&sys| legacy_bit(kind, sys).is_some());
-    let changed = if let Some(sys) = bridged {
+    let mut view_moved = false;
+    let mut changed = if let Some(sys) = bridged {
         let read = stored.map_or(LevelRead::NoRule, |rule| {
-            read_level(kind, class, Some(sys), rule.allow, rule.deny)
+            read_system_rule(kind, class, Some(sys), rule.allow, rule.deny)
         });
         let displayed = match read {
             LevelRead::Level(l) => Some(l),
@@ -1246,21 +1311,49 @@ pub async fn put_entry(
                     .map(|r| describe(kind, class, r.allow, r.deny))
                     .unwrap_or_default(),
             };
-            write_rule(
-                &txn,
-                space_id,
-                session.user_id,
-                resource,
-                target.subject,
-                stored_allow,
-                stored_deny,
-                Shown {
-                    before,
-                    after: serde_json::Value::from(level_name(level)),
-                },
-            )
-            .await?;
-            write_legacy(&txn, space_id, resource, sys, Some(level)).await?;
+            let shown = Shown {
+                before,
+                after: serde_json::Value::from(level_name(level)),
+            };
+            if stored_allow.is_empty() && stored_deny.is_empty() {
+                // Everything of this level lives in the legacy setting: no row holds nothing.
+                if let Some(rule) = stored {
+                    txn.execute_raw(Statement::from_sql_and_values(
+                        DbBackend::Postgres,
+                        "DELETE FROM permission_overrides WHERE id = $1",
+                        [rule.id.into()],
+                    ))
+                    .await?;
+                }
+                let action = if shown.before.is_null() {
+                    Action::RuleCreated
+                } else {
+                    Action::RuleUpdated
+                };
+                log_rule(
+                    &txn,
+                    space_id,
+                    session.user_id,
+                    action,
+                    resource,
+                    target.subject,
+                    shown,
+                )
+                .await?;
+            } else {
+                write_rule(
+                    &txn,
+                    space_id,
+                    session.user_id,
+                    resource,
+                    target.subject,
+                    stored_allow,
+                    stored_deny,
+                    shown,
+                )
+                .await?;
+            }
+            view_moved |= write_legacy(&txn, space_id, resource, sys, Some(level)).await?;
             true
         }
     } else if existing.is_some_and(|e| (e.allow, e.deny) == (allow, deny)) {
@@ -1284,9 +1377,18 @@ pub async fn put_entry(
         .await?;
         true
     };
+    if target.sys == Some(Sys::Members) && level < Level::Manage {
+        if let Some(moved) = keep_administrators(&txn, space_id, session.user_id, resource).await? {
+            changed = true;
+            view_moved |= moved;
+        }
+    }
     if changed {
         txn.commit().await?;
         super::changed::announce(&state, space_id).await;
+        if view_moved {
+            tell_channel(&state, resource, session.user_id).await?;
+        }
     }
     let editor = editor_of(&state, space_id, session.user_id, resource).await?;
     Ok(Json(
@@ -1317,13 +1419,16 @@ pub async fn delete_entry(
     Path((space_id, kind, resource_id, rule_id)): Path<(Uuid, String, Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     let resource = resource_of(&kind, resource_id)?;
-    let editor = editor_of(&state, space_id, session.user_id, resource)
+    editor_of(&state, space_id, session.user_id, resource)
         .await?
         .ok_or(ApiError::Forbidden)?;
     let kind = resource.kind();
 
     let txn = state.db.begin().await?;
     lock_resource(&txn, space_id, resource).await?;
+    let editor = editor_of(&state, space_id, session.user_id, resource)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
     let found = rows_on(&txn, space_id, resource, &[resource.id()])
         .await?
         .into_iter()
@@ -1357,7 +1462,7 @@ pub async fn delete_entry(
     .map_err(|refusal| refusal.into_api(&state.config.pricing_url))?;
 
     let class = target.subject.class();
-    let read = read_level(kind, class, target.sys, found.allow, found.deny);
+    let read = read_system_rule(kind, class, target.sys, found.allow, found.deny);
     let before = match read {
         LevelRead::Level(level) => serde_json::Value::from(level_name(level)),
         LevelRead::NoRule => serde_json::Value::Null,
@@ -1376,10 +1481,14 @@ pub async fn delete_entry(
         },
     )
     .await?;
-    if let Some(sys) = target.sys.filter(|&sys| legacy_bit(kind, sys).is_some()) {
-        write_legacy(&txn, space_id, resource, sys, None).await?;
-    }
+    let view_moved = match target.sys.filter(|&sys| legacy_bit(kind, sys).is_some()) {
+        Some(sys) => write_legacy(&txn, space_id, resource, sys, None).await?,
+        None => false,
+    };
     txn.commit().await?;
     super::changed::announce(&state, space_id).await;
+    if view_moved {
+        tell_channel(&state, resource, session.user_id).await?;
+    }
     Ok(StatusCode::NO_CONTENT)
 }
