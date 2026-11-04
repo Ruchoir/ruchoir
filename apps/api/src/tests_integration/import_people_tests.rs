@@ -652,7 +652,7 @@ async fn a_person_in_two_spaces_counts_a_seat_in_each_member_space() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn the_last_seat_goes_to_one_of_two_racing_arrivals() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
@@ -668,10 +668,15 @@ async fn the_last_seat_goes_to_one_of_two_racing_arrivals() {
     let edition: Arc<dyn Edition> = Arc::new(Seats(2));
     let (db1, db2) = (app.db.clone(), app.db.clone());
     let (e1, e2) = (edition.clone(), edition.clone());
+    // Both arrivals leave the gate together, so both really contend for the one seat.
+    let gate = Arc::new(tokio::sync::Barrier::new(2));
+    let (g1, g2) = (gate.clone(), gate);
     let first = tokio::spawn(async move {
+        g1.wait().await;
         crate::importer::people::admit(&db1, e1.as_ref(), space, a, "member", "x:1").await
     });
     let second = tokio::spawn(async move {
+        g2.wait().await;
         crate::importer::people::admit(&db2, e2.as_ref(), space, b, "member", "x:1").await
     });
     let (first, second) = (first.await.expect("join"), second.await.expect("join"));
@@ -754,6 +759,61 @@ async fn a_run_stopped_on_seats_resumes_after_freeing_one() {
     assert!(row_of(&app, space, account_of(&app, &b).await)
         .await
         .is_some());
+}
+
+#[tokio::test]
+async fn a_resumed_run_counts_what_it_already_added_and_keeps_only_others() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let name = unique_space();
+    let (space, _) = crate::messaging::spaces::create_owned_space(&app.db, &name, fx.alice)
+        .await
+        .expect("space");
+    let (a, b) = (address("a"), address("b"));
+    let squatter = make_user_with(&app, &address("sq")).await;
+    space_members::ActiveModel {
+        space_id: Set(space),
+        user_id: Set(squatter),
+        role: Set("member".to_owned()),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("member");
+    let dir = people_archive(
+        2,
+        &name,
+        &[("a", &a), ("b", &b)],
+        &[("a", "member", &[]), ("b", "member", &[])],
+        &[],
+    );
+    // Owner and squatter use two of three seats: `a` fits, `b` does not.
+    let (job, first) = run_people(&app, fx.alice, &dir, Arc::new(Seats(3))).await;
+    assert!(matches!(first, Err(RunError::SeatsFull { .. })));
+    space_members::Entity::delete_by_id((space, squatter))
+        .exec(&app.db)
+        .await
+        .expect("free a seat");
+    // The same job resumes. `a` is this import's own earlier work, not somebody "left as they were".
+    let outcome = execute_into(
+        &app.db,
+        Some(&MemorySink::default()),
+        &dir,
+        None,
+        fx.alice,
+        job,
+        settings(Arc::new(Seats(3))),
+    )
+    .await
+    .expect("the resume completes");
+    let people = outcome.written.people;
+    assert_eq!(people.added, 2, "a (earlier) and b");
+    assert!(
+        people.kept.iter().all(|name| name != "a"),
+        "{:?}",
+        people.kept
+    );
 }
 
 #[tokio::test]

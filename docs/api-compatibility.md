@@ -138,9 +138,10 @@ only grow the entries: nothing else changed.
 `already_here_total`, `fallbacks` of roles the server cannot create, `seats` with one line per filled
 licensed space, `custom_roles`): an addition no older app reads. `POST /api/v1/imports` answers the
 usual `402 seats_full` (`seats`, `pricing_url`) when a filled space has too few seats for the people
-the archive brings, before any job exists; this one also says `space` (its name), `used`, `incoming` and
-`missing` (`used + incoming - seats`), fields the other routes answering `seats_full` leave out. Archive format 2 (`docs/import-archive.md`) needs no feature
-name: an older instance refuses a format 2 archive with its version message.
+the archive brings, before any job exists; this one also says `space` (its name), `used`, `incoming`
+and `missing` (`used + incoming - seats`), fields the other routes answering `seats_full` leave out.
+Archive format 2 (`docs/import-archive.md`) needs no feature name: an older instance refuses a
+format 2 archive with its version message.
 
 The last two are the enterprise edition's own names, listed after the instance's by that build
 only (`Edition::features`). What every instance of this version answers, whatever its edition,

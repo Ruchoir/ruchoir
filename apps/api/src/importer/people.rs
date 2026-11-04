@@ -36,6 +36,9 @@ pub enum Admitted {
     Added,
     /// The person was in the space already: nothing was changed.
     Present,
+    /// The row is one this very import wrote on an earlier pass (a run that stopped and resumed):
+    /// nothing was changed, and it still counts as the import's work.
+    Earlier,
 }
 
 /// A role of the source that this edition could not create, and what the people holding it got.
@@ -85,13 +88,16 @@ pub async fn admit(
     let txn = db.begin().await?;
     lock_space_seats(&txn, space_id).await?;
     // management: sees ended guests (a row there, ended or not, blocks the insert).
-    if space_members::Entity::find_by_id((space_id, user_id))
+    if let Some(row) = space_members::Entity::find_by_id((space_id, user_id))
         .one(&txn)
         .await?
-        .is_some()
     {
         txn.commit().await?;
-        return Ok(Admitted::Present);
+        return Ok(if row.imported_from.as_deref() == Some(imported_from) {
+            Admitted::Earlier
+        } else {
+            Admitted::Present
+        });
     }
     if role != "guest" {
         if let SeatCheck::Full { seats } = edition.seat_check(&txn, space_id).await? {
@@ -176,7 +182,7 @@ pub async fn import_people(
                 _ => "member",
             };
             match admit(db, edition, *space_id, user_id, role, &imported_from).await? {
-                Admitted::Added => {
+                Admitted::Added | Admitted::Earlier => {
                     written.added += 1;
                     match role {
                         "admin" => written.administrators += 1,
