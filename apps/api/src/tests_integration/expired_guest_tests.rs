@@ -480,6 +480,9 @@ fn no_bare_space_members_reads() {
         ("permissions/guest_expiry.rs", "remind"),
         ("permissions/guest_expiry.rs", "expire"),
         ("permissions/guest_expiry.rs", "purge"),
+        // who invited a guest, read for the notice's contact; the person is then checked as a
+        // manager through the engine
+        ("permissions/guest_expiry.rs", "contact_of"),
         ("permissions/delegation.rs", "rank_of"),
         ("calendar/authz.rs", "create_space_default"),
         // the edition's seat count: guests are not counted
