@@ -37,8 +37,12 @@ import { useToast } from "../../ui/Toast";
 
 type Filter = "unread" | "all";
 
+/** The phone does not ask for guest notices yet (`guest_notices` stays off until its screens), so
+ * they never reach this list. */
+type ShownKind = Exclude<ApiNotification["kind"], "guest_expiry_soon" | "guest_access_ending">;
+
 /** What a notification says after the actor's name, by kind. */
-const SAID: Record<ApiNotification["kind"], ReturnType<typeof key>> = {
+const SAID: Record<ShownKind, ReturnType<typeof key>> = {
   mention: key("inbox.mentioned"),
   broadcast: key("inbox.broadcast"),
   reply: key("inbox.replied"),
@@ -213,7 +217,7 @@ export function NotificationsScreen() {
       case "calendar_declined":
         return t("inbox.invitationDeclined", { actor: n.actor, title });
       default:
-        return `${n.actor} ${t(SAID[n.kind])}${n.emoji ? ` ${n.emoji}` : ""}`;
+        return `${n.actor} ${t(SAID[n.kind as ShownKind])}${n.emoji ? ` ${n.emoji}` : ""}`;
     }
   };
 
