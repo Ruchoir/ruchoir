@@ -1192,20 +1192,21 @@ async fn keep_administrators(
 
 /// After a commit that moved a channel's legacy view bit, the sidebars of the people it reaches (or
 /// stopped reaching) are told, as the older settings route tells them.
-async fn tell_channel(
-    state: &AppState,
-    resource: ResourceRef,
-    actor: Uuid,
-) -> Result<(), ApiError> {
-    if let ResourceRef::Channel(id) = resource {
-        if let Some(channel) = crate::entities::channels::Entity::find_by_id(id)
-            .one(&state.db)
-            .await?
-        {
-            crate::messaging::channels::publish_channel_updated(state, &channel, actor).await?;
+/// Best effort: the change is committed.
+async fn tell_channel(state: &AppState, resource: ResourceRef, actor: Uuid) {
+    let ResourceRef::Channel(id) = resource else {
+        return;
+    };
+    match crate::entities::channels::Entity::find_by_id(id)
+        .one(&state.db)
+        .await
+    {
+        Ok(Some(channel)) => {
+            crate::messaging::channels::publish_channel_updated(state, &channel, actor).await;
         }
+        Ok(None) => {}
+        Err(error) => tracing::warn!(%id, %error, "channel.updated not published"),
     }
-    Ok(())
 }
 
 async fn base_permissions(db: &impl ConnectionTrait, role: Uuid) -> Result<PermissionSet, DbErr> {
@@ -1288,7 +1289,7 @@ pub async fn put_entry(
 
     let bridged = target.sys.filter(|&sys| legacy_bit(kind, sys).is_some());
     let mut view_moved = false;
-    let mut changed = if let Some(sys) = bridged {
+    let changed = if let Some(sys) = bridged {
         let read = stored.map_or(LevelRead::NoRule, |rule| {
             read_system_rule(kind, class, Some(sys), rule.allow, rule.deny)
         });
@@ -1377,9 +1378,9 @@ pub async fn put_entry(
         .await?;
         true
     };
-    if target.sys == Some(Sys::Members) && level < Level::Manage {
+    // Only on top of a write that changed something: a no-op writes, logs and says nothing.
+    if changed && target.sys == Some(Sys::Members) && level < Level::Manage {
         if let Some(moved) = keep_administrators(&txn, space_id, session.user_id, resource).await? {
-            changed = true;
             view_moved |= moved;
         }
     }
@@ -1387,7 +1388,7 @@ pub async fn put_entry(
         txn.commit().await?;
         super::changed::announce(&state, space_id).await;
         if view_moved {
-            tell_channel(&state, resource, session.user_id).await?;
+            tell_channel(&state, resource, session.user_id).await;
         }
     }
     let editor = editor_of(&state, space_id, session.user_id, resource).await?;
@@ -1488,7 +1489,7 @@ pub async fn delete_entry(
     txn.commit().await?;
     super::changed::announce(&state, space_id).await;
     if view_moved {
-        tell_channel(&state, resource, session.user_id).await?;
+        tell_channel(&state, resource, session.user_id).await;
     }
     Ok(StatusCode::NO_CONTENT)
 }

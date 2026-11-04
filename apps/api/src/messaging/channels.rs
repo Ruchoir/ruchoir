@@ -109,7 +109,7 @@ pub(crate) async fn publish_channel_updated(
     state: &AppState,
     channel: &channels::Model,
     actor: Uuid,
-) -> Result<(), ApiError> {
+) {
     let (space_id, channel_id) = (channel.space_id, channel.id);
     let summary = ChannelSummaryDto {
         id: channel_id,
@@ -118,8 +118,19 @@ pub(crate) async fn publish_channel_updated(
         channel_type: channel.channel_type.clone(),
         topic: channel.topic.clone(),
     };
-    let audience = space_member_ids(&state.db, space_id, actor).await?;
-    let audience = visible_only(&state.db, space_id, channel_id, audience).await?;
+    // Best effort, like `permissions.changed`: the change is committed, and a client that missed the
+    // event gets the truth on its next request.
+    let audience = match space_member_ids(&state.db, space_id, actor).await {
+        Ok(audience) => visible_only(&state.db, space_id, channel_id, audience).await,
+        Err(error) => Err(error),
+    };
+    let audience = match audience {
+        Ok(audience) => audience,
+        Err(error) => {
+            tracing::warn!(%channel_id, ?error, "channel.updated not published");
+            return;
+        }
+    };
     state
         .hub
         .publish(
@@ -127,7 +138,6 @@ pub(crate) async fn publish_channel_updated(
             RealtimeEnvelope::channel_updated(channel_id, &summary),
         )
         .await;
-    Ok(())
 }
 
 /// Let one legacy role (`owner`, `admin`, `member` or `guest`) reach the channel, or keep it out:
@@ -637,7 +647,7 @@ pub async fn update_channel(
 
     let updated = active.update(&state.db).await?;
 
-    publish_channel_updated(&state, &updated, session.user_id).await?;
+    publish_channel_updated(&state, &updated, session.user_id).await;
     // Then the change goes into the channel's own history, said by whoever made it.
     for (event, detail) in change_notices(&channel, &updated, access_changed) {
         write_channel_notice_with(&state, channel_id, Some(session.user_id), event, detail).await;

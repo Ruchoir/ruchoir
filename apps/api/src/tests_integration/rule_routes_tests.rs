@@ -1936,3 +1936,53 @@ async fn a_folder_the_viewer_cannot_open_is_not_named() {
         "Direction"
     );
 }
+
+#[tokio::test]
+async fn a_repeated_everyone_write_writes_nothing_and_says_nothing() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "salon", "public").await;
+    // The base already reads Participer: asking for it again is a no-op, whatever the Administrator line.
+    let mut watching = app.connect_ws(&app.cookie_for(fx.member).await).await;
+    let (status, _) = put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        everyone(),
+        "contribute",
+    )
+    .await;
+    assert_eq!(status, 200);
+    super::group_routes_tests::expect_no_permissions_changed(&mut watching).await;
+    assert!(audit_rows(&app.db, fx.space_id).await.is_empty());
+    let admin_role = system_role(&app.db, fx.space_id, "administrator").await;
+    assert!(db_rows(&app.db, channel, admin_role).await.is_empty());
+    // A real change writes both lines once; repeating it adds nothing.
+    put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        everyone(),
+        "read",
+    )
+    .await;
+    super::group_routes_tests::expect_permissions_changed(&mut watching, fx.space_id).await;
+    let written = audit_rows(&app.db, fx.space_id).await.len();
+    assert_eq!(written, 2);
+    put(
+        &app,
+        fx.admin,
+        fx.space_id,
+        "channel",
+        channel,
+        everyone(),
+        "read",
+    )
+    .await;
+    super::group_routes_tests::expect_no_permissions_changed(&mut watching).await;
+    assert_eq!(audit_rows(&app.db, fx.space_id).await.len(), written);
+}
