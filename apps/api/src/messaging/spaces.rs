@@ -698,7 +698,20 @@ pub async fn update_member_role(
                 Some(session.user_id),
                 crate::audit::Action::MemberStandingChanged,
                 crate::audit::Target::Member(user_id),
-                serde_json::json!({ "before": standing_before, "after": standing_after }),
+                // The end that went with the standing and the one that comes with the new one
+                // (a guest made a member loses theirs; a member made a guest gets the given one).
+                serde_json::json!({
+                    "before": standing_before,
+                    "after": standing_after,
+                    "expires_at": {
+                        "before": end_before.map(crate::messaging::dto::rfc3339),
+                        "after": if standing_after == "guest" {
+                            new_end.map(crate::messaging::dto::rfc3339)
+                        } else {
+                            None
+                        },
+                    },
+                }),
             )
             .await?;
         }

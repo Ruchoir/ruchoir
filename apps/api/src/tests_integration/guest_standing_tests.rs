@@ -447,3 +447,42 @@ async fn standing_change_is_logged_and_announced() {
     assert_eq!(standing[1]["after"], "guest");
     assert_eq!(audit(&app, fx.space, "member.role_changed").await.len(), 3);
 }
+
+#[tokio::test]
+async fn a_standing_change_carries_the_end_it_cleared() {
+    let Some(app) = boot_seats(10).await else {
+        return;
+    };
+    let fx = fx(&app).await;
+    let guest = guest_ending(&app.db, fx.space, "10 days").await;
+    let old_end = row(&app, fx.space, guest).await.expires_at.expect("an end");
+    let cookie = app.cookie_for(fx.owner).await;
+
+    set_role(&app, fx.space, guest, &cookie, json!({ "role": "member" })).await;
+    let lines = audit(&app, fx.space, "member.standing_changed").await;
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert_eq!(
+        lines[0]["expires_at"]["before"],
+        crate::messaging::dto::rfc3339(old_end)
+    );
+    assert!(lines[0]["expires_at"]["after"].is_null());
+    assert!(
+        lines[0]["expires_at"].get("after").is_some(),
+        "present, null"
+    );
+
+    // And the other way, with a new end given.
+    let new_end = crate::messaging::dto::rfc3339(old_end + time::Duration::days(5));
+    set_role(
+        &app,
+        fx.space,
+        guest,
+        &cookie,
+        json!({ "role": "guest", "expires_at": new_end }),
+    )
+    .await;
+    let lines = audit(&app, fx.space, "member.standing_changed").await;
+    assert_eq!(lines.len(), 2, "{lines:?}");
+    assert!(lines[1]["expires_at"]["before"].is_null());
+    assert!(lines[1]["expires_at"]["after"].is_string());
+}
