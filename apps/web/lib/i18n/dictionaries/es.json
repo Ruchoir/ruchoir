@@ -1507,7 +1507,6 @@
     "seatsMissing_other": "Faltan {{count}} plazas",
     "seatsMissing_many": "Faltan {{count}} plazas",
     "seatsOverText": "Solo cuentan los miembros y administradores que se van a añadir: los invitados no ocupan plaza y quienes ya están en el espacio conservan la suya. La importación no puede empezar hasta que todos puedan ser acogidos: no se ha escrito nada. Libera plazas o pasa a una oferta con más, y vuelve a esta pantalla.",
-    "seatsRefused": "El servidor ha rechazado iniciar la importación: no hay plazas suficientes.",
     "doneLimitsKept": "Recordatorio de lo que no se exportó"
   },
   "externalLink": {

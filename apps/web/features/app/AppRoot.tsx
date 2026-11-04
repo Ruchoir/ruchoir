@@ -4718,6 +4718,8 @@ function AppShell() {
               instanceAddress={typeof window === "undefined" ? "" : window.location.host}
               onFinished={reloadSpaceCounters}
               instanceAdmin={session.isInstanceAdmin === true}
+              ownerName={session.name}
+              pricingUrl={pricingUrl}
             />
           </div>
         </div>

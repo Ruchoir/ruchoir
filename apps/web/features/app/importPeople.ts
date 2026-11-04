@@ -176,6 +176,8 @@ export type SeatsView = {
   usedBefore: number;
   added: number;
   total: number;
+  /** Seats taken once everyone has arrived. */
+  usedAfter: number;
   /** Seats still free once everyone has arrived (0 when over). */
   free: number;
   /** Seats free before the import adds anyone: what the sentence of the red state quotes. */
@@ -193,6 +195,7 @@ export function seatsView(line: SeatsInput): SeatsView {
     usedBefore: line.usedBefore,
     added: line.added,
     total: line.total,
+    usedAfter: need,
     free: Math.max(0, line.total - need),
     left: Math.max(0, line.total - line.usedBefore),
     missing,
@@ -212,4 +215,24 @@ export function missingPlaces(people: PeopleView): number {
 /** A 402 `seats_full` of the start, as the line of the first space that has too few places. */
 export function seatsFromRefusal(r: { space?: string; used?: number; incoming?: number; seats: number }): SeatsInput {
   return { space: r.space ?? "", usedBefore: r.used ?? 0, added: r.incoming ?? 0, total: r.seats };
+}
+
+/** What the block draws: its rows, the seats of each licensed space, and whether it is red. */
+export type BlockView = {
+  lines: PeopleLine[];
+  seats: SeatsView[];
+  /** Some space has too few places: the block is red and Lancer is disabled. */
+  over: boolean;
+  missing: number;
+  /** A custom role was brought down: the block links to the pricing page. */
+  pricing: boolean;
+};
+
+/** The block for an archive, or null when it says nothing about people (an old archive). */
+export function blockView(people: PeopleView | null, source: string, ownerName: string | null): BlockView | null {
+  if (!people) return null;
+  const lines = peopleLines(people, source, ownerName);
+  const seats = people.seats.map(seatsView);
+  if (lines.length === 0 && seats.length === 0) return null;
+  return { lines, seats, over: seats.some((s) => s.tone === "over"), missing: missingPlaces(people), pricing: people.fallbacks.length > 0 };
 }

@@ -1443,7 +1443,6 @@
     "seatsMissing_one": "{{count}} seat short",
     "seatsMissing_other": "{{count}} seats short",
     "seatsOverText": "Only the members and administrators to add count: guests do not take a seat, and people already in the space keep theirs. The import cannot start until everyone can be welcomed: nothing has been written. Free some seats, or move to a plan with more, then come back to this screen.",
-    "seatsRefused": "The server refused to start the import: not enough seats.",
     "doneLimitsKept": "A reminder of what was not exported"
   },
   "externalLink": {

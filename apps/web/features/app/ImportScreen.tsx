@@ -32,8 +32,11 @@ import {
   listImports,
   type PersonChoice,
   planImport,
+  refusalOf,
   startImport,
 } from "@/lib/data/api";
+import { ImportPeopleBlock } from "./ImportPeopleBlock";
+import { missingPlaces, type PeopleView, seatsFromRefusal, startDisabled, viewFromPlan } from "./importPeople.ts";
 import { PASS_WEIGHT } from "./importRun";
 import type { Toast } from "./types";
 
@@ -117,6 +120,8 @@ export function ImportScreen({
   compact = false,
   instanceAdmin = false,
   onFinished,
+  ownerName = null,
+  pricingUrl,
 }: {
   onClose: () => void;
   onNotify?: (t: Toast) => void;
@@ -144,6 +149,10 @@ export function ImportScreen({
    * instance, nor addresses to fill in, nor invitations to send.
    */
   instanceAdmin?: boolean;
+  /** The person importing: who stays owner of a space the import creates. */
+  ownerName?: string | null;
+  /** The pricing page, for the places an import lacks and the custom roles it cannot make. */
+  pricingUrl?: string;
 }) {
   const { t } = useTranslation();
   const [stage, setStage] = useState<Stage>("source");
@@ -190,6 +199,8 @@ export function ImportScreen({
   const [advanced, setAdvanced] = useState(false);
   const [replace, setReplace] = useState(false);
   const [typedAddress, setTypedAddress] = useState("");
+  /** The server's `402 seats_full` at the start, said in the same red state as the plan's own count. */
+  const [seatsRefusal, setSeatsRefusal] = useState<{ space?: string; used?: number; incoming?: number; seats: number } | null>(null);
 
   // --- the run -----------------------------------------------------------------------------------
   const [job, setJob] = useState<ImportJob | null>(null);
@@ -430,6 +441,7 @@ export function ImportScreen({
     try {
       const next = await planImport(file.trim(), passphrase || undefined);
       setPlan(next);
+      setSeatsRefusal(null);
       setStage("plan");
     } catch (error) {
       setPlan(null);
@@ -456,7 +468,13 @@ export function ImportScreen({
       setPassphrase("");
       setStage("run");
     } catch (error) {
-      fail(error);
+      const refusal = refusalOf(error);
+      if (refusal?.code === "seats_full" && refusal.missing !== undefined) {
+        // Nothing was written: the screen shows the shortage and keeps Lancer off.
+        setSeatsRefusal(refusal);
+      } else {
+        fail(error);
+      }
     } finally {
       setBusy(false);
     }
@@ -480,6 +498,7 @@ export function ImportScreen({
   const backToArchive = () => {
     setPlan(null);
     setPlanError(null);
+    setSeatsRefusal(null);
     setJob(null);
     setPaces({});
     setEtas({});
@@ -569,6 +588,16 @@ export function ImportScreen({
     plan ? PLATFORMS.find((p) => p.toLowerCase() === plan.source.toLowerCase()) : platform,
   );
   const sourceName = sourceBrand ?? t(key("import.sourceUnknown"));
+  /**
+   * The plan's people, with the server's own refusal laid over the seats when the start answered 402:
+   * it knows the count at the moment of the run, which may be newer than the plan's.
+   */
+  const planPeople: PeopleView | null = plan
+    ? { ...viewFromPlan(plan.people), seats: seatsRefusal ? [seatsFromRefusal(seatsRefusal)] : viewFromPlan(plan.people).seats }
+    : null;
+  const tooFewSeats = planPeople ? startDisabled(planPeople) : false;
+  /** Who stays owner is only known for a space the import creates, which is the importer's own. */
+  const stayingOwner = plan && plan.spaces.length > 0 && plan.spaces.every((x) => x.outcome === "created") ? ownerName : null;
 
   // --- the pieces ------------------------------------------------------------------------------
   const colClass = `wc-imp-col${compact ? " wc-imp-col--compact" : ""}`;
@@ -976,6 +1005,8 @@ export function ImportScreen({
           </div>
         ))}
       </div>
+
+      <ImportPeopleBlock people={planPeople} source={plan.source} sourceName={sourceName} ownerName={stayingOwner} pricingUrl={pricingUrl} />
 
       <div className="wc-imp-card">
         {!instanceAdmin ? (
@@ -1556,13 +1587,21 @@ export function ImportScreen({
     );
   } else if (stage === "plan") {
     bottom = footer(
-      back(t(key("import.changeArchive")), backToArchive, busy),
+      <>
+        {back(t(key("import.changeArchive")), backToArchive, busy)}
+        {tooFewSeats && planPeople ? (
+          <span className="wc-imp-foot__note" role="status" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Icon name="lock" size={13} />
+            {t("import.seatsMissing", { count: Math.max(1, missingPlaces(planPeople)) })}
+          </span>
+        ) : null}
+      </>,
       replace ? (
-        <Button variant="danger" onClick={begin} loading={busy} disabled={typedAddress.trim() !== instanceAddress}>
+        <Button variant="danger" onClick={begin} loading={busy} disabled={tooFewSeats || typedAddress.trim() !== instanceAddress}>
           {t(key("import.startReplacing"))}
         </Button>
       ) : (
-        <Button variant="primary" onClick={begin} loading={busy}>
+        <Button variant="primary" onClick={begin} loading={busy} disabled={tooFewSeats}>
           {t(key("import.start"))}
         </Button>
       ),

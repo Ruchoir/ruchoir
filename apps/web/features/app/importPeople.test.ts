@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { capNames, fallbackSentence, peopleLines, seatsView, startDisabled, viewFromPlan, viewFromSummary } from "./importPeople.ts";
+import { blockView, capNames, fallbackSentence, peopleLines, seatsView, startDisabled, viewFromPlan, viewFromSummary } from "./importPeople.ts";
 
 const dict = (locale: string) =>
   JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, Record<string, string>>;
@@ -136,4 +136,79 @@ test("no_string_uses_tu_in_french_nor_a_gendered_wording", () => {
       assert.ok(!v.includes("—"), `${locale} ${k} has an em dash`);
     }
   }
+});
+
+// --- the block (Task 14): what each frame of the mockups holds ---------------------------------------
+
+const frame1 = full;
+const frame2 = { ...full, administrators: 3, guests: 2, seats: [{ space: "Atelier Dupont", used: 5, incoming: 21, total: 25, over: true }] };
+const frame3 = {
+  ...full, administrators: 2, guests: 1, moderators: 0, groups: 3, groupNames: ["Comptabilité", "Communication", "Chantier Rennes"], seats: [],
+  fallbacks: [{ role: "Comptable", fixed: "member" as const, people: 2 }, { role: "Responsable chantier", fixed: "member" as const, people: 1 }],
+};
+const frame4 = { ...full, seats: [{ space: "Atelier Dupont", used: 8, incoming: 8, total: 25, over: false }], alreadyHere: ["Camille Martin", "Sophie Leroy", "Karim Benali"], alreadyHereTotal: 4 };
+const frame8 = { ...full, moderators: 0, groups: 0, groupNames: [], administrators: 2, guests: 1, seats: [{ space: "Atelier Dupont", used: 1, incoming: 7, total: 25, over: false }] };
+
+test("the_block_lists_only_the_rows_with_something", () => {
+  assert.deepEqual(blockView(viewFromPlan(frame1), "mattermost", "Camille Martin")?.lines.map((l) => l.kind), ["admins", "guests", "moderators", "groups"]);
+  assert.deepEqual(blockView(viewFromPlan(frame4), "mattermost", null)?.lines.map((l) => l.kind), ["admins", "guests", "moderators", "groups", "kept"]);
+});
+
+test("frame_1_rows_and_seats_line", () => {
+  const b = blockView(viewFromPlan(frame1), "mattermost", "Camille Martin");
+  assert.ok(b);
+  assert.deepEqual(b.lines.map((l) => l.count), [3, 2, 4, 5]);
+  assert.deepEqual(b.lines[3].names, ["Comptabilité", "Communication", "Chantier Rennes"]);
+  assert.equal(b.lines[3].more, 2);
+  assert.equal(b.seats.length, 1);
+  assert.equal(b.seats[0].usedAfter, 12);
+  assert.equal(b.seats[0].total, 25);
+  assert.equal(b.seats[0].free, 13);
+  assert.equal(b.seats[0].usedBefore, 1);
+  assert.equal(b.seats[0].added, 11);
+  assert.equal(b.over, false);
+});
+
+test("frame_2_is_red_and_lancer_is_disabled", () => {
+  const view = viewFromPlan(frame2);
+  const b = blockView(view, "mattermost", "Camille Martin");
+  assert.ok(b);
+  assert.equal(b.over, true);
+  assert.equal(b.missing, 1);
+  assert.equal(b.seats[0].left, 20);
+  assert.equal(b.seats[0].added, 21);
+  assert.equal(startDisabled(view), true);
+});
+
+test("frame_3_fallback_rows_and_pricing_link", () => {
+  const b = blockView(viewFromPlan(frame3), "mattermost", null);
+  assert.ok(b);
+  const line = b.lines.find((l) => l.kind === "fallbacks");
+  assert.equal(line?.count, 2);
+  assert.equal(line?.titleKey, "import.peopleFallbacksMember");
+  assert.equal(b.pricing, true);
+  assert.equal(b.seats.length, 0, "no seats line in community edition");
+  assert.equal(blockView(viewFromPlan(frame1), "mattermost", null)?.pricing, false);
+});
+
+test("frame_4_kept_row_with_names", () => {
+  const b = blockView(viewFromPlan(frame4), "mattermost", null);
+  const kept = b?.lines.find((l) => l.kind === "kept");
+  assert.equal(kept?.count, 4);
+  assert.deepEqual(kept?.names, ["Camille Martin", "Sophie Leroy", "Karim Benali"]);
+  assert.equal(kept?.more, 1);
+  assert.equal(b?.seats[0].usedAfter, 16);
+  assert.equal(b?.seats[0].free, 9);
+});
+
+test("frame_8_slack_shows_two_rows", () => {
+  const b = blockView(viewFromPlan(frame8), "slack", "Camille Martin");
+  assert.deepEqual(b?.lines.map((l) => l.kind), ["admins", "guests"]);
+  assert.equal(b?.lines[0].bodyKey, "import.peopleAdminsSlack");
+  assert.equal(b?.seats[0].usedAfter, 8);
+});
+
+test("the_block_is_absent_when_the_archive_has_no_people", () => {
+  assert.equal(blockView(viewFromPlan({ ...full, administrators: 0, guests: 0, moderators: 0, groups: 0, groupNames: [], seats: [] }), "slack", null), null);
+  assert.equal(blockView(null, "slack", null), null);
 });

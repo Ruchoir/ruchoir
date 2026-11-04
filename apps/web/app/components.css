@@ -2794,3 +2794,165 @@ button.wc-mhead__title {
     text-align: center;
   }
 }
+
+/* The people block of the import plan and of the done screen: who arrives with which role. */
+.wc-imp-people {
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.wc-imp-people__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 14px 16px 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.wc-imp-people__head b {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.wc-imp-people__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+}
+.wc-imp-people__row + .wc-imp-people__row {
+  border-top: 1px solid var(--border-subtle);
+}
+.wc-imp-people__icon {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: var(--status-info-bg);
+  color: var(--status-info-fg);
+}
+.wc-imp-people__icon--accent {
+  background: var(--acc);
+  color: var(--on-pastel);
+}
+.wc-imp-people__icon--success {
+  background: var(--status-success-bg);
+  color: var(--status-success-fg);
+}
+.wc-imp-people__icon--warning {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
+}
+.wc-imp-people__body {
+  min-width: 0;
+  flex: 1;
+}
+.wc-imp-people__title {
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.wc-imp-people__text {
+  margin-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.wc-imp-people__list {
+  margin: 5px 0 0;
+  padding-left: 18px;
+  list-style: disc;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.wc-imp-people__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.wc-imp-people__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--text-strong);
+  text-decoration: underline;
+}
+.wc-imp-seats {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+.wc-imp-seats__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.wc-imp-seats__line b {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.wc-imp-seats__space {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+.wc-imp-seats__bar {
+  display: flex;
+  height: 7px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--surface-sunken);
+}
+.wc-imp-seats__taken {
+  background: var(--text-subtle);
+}
+.wc-imp-seats__added {
+  background: var(--acc);
+}
+.wc-imp-seats__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.wc-imp-seats__key::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--text-subtle);
+}
+.wc-imp-seats__key--added::before {
+  background: var(--acc);
+}
+.wc-imp-seats__text {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-body);
+}
+.wc-imp-seats--over {
+  background: var(--status-danger-bg);
+}
+.wc-imp-seats--over .wc-imp-seats__line,
+.wc-imp-seats--over .wc-imp-seats__line b {
+  color: var(--status-danger-fg);
+}
+.wc-imp-seats--over .wc-imp-seats__added {
+  background: var(--status-danger-fg);
+}
+.wc-imp-seats--over .wc-imp-seats__key--added::before {
+  background: var(--status-danger-fg);
+}

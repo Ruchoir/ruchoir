@@ -1507,7 +1507,6 @@
     "seatsMissing_other": "Mancano {{count}} posti",
     "seatsMissing_many": "Mancano {{count}} posti",
     "seatsOverText": "Contano solo i membri e gli amministratori da aggiungere: gli ospiti non occupano un posto e chi è già nello spazio tiene il suo. L'importazione non può iniziare finché tutti non possono essere accolti: non è stato scritto nulla. Libera dei posti, o passa a un'offerta che ne comprende di più, poi torna a questa schermata.",
-    "seatsRefused": "Il server ha rifiutato di avviare l'importazione: posti insufficienti.",
     "doneLimitsKept": "Promemoria di ciò che non è stato esportato"
   },
   "externalLink": {

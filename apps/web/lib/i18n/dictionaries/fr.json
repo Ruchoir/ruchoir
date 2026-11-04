@@ -1443,7 +1443,6 @@
     "seatsMissing_one": "Il manque {{count}} place",
     "seatsMissing_other": "Il manque {{count}} places",
     "seatsOverText": "Seuls les membres et les administrateurs à ajouter comptent : les invités ne prennent pas de place et les personnes déjà dans l'espace gardent la leur. L'import ne peut pas commencer tant que toutes les personnes ne peuvent pas être accueillies : rien n'a été écrit. Libérez des places, ou passez à une offre qui en compte davantage, puis revenez sur cet écran.",
-    "seatsRefused": "Le serveur a refusé de lancer l'import : pas assez de places.",
     "doneLimitsKept": "Rappel de ce qui n'a pas été exporté"
   },
   "externalLink": {
