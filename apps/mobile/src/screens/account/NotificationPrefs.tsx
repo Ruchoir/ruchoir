@@ -10,6 +10,7 @@ import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
+import { isPreviewBlocked } from "../../push/previewGuard";
 import { disablePhonePush, enablePhonePush, phonePushState, type PhonePush } from "../../push/phone";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
@@ -82,8 +83,8 @@ function PhonePushRow() {
           { text: t("attach.openSettings"), onPress: () => void Linking.openSettings() },
         ]);
       }
-    } catch {
-      toast(t("push.failed"), "failure");
+    } catch (err) {
+      toast(isPreviewBlocked(err) ? t("preview.pushBlocked") : t("push.failed"), "failure");
     } finally {
       setBusy(false);
     }

@@ -22,6 +22,7 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 import { notifications } from "./native";
+import { registrationTargets, requireNoPreview } from "./previewGuard";
 import { serializeSharedAccounts, type SharedAccount } from "./shared";
 
 /** Where the extensions and the background task read the instances and their tokens. */
@@ -67,6 +68,9 @@ async function deviceToken(): Promise<string | null> {
   return String((await Notifications.getDevicePushTokenAsync()).data);
 }
 
+/** Whether an instance's client is looking at a role (it then drops background writes, and the server refuses the rest). */
+const previewing = (client: RuchoirClient) => client.options().previewActive?.() === true;
+
 const platform = () => (Platform.OS === "ios" ? "ios" : "android");
 
 /**
@@ -76,6 +80,9 @@ const platform = () => (Platform.OS === "ios" ? "ios" : "android");
 export async function enablePhonePush(ask: boolean, clients: RuchoirClient[]): Promise<PhonePush> {
   const Notifications = notifications();
   if (!Notifications) return "unavailable";
+  // A previewing instance would drop the registration without saying so: refused when the person
+  // asked (`PreviewBlocked`), left out at launch.
+  const targets = registrationTargets(clients, previewing, ask);
   let { status } = await Notifications.getPermissionsAsync();
   if (status !== "granted" && ask) ({ status } = await Notifications.requestPermissionsAsync());
   if (status !== "granted") return status === "denied" ? "denied" : "off";
@@ -88,8 +95,10 @@ export async function enablePhonePush(ask: boolean, clients: RuchoirClient[]): P
   const device = await deviceToken();
   if (!device) return "off";
   // One instance that does not answer does not keep the others from notifying.
-  const results = await Promise.allSettled(clients.map((client) => client.registerPushDevice(platform(), device)));
-  if (clients.length > 0 && results.every((r) => r.status === "rejected")) throw (results[0] as PromiseRejectedResult).reason;
+  const results = await Promise.allSettled(targets.map((client) => client.registerPushDevice(platform(), device)));
+  if (targets.length > 0 && results.every((r) => r.status === "rejected")) throw (results[0] as PromiseRejectedResult).reason;
+  // Nothing was sent (every instance previews): the phone is not registered, and does not say so.
+  if (targets.length === 0 && clients.length > 0) return phonePushState();
   await SecureStore.setItemAsync(DEVICE, device);
   return "on";
 }
@@ -109,8 +118,9 @@ export async function forgetPhoneOn(client: RuchoirClient): Promise<void> {
   if (device) await client.forgetPushDevice(device).catch(() => {});
 }
 
-/** Turn notifications off for this phone: every instance forgets it. */
+/** Turn notifications off for this phone: every instance forgets it (refused while one previews). */
 export async function disablePhonePush(clients: RuchoirClient[]): Promise<void> {
+  requireNoPreview(clients, previewing);
   const device = await SecureStore.getItemAsync(DEVICE).catch(() => null);
   if (device) await Promise.all(clients.map((client) => client.forgetPushDevice(device).catch(() => {})));
   await SecureStore.deleteItemAsync(DEVICE).catch(() => {});

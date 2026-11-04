@@ -27,8 +27,11 @@ const Above = Platform.OS === "ios" ? FullWindowOverlay : Fragment;
 /** The feels a toast may carry: outcomes only. */
 export type ToastFeel = Extract<Feel, "success" | "failure" | "warning">;
 
-/** `preview` marks the sentence of a write the preview refused: it speaks once, and the failure that follows stays quiet. */
-type ShowToast = (text: string, feel?: ToastFeel, options?: { preview?: boolean }) => void;
+/**
+ * `preview` marks the sentence of a write the preview refused: it speaks once, and the echo of the
+ * same call (the screen's own failure toast) stays quiet. `body` is a second, lighter line.
+ */
+type ShowToast = (text: string, feel?: ToastFeel, options?: { preview?: boolean; body?: string }) => void;
 
 const ToastContext = createContext<ShowToast>(() => {});
 
@@ -36,17 +39,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const { c } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
-  const [toast, setToast] = useState<{ text: string; id: number } | null>(null);
+  const [toast, setToast] = useState<{ text: string; body?: string; id: number } | null>(null);
   const [opacity] = useState(() => new Animated.Value(0));
   const [gate] = useState(refusalGate);
 
   const show = useCallback<ShowToast>((text, outcome, options) => {
-    const now = Date.now();
-    if (options?.preview) gate.refused(now);
-    else if (!gate.allows(now, { failure: outcome === "failure", preview: false })) return;
+    if (!gate.allows(Date.now(), { failure: outcome === "failure", preview: options?.preview === true })) return;
     if (outcome) feel(outcome);
-    setToast((prev) => ({ text, id: (prev?.id ?? 0) + 1 }));
-    AccessibilityInfo.announceForAccessibility(text);
+    const body = options?.body;
+    setToast((prev) => ({ text, body, id: (prev?.id ?? 0) + 1 }));
+    AccessibilityInfo.announceForAccessibility(body ? `${text} ${body}` : text);
   }, [gate]);
 
   useEffect(() => {
@@ -70,6 +72,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <Text variant="smallStrong" tone="onInk">
                 {toast.text}
               </Text>
+              {toast.body ? (
+                <Text variant="small" tone="onInk">
+                  {toast.body}
+                </Text>
+              ) : null}
             </Animated.View>
           </Above>
         ) : null}

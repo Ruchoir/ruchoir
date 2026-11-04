@@ -74,7 +74,7 @@ export function SpaceGate({ instanceId }: { instanceId: string }) {
   // The banner sits above the navigation, so it stays over every tab and pushed screen. The navigation
   // starts again when the preview starts or ends: all it showed was read as the other role.
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1 }} onStartShouldSetResponderCapture={preview.onTouchCapture}>
       <PreviewBanner onQuit={preview.quit} />
       <View style={{ flex: 1 }}>
         <RootNavigator key={preview.navigationKey} instanceId={instanceId} />

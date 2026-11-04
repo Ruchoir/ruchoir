@@ -1579,8 +1579,8 @@
   },
   "preview": {
     "readOnlyTitle": "Aktion abgelehnt: Die Vorschau ist schreibgeschützt.",
-    "readOnlyBody": "Ihre Änderung wurde nicht gespeichert. Klicken Sie oben auf Beenden, um wieder die Kontrolle zu übernehmen.",
-    "readOnlyBodySend": "Ihre Nachricht wurde nicht gesendet. Klicken Sie oben auf Beenden, um wieder die Kontrolle zu übernehmen.",
+    "readOnlyBody": "Ihre Änderung wurde nicht gespeichert. Tippen Sie oben auf Beenden, um wieder die Kontrolle zu übernehmen.",
+    "readOnlyBodySend": "Ihre Nachricht wurde nicht gesendet. Tippen Sie oben auf Beenden, um wieder die Kontrolle zu übernehmen.",
     "bannerTitle": "Vorschau: {{role}}",
     "ended": "Die Vorschau ist beendet: Der Space wird wieder mit Ihren eigenen Rechten angezeigt.",
     "note": "Nur Lesen · endet nach {{minutes}} Minuten ohne Aktivität",
@@ -1591,7 +1591,8 @@
       "unavailable": "Die Vorschau ist im Moment nicht verfügbar."
     },
     "startFailed": "Die Vorschau konnte nicht gestartet werden.",
-    "viewAs": "Ansehen als"
+    "viewAs": "Ansehen als",
+    "pushBlocked": "Beenden Sie die Vorschau, um die Benachrichtigungen dieses Telefons zu ändern."
   },
   "why": {
     "role": {
@@ -1753,7 +1754,10 @@
     "saved": "Rolle gespeichert",
     "tabRights": "Rechte",
     "takeAway": "{{name}} die Rolle {{role}} entziehen",
-    "viaGroup": "Über eine Gruppe"
+    "viaGroup": "Über eine Gruppe",
+    "unsavedTitle": "Nicht gespeicherte Änderungen",
+    "unsavedBody": "Ansehen als verlässt diesen Bildschirm. Speichern Sie Ihre Änderungen oder verwerfen Sie sie.",
+    "nameRequired": "Die Rolle braucht einen Namen."
   },
   "dialogs": {
     "seatsFull_one": "Der Platz ist belegt.",

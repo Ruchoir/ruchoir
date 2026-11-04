@@ -1642,8 +1642,8 @@
   },
   "preview": {
     "readOnlyTitle": "Acción rechazada: la vista previa es de solo lectura.",
-    "readOnlyBody": "Tu cambio no se guardó. Haz clic en Salir, arriba, para recuperar el control.",
-    "readOnlyBodySend": "Tu mensaje no se envió. Haz clic en Salir, arriba, para recuperar el control.",
+    "readOnlyBody": "Tu cambio no se guardó. Toca Salir, arriba, para recuperar el control.",
+    "readOnlyBodySend": "Tu mensaje no se envió. Toca Salir, arriba, para recuperar el control.",
     "bannerTitle": "Vista previa: {{role}}",
     "ended": "La vista previa ha terminado: el espacio se muestra de nuevo con tus propios derechos.",
     "note": "Solo lectura · termina tras {{minutes}} minutos sin actividad",
@@ -1654,7 +1654,8 @@
       "unavailable": "La vista previa no está disponible por ahora."
     },
     "startFailed": "No se pudo iniciar la vista previa.",
-    "viewAs": "Ver como"
+    "viewAs": "Ver como",
+    "pushBlocked": "Sal de la vista previa para cambiar las notificaciones de este teléfono."
   },
   "why": {
     "role": {
@@ -1819,7 +1820,10 @@
     "saved": "Rol guardado",
     "tabRights": "Permisos",
     "takeAway": "Quitar el rol {{role}} a {{name}}",
-    "viaGroup": "Por un grupo"
+    "viaGroup": "Por un grupo",
+    "unsavedTitle": "Cambios sin guardar",
+    "unsavedBody": "Ver como sale de esta pantalla. Guarda tus cambios o descártalos.",
+    "nameRequired": "El rol necesita un nombre."
   },
   "dialogs": {
     "seatsFull_one": "La plaza está ocupada.",

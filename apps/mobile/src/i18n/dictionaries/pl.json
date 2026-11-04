@@ -1705,8 +1705,8 @@
   },
   "preview": {
     "readOnlyTitle": "Akcja odrzucona: podgląd jest tylko do odczytu.",
-    "readOnlyBody": "Twoja zmiana nie została zapisana. Kliknij Wyjdź na górze, aby odzyskać kontrolę.",
-    "readOnlyBodySend": "Twoja wiadomość nie została wysłana. Kliknij Wyjdź na górze, aby odzyskać kontrolę.",
+    "readOnlyBody": "Twoja zmiana nie została zapisana. Dotknij Wyjdź na górze, aby odzyskać kontrolę.",
+    "readOnlyBodySend": "Twoja wiadomość nie została wysłana. Dotknij Wyjdź na górze, aby odzyskać kontrolę.",
     "bannerTitle": "Podgląd: {{role}}",
     "ended": "Podgląd się zakończył: przestrzeń znów wyświetla się z Twoimi uprawnieniami.",
     "note": "Tylko odczyt · kończy się po {{minutes}} min bez aktywności",
@@ -1717,7 +1717,8 @@
       "unavailable": "Podgląd jest chwilowo niedostępny."
     },
     "startFailed": "Nie udało się uruchomić podglądu.",
-    "viewAs": "Zobacz jako"
+    "viewAs": "Zobacz jako",
+    "pushBlocked": "Wyjdź z podglądu, aby zmienić powiadomienia na tym telefonie."
   },
   "why": {
     "role": {
@@ -1885,7 +1886,10 @@
     "saved": "Rola zapisana",
     "tabRights": "Uprawnienia",
     "takeAway": "Odbierz rolę {{role}}: {{name}}",
-    "viaGroup": "Przez grupę"
+    "viaGroup": "Przez grupę",
+    "unsavedTitle": "Niezapisane zmiany",
+    "unsavedBody": "Zobacz jako opuszcza ten ekran. Zapisz zmiany albo je odrzuć.",
+    "nameRequired": "Rola potrzebuje nazwy."
   },
   "dialogs": {
     "seatsFull_one": "Miejsce jest zajęte.",

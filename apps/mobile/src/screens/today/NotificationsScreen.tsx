@@ -20,18 +20,19 @@ import { hostOf, unreadEverywhere } from "../../accounts/summary";
 import { useLoad } from "../../data/useLoad";
 import { useNow } from "../../data/useNow";
 import { useReloadOn } from "../../data/useReloadOn";
-import { key, useTranslation } from "../../i18n";
+import { key, useTranslation, type DictKey } from "../../i18n";
 import { useSharedT } from "../../i18n/sharedT";
 import { useLocale } from "../../i18n/useLocale";
 import { listStamp } from "../../logic/format";
 import { deviceZone, shortDay } from "../../logic/memberScreen";
 import { isGuestNotice, noticeData, offersProlong } from "../../logic/guestNotices";
 import { plainExcerpt } from "../../logic/inline";
+import { refusedBody, refusedSentence } from "../../logic/preview";
+import { partitionByPreview } from "../../push/previewGuard";
 import { tapTarget, type TapTarget } from "../../push/tap";
 import type { RootParams } from "../../navigation/types";
 import { useRealtimeActions } from "../../realtime/RealtimeProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { useBackgroundWrites } from "../../space/useBackgroundWrites";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
@@ -101,7 +102,6 @@ export function NotificationsScreen() {
   const { emit } = useRealtimeActions();
   const { current, select } = useSpace();
   const accounts = useAccounts();
-  const mayWrite = useBackgroundWrites();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const [filter, setFilter] = useState<Filter>("unread");
   const signedIn = accounts.accounts.filter((a) => a.status.kind === "signedIn");
@@ -167,12 +167,21 @@ export function NotificationsScreen() {
     );
   };
 
+  /** Whether an instance's session looks at a role: it writes nothing then, whichever space is on screen. */
+  const previewing = (account: { client: { options: () => { previewActive?: () => boolean } } }) => account.client.options().previewActive?.() === true;
+  const refusedByPreview = () =>
+    toast(String(t(refusedSentence() as DictKey)), "failure", { preview: true, body: String(t(refusedBody() as DictKey)) });
+
   const readAll = () => {
-    if (!mayWrite) return;
-    setReadHere(new Set(items.map((n) => n.key)));
-    Promise.all(signedIn.map((account) => account.client.markAllNotificationsRead({ guestNotices: true }))).then(
+    const { free, previewing: blocked } = partitionByPreview(signedIn, previewing);
+    // The preview says why nothing was marked (for every instance that previews, whichever space this is).
+    if (blocked.length > 0) refusedByPreview();
+    if (free.length === 0) return;
+    const freeIds = new Set(free.map((a) => a.id));
+    setReadHere(new Set(items.filter((n) => freeIds.has(n.instanceId)).map((n) => n.key)));
+    Promise.all(free.map((account) => account.client.markAllNotificationsRead({ guestNotices: true }))).then(
       () => {
-        toast(t("inbox.allMarked"));
+        if (blocked.length === 0) toast(t("inbox.allMarked"));
         emit({ type: "notification" });
       },
       () => {
@@ -191,7 +200,9 @@ export function NotificationsScreen() {
   };
 
   const open = (n: InboxItem) => {
-    if (!n.read && mayWrite) {
+    // Gated on the preview of the notification's own instance, not of the space on screen.
+    const own = signedIn.find((a) => a.id === n.instanceId);
+    if (!n.read && own && !previewing(own)) {
       setReadHere((prev) => new Set(prev).add(n.key));
       clientOf(n.instanceId)
         ?.markNotificationRead(n.id, { guestNotices: true })

@@ -9,7 +9,7 @@ import { refusalOf, type Group, type Member, type Role } from "@ruchoir/client";
 import { rolePeople, usedInRows, type UsedInRow } from "@ruchoir/client/permissionsLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { Eye, MoreHorizontal, Trash2 } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -19,7 +19,7 @@ import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
 import { roleColourKey, systemRoleKey } from "../../logic/memberScreen";
 import { refusalSaid } from "../../logic/refusals";
-import { changeCount, draftFrom, editorAccess, familyRows, rolesWith, savePayload, type EditorTab, type RoleDraft } from "../../logic/roleEditor";
+import { changeCount, editorAccess, editorDraft, familyRows, roleSignature, rolesWith, saveBlock, savePayload, type EditorTab, type RoleDraft } from "../../logic/roleEditor";
 import type { RootParams } from "../../navigation/types";
 import { affects } from "../../realtime/events";
 import { useRights, useSectionGuard } from "../../space/rights";
@@ -71,11 +71,19 @@ function Editor({ spaceId }: { spaceId: string }) {
   useReloadOn((e) => affects.permissions(e, spaceId), reloadAll, 300);
 
   const role = roles.data?.find((r) => r.id === params.roleId);
+  // One way out: deleting the role here makes it vanish from the list as well, and each of the two
+  // would go back once (leaving the list under it too).
+  const leaving = useRef(false);
+  const leave = useCallback(() => {
+    if (leaving.current || !navigation.canGoBack()) return;
+    leaving.current = true;
+    navigation.goBack();
+  }, [navigation]);
   // A role deleted elsewhere while it was open: nothing left to edit.
   const gone = roles.data !== undefined && !role;
   useEffect(() => {
-    if (gone && navigation.canGoBack()) navigation.goBack();
-  }, [gone, navigation]);
+    if (gone) leave();
+  }, [gone, leave]);
 
   if (!roles.data || !role) {
     return (
@@ -85,17 +93,16 @@ function Editor({ spaceId }: { spaceId: string }) {
       </>
     );
   }
-  return <RoleBody spaceId={spaceId} role={role} roles={roles.data} members={members.data ?? []} groups={groups.data ?? []} onChanged={reloadAll} />;
+  return <RoleBody spaceId={spaceId} role={role} roles={roles.data} members={members.data ?? []} groups={groups.data ?? []} onChanged={reloadAll} leave={leave} />;
 }
 
-function RoleBody({ spaceId, role, roles, members, groups, onChanged }: { spaceId: string; role: Role; roles: Role[]; members: Member[]; groups: Group[]; onChanged: () => void }) {
+function RoleBody({ spaceId, role, roles, members, groups, onChanged, leave }: { spaceId: string; role: Role; roles: Role[]; members: Member[]; groups: Group[]; onChanged: () => void; leave: () => void }) {
   const { updateRole, deleteRole, startPreview, setMemberRoles } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const navigation = useNavigation();
   const { current, spaces } = useSpace();
   const { rights } = useRights();
   const [tab, setTab] = useState<EditorTab>("rights");
@@ -105,9 +112,9 @@ function RoleBody({ spaceId, role, roles, members, groups, onChanged }: { spaceI
   const [usedIn, setUsedIn] = useState<UsedInRow[] | null>(null);
 
   // What is saved is the truth: a draft started before the role changed under it starts over.
-  const signature = `${role.name}|${role.colour ?? ""}|${role.permissions.join(",")}`;
+  const signature = roleSignature(role);
   const [edit, setEdit] = useState<{ base: string; draft: RoleDraft } | null>(null);
-  const draft = edit && edit.base === signature ? edit.draft : draftFrom(role);
+  const draft = editorDraft(edit, role);
   const change = (next: RoleDraft) => setEdit({ base: signature, draft: next });
 
   const frozen = current?.edition === "frozen";
@@ -128,22 +135,24 @@ function RoleBody({ spaceId, role, roles, members, groups, onChanged }: { spaceI
   const label = named ? t(SYSTEM_ROLE_LABEL[named]) : role.name;
   const count = changeCount(role, draft);
   const payload = savePayload(role, draft);
+  const block = saveBlock(draft);
 
   const failed = (err: unknown) => {
     const said = refusalSaid(refusalOf(err));
     toast(said ? String(t(said.key as never, said.vars as never)) : t("roles.saveFailed"), "failure");
   };
 
-  const save = async () => {
-    if (!payload || count === 0) return;
+  const save = async (): Promise<boolean> => {
+    if (!payload || count === 0) return false;
     setBusy(true);
     setNameError(undefined);
     try {
       await updateRole(spaceId, role.id, payload);
       feel("success");
       toast(t("roles.saved"), "success");
-      setEdit(null);
+      // The draft stays: the screen keeps what was saved until the reloaded role arrives, then lets it go.
       onChanged();
+      return true;
     } catch (err) {
       const refusal = refusalOf(err);
       const said = refusalSaid(refusal);
@@ -151,6 +160,7 @@ function RoleBody({ spaceId, role, roles, members, groups, onChanged }: { spaceI
         setNameError(String(t(said.key as never, said.vars as never)));
         setTab("name");
       } else failed(err);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -163,7 +173,7 @@ function RoleBody({ spaceId, role, roles, members, groups, onChanged }: { spaceI
       feel("success");
       toast(t("roles.deleted"), "success");
       onChanged();
-      navigation.goBack();
+      leave();
     } catch (err) {
       const refusal = refusalOf(err);
       if (refusal?.code === "role_has_rules" && refusal.usedIn) {
@@ -189,7 +199,7 @@ function RoleBody({ spaceId, role, roles, members, groups, onChanged }: { spaceI
       await startPreview(spaceId, role.id);
       // The space now comes back as this role: the banner appears and the app starts again under it.
       spaces.reload();
-      navigation.goBack();
+      leave();
     } catch (err) {
       const refusal = refusalOf(err);
       const known = refusal?.code === "base_role_not_previewable" ? t("preview.refusal.baseRole") : refusal?.code === "preview_unavailable" ? t("preview.refusal.unavailable") : null;
@@ -199,9 +209,26 @@ function RoleBody({ spaceId, role, roles, members, groups, onChanged }: { spaceI
     }
   };
 
+  // The preview starts the app's navigation again, so what is typed here would be lost: ask first.
+  const askViewAs = () => {
+    if (count === 0) return void viewAs();
+    Alert.alert(t("roles.unsavedTitle"), t("roles.unsavedBody"), [
+      ...(block ? [] : [{ text: t("compose.save"), onPress: () => void save().then((saved) => (saved ? viewAs() : undefined)) }]),
+      {
+        text: t("eventForm.discard"),
+        style: "destructive" as const,
+        onPress: () => {
+          setEdit(null);
+          void viewAs();
+        },
+      },
+      { text: t("compose.cancel"), style: "cancel" as const },
+    ]);
+  };
+
   const menu = () =>
     Alert.alert(label, undefined, [
-      ...(access.canPreview ? [{ text: t("preview.viewAs"), onPress: () => void viewAs() }] : []),
+      ...(access.canPreview ? [{ text: t("preview.viewAs"), onPress: askViewAs }] : []),
       ...(access.canDelete ? [{ text: t("roles.delete"), style: "destructive" as const, onPress: askDelete }] : []),
       { text: t("compose.cancel"), style: "cancel" as const },
     ]);
@@ -246,7 +273,7 @@ function RoleBody({ spaceId, role, roles, members, groups, onChanged }: { spaceI
 
   const subtitle = role.systemKey === "members" ? t("roles.baseEveryone") : role.systemKey === "guests" ? t("roles.baseGuests") : t("conversation.people", { count: holderCount });
   const tabLabel: Record<EditorTab, string> = { rights: t("roles.tabRights"), people: t("discussions.filterPeople"), name: t("files.name") };
-  const showFooter = count > 0 || access.canPreview || access.canDelete;
+  const showFooter = count > 0 || block !== null || access.canPreview || access.canDelete;
 
   return (
     <View style={styles.fill}>
@@ -296,7 +323,7 @@ function RoleBody({ spaceId, role, roles, members, groups, onChanged }: { spaceI
             name={draft.name}
             colour={draft.colour}
             editable={access.editable && !busy}
-            error={nameError}
+            error={nameError ?? (block ? t("roles.nameRequired") : undefined)}
             usedIn={usedIn}
             roleName={role.name}
             onName={(name) => {
@@ -309,17 +336,17 @@ function RoleBody({ spaceId, role, roles, members, groups, onChanged }: { spaceI
       </ScrollView>
       {showFooter ? (
         <View style={[styles.footer, { borderTopColor: c.line, backgroundColor: c.surface, paddingBottom: Math.max(insets.bottom, 12) }]}>
-          {count > 0 ? (
+          {count > 0 || block ? (
             <View style={styles.bar}>
-              <Text variant="bodyStrong" style={styles.barText}>
-                {t("roles.changes", { count })}
+              <Text variant="bodyStrong" style={styles.barText} tone={block ? "danger" : undefined}>
+                {block ? t("roles.nameRequired") : t("roles.changes", { count })}
               </Text>
-              <Button size="md" label={t("compose.save")} busy={busy} disabled={!payload} onPress={() => void save()} />
+              <Button size="md" label={t("compose.save")} busy={busy} disabled={!payload || block !== null || count === 0} onPress={() => void save()} />
             </View>
           ) : null}
           {access.canPreview || access.canDelete ? (
             <View style={styles.actions}>
-              {access.canPreview ? <Button size="md" variant="secondary" label={t("preview.viewAs")} icon={<Eye size={16} color={c.ink} />} disabled={busy} onPress={() => void viewAs()} style={styles.action} /> : null}
+              {access.canPreview ? <Button size="md" variant="secondary" label={t("preview.viewAs")} icon={<Eye size={16} color={c.ink} />} disabled={busy} onPress={askViewAs} style={styles.action} /> : null}
               {access.canDelete ? <Button size="md" variant="danger" label={t("roles.delete")} icon={<Trash2 size={16} color={c.onInk} />} disabled={busy} onPress={askDelete} style={styles.action} /> : null}
             </View>
           ) : null}

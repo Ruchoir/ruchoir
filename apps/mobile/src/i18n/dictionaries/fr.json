@@ -1579,8 +1579,8 @@
   },
   "preview": {
     "readOnlyTitle": "Action refusée : l'aperçu est en lecture seule.",
-    "readOnlyBody": "Votre modification n'a pas été enregistrée. Cliquez sur Quitter, en haut, pour reprendre la main.",
-    "readOnlyBodySend": "Votre message n'a pas été envoyé. Cliquez sur Quitter, en haut, pour reprendre la main.",
+    "readOnlyBody": "Votre modification n'a pas été enregistrée. Appuyez sur Quitter, en haut, pour reprendre la main.",
+    "readOnlyBodySend": "Votre message n'a pas été envoyé. Appuyez sur Quitter, en haut, pour reprendre la main.",
     "bannerTitle": "Aperçu : {{role}}",
     "ended": "L'aperçu est terminé : l'espace s'affiche de nouveau avec vos propres droits.",
     "note": "Lecture seule · se termine après {{minutes}} minutes sans activité",
@@ -1591,7 +1591,8 @@
       "unavailable": "L'aperçu est indisponible pour le moment."
     },
     "startFailed": "L'aperçu n'a pas pu démarrer.",
-    "viewAs": "Voir en tant que"
+    "viewAs": "Voir en tant que",
+    "pushBlocked": "Quittez l'aperçu pour changer les notifications de ce téléphone."
   },
   "why": {
     "role": {
@@ -1753,7 +1754,10 @@
     "saved": "Rôle enregistré",
     "tabRights": "Droits",
     "takeAway": "Retirer le rôle {{role}} à {{name}}",
-    "viaGroup": "Par un groupe"
+    "viaGroup": "Par un groupe",
+    "unsavedTitle": "Modifications non enregistrées",
+    "unsavedBody": "Voir en tant que quitte cet écran. Enregistrez vos modifications ou abandonnez-les.",
+    "nameRequired": "Le nom du rôle est obligatoire."
   },
   "dialogs": {
     "seatsFull_one": "La place est prise.",

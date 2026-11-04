@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { COLOUR_CHOICES, changeCount, editorAccess, familyRows, rolesWith, savePayload, usedInRowsOf } from "../src/logic/roleEditor.ts";
+import { COLOUR_CHOICES, changeCount, editorAccess, editorDraft, familyRows, newRoleColour, roleSignature, rolesWith, saveBlock, savePayload, usedInRowsOf } from "../src/logic/roleEditor.ts";
 
 type R = { id: string; name: string; colour?: string; permissions: string[]; manageable: boolean; systemKey?: "administrator" | "members" | "guests" };
 const accountant: R = { id: "acc", name: "Comptable", colour: "mint", permissions: ["channel.view", "message.send", "files.view"], manageable: true };
@@ -128,4 +128,41 @@ test("giving_a_role_keeps_the_strongest_first_order", () => {
   assert.deepEqual(rolesWith(["acc"], ranked, "hr", true), ["hr", "acc"]);
   assert.deepEqual(rolesWith(["admin", "hr"], ranked, "hr", false), ["admin"]);
   assert.deepEqual(rolesWith(undefined, ranked, "acc", true), ["acc"]);
+});
+
+test("an_empty_name_is_not_a_change_the_save_could_send", () => {
+  const draft = draftOf(accountant);
+  draft.name = "   ";
+  assert.equal(changeCount(accountant, draft), 0);
+  draft.permissions.add("members.view");
+  assert.equal(changeCount(accountant, draft), 1);
+});
+
+test("an_empty_name_blocks_the_save_and_says_why", () => {
+  const draft = draftOf(accountant);
+  assert.equal(saveBlock(draft), null);
+  draft.name = " ";
+  assert.equal(saveBlock(draft), "nameRequired");
+});
+
+test("a_copied_role_gives_its_colour_to_the_new_one", () => {
+  const roles = [accountant, { ...accountant, id: "x", colour: undefined }];
+  assert.equal(newRoleColour(roles, "acc"), "mint");
+  assert.equal(newRoleColour(roles, "x"), "sky");
+  assert.equal(newRoleColour(roles, null), "mint");
+  assert.equal(newRoleColour(roles, "gone"), "mint");
+});
+
+test("the_draft_is_kept_until_the_saved_role_arrives", () => {
+  const draft = draftOf(accountant);
+  draft.colour = "pink";
+  const sig = roleSignature(accountant);
+  const mine = { base: sig, draft };
+  // Saved, the role not reloaded yet: still the person's draft, no flicker back to the old values.
+  assert.equal(editorDraft(mine, accountant), draft);
+  // The reloaded role arrives (its signature moved): its values, the draft is let go.
+  const saved = { ...accountant, colour: "pink" };
+  assert.notEqual(roleSignature(saved), sig);
+  assert.equal(editorDraft(mine, saved).colour, "pink");
+  assert.equal(editorDraft(null, accountant).colour, "mint");
 });

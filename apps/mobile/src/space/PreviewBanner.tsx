@@ -39,12 +39,14 @@ export function PreviewBanner({ onQuit }: { onQuit: (quitting: boolean) => void 
       onQuit(true);
       await quitPreview(current.id);
       feel("success");
-      spaces.reload();
     } catch {
       onQuit(false);
       toast(t("preview.quitFailed"), "failure");
     } finally {
       setBusy(false);
+      // Whatever the answer: a preview that had already ended on the server (idle, another device)
+      // answers an error here, and only a fresh read of the spaces takes the banner away.
+      spaces.reload();
     }
   };
 

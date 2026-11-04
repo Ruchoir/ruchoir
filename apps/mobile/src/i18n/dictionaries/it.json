@@ -1642,8 +1642,8 @@
   },
   "preview": {
     "readOnlyTitle": "Azione rifiutata: l'anteprima è in sola lettura.",
-    "readOnlyBody": "La tua modifica non è stata salvata. Fai clic su Esci, in alto, per riprendere il controllo.",
-    "readOnlyBodySend": "Il tuo messaggio non è stato inviato. Fai clic su Esci, in alto, per riprendere il controllo.",
+    "readOnlyBody": "La tua modifica non è stata salvata. Tocca Esci, in alto, per riprendere il controllo.",
+    "readOnlyBodySend": "Il tuo messaggio non è stato inviato. Tocca Esci, in alto, per riprendere il controllo.",
     "bannerTitle": "Anteprima: {{role}}",
     "ended": "L'anteprima è terminata: lo spazio torna a mostrarsi con i tuoi diritti.",
     "note": "Sola lettura · termina dopo {{minutes}} minuti di inattività",
@@ -1654,7 +1654,8 @@
       "unavailable": "L'anteprima non è disponibile al momento."
     },
     "startFailed": "Non è stato possibile avviare l'anteprima.",
-    "viewAs": "Visualizza come"
+    "viewAs": "Visualizza come",
+    "pushBlocked": "Esci dall'anteprima per cambiare le notifiche di questo telefono."
   },
   "why": {
     "role": {
@@ -1819,7 +1820,10 @@
     "saved": "Ruolo salvato",
     "tabRights": "Diritti",
     "takeAway": "Togli il ruolo {{role}} a {{name}}",
-    "viaGroup": "Tramite un gruppo"
+    "viaGroup": "Tramite un gruppo",
+    "unsavedTitle": "Modifiche non salvate",
+    "unsavedBody": "Visualizza come lascia questa schermata. Salva le modifiche o scartale.",
+    "nameRequired": "Il ruolo ha bisogno di un nome."
   },
   "dialogs": {
     "seatsFull_one": "Il posto è occupato.",

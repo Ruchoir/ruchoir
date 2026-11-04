@@ -39,15 +39,45 @@ export function draftFrom(role: RoleLike): RoleDraft {
 
 const CATALOGUE = FAMILIES.flatMap((f) => f.permissions);
 
-/** Changes waiting to be saved: the name, the colour, and each right added or taken away. */
+/** What is saved of a role, as one string: a draft started before it changed under it starts over. */
+export function roleSignature(role: RoleLike): string {
+  return `${role.name}|${role.colour ?? ""}|${role.permissions.join(",")}`;
+}
+
+/**
+ * The draft on screen: the person's own while the role is as it was when they started (and after a
+ * save, until the reloaded role arrives, so the screen does not flicker back to the old values),
+ * else the role as saved.
+ */
+export function editorDraft(edit: { base: string; draft: RoleDraft } | null, role: RoleLike): RoleDraft {
+  return edit && edit.base === roleSignature(role) ? edit.draft : draftFrom(role);
+}
+
+/** Why the draft cannot be saved as it stands, if it cannot: an empty name. */
+export function saveBlock(draft: RoleDraft): "nameRequired" | null {
+  return draft.name.trim() ? null : "nameRequired";
+}
+
+/** The colour a new role starts with: the one of the role it copies, else mint (as the web). */
+export function newRoleColour(roles: { id: string; colour?: string }[], copyFrom: string | null): string {
+  if (!copyFrom) return "mint";
+  const source = roles.find((r) => r.id === copyFrom);
+  return source ? (source.colour ?? DEFAULT_COLOUR) : "mint";
+}
+
+/**
+ * Changes waiting to be saved: the name, the colour, and each right added or taken away. An empty
+ * name is not one: the save cannot send it (`saveBlock` says why).
+ */
 export function changeCount(role: RoleLike, draft: RoleDraft): number {
   const { added, removed } = changedPermissions(role.permissions, CATALOGUE.filter((p) => draft.permissions.has(p)));
-  const named = draft.name.trim() !== role.name ? 1 : 0;
+  const name = draft.name.trim();
+  const named = name && name !== role.name ? 1 : 0;
   const coloured = draft.colour !== (role.colour ?? DEFAULT_COLOUR) ? 1 : 0;
   return named + coloured + added.length + removed.length;
 }
 
-/** What `updateRole` gets: only what changed. `null` when the name is empty (nothing to save). */
+/** What `updateRole` gets: only what changed. `null` when the name is empty (`saveBlock`). */
 export function savePayload(role: RoleLike, draft: RoleDraft): { name?: string; colour?: string; permissions?: string[] } | null {
   const name = draft.name.trim();
   if (!name) return null;

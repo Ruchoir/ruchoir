@@ -17,7 +17,7 @@ import { useSyncExternalStore } from "react";
 import { Appearance } from "react-native";
 
 import { applyLocale } from "../i18n";
-import { DEFAULT_PREFS, fromWire, MOBILE_ACCOUNT_KEYS, parsePrefs, toWire, wireChanges, type Prefs, type ThemeMode } from "./prefs";
+import { DEFAULT_PREFS, flushAllowed, fromWire, MOBILE_ACCOUNT_KEYS, parsePrefs, toWire, wireChanges, type Prefs, type ThemeMode } from "./prefs";
 
 const KEY = "ruchoir.prefs";
 /** What is still to send, and the accounts (user ids) this phone already synced with once. */
@@ -26,6 +26,8 @@ const SYNC_KEY = "ruchoir.prefs.sync";
 let pending: AccountPrefsDoc = {};
 let synced: string[] = [];
 let sending = false;
+/** True while an instance previews a role: its session refuses every write, so the queue waits. */
+let held = false;
 /**
  * Sends a change to the signed-in instances (all of them, or all but `except`); true when every
  * one took it, predates the feature, or refused it for good (the next reading of the account puts
@@ -118,7 +120,12 @@ export async function adoptRemote(client: RuchoirClient, changes: AccountPrefsDo
   const server = await client.getAccountPreferences().catch(() => null);
   if (!server) return;
   const changed = adoptPrefs(valuesOf(server, Object.keys(changes)));
-  if (Object.keys(changed).length > 0 && sender) void sender(changed, client);
+  if (Object.keys(changed).length === 0) return;
+  if (held) {
+    // The other instances cannot take it now: queued, it goes to every instance once the preview ends.
+    pending = mergePending(pending, changed);
+    saveSync();
+  } else if (sender) void sender(changed, client);
 }
 
 /** Who sends a change to the signed-in instances (`AccountPrefsSender`), or nobody. */
@@ -127,10 +134,18 @@ export function setAccountSender(send: typeof sender) {
   if (send) void flushAccountPrefs();
 }
 
+/** Hold the queue while any instance previews (nothing is sent, nothing is lost); sent when released. */
+export function holdPrefsFlush(on: boolean) {
+  if (held === on) return;
+  held = on;
+  if (!on) void flushAccountPrefs();
+}
+
 /** Send what is queued, one send at a time; kept for later when an instance could not be reached. */
 export async function flushAccountPrefs() {
   const sent = pending;
-  if (!sender || sending || Object.keys(sent).length === 0) return;
+  if (!flushAllowed({ hasSender: sender !== null, sending, queued: Object.keys(sent).length, held })) return;
+  if (!sender) return;
   sending = true;
   let taken = false;
   try {

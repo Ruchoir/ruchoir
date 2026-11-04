@@ -3,29 +3,19 @@
  * server accepts, and where rules still name it (shown once the server refused to delete it for that).
  */
 import type { UsedInRow } from "@ruchoir/client/permissionsLogic";
-import { Calendar, Check, File, Hash } from "lucide-react-native";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Calendar, File, Hash } from "lucide-react-native";
+import { StyleSheet, View } from "react-native";
 
-import { key, useTranslation } from "../../i18n";
+import { useTranslation } from "../../i18n";
 import { useSharedT } from "../../i18n/sharedT";
-import { COLOUR_CHOICES } from "../../logic/roleEditor";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
+import { RoleColours } from "./RoleColours";
 
 /** A role's name is 1 to 40 characters (the API's rule, the web's field). */
 export const NAME_MAX = 40;
-
-const COLOUR_TEXT = {
-  sky: key("prefs.accentSky"),
-  mint: key("prefs.accentMint"),
-  violet: key("prefs.accentViolet"),
-  pink: key("prefs.accentPink"),
-  peach: key("calendar.color.peach"),
-  lime: key("calendar.color.lime"),
-  sun: key("calendar.color.sun"),
-} as const;
 
 const KIND_ICON = { channel: Hash, file: File, calendar: Calendar } as const;
 
@@ -55,27 +45,7 @@ export function RoleName({
   return (
     <View style={styles.box}>
       <TextField label={t("files.name")} value={name} onChangeText={onName} editable={editable} maxLength={NAME_MAX} error={error} autoCapitalize="sentences" />
-      <View style={styles.colours}>
-        <Text variant="smallStrong">{t("calendar.colorLabel")}</Text>
-        <View style={styles.swatches} accessibilityRole="radiogroup">
-          {COLOUR_CHOICES.map((choice) => {
-            const on = choice === colour;
-            return (
-              <Pressable
-                key={choice}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: on, disabled: !editable }}
-                accessibilityLabel={t(COLOUR_TEXT[choice])}
-                disabled={!editable}
-                onPress={() => onColour(choice)}
-                style={[styles.swatch, { backgroundColor: c[choice], borderColor: on ? s.edge : c.lineStrong, borderWidth: on ? 2 : 1 }]}
-              >
-                {on ? <Check size={16} color={c.onPastel} /> : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+      <RoleColours colour={colour} editable={editable} onColour={onColour} />
       {usedIn ? (
         <View style={styles.used}>
           <Text variant="small" tone="body" accessibilityRole="alert">
@@ -111,9 +81,6 @@ export function RoleName({
 const makeStyles = styleCache((shape) =>
   StyleSheet.create({
     box: { gap: 16, padding: 16 },
-    colours: { gap: 10 },
-    swatches: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-    swatch: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
     used: { gap: 8, paddingTop: 8 },
     usedRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 48 },
     tile: { width: 40, height: 40, borderRadius: shape.radius.m, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center" },

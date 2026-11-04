@@ -139,3 +139,12 @@ export function durationLabel(
   if (h === 0) return words.minutes(m);
   return m === 0 ? words.hours(h) : words.hoursMinutes(h, m);
 }
+
+/**
+ * Whether the queue of account preferences may be sent now: there is a way to send it, nothing is
+ * being sent, something is queued, and no instance is previewing (a preview refuses every write of
+ * the session: the change waits, silently, and goes up when the preview ends).
+ */
+export function flushAllowed(state: { hasSender: boolean; sending: boolean; queued: number; held: boolean }): boolean {
+  return state.hasSender && !state.sending && state.queued > 0 && !state.held;
+}
