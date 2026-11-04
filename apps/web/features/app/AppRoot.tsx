@@ -4597,8 +4597,8 @@ function AppShell() {
           })}
           invitations={invitations}
           emailDelivery={emailDelivery}
-          onCreate={async ({ email, role }) => {
-            const created = await createInvitation(ws, { email, role });
+          onCreate={async ({ email, role, guestExpiresAt }) => {
+            const created = await createInvitation(ws, { email, role, guestExpiresAt });
             setInvitations(await getInvitations(ws));
             showToast({
               tone: "success",

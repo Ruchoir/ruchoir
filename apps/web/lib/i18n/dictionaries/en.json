@@ -2236,5 +2236,26 @@
     "groupDeletedBare": "{{actor}} deleted the group {{group}}",
     "licenceRemoved": "{{actor}} removed the licence",
     "unknown": "{{actor}} made a change ({{action}})"
+  },
+  "guests": {
+    "endTitle": "Access until",
+    "optional": "Not required",
+    "endNote": "From that date, the person no longer has access to the space. Their messages and files stay, and you can reactivate them.",
+    "presetNone": "No date",
+    "presetWeek": "One week",
+    "presetMonth": "One month",
+    "presetQuarter": "Three months",
+    "presetCustom": "Pick a date",
+    "presetNoEnd": "No end date",
+    "endOfDay": "End of day",
+    "reminders": "You are warned 7 days, then 1 day before the end. The guest is warned the day before.",
+    "noSeat": "A guest does not take a seat in the licence.",
+    "dateLabel": "Access end date",
+    "pastDate": "Pick a date in the future.",
+    "farDate": "Pick a date within the next five years.",
+    "prolongBy": "Extend by",
+    "newDate": "New date",
+    "newNoEnd": "No end date any more",
+    "prolongReminders": "Reminders start over for the new date: 7 days and 1 day before."
   }
 }

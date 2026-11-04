@@ -2418,5 +2418,26 @@
     "groupDeletedBare": "{{actor}} usunął(-ęła) grupę {{group}}",
     "licenceRemoved": "{{actor}} usuwa licencję",
     "unknown": "{{actor}} wprowadza zmianę ({{action}})"
+  },
+  "guests": {
+    "endTitle": "Dostęp do",
+    "optional": "Nieobowiązkowe",
+    "endNote": "Od tej daty osoba nie ma już dostępu do przestrzeni. Jej wiadomości i pliki zostają, a Ty możesz ją przywrócić.",
+    "presetNone": "Bez daty",
+    "presetWeek": "Tydzień",
+    "presetMonth": "Miesiąc",
+    "presetQuarter": "Trzy miesiące",
+    "presetCustom": "Wybierz datę",
+    "presetNoEnd": "Bez daty końca",
+    "endOfDay": "Koniec dnia",
+    "reminders": "Dostajesz przypomnienie na 7 dni, a potem na 1 dzień przed końcem. Gość dostaje je dzień wcześniej.",
+    "noSeat": "Gość nie zajmuje miejsca w licencji.",
+    "dateLabel": "Data końca dostępu",
+    "pastDate": "Wybierz datę z przyszłości.",
+    "farDate": "Wybierz datę w ciągu najbliższych pięciu lat.",
+    "prolongBy": "Przedłuż o",
+    "newDate": "Nowa data",
+    "newNoEnd": "Bez daty końca",
+    "prolongReminders": "Przypomnienia zaczynają się od nowa dla nowej daty: 7 dni i 1 dzień przed."
   }
 }

@@ -2327,5 +2327,26 @@
     "groupDeletedBare": "{{actor}} ha eliminato il gruppo {{group}}",
     "licenceRemoved": "{{actor}} ha rimosso la licenza",
     "unknown": "{{actor}} ha fatto una modifica ({{action}})"
+  },
+  "guests": {
+    "endTitle": "Accesso fino al",
+    "optional": "Non obbligatorio",
+    "endNote": "Da quella data la persona non ha più accesso allo spazio. I suoi messaggi e file restano e potrai riattivarla.",
+    "presetNone": "Nessuna data",
+    "presetWeek": "Una settimana",
+    "presetMonth": "Un mese",
+    "presetQuarter": "Tre mesi",
+    "presetCustom": "Scegli una data",
+    "presetNoEnd": "Senza data di fine",
+    "endOfDay": "Fine giornata",
+    "reminders": "Ricevi un avviso 7 giorni e poi 1 giorno prima della fine. L'ospite lo riceve il giorno prima.",
+    "noSeat": "Un ospite non occupa un posto nella licenza.",
+    "dateLabel": "Data di fine dell'accesso",
+    "pastDate": "Scegli una data futura.",
+    "farDate": "Scegli una data entro i prossimi cinque anni.",
+    "prolongBy": "Prolunga di",
+    "newDate": "Nuova data",
+    "newNoEnd": "Nessuna data di fine",
+    "prolongReminders": "I promemoria ripartono per la nuova data: 7 giorni e 1 giorno prima."
   }
 }

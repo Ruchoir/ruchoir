@@ -173,6 +173,10 @@ export type Refusal =
         | "group_name_reserved"
         | "group_name_invalid"
         | "manager_must_be_member"
+        | "bad_expiry"
+        | "guest_only"
+        | "access_ended"
+        | "access_ended_for_good"
         | "base_role_not_allowed"
         | "not_in_space"
         | "too_many_people";
@@ -197,6 +201,8 @@ export type Invitation = {
   maxUses?: number;
   /** RFC 3339 expiry, when it expires. */
   expiresAt?: string;
+  /** RFC 3339 end of access the guest it admits will have; absent for no end date. */
+  guestExpiresAt?: string;
   createdAt: string;
   /** Whether it would be accepted right now. */
   usable: boolean;

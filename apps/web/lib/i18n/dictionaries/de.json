@@ -2236,5 +2236,26 @@
     "groupDeletedBare": "{{actor}} hat die Gruppe {{group}} gelöscht",
     "licenceRemoved": "{{actor}} hat die Lizenz entfernt",
     "unknown": "{{actor}} hat eine Änderung vorgenommen ({{action}})"
+  },
+  "guests": {
+    "endTitle": "Zugang bis",
+    "optional": "Nicht erforderlich",
+    "endNote": "Ab diesem Datum hat die Person keinen Zugang mehr zum Bereich. Ihre Nachrichten und Dateien bleiben erhalten, und Sie können den Zugang reaktivieren.",
+    "presetNone": "Kein Datum",
+    "presetWeek": "Eine Woche",
+    "presetMonth": "Ein Monat",
+    "presetQuarter": "Drei Monate",
+    "presetCustom": "Datum wählen",
+    "presetNoEnd": "Ohne Enddatum",
+    "endOfDay": "Tagesende",
+    "reminders": "Sie werden 7 Tage und dann 1 Tag vor dem Ende benachrichtigt. Der Gast am Vortag.",
+    "noSeat": "Ein Gast belegt keinen Platz in der Lizenz.",
+    "dateLabel": "Enddatum des Zugangs",
+    "pastDate": "Wählen Sie ein Datum in der Zukunft.",
+    "farDate": "Wählen Sie ein Datum innerhalb der nächsten fünf Jahre.",
+    "prolongBy": "Verlängern um",
+    "newDate": "Neues Datum",
+    "newNoEnd": "Kein Enddatum mehr",
+    "prolongReminders": "Die Erinnerungen beginnen für das neue Datum neu: 7 Tage und 1 Tag vorher."
   }
 }
