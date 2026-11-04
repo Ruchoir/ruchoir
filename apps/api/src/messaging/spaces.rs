@@ -554,8 +554,8 @@ pub async fn update_member_role(
         return Err(ApiError::BadRequest("this instance has no such role"));
     }
 
-    let actor = space_members::Entity::find_by_id((space_id, session.user_id))
-        .one(&state.db)
+    // The actor must be in the space now: an ended guest is refused as a stranger would be.
+    let actor = crate::permissions::membership::active(&state.db, space_id, session.user_id)
         .await?
         .ok_or(ApiError::Forbidden)?;
     let actor_rank = crate::permissions::delegation::rank_of(&state.db, space_id, session.user_id)
@@ -577,6 +577,7 @@ pub async fn update_member_role(
         return Err(ApiError::Forbidden);
     }
 
+    // management: sees ended guests.
     let target = space_members::Entity::find_by_id((space_id, user_id))
         .one(&state.db)
         .await?
@@ -716,12 +717,13 @@ pub async fn leave_space(
     session: AuthSession,
     Path(space_id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
-    let membership = space_members::Entity::find_by_id((space_id, session.user_id))
-        .one(&state.db)
+    // An ended guest is not in the space any more: nothing to leave.
+    let membership = crate::permissions::membership::active(&state.db, space_id, session.user_id)
         .await?
         .ok_or(ApiError::Forbidden)?;
 
     if membership.role == "owner" {
+        // management: sees ended guests (owners never expire).
         let owners = space_members::Entity::find()
             .filter(space_members::Column::SpaceId.eq(space_id))
             .filter(space_members::Column::Role.eq("owner"))
@@ -870,8 +872,7 @@ pub async fn remove_member(
     Path((space_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     // Not in the space: refused as anyone else would be.
-    space_members::Entity::find_by_id((space_id, session.user_id))
-        .one(&state.db)
+    crate::permissions::membership::active(&state.db, space_id, session.user_id)
         .await?
         .ok_or(ApiError::Forbidden)?;
     if user_id == session.user_id {
@@ -885,6 +886,7 @@ pub async fn remove_member(
         crate::permissions::catalogue::Permission::MembersManage,
     )
     .await?;
+    // management: sees ended guests.
     let target = space_members::Entity::find_by_id((space_id, user_id))
         .one(&state.db)
         .await?

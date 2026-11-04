@@ -22,7 +22,7 @@ use uuid::Uuid;
 use crate::auth::extract::AuthSession;
 use crate::entities::{
     channel_members, channels, conversations, dm_conversations, dm_participants, messages,
-    read_cursors, space_members, spaces, users,
+    read_cursors, spaces, users,
 };
 use crate::state::AppState;
 
@@ -48,10 +48,8 @@ pub async fn list_my_spaces(
     State(state): State<AppState>,
     session: AuthSession,
 ) -> Result<Json<Vec<SpaceDto>>, ApiError> {
-    let memberships = space_members::Entity::find()
-        .filter(space_members::Column::UserId.eq(session.user_id))
-        .all(&state.db)
-        .await?;
+    let memberships =
+        crate::permissions::membership::active_of_user(&state.db, session.user_id).await?;
 
     // Both counters come from one grouped statement each, not from the per-conversation helper: the
     // sidebar can afford two queries per conversation for the one space on screen, the rail cannot
@@ -69,10 +67,7 @@ pub async fn list_my_spaces(
         else {
             continue;
         };
-        let members = space_members::Entity::find()
-            .filter(space_members::Column::SpaceId.eq(space.id))
-            .count(&state.db)
-            .await? as i64;
+        let members = crate::permissions::membership::count_active(&state.db, space.id).await?;
         let (edition, licence) = super::edition_view::describe(
             &state.db,
             state.edition.as_ref(),
@@ -286,11 +281,8 @@ pub async fn list_members(
     // Everyone, or for a guest only the people they share a conversation with: restricting what
     // someone reads while handing them the directory would defeat the point of the role.
     let visible = super::authz::visible_member_ids(&state.db, space_id, session.user_id).await?;
-    let memberships = space_members::Entity::find()
-        .filter(space_members::Column::SpaceId.eq(space_id))
-        .filter(space_members::Column::UserId.is_in(visible))
-        .all(&state.db)
-        .await?;
+    let memberships =
+        crate::permissions::membership::active_among(&state.db, space_id, visible).await?;
     let ids: Vec<Uuid> = memberships.iter().map(|m| m.user_id).collect();
     let by_id: HashMap<Uuid, users::Model> = users::Entity::find()
         .filter(users::Column::Id.is_in(ids))

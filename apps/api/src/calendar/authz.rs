@@ -38,6 +38,7 @@ use super::error::CalendarError;
 use crate::entities::{calendars, space_members, users};
 use crate::permissions::catalogue::{Permission, PermissionSet};
 use crate::permissions::check;
+use crate::permissions::membership::{self, active_sql};
 
 /// The colours a calendar may wear: the design system's pastels, or `accent`, which each viewer
 /// sees in their own theme's accent.
@@ -195,13 +196,19 @@ pub async fn seen<C: ConnectionTrait>(
 
 /// The shares that hold: a personal calendar's, for someone who still has a space in common with
 /// its owner. `calendar` and `user` narrow it down when given.
-const LIVE_SHARES: &str = "\
+const LIVE_SHARES: &str = concat!(
+    "\
 SELECT s.calendar_id, s.user_id, s.level FROM calendar_shares s \
   JOIN calendars c ON c.id = s.calendar_id \
  WHERE c.owner_user_id IS NOT NULL AND c.space_id IS NULL \
    AND ($1::uuid IS NULL OR s.calendar_id = $1) AND ($2::uuid IS NULL OR s.user_id = $2) \
    AND EXISTS (SELECT 1 FROM space_members a JOIN space_members b ON b.space_id = a.space_id \
-                WHERE a.user_id = c.owner_user_id AND b.user_id = s.user_id)";
+                WHERE a.user_id = c.owner_user_id AND b.user_id = s.user_id AND ",
+    active_sql!("a"),
+    " AND ",
+    active_sql!("b"),
+    ")"
+);
 
 /// The live shares, as (calendar, person, level).
 pub async fn live_shares<C: ConnectionTrait>(
@@ -251,8 +258,14 @@ pub async fn share_a_space<C: ConnectionTrait>(
     Ok(db
         .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
-            "SELECT 1 AS found FROM space_members a JOIN space_members b ON b.space_id = a.space_id \
-              WHERE a.user_id = $1 AND b.user_id = $2 LIMIT 1",
+            concat!(
+                "SELECT 1 AS found FROM space_members a JOIN space_members b ON b.space_id = a.space_id \
+              WHERE a.user_id = $1 AND b.user_id = $2 AND ",
+                active_sql!("a"),
+                " AND ",
+                active_sql!("b"),
+                " LIMIT 1"
+            ),
             [a.into(), b.into()],
         ))
         .await?
@@ -280,11 +293,7 @@ pub async fn visible<C: ConnectionTrait>(
     ensure_personal(db, user_id).await?;
     // The spaces whose calendars they see (`calendar.view` there: not as a guest).
     let mut space_ids: Vec<Uuid> = Vec::new();
-    for membership in space_members::Entity::find()
-        .filter(space_members::Column::UserId.eq(user_id))
-        .all(db)
-        .await?
-    {
+    for membership in membership::active_of_user(db, user_id).await? {
         if check::space_rights(db, membership.space_id, user_id)
             .await?
             .contains(Permission::CalendarView)
@@ -423,6 +432,7 @@ pub async fn create_space_default<C: ConnectionTrait>(
 ) -> Result<(), CalendarError> {
     let owner = match created_by {
         Some(user) => Some(user),
+        // management: sees ended guests (owners never expire).
         None => space_members::Entity::find()
             .filter(space_members::Column::SpaceId.eq(space_id))
             .filter(space_members::Column::Role.eq("owner"))
@@ -430,6 +440,7 @@ pub async fn create_space_default<C: ConnectionTrait>(
             .await?
             .map(|m| m.user_id),
     };
+    let active = membership::ACTIVE_SQL;
     let colours = SPACE_COLOURS
         .iter()
         .map(|c| format!("'{c}'"))
@@ -444,7 +455,7 @@ pub async fn create_space_default<C: ConnectionTrait>(
                     (SELECT p.color FROM unnest(ARRAY[{colours}]) WITH ORDINALITY AS p (color, ord) \
                      ORDER BY (SELECT count(*) FROM calendars c \
                                JOIN space_members m ON m.space_id = c.space_id \
-                               WHERE m.user_id = $3 AND c.color = p.color), p.ord \
+                               WHERE m.user_id = $3 AND c.color = p.color AND {active}), p.ord \
                      LIMIT 1), \
                     'members', ARRAY[10], true, $3 \
              FROM spaces s WHERE s.id = $2 \

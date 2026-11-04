@@ -54,6 +54,7 @@ pub async fn seats_used(db: &impl ConnectionTrait, space_id: Uuid) -> Result<u32
     let row = db
         .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
+            // management: sees ended guests (guests hold no seat either way).
             "SELECT count(*)::bigint AS used FROM space_members \
              WHERE space_id = $1 AND standing IN ('owner', 'member')",
             [space_id.into()],

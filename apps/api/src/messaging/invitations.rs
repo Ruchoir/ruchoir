@@ -444,6 +444,7 @@ pub async fn accept_invitation(
         }
     }
 
+    // management: sees ended guests (a returning guest is reactivated by a later step).
     let existing = space_members::Entity::find_by_id((record.space_id, session.user_id))
         .one(&state.db)
         .await?;
@@ -547,10 +548,7 @@ pub async fn accept_invitation(
         .one(&state.db)
         .await?
         .ok_or(ApiError::NotFound)?;
-    let members = space_members::Entity::find()
-        .filter(space_members::Column::SpaceId.eq(space.id))
-        .count(&state.db)
-        .await? as i64;
+    let members = crate::permissions::membership::count_active(&state.db, space.id).await?;
 
     // Tell the space someone arrived, so the member list, the mention candidates and the
     // direct-message candidates gain them without a reload. Only on a real arrival: an existing
@@ -673,10 +671,7 @@ pub(crate) async fn invitation_card(
     else {
         return Ok(None);
     };
-    let members = space_members::Entity::find()
-        .filter(space_members::Column::SpaceId.eq(space.id))
-        .count(&state.db)
-        .await?;
+    let members = crate::permissions::membership::count_active(&state.db, space.id).await? as u64;
     let channels = channels::Entity::find()
         .filter(channels::Column::SpaceId.eq(space.id))
         .filter(channels::Column::ChannelType.eq("public"))

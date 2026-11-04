@@ -6,22 +6,28 @@
 //! `expires_at > now()` in SQL, never a clock read by the application. Management screens, which
 //! must also see people whose access ended, use [`any`] and [`ended`].
 
-// The paths through this module are rewired one task at a time; until then part of it is only used
-// by the tests.
-#![allow(dead_code)]
-
 use sea_orm::sea_query::{Expr, ExprTrait};
 use sea_orm::{
-    ColumnTrait, Condition, ConnectionTrait, DbErr, EntityTrait, FromQueryResult, QueryFilter,
-    QueryOrder, QuerySelect,
+    ColumnTrait, Condition, ConnectionTrait, DbErr, EntityTrait, FromQueryResult, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect,
 };
 use uuid::Uuid;
 
 use crate::entities::space_members;
 
+/// The text of [`ACTIVE_SQL`] for a `space_members` row under another alias: `active_sql!("a")`.
 macro_rules! active_sql {
     () => {
-        "(m.expires_at IS NULL OR m.expires_at > now())"
+        $crate::permissions::membership::active_sql!("m")
+    };
+    ($alias:literal) => {
+        concat!(
+            "(",
+            $alias,
+            ".expires_at IS NULL OR ",
+            $alias,
+            ".expires_at > now())"
+        )
     };
 }
 pub(crate) use active_sql;
@@ -39,12 +45,14 @@ pub fn active_condition() -> Condition {
 
 /// A membership row and whether its access has ended (as of the database's clock).
 #[derive(Clone, Debug)]
+#[allow(dead_code)] // used by the ended-access screens (task 5)
 pub struct Membership {
     pub model: space_members::Model,
     pub ended: bool,
 }
 
 #[derive(FromQueryResult)]
+#[allow(dead_code)] // used by `any` (task 5)
 struct WithEnded {
     #[sea_orm(nested)]
     model: space_members::Model,
@@ -77,6 +85,64 @@ pub async fn active_ids<C: ConnectionTrait>(db: &C, space_id: Uuid) -> Result<Ve
         .await
 }
 
+/// Every active membership row of `user_id`, whole.
+pub async fn active_of_user<C: ConnectionTrait>(
+    db: &C,
+    user_id: Uuid,
+) -> Result<Vec<space_members::Model>, DbErr> {
+    space_members::Entity::find()
+        .filter(space_members::Column::UserId.eq(user_id))
+        .filter(active_condition())
+        .order_by_asc(space_members::Column::SpaceId)
+        .all(db)
+        .await
+}
+
+/// The active memberships of the space held by `user_ids`, whole.
+pub async fn active_among<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    user_ids: Vec<Uuid>,
+) -> Result<Vec<space_members::Model>, DbErr> {
+    space_members::Entity::find()
+        .filter(space_members::Column::SpaceId.eq(space_id))
+        .filter(space_members::Column::UserId.is_in(user_ids))
+        .filter(active_condition())
+        .all(db)
+        .await
+}
+
+/// How many people are active in the space.
+pub async fn count_active<C: ConnectionTrait>(db: &C, space_id: Uuid) -> Result<i64, DbErr> {
+    Ok(space_members::Entity::find()
+        .filter(space_members::Column::SpaceId.eq(space_id))
+        .filter(active_condition())
+        .count(db)
+        .await? as i64)
+}
+
+/// The people actively in any of `space_ids` (once each), among `only` when given.
+pub async fn active_users_in<C: ConnectionTrait>(
+    db: &C,
+    space_ids: Vec<Uuid>,
+    only: Option<Vec<Uuid>>,
+) -> Result<Vec<Uuid>, DbErr> {
+    let mut query = space_members::Entity::find()
+        .select_only()
+        .column(space_members::Column::UserId)
+        .distinct()
+        .filter(space_members::Column::SpaceId.is_in(space_ids))
+        .filter(active_condition());
+    if let Some(only) = only {
+        query = query.filter(space_members::Column::UserId.is_in(only));
+    }
+    query
+        .order_by_asc(space_members::Column::UserId)
+        .into_tuple()
+        .all(db)
+        .await
+}
+
 /// The spaces `user_id` is actively in.
 pub async fn spaces_of<C: ConnectionTrait>(db: &C, user_id: Uuid) -> Result<Vec<Uuid>, DbErr> {
     space_members::Entity::find()
@@ -91,6 +157,7 @@ pub async fn spaces_of<C: ConnectionTrait>(db: &C, user_id: Uuid) -> Result<Vec<
 }
 
 /// The guests of the space whose access has ended and whose row is still there, oldest end first.
+#[allow(dead_code)] // used by the ended-access screens (task 5)
 pub async fn ended<C: ConnectionTrait>(
     db: &C,
     space_id: Uuid,
@@ -106,6 +173,7 @@ pub async fn ended<C: ConnectionTrait>(
 
 /// The row of `user_id` in the space, ended or not. For management only (reactivating, removing);
 /// everything else asks [`active`].
+#[allow(dead_code)] // used by the ended-access screens (task 5)
 pub async fn any<C: ConnectionTrait>(
     db: &C,
     space_id: Uuid,

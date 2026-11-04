@@ -12,14 +12,12 @@ use std::collections::BTreeSet;
 use axum::extract::{Path, State};
 use axum::Json;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
-};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, IntoActiveModel};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
-use crate::entities::{space_members, users};
+use crate::entities::users;
 use crate::state::AppState;
 
 use super::dto::{MemberUpdatedDto, UpdateProfileRequest, UserProfileDto};
@@ -224,12 +222,9 @@ fn looks_like_timezone(value: &str) -> bool {
 async fn shares_a_space(db: &DatabaseConnection, a: Uuid, b: Uuid) -> Result<bool, ApiError> {
     let spaces_of = |user: Uuid| async move {
         Ok::<BTreeSet<Uuid>, ApiError>(
-            space_members::Entity::find()
-                .filter(space_members::Column::UserId.eq(user))
-                .all(db)
+            crate::permissions::membership::spaces_of(db, user)
                 .await?
                 .into_iter()
-                .map(|m| m.space_id)
                 .collect(),
         )
     };

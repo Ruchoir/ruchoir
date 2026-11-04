@@ -6,7 +6,7 @@ use super::*;
 
 use crate::permissions::membership;
 
-async fn exec(
+pub(super) async fn exec(
     db: &DatabaseConnection,
     sql: &str,
     values: Vec<sea_orm::Value>,
@@ -22,7 +22,7 @@ async fn exec(
 }
 
 /// A guest ending `interval` from now (negative: ago), in a space owned by someone else.
-async fn guest_ending(db: &DatabaseConnection, space: Uuid, interval: &str) -> Uuid {
+pub(super) async fn guest_ending(db: &DatabaseConnection, space: Uuid, interval: &str) -> Uuid {
     let guest = make_user(db, "guest").await;
     crate::testkit::add_member(db, space, guest, "guest").await;
     exec(

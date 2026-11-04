@@ -783,6 +783,7 @@ pub async fn import_conversations<C: ConnectionTrait>(
         for (source_id, user_id) in &members {
             // Being in a conversation means being in its space: an import that forgets this leaves
             // people in rooms of a workspace they are not part of.
+            // management: sees ended guests (a row there already blocks the insert below).
             if space_members::Entity::find_by_id((space_id, *user_id))
                 .one(db)
                 .await?

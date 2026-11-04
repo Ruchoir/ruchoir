@@ -29,8 +29,7 @@ use super::events::{exception_inputs, series_of, when_texts};
 use super::recurrence;
 use crate::auth::extract::AuthSession;
 use crate::entities::{
-    calendar_event_exceptions as exceptions, calendar_events, calendars, channels, messages,
-    space_members, spaces,
+    calendar_event_exceptions as exceptions, calendar_events, calendars, channels, messages, spaces,
 };
 use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
@@ -116,13 +115,7 @@ pub async fn linkable(
 ) -> Result<Vec<LinkableChannelDto>, CalendarError> {
     let space_ids: Vec<Uuid> = match calendar.space_id {
         Some(space) => vec![space],
-        None => space_members::Entity::find()
-            .filter(space_members::Column::UserId.eq(user))
-            .all(db)
-            .await?
-            .into_iter()
-            .map(|m| m.space_id)
-            .collect(),
+        None => crate::permissions::membership::spaces_of(db, user).await?,
     };
     let space_names: HashMap<Uuid, String> = spaces::Entity::find()
         .filter(spaces::Column::Id.is_in(space_ids.clone()))

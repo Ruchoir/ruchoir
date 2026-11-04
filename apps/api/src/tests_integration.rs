@@ -12179,6 +12179,9 @@ mod preferences_tests;
 /// Guests' end dates and the one definition of an active membership, in their own file.
 mod guest_expiry_tests;
 
+#[cfg(test)]
+mod expired_guest_tests;
+
 // --- The six-digit code sent next to the verification link ---
 
 /// A fresh pending account, as registration leaves it: its id and address.

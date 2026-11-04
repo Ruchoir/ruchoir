@@ -43,11 +43,12 @@ use uuid::Uuid;
 use super::error::ApiError;
 use crate::entities::{
     channel_members, channel_role_access, channels, conversations, dm_conversations,
-    dm_participants, space_members,
+    dm_participants,
 };
 use crate::permissions::catalogue::Permission;
 use crate::permissions::check::{self, Assume, Resource};
 use crate::permissions::engine::Standing;
+use crate::permissions::membership;
 
 /// Whether a conversation is a channel or a direct message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -320,13 +321,7 @@ pub async fn space_co_members(
     db: &DatabaseConnection,
     user_id: Uuid,
 ) -> Result<Vec<Uuid>, ApiError> {
-    let space_ids: Vec<Uuid> = space_members::Entity::find()
-        .filter(space_members::Column::UserId.eq(user_id))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|m| m.space_id)
-        .collect();
+    let space_ids: Vec<Uuid> = membership::spaces_of(db, user_id).await?;
     if space_ids.is_empty() {
         return Ok(vec![user_id]);
     }
@@ -401,14 +396,7 @@ pub async fn space_member_ids(
     if !is_space_member(db, space_id, user_id).await? {
         return Err(ApiError::Forbidden);
     }
-    let ids = space_members::Entity::find()
-        .filter(space_members::Column::SpaceId.eq(space_id))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|m| m.user_id)
-        .collect();
-    Ok(ids)
+    Ok(membership::active_ids(db, space_id).await?)
 }
 
 /// The roles a channel admits, or `None` when it admits every role.
@@ -462,8 +450,7 @@ pub async fn space_role(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<Option<String>, ApiError> {
-    Ok(space_members::Entity::find_by_id((space_id, user_id))
-        .one(db)
+    Ok(membership::active(db, space_id, user_id)
         .await?
         .map(|member| member.role))
 }
@@ -532,10 +519,7 @@ pub async fn is_space_member(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<bool, ApiError> {
-    Ok(space_members::Entity::find_by_id((space_id, user_id))
-        .one(db)
-        .await?
-        .is_some())
+    Ok(membership::active(db, space_id, user_id).await?.is_some())
 }
 
 async fn is_dm_participant(

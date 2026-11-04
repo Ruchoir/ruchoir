@@ -25,8 +25,9 @@ use super::reminders::reader_time_zone;
 use crate::auth::extract::AuthSession;
 use crate::entities::{
     calendar_attendee_overrides as overrides, calendar_event_attendees as attendee_rows,
-    calendar_event_exceptions as exceptions, calendar_events, calendars, space_members, users,
+    calendar_event_exceptions as exceptions, calendar_events, calendars, users,
 };
+use crate::permissions::membership;
 use crate::state::AppState;
 
 /// The most people one question may ask about.
@@ -235,22 +236,13 @@ pub async fn free_busy(
     if people.len() > MAX_PEOPLE {
         return Err(CalendarError::Invalid("At most 30 people at once."));
     }
-    let mine: Vec<Uuid> = space_members::Entity::find()
-        .filter(space_members::Column::UserId.eq(session.user_id))
-        .all(&state.db)
-        .await?
-        .into_iter()
-        .map(|m| m.space_id)
-        .collect();
-    let reachable: HashSet<Uuid> = space_members::Entity::find()
-        .filter(space_members::Column::SpaceId.is_in(mine))
-        .filter(space_members::Column::UserId.is_in(people.clone()))
-        .all(&state.db)
-        .await?
-        .into_iter()
-        .map(|m| m.user_id)
-        .chain([session.user_id])
-        .collect();
+    let mine = membership::spaces_of(&state.db, session.user_id).await?;
+    let reachable: HashSet<Uuid> =
+        membership::active_users_in(&state.db, mine, Some(people.clone()))
+            .await?
+            .into_iter()
+            .chain([session.user_id])
+            .collect();
     if people.iter().any(|p| !reachable.contains(p)) {
         return Err(CalendarError::Forbidden);
     }

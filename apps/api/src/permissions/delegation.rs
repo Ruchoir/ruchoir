@@ -79,6 +79,7 @@ pub async fn rank_of(
                         CASE WHEN m.standing = 'guest' THEN -1 ELSE 0 END \
                     ) AS position \
                FROM space_members m WHERE m.space_id = $1 AND m.user_id = $2",
+            // management: sees ended guests.
             [space_id.into(), user_id.into()],
         ))
         .await?

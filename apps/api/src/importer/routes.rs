@@ -797,6 +797,7 @@ async fn invite_one(
 
     // The space they were placed in. An invitation is to a space in this product, and the one they
     // are already a member of is the one that will mean something when they arrive.
+    // management: sees ended guests (the import only places people it created).
     let Some(membership) = space_members::Entity::find()
         .filter(space_members::Column::UserId.eq(user_id))
         .one(&state.db)
