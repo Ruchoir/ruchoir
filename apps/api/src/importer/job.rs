@@ -449,6 +449,7 @@ async fn begin_attempt(db: &DatabaseConnection, job_id: Uuid) -> Result<i32, Run
 
 /// A run that stops on an error keeps what it did: the summary and the journal lines for what was
 /// written so far, then the error (a seats refusal also closes the job with its sentence).
+#[allow(clippy::too_many_arguments)]
 async fn stop(
     db: &DatabaseConnection,
     job_id: Uuid,
