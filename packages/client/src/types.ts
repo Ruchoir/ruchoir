@@ -65,6 +65,8 @@ export type Workspace = {
   edition: SpaceEdition;
   /** The space's licence, for its owners alone, when it has one. */
   licence?: SpaceLicence;
+  /** The role this session is looking at the space as (read only), while a preview is on. */
+  preview?: Preview;
 };
 
 export type SpaceEdition = "community" | "enterprise" | "frozen";
@@ -155,6 +157,7 @@ export type Refusal =
   | { code: "seats_full"; seats: number; pricingUrl: string }
   | { code: "licence_required"; pricingUrl: string }
   | { code: "licence_other_space"; organisation?: string }
+  | { code: "group_has_rules" | "role_has_rules"; usedIn?: UsedIn[] }
   | {
       code:
         | "licence_frozen"
@@ -165,7 +168,6 @@ export type Refusal =
         | "permission_not_held"
         | "role_name_reserved"
         | "role_name_taken"
-        | "role_has_rules"
         | "beyond_guest_ceiling"
         | "make_them_a_member_first"
         | "no_self_role"
@@ -182,8 +184,109 @@ export type Refusal =
         | "access_ended_for_good"
         | "base_role_not_allowed"
         | "not_in_space"
-        | "too_many_people";
+        | "too_many_people"
+        | "cannot_grant"
+        | "target_above_you"
+        | "reservation_admins_only"
+        | "guest_ceiling"
+        | "audience_files_only"
+        | "base_role_not_previewable"
+        | "unknown_permission"
+        | "wrong_family"
+        | "preview_read_only"
+        | "preview_unavailable";
     };
+
+/** A place that names a group or a role in a rule; `hidden` when the caller cannot open it (no id, no name). */
+export type UsedIn = { kind: "channel" | "file" | "calendar"; id?: string; name?: string; hidden: boolean };
+
+// --- Access to a channel, a file or a calendar (permissions lot 4) ---
+
+/** What a resource's access dialog is about. A folder is a `file`. */
+export type AccessKind = "channel" | "file" | "calendar";
+
+/** The preset levels; `custom` is a rule that matches none of them (read only here). */
+export type AccessLevel = "none" | "read" | "contribute" | "manage" | "custom";
+
+/** Whom an entry is aimed at. `everyone` is the members, or the guests when `id` names `@guests`. */
+export type AccessTargetKind = "everyone" | "role" | "group" | "user" | "audience";
+
+/** A target to write: `id` is required for everything but `everyone` (absent means the members). */
+export type AccessTargetRef = { kind: AccessTargetKind; id?: string };
+
+/** A target as the dialog shows it. */
+export type AccessTarget = { kind: AccessTargetKind; id?: string; name?: string; hidden: boolean };
+
+/** A thing of the space, named: the folder an entry is inherited from, a file's parent. */
+export type NamedRef = { kind: string; id?: string; name?: string; hidden: boolean };
+
+/** How a `custom` entry differs from its nearest preset: `allow` (added), `deny`, or `unset`. */
+export type AccessChange = { permission: string; state: "allow" | "deny" | "unset" };
+
+/** One line of the dialog. */
+export type AccessEntry = {
+  /** The rule behind it; absent for an inherited line and for what the base roles grant. */
+  id?: string;
+  target: AccessTarget;
+  level: AccessLevel;
+  allow: string[];
+  deny: string[];
+  /** A group holding guests whose level reaches what a guest can never hold: its guests get less. */
+  clamped: boolean;
+  /** The target is a guest. */
+  guest: boolean;
+  /** The folder an inherited line comes from; never editable here. */
+  inheritedFrom?: NamedRef;
+  summary?: { nearest: AccessLevel; changes: AccessChange[] };
+  /** The line is the legacy setting of the system role (`allowed_roles`, `write_access`). */
+  viaLegacy: boolean;
+};
+
+/** Who has what on a resource, and what the caller may do about it. */
+export type AccessView = {
+  resource: { kind: AccessKind; id: string; name: string; parent?: NamedRef };
+  /** A private channel. */
+  private: boolean;
+  /** An archived channel, or a trashed file. */
+  archived: boolean;
+  entries: AccessEntry[];
+  may: {
+    edit: boolean;
+    /** Write rules that match no preset, and name custom roles (enterprise edition). */
+    fine: boolean;
+    /** The levels the caller may give here (`none` only to those who may reserve). */
+    manageTargetLevels: AccessLevel[];
+    /** Why `edit` is false: `licence_required`, `licence_frozen` or `not_allowed`. */
+    reason?: string;
+  };
+};
+
+/** A role a step is about, and how the person holds it. */
+export type WhyRole = { id: string; name: string; direct: boolean; viaGroups: { id: string; name: string }[] };
+
+/** One step of the explanation, numbered in the order the engine took them. */
+export type WhyStep = {
+  n: number;
+  /** `base`, `role`, `rule`, `private_lock`, `guest_ceiling`, `owner`, `author`, `archived`, `joined`... */
+  kind: string;
+  permission: string;
+  effect: "granted" | "removed";
+  role?: WhyRole;
+  target?: AccessTarget;
+  /** The folder, channel or calendar the rule sits on. */
+  level?: NamedRef;
+};
+
+/** "Pourquoi ?": why a person has, or lacks, each permission of a resource. */
+export type WhyView = {
+  person: { id: string; name: string; standing: "owner" | "member" | "guest" | string };
+  steps: WhyStep[];
+  /** One line per permission of the resource's family; `reasonStep` is the `n` of the deciding step. */
+  result: { permission: string; granted: boolean; reasonStep?: number }[];
+};
+
+/** "Voir en tant que": the role a space is being previewed as. */
+export type Preview = { roleId: string; roleName: string };
 
 /**
  * An outstanding invitation into a space, as listed to an administrator.
