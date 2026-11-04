@@ -122,6 +122,7 @@ export function ImportScreen({
   onFinished,
   ownerName = null,
   pricingUrl,
+  openJob = null,
 }: {
   onClose: () => void;
   onNotify?: (t: Toast) => void;
@@ -151,6 +152,8 @@ export function ImportScreen({
   instanceAdmin?: boolean;
   /** The person importing: who stays owner of a space the import creates. */
   ownerName?: string | null;
+  /** Open on this job's screen (from the journal's "Ouvrir le rapport"), rather than on the last one. */
+  openJob?: string | null;
   /** The pricing page, for the places an import lacks and the custom roles it cannot make. */
   pricingUrl?: string;
 }) {
@@ -245,8 +248,24 @@ export function ImportScreen({
   // Read once, at mount: whether this opening was a request to see the last run. It cannot change
   // while the screen is open, and the screen must not jump steps under the reader if it did.
   const wanted = useRef(openLast);
+  const wantedJob = useRef(openJob);
   useEffect(() => {
     let alive = true;
+    // The journal's "Ouvrir le rapport": that job's own screen, not the last one.
+    if (wantedJob.current) {
+      getImport(wantedJob.current)
+        .then((found) => {
+          if (!alive) return;
+          setJob(found);
+          setStage("run");
+        })
+        .catch(() => {
+          // A job that cannot be read leaves the screen where it always starts.
+        });
+      return () => {
+        alive = false;
+      };
+    }
     listImports()
       .then((jobs) => {
         if (!alive) return;

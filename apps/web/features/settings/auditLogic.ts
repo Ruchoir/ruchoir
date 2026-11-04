@@ -4,6 +4,8 @@
  * each sentence to its dictionary key; nothing here reads a translation.
  */
 
+import { chipsFor, type Figure, reportLink, sourceLabel } from "./importLogic.ts";
+
 /** An entry as the client reads it (`AuditEntry`, the fields used here). */
 export type EntryLike = {
   at: string;
@@ -85,6 +87,7 @@ export type Sentence =
   | "guestToMember"
   | "memberToGuest"
   | "guestPurged"
+  | "importApplied"
   | "unknown";
 
 export type AuditLine = {
@@ -97,6 +100,10 @@ export type AuditLine = {
   diff?: { kind: "permission" | "role" | "level"; added: string[]; removed: string[]; viaGroup?: boolean };
   /** The pastilles of a guest line: the standing taken or left, the access ended, a date. */
   chips?: { sign: "+" | "-"; what: "member" | "guest" | "until" | "space"; date?: string }[];
+  /** An import's figures, one pastille each (zero ones left out). */
+  figures?: Figure[];
+  /** The job an import line points at, for "Ouvrir le rapport". */
+  report?: string;
 };
 
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
@@ -182,6 +189,8 @@ export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined, re
     values: { action: entry.action, ...extra.values },
     diff: extra.diff,
     ...(extra.chips ? { chips: extra.chips } : {}),
+    ...(extra.figures ? { figures: extra.figures } : {}),
+    ...(extra.report ? { report: extra.report } : {}),
   });
   const group = (name: string): Slot => ({ kind: "group", name, id: entry.target.id });
   const people = (ids: string[]): Slot => ({ kind: "people", names: ids.map((id) => nameOf(id) ?? null) });
@@ -190,6 +199,12 @@ export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined, re
   const role = (colour: unknown): Slot => ({ kind: "role", name: label, colour: str(colour) || undefined });
 
   switch (entry.action) {
+    case "import.applied":
+      return line("importApplied", {
+        slots: { source: { kind: "person", name: sourceLabel(str(d.source)) } },
+        figures: chipsFor(d),
+        report: reportLink(d.job_id) ?? undefined,
+      });
     case "member.joined":
       return line(d.role === "guest" ? "memberJoinedGuest" : "memberJoined");
     case "member.left":

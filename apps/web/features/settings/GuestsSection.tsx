@@ -8,6 +8,7 @@ import { currentLocale } from "@/lib/i18n/current";
 import { MenuPopover } from "../app/MenuPopover";
 import type { Toast } from "../app/types";
 import { browserZone, canSeeEnded, endLabel, guestMenu, guestRow, inDaysLabel } from "./guestLogic.ts";
+import { guestMadeByImport } from "./importLogic.ts";
 import { PasserMembreDialog } from "./StandingDialogs";
 import { ProlongDialog } from "./ProlongDialog";
 import type { SettingsMember } from "./MembersSettings";
@@ -194,6 +195,7 @@ function GuestRow({
         ) : (
           <span style={st.sub}>{t("guests.noEnd")}</span>
         )}
+        {guestMadeByImport(guest) ? <span style={st.sub}>{t("guests.createdByImport")}</span> : null}
       </span>
       <span style={{ ...st.act, width: compact ? undefined : 128 }}>
         {canDate && row.prolong ? (

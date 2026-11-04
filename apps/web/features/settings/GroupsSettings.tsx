@@ -12,6 +12,7 @@ import type { Toast } from "../app/types";
 import { GroupIcon } from "../groups/GroupIcon";
 import { GroupEditor } from "./GroupEditor";
 import { groupPeople, groupRow, foldName, sortGroups } from "./groupsLogic.ts";
+import { importedGroupSource } from "./importLogic.ts";
 import { refusalMessage, RoleChip, roleLabel } from "./roleChips";
 
 const st: Record<string, CSSProperties> = {
@@ -177,7 +178,11 @@ function GroupList({
                       {g.source === "directory" ? <Tag icon="refresh-cw">{t("groups.directoryTag")}</Tag> : null}
                       {isGuestsOnly(g, members) ? <Tag tone="warning">{t("guests.sectionTitle")}</Tag> : null}
                     </span>
-                    {g.description ? <span style={{ ...st.desc, maxWidth: "100%" }}>{g.description}</span> : null}
+                    {g.description ? (
+                      <span style={{ ...st.desc, maxWidth: "100%" }}>{g.description}</span>
+                    ) : importedGroupSource(g) ? (
+                      <span style={{ ...st.desc, maxWidth: "100%" }}>{t("groups.importedFrom", { source: importedGroupSource(g) ?? "" })}</span>
+                    ) : null}
                   </span>
                   <span style={st.people}>
                     <span style={{ display: "flex" }}>
