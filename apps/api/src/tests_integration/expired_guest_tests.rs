@@ -1156,3 +1156,40 @@ async fn a_removed_member_gets_403_on_their_old_direct_message() {
     assert_eq!(get_json(&app, &messages, &cookie).await.0, 403);
     assert_eq!(dm_audience(&app, fx.space, dm).await, vec![fx.member]);
 }
+
+/// A rule kept for a guest whose access ended still reads as a guest's.
+#[tokio::test]
+async fn a_kept_person_rule_on_an_ended_guest_keeps_the_guest_flag() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let owner = app.cookie_for(fx.owner).await;
+    let base = format!("/api/v1/spaces/{}/access/channel/{}", fx.space, fx.general);
+    let guest = guest_ending(&app.db, fx.space, "1 hour").await;
+    let (status, text) = call(
+        &app,
+        reqwest::Method::PUT,
+        &format!("{base}/entries"),
+        &owner,
+        Some(json!({ "target": { "kind": "user", "id": guest }, "level": "read" })),
+    )
+    .await;
+    assert!(status < 300, "{status} {text}");
+    exec(
+        &app.db,
+        "UPDATE space_members SET expires_at = now() - interval '1 second' \
+         WHERE space_id = $1 AND user_id = $2",
+        vec![fx.space.into(), guest.into()],
+    )
+    .await
+    .expect("expire");
+
+    let (status, dialog) = get_json(&app, &base, &owner).await;
+    assert_eq!(status, 200, "{dialog}");
+    let line = dialog["entries"]
+        .as_array()
+        .expect("entries")
+        .iter()
+        .find(|entry| entry["target"]["id"] == guest.to_string())
+        .unwrap_or_else(|| panic!("the kept rule is listed: {dialog}"));
+    assert_eq!(line["guest"], true, "{line}");
+}

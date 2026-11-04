@@ -244,6 +244,8 @@ async fn rows_on(
     resource: ResourceRef,
     nodes: &[Uuid],
 ) -> Result<Vec<StoredRow>, DbErr> {
+    // `m` is read unfiltered on purpose: a rule kept for a guest whose access ended still shows
+    // them as a guest (display of a kept rule). It grants nothing; the engine decides that.
     let sql = format!(
         "SELECT o.id, o.{col} AS node, o.role_id, o.user_id, o.group_id, \
                 o.audience_channel_id, o.allow, o.deny, \
@@ -259,13 +261,11 @@ async fn rows_on(
            LEFT JOIN space_groups g ON g.id = o.group_id \
            LEFT JOIN users u ON u.id = o.user_id \
            LEFT JOIN space_members m ON m.space_id = o.space_id AND m.user_id = o.user_id \
-                AND {active_m} \
            LEFT JOIN channels c ON c.id = o.audience_channel_id \
           WHERE o.space_id = $1 AND o.{col} = ANY($2) \
           ORDER BY o.created_at, o.id",
         col = resource.column(),
         active_sm = active_sql!("sm"),
-        active_m = active_sql!("m"),
     );
     let mut rows = Vec::new();
     for row in db
