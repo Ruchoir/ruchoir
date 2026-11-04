@@ -132,7 +132,7 @@ function toGroup(dto: GroupDto): Group {
     memberIds: dto.member_ids,
     managerIds: dto.manager_ids,
     roleIds: dto.role_ids,
-    importedFrom: dto.imported_from ?? undefined,
+    ...(dto.imported_from ? { importedFrom: dto.imported_from } : {}),
     may: {
       edit: dto.may.edit,
       delete: dto.may.delete,
