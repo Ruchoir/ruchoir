@@ -324,6 +324,46 @@ class ExportNextcloudCase(unittest.TestCase):
         for uid in ("todo-1", "birthday-1", "old-1", "binned-1", "card-1", "room-1"):
             self.assertNotIn(f"UID:{uid}", text)
 
+    # -- groups (format 2) -------------------------------------------------------------------------
+    def groups(self) -> dict[str, dict]:
+        return by_id(self.archive, "groups.jsonl")
+
+    def test_groups_come_out_with_their_members(self) -> None:
+        design = self.groups()["design"]
+        self.assertEqual(design["space"], "nextcloud")
+        self.assertEqual(design["name"], "Équipe design")
+        self.assertEqual(design["description"], "")
+        self.assertEqual(sorted(design["members"]), ["alice", "bob", "emma"])
+        # No display name: the gid names the group. A membership row of a deleted account is dropped.
+        self.assertEqual(self.groups()["compta"]["name"], "compta")
+        self.assertEqual(self.groups()["compta"]["members"], ["carol"])
+        self.assertFalse((self.archive / "members.jsonl").exists())
+
+    def test_the_admin_group_is_exported_as_a_plain_group_and_declared(self) -> None:
+        admin = self.groups()["admin"]
+        self.assertEqual(admin["members"], ["alice"])
+        self.assertNotIn("role", admin)
+        limits = json.loads((self.archive / "manifest.json").read_text(encoding="utf-8"))["limits"]
+        self.assertTrue(any("group admin arrives as a plain group" in line for line in limits))
+
+    def test_an_empty_group_still_comes_out(self) -> None:
+        self.assertEqual(self.groups()["vide"]["members"], [])
+
+    def test_a_disabled_account_stays_a_group_member(self) -> None:
+        self.assertIn("emma", self.groups()["design"]["members"])
+
+    def test_the_archive_is_format_2_and_validates(self) -> None:
+        manifest = json.loads((self.archive / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["format_version"], 2)
+        self.assertEqual(manifest["counts"]["groups"], 4)
+        self.assertIn("groups.jsonl", manifest["checksums"])
+        report = validator.validate(self.archive)
+        self.assertEqual(report.errors, [])
+
+    def test_the_old_groups_limit_is_gone(self) -> None:
+        limits = json.loads((self.archive / "manifest.json").read_text(encoding="utf-8"))["limits"]
+        self.assertFalse(any("Nextcloud groups are not exported" in line for line in limits))
+
     # -- the manifest ------------------------------------------------------------------------------
     def test_the_manifest_declares_what_stayed_behind(self) -> None:
         limits = json.loads((self.archive / "manifest.json").read_text(encoding="utf-8"))["limits"]
