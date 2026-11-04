@@ -46,3 +46,19 @@ test("the_ended_toast_fits_the_standing", () => {
   const told = new Set<string>();
   assert.deepEqual(endedSpaces([{ id: "a", name: "A", role: "guest" }], [], told), [{ id: "a", name: "A", role: "guest" }]);
 });
+
+import { guestNoticeDetail } from "./guestNotices.ts";
+
+const sayDetail = (which: string, vars: Record<string, string>) => `${which}:${Object.values(vars).join("|")}`;
+const day = (iso: string) => iso.slice(0, 10);
+
+test("the_detail_line_of_each_guest_notice", () => {
+  const ends = "2026-11-20T22:59:00Z";
+  assert.equal(guestNoticeDetail({ kind: "guest_expiry_soon", endsAt: ends, guestTitle: "Bureau d'etudes Garnier" }, day, sayDetail), "soon:Bureau d'etudes Garnier|2026-11-20");
+  // No title: the sentence has no empty slot.
+  assert.equal(guestNoticeDetail({ kind: "guest_expiry_soon", endsAt: ends }, day, sayDetail), "soonBare:2026-11-20");
+  assert.equal(guestNoticeDetail({ kind: "guest_access_ending", endsAt: ends, contactName: "Sophie Leroy" }, day, sayDetail), "ending:2026-11-20|Sophie Leroy");
+  assert.equal(guestNoticeDetail({ kind: "guest_access_ending", endsAt: ends }, day, sayDetail), "endingBare:2026-11-20");
+  assert.equal(guestNoticeDetail({ kind: "mention", endsAt: ends }, day, sayDetail), null);
+  assert.equal(guestNoticeDetail({ kind: "guest_expiry_soon" }, day, sayDetail), null);
+});

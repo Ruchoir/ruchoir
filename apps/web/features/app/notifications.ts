@@ -12,7 +12,8 @@
 import type { ReminderInfo } from "@/lib/data/api";
 import { key, type Translate, type TranslationKey } from "@/lib/i18n";
 import { currentLocale } from "@/lib/i18n/current";
-import { guestNoticeSummary } from "./guestNotices.ts";
+import { formatDayMonth } from "@/lib/i18n/format";
+import { guestNoticeDetail, guestNoticeSummary } from "./guestNotices.ts";
 
 /**
  * Why a notification exists.
@@ -68,6 +69,12 @@ export type AppNotification = {
   emoji?: string;
   /** For a guest notice: the days that were left when it was written (7 or 1). */
   daysLeft?: number;
+  /** For a guest notice: when the access ends (RFC 3339). */
+  endsAt?: string;
+  /** For `guest_expiry_soon`: the guest's profile title. */
+  guestTitle?: string;
+  /** For `guest_access_ending`: who to ask to extend the access. */
+  contactName?: string;
   /** For `guest_expiry_soon`: the guest it is about. */
   actorId?: string;
 };
@@ -209,6 +216,13 @@ export function notifSummary(n: AppNotification, t: Translate): string {
   if (n.reminder) return t(KIND_VERB.calendar_reminder, { title: n.reminder.title });
   const said = `${n.actor} ${t(KIND_VERB[n.kind])}`;
   return n.kind === "reaction" && n.emoji ? `${said} ${n.emoji}` : said;
+}
+
+/** The detail line of a guest notice, or `null` for any other kind. */
+export function notifGuestDetail(n: AppNotification, t: Translate): string | null {
+  return guestNoticeDetail(n, (iso) => formatDayMonth(iso), (which, vars) =>
+    t(which === "soon" ? key("guests.noticeSoonDetail") : which === "soonBare" ? key("guests.noticeSoonDetailBare") : which === "ending" ? key("guests.noticeEndingDetail") : key("guests.noticeEndingDetailBare"), vars),
+  );
 }
 
 /**

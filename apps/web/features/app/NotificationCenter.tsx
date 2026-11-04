@@ -4,7 +4,7 @@ import { type CSSProperties, type RefObject, useState } from "react";
 import { Avatar, EmptyState, Icon, IconButton, Popover, Tabs } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import { respondToEvent } from "@/lib/data/calendar";
-import { type AppNotification, isMention, type NotifKind, notifSummary } from "./notifications";
+import { type AppNotification, isMention, type NotifKind, notifGuestDetail, notifSummary } from "./notifications";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatDate, formatDateTime, formatStamp } from "@/lib/i18n/format";
 
@@ -25,8 +25,8 @@ const KIND_ICON: Record<NotifKind, string> = {
   calendar_cancel: "x",
   calendar_declined: "user-minus",
   calendar_shared: "users",
-  guest_expiry_soon: "clock",
-  guest_access_ending: "clock",
+  guest_expiry_soon: "hourglass",
+  guest_access_ending: "hourglass",
 };
 
 /** The answers an invitation offers from the inbox, for every date. */
@@ -356,7 +356,7 @@ function NotifRow({
         >
           {notif.reminder
             ? `${notif.reminder.allDay ? formatDate(`${notif.reminder.start}T12:00:00Z`) : formatDateTime(notif.reminder.start)}${notif.reminder.location ? ` · ${notif.reminder.location}` : ""}`
-            : notif.preview}
+            : (notifGuestDetail(notif, t) ?? notif.preview)}
         </span>
         <span style={{ display: "block", marginTop: 3, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
           {notif.reminder ? [...new Set([notif.spaceName, notif.reminder.calendarName].filter(Boolean))].join(" · ") : notif.label} · {formatStamp(notif.createdAt)}

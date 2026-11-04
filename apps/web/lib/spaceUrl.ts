@@ -25,7 +25,25 @@ export type SpaceLocation = {
   fileId?: string;
   /** The file is to be converted into an editable copy (`?convert=1`). */
   convert?: boolean;
+  /** A guest whose access is to be prolonged (`?prolong=<user id>`, the reminder mail's button). */
+  prolong?: string;
 };
+
+/**
+ * The guest a reminder mail's button points at: the `prolong` parameter of a query string, kept only
+ * when it is an identifier (the address is somebody else's text until it is checked).
+ */
+export function prolongParam(search: string): string | undefined {
+  const value = new URLSearchParams(search).get("prolong") ?? "";
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) ? value.toLowerCase() : undefined;
+}
+
+/** The address with the `prolong` request taken off, so a reload does not open the dialog again. */
+export function withoutProlong(href: string): string {
+  const url = new URL(href, "http://localhost");
+  url.searchParams.delete("prolong");
+  return `${url.pathname}${url.search}${url.hash}`;
+}
 
 /** Strip the export's optional trailing slash and split a path into its segments. */
 function segments(pathname: string): string[] {
@@ -61,13 +79,13 @@ export function readSpaceLocation(slugs: string[]): SpaceLocation | null {
     const spaceSlug = decodeURIComponent(parts[1]);
     const channelName = parts[2] === "c" && parts[3] ? decodeURIComponent(parts[3]) : undefined;
     const fileId = parts[2] === "f" && parts[3] ? decodeURIComponent(parts[3]) : undefined;
-    return { spaceSlug, channelName, fileId, convert: fileId ? converting() : undefined };
+    return { spaceSlug, channelName, fileId, convert: fileId ? converting() : undefined, prolong: prolongParam(window.location.search) };
   }
   // Short form: the space came from the host, the path only names the channel.
   if (fromHost) {
     const channelName = parts[0] === "c" && parts[1] ? decodeURIComponent(parts[1]) : undefined;
     const fileId = parts[0] === "f" && parts[1] ? decodeURIComponent(parts[1]) : undefined;
-    return { spaceSlug: fromHost, channelName, fileId, convert: fileId ? converting() : undefined };
+    return { spaceSlug: fromHost, channelName, fileId, convert: fileId ? converting() : undefined, prolong: prolongParam(window.location.search) };
   }
   return null;
 }

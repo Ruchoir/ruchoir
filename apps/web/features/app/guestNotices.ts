@@ -24,6 +24,24 @@ export function guestNoticeSummary(
 }
 
 /**
+ * The second line of a guest notice. For whoever manages the guest: their title when they have one,
+ * the end and the offer to extend. For the guest: what happens after the end and who to ask (a
+ * neutral sentence when no one is named). `null` for any other kind, or when the end is unknown.
+ */
+export function guestNoticeDetail(
+  n: { kind: string; endsAt?: string; guestTitle?: string; contactName?: string },
+  formatDay: (iso: string) => string,
+  say: (which: "soon" | "soonBare" | "ending" | "endingBare", vars: Record<string, string>) => string,
+): string | null {
+  if (!n.endsAt) return null;
+  const date = formatDay(n.endsAt);
+  if (!date) return null;
+  if (n.kind === "guest_expiry_soon") return n.guestTitle ? say("soon", { title: n.guestTitle, date }) : say("soonBare", { date });
+  if (n.kind === "guest_access_ending") return n.contactName ? say("ending", { date, contact: n.contactName }) : say("endingBare", { date });
+  return null;
+}
+
+/**
  * The spaces that were in the list and are not any more, and that nobody was told about yet. `told`
  * is kept by the caller and filled here, so the notice shows once however many frames follow.
  */

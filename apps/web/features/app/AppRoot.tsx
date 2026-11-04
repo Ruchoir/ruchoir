@@ -92,7 +92,7 @@ import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { authMessage } from "@/features/auth/authMessage";
 import { forgetRecentReactions, noteReaction } from "@/lib/data/recentReactions";
 import { clearAuthLink, forgetInvite, readAuthLink, readRememberedInvite, rememberInvite } from "@/lib/authLink";
-import { fileUrl, readSpaceLocation, writeSpaceLocation } from "@/lib/spaceUrl";
+import { fileUrl, readSpaceLocation, withoutProlong, writeSpaceLocation } from "@/lib/spaceUrl";
 import { OfficeEditor } from "@/features/office/OfficeEditor";
 import { CalendarScreen } from "@/features/calendar/CalendarScreen";
 import { emitCalendarChanged } from "@/lib/calendarEvents";
@@ -394,6 +394,9 @@ function toAppNotification(
     reminder: n.reminder,
     emoji: n.emoji,
     daysLeft: n.daysLeft,
+    endsAt: n.endsAt,
+    guestTitle: n.guestTitle,
+    contactName: n.contactName,
     actorId: n.actorId,
   };
 }
@@ -597,6 +600,8 @@ function AppShell() {
 
   const [ws, setWs] = useState("");
   const [view, setView] = useState<AppView>("channel");
+  // A "soon" notice clicked, or the reminder mail's button followed: the settings open on Members with this guest's prolong dialog.
+  const [prolongRequest, setProlongRequest] = useState<{ userId: string } | null>(null);
   /**
    * A document an address named (`/e/<space>/f/<file>`): this tab is that document's, the editor
    * alone across it (documents open in a tab of their own, see `FilesScreen`).
@@ -993,6 +998,13 @@ function AppShell() {
     setMaybeDocumentTab(false);
     const landing = wanted ?? spaces[0];
     await loadSpace(landing?.id ?? "", wanted ? target?.channelName : undefined, landing?.defaultChannelId);
+    // The reminder mail's button: settings on Members, with this guest's prolong dialog open. Taken
+    // off the address so a reload does not open it again.
+    if (wanted && target?.prolong) {
+      window.history.replaceState(window.history.state, "", withoutProlong(window.location.href));
+      setView("settings");
+      setProlongRequest({ userId: target.prolong });
+    }
     return spaces;
   }, [loadSpace]);
 
@@ -1191,8 +1203,6 @@ function AppShell() {
   const endedToldRef = useRef(new Set<string>());
   // `switchWorkspace`, for the notice handler declared before it.
   const switchRef = useRef<(id: string) => Promise<void>>(async () => {});
-  // A "soon" notice clicked: the settings open on Members with this guest's prolong dialog.
-  const [prolongRequest, setProlongRequest] = useState<{ userId: string } | null>(null);
   // The desktop app's bridge (null on the web), for effects that outlive a render.
   const desktop = useDesktop();
   // The account settings, kept in line with the server's (and the other devices').
