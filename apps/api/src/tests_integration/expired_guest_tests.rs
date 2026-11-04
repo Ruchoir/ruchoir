@@ -490,7 +490,7 @@ fn no_bare_space_members_reads() {
         // writes and the import (a row there already blocks the insert)
         ("importer/routes.rs", "invite_one"),
         // the people pass: a row there, ended or not, blocks the insert
-        ("importer/people.rs", "admit"),
+        ("importer/people.rs", "admit_with_roles"),
         ("importer/people.rs", "standing_of"),
         // the plan's count of who is in each space already
         ("importer/job.rs", "space_people"),

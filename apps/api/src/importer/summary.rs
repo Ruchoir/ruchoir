@@ -119,6 +119,11 @@ pub async fn save(
     }
 
     for counts in people.spaces.iter().filter(|c| !c.is_empty()) {
+        // One line per job and space: a retry of the save (or a resume that saves again) adds none.
+        let already = crate::audit::import_line_exists(db, counts.space_id, job_id).await?;
+        if already {
+            continue;
+        }
         record(
             db,
             counts.space_id,

@@ -235,7 +235,7 @@ async fn run_passes<S: BlobSink>(
     written.spaces_filled = spaces.spaces_filled;
     written.memberships += spaces.memberships;
 
-    let people = match super::people::import_people(
+    let stopped = super::people::import_people(
         db,
         &mapper,
         &index,
@@ -243,20 +243,13 @@ async fn run_passes<S: BlobSink>(
         settings.edition.as_ref(),
         admin,
         &source,
+        &mut written.people,
     )
-    .await
-    {
-        Ok(people) => people,
-        Err(error @ RunError::SeatsFull { .. }) => {
-            // Said in words the administrator can act on; everything already written stays, and
-            // the same archive run again picks up where this stopped.
-            finish(db, job_id, "failed", &error.to_string()).await?;
-            return Err(error);
-        }
-        Err(error) => return Err(error),
-    };
-    written.memberships += people.added;
-    written.people = people;
+    .await;
+    written.memberships += written.people.added;
+    if let Err(error) = stopped {
+        return stop(db, job_id, &settings, admin, &source, &written, error).await;
+    }
 
     let conversations = match run::import_conversations(
         db,
@@ -269,11 +262,9 @@ async fn run_passes<S: BlobSink>(
     .await
     {
         Ok(conversations) => conversations,
-        Err(error @ RunError::SeatsFull { .. }) => {
-            finish(db, job_id, "failed", &error.to_string()).await?;
-            return Err(error);
+        Err(error) => {
+            return stop(db, job_id, &settings, admin, &source, &written, error).await;
         }
-        Err(error) => return Err(error),
     };
     written.conversations_created = conversations.conversations_created;
     written.conversations_filled = conversations.conversations_filled;
@@ -288,7 +279,12 @@ async fn run_passes<S: BlobSink>(
     note_progress(db, job_id, &written).await?;
 
     let groups =
-        super::people::import_groups(db, &mapper, &index, &resolved, admin, &source).await?;
+        match super::people::import_groups(db, &mapper, &index, &resolved, admin, &source).await {
+            Ok(groups) => groups,
+            Err(error) => {
+                return stop(db, job_id, &settings, admin, &source, &written, error).await;
+            }
+        };
     written.people.groups = groups.groups;
     written.people.groups_filled = groups.groups_filled;
     written.people.group_names = groups.group_names;
@@ -419,6 +415,37 @@ async fn run_passes<S: BlobSink>(
         written,
         limits: plan.limits,
     })
+}
+
+/// A run that stops on an error keeps what it did: the summary and the journal lines for what was
+/// written so far, then the error (a seats refusal also closes the job with its sentence).
+async fn stop(
+    db: &DatabaseConnection,
+    job_id: Uuid,
+    settings: &RunSettings,
+    admin: Uuid,
+    source: &str,
+    written: &Written,
+    error: RunError,
+) -> Result<Outcome, RunError> {
+    if let Err(saving) = super::summary::save(
+        db,
+        settings.edition.as_ref(),
+        job_id,
+        admin,
+        source,
+        &written.people,
+    )
+    .await
+    {
+        tracing::error!(%saving, %job_id, "the summary of a stopped import could not be kept");
+    }
+    if matches!(error, RunError::SeatsFull { .. }) {
+        // Said in words the administrator can act on; everything already written stays, and the
+        // same archive run again picks up where this stopped.
+        finish(db, job_id, "failed", &error.to_string()).await?;
+    }
+    Err(error)
 }
 
 /// The name of the archive's space that became `space_id`.

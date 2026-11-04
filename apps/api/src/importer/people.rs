@@ -139,6 +139,33 @@ pub async fn admit(
     role: &str,
     imported_from: &str,
 ) -> Result<Admitted> {
+    admit_with_roles(db, edition, space_id, user_id, role, imported_from, None).await
+}
+
+/// The custom roles a person is given in the same write as their member row.
+struct Grant<'a, 'm> {
+    mapper: &'a Mapper<'m>,
+    index: &'a Index,
+    source_space: &'a str,
+    space_name: &'a str,
+    role_ids: &'a [String],
+    importer: Uuid,
+    counted: &'a mut HashSet<String>,
+    written: &'a mut PeopleWritten,
+}
+
+/// [`admit`], and when the person is new their custom roles in the same transaction: they arrive
+/// with every role or not at all, so a run that dies in between can never leave a member row whose
+/// roles a resume (which finds the row `Earlier` and touches nothing) would never give.
+async fn admit_with_roles(
+    db: &DatabaseConnection,
+    edition: &dyn Edition,
+    space_id: Uuid,
+    user_id: Uuid,
+    role: &str,
+    imported_from: &str,
+    grant: Option<Grant<'_, '_>>,
+) -> Result<Admitted> {
     let txn = db.begin().await?;
     lock_space_seats(&txn, space_id).await?;
     // management: sees ended guests (a row there, ended or not, blocks the insert).
@@ -174,6 +201,22 @@ pub async fn admit(
     }
     .insert(&txn)
     .await?;
+    if let Some(grant) = grant {
+        for role_id in grant.role_ids {
+            give_role(
+                &txn,
+                grant.mapper,
+                grant.index,
+                (grant.source_space, space_id, grant.space_name),
+                (user_id, role_id),
+                edition,
+                grant.importer,
+                grant.counted,
+                grant.written,
+            )
+            .await?;
+        }
+    }
     txn.commit().await?;
     Ok(Admitted::Added)
 }
@@ -194,6 +237,7 @@ pub async fn standing_of(
 /// Admit everyone the archive puts in a space: the lines of `members.jsonl` with the role they
 /// give, then whoever sits in one of the space's conversations or groups without a line, as a
 /// member. Skipped people (no account) are left out.
+#[allow(clippy::too_many_arguments)]
 pub async fn import_people(
     db: &DatabaseConnection,
     mapper: &Mapper<'_>,
@@ -202,9 +246,9 @@ pub async fn import_people(
     edition: &dyn Edition,
     importer: Uuid,
     source: &str,
-) -> Result<PeopleWritten> {
+    written: &mut PeopleWritten,
+) -> Result<()> {
     let imported_from = format!("{source}:{}", mapper.job_id);
-    let mut written = PeopleWritten::default();
     let name_of = |id: &str| {
         index
             .users
@@ -246,7 +290,7 @@ pub async fn import_people(
             .find(|space| &space.id == source_space)
             .map_or_else(String::new, |space| space.name.clone());
         // The custom roles already counted for this space by this run.
-        let mut counted_roles: HashSet<&str> = HashSet::new();
+        let mut counted_roles: HashSet<String> = HashSet::new();
         let before = (
             written.administrators,
             written.guests,
@@ -254,59 +298,61 @@ pub async fn import_people(
             written.fallbacks.len(),
         );
         let mut seat_takers = 0;
-        for (user, role) in order {
-            let Some(user_id) = mapper.resolve(db, KIND_USER, user, None).await? else {
-                continue;
-            };
-            // Never an owner: the format has no such value, and a stray one is a member.
-            let role = match role {
-                "admin" | "guest" => role,
-                _ => "member",
-            };
-            let admitted = admit(db, edition, *space_id, user_id, role, &imported_from).await?;
-            match admitted {
-                Admitted::Added | Admitted::Earlier => {
-                    written.added += 1;
-                    if role != "guest" {
-                        seat_takers += 1;
-                    }
-                    match role {
-                        "admin" => written.administrators += 1,
-                        "guest" => written.guests += 1,
-                        _ => {}
-                    }
-                }
-                Admitted::Present => written.kept.push(name_of(user)),
-            }
-            // Custom roles go to somebody this run has just put in the space, right then: a guest
-            // ignores them (P8), somebody who was in already is never given one, and somebody a
-            // resumed run finds already there (`Earlier`) had theirs when they were admitted, so
-            // an administrator's change since is not undone.
-            if admitted == Admitted::Added && role != "guest" {
-                if let Some(line) = index
-                    .members
-                    .iter()
-                    .find(|m| &m.space == source_space && m.user == user)
-                {
-                    for role_id in &line.roles {
-                        give_role(
-                            db,
-                            mapper,
-                            index,
-                            (source_space, *space_id, &space_name),
-                            (user_id, role_id),
-                            edition,
-                            importer,
-                            &mut counted_roles,
-                            &mut written,
-                        )
+        let outcome: Result<()> = async {
+            for (user, role) in order {
+                let Some(user_id) = mapper.resolve(db, KIND_USER, user, None).await? else {
+                    continue;
+                };
+                // Never an owner: the format has no such value, and a stray one is a member.
+                let role = match role {
+                    "admin" | "guest" => role,
+                    _ => "member",
+                };
+                // Custom roles go to somebody this run puts in the space just now, in the same
+                // write as their row: a guest ignores them (P8), somebody who was in already is
+                // never given one, and somebody a resumed run finds already there (`Earlier`)
+                // had theirs when they were admitted, so an administrator's change since stands.
+                let role_ids: &[String] = if role == "guest" {
+                    &[]
+                } else {
+                    index
+                        .members
+                        .iter()
+                        .find(|m| &m.space == source_space && m.user == user)
+                        .map_or(&[][..], |line| line.roles.as_slice())
+                };
+                let grant = (!role_ids.is_empty()).then_some(Grant {
+                    mapper,
+                    index,
+                    source_space,
+                    space_name: &space_name,
+                    role_ids,
+                    importer,
+                    counted: &mut counted_roles,
+                    written: &mut *written,
+                });
+                let admitted =
+                    admit_with_roles(db, edition, *space_id, user_id, role, &imported_from, grant)
                         .await?;
+                match admitted {
+                    Admitted::Added | Admitted::Earlier => {
+                        written.added += 1;
+                        if role != "guest" {
+                            seat_takers += 1;
+                        }
+                        match role {
+                            "admin" => written.administrators += 1,
+                            "guest" => written.guests += 1,
+                            _ => {}
+                        }
                     }
+                    Admitted::Present => written.kept.push(name_of(user)),
                 }
             }
+            Ok(())
         }
-        let counts = written.space(*space_id, &space_name);
-        counts.seat_takers = seat_takers;
+        .await;
+        // The space's own counts, kept also when the run stops in the middle of it.
         let (administrators, guests, roles, fallbacks) = (
             written.administrators - before.0,
             written.guests - before.1,
@@ -314,12 +360,14 @@ pub async fn import_people(
             written.fallbacks.len() - before.3,
         );
         let counts = written.space(*space_id, &space_name);
+        counts.seat_takers = seat_takers;
         counts.administrators = administrators;
         counts.guests = guests;
         counts.custom_roles = roles;
         counts.fallbacks = fallbacks;
+        outcome?;
     }
-    Ok(written)
+    Ok(())
 }
 
 /// One custom role of the archive, for one person this run has just put in a space.
@@ -329,15 +377,15 @@ pub async fn import_people(
 /// edition without custom roles answers `FallBack`: the person keeps the fixed role the role is
 /// based on, raised to administrator for an administrator-based one (P9), and the summary says so.
 #[allow(clippy::too_many_arguments)]
-async fn give_role<'a>(
-    db: &DatabaseConnection,
+async fn give_role(
+    txn: &sea_orm::DatabaseTransaction,
     mapper: &Mapper<'_>,
-    index: &'a Index,
+    index: &Index,
     space: (&str, Uuid, &str),
-    holder: (Uuid, &'a String),
+    holder: (Uuid, &String),
     edition: &dyn Edition,
     importer: Uuid,
-    counted: &mut HashSet<&'a str>,
+    counted: &mut HashSet<String>,
     written: &mut PeopleWritten,
 ) -> Result<()> {
     let (source_space, space_id, space_name) = space;
@@ -349,9 +397,8 @@ async fn give_role<'a>(
     else {
         return Ok(());
     };
-    let txn = db.begin().await?;
     let known = mapper
-        .resolve(&txn, KIND_ROLE, &role.id, Some(space_id))
+        .resolve(txn, KIND_ROLE, &role.id, Some(space_id))
         .await?;
     let outcome = match known {
         Some(id) => ImportedRoleOutcome::Existing(id),
@@ -366,7 +413,7 @@ async fn give_role<'a>(
                 },
             };
             edition
-                .import_custom_role(&txn, space_id, &wanted, importer)
+                .import_custom_role(txn, space_id, &wanted, importer)
                 .await?
         }
     };
@@ -374,7 +421,7 @@ async fn give_role<'a>(
         ImportedRoleOutcome::Created(id) | ImportedRoleOutcome::Existing(id) => {
             if known.is_none() {
                 mapper
-                    .record(&txn, KIND_ROLE, &role.id, Some(space_id), id)
+                    .record(txn, KIND_ROLE, &role.id, Some(space_id), id)
                     .await?;
             }
             txn.execute_raw(Statement::from_sql_and_values(
@@ -384,7 +431,7 @@ async fn give_role<'a>(
                 [space_id.into(), user.into(), id.into()],
             ))
             .await?;
-            if counted.insert(role.id.as_str()) {
+            if counted.insert(role.id.clone()) {
                 written.custom_roles += 1;
             }
         }
@@ -422,7 +469,6 @@ async fn give_role<'a>(
             }
         }
     }
-    txn.commit().await?;
     Ok(())
 }
 

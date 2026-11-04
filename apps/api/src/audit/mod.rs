@@ -250,6 +250,24 @@ pub async fn record(
     Ok(())
 }
 
+/// Whether the journal of `space_id` already carries the `import.applied` line of `job_id`: an
+/// import writes one line per job and space, however many times it saves.
+pub async fn import_line_exists(
+    db: &impl ConnectionTrait,
+    space_id: Uuid,
+    job_id: Uuid,
+) -> Result<bool, DbErr> {
+    Ok(db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT 1 AS one FROM space_audit_log \
+             WHERE space_id = $1 AND action = 'import.applied' AND details->>'job_id' = $2",
+            [space_id.into(), job_id.to_string().into()],
+        ))
+        .await?
+        .is_some())
+}
+
 #[cfg(test)]
 mod tests {
     use super::Action;

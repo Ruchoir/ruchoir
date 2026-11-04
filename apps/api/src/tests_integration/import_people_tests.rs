@@ -2301,6 +2301,22 @@ async fn imported_from_is_shown_to_managers_only() {
     let plain = members_as(app.cookie_for(c_id).await).await;
     assert!(plain.get("imported_from").is_none(), "{plain}");
 
+    let seen_by_plain: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{space}/groups"),
+            &app.cookie_for(c_id).await,
+        )
+        .send()
+        .await
+        .expect("request")
+        .json()
+        .await
+        .expect("json");
+    assert!(
+        seen_by_plain[0].get("imported_from").is_none(),
+        "{seen_by_plain}"
+    );
     let groups: Value = app
         .req(
             reqwest::Method::GET,
@@ -2314,4 +2330,171 @@ async fn imported_from_is_shown_to_managers_only() {
         .await
         .expect("json");
     assert_eq!(groups[0]["imported_from"], wanted.as_str());
+}
+
+// --- one write per person, and a stopped run keeps its record ------------------------------------
+
+/// [`RoleMaker`] whose first `import_custom_role` fails, as a database error would.
+struct Flaky {
+    fail_next: std::sync::atomic::AtomicBool,
+}
+
+#[async_trait::async_trait]
+impl Edition for Flaky {
+    fn name(&self) -> &'static str {
+        "flaky"
+    }
+
+    async fn entitlement(
+        &self,
+        db: &DatabaseConnection,
+        space_id: Uuid,
+    ) -> Result<Entitlement, sea_orm::DbErr> {
+        RoleMaker.entitlement(db, space_id).await
+    }
+
+    async fn seat_check(
+        &self,
+        db: &sea_orm::DatabaseTransaction,
+        space_id: Uuid,
+    ) -> Result<SeatCheck, sea_orm::DbErr> {
+        RoleMaker.seat_check(db, space_id).await
+    }
+
+    fn routes(&self) -> axum::Router<AppState> {
+        axum::Router::new()
+    }
+
+    fn features(&self) -> &'static [&'static str] {
+        &[]
+    }
+
+    fn background(&self, _state: AppState) {}
+
+    async fn import_custom_role(
+        &self,
+        txn: &sea_orm::DatabaseTransaction,
+        space_id: Uuid,
+        role: &crate::edition::ImportedRole,
+        actor: Uuid,
+    ) -> Result<crate::edition::ImportedRoleOutcome, sea_orm::DbErr> {
+        if self
+            .fail_next
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+        {
+            return Err(sea_orm::DbErr::Custom("the role write failed".to_owned()));
+        }
+        RoleMaker
+            .import_custom_role(txn, space_id, role, actor)
+            .await
+    }
+}
+
+#[tokio::test]
+async fn a_person_arrives_with_their_roles_or_not_at_all() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (name, h) = (unique_space(), address("h"));
+    let dir = role_archive(&name, "member", &["r1"], "member", &h);
+    let edition: Arc<dyn Edition> = Arc::new(Flaky {
+        fail_next: std::sync::atomic::AtomicBool::new(true),
+    });
+    let (job, first) = run_people(&app, fx.alice, &dir, edition.clone()).await;
+    assert!(first.is_err(), "the role write failed once");
+    let space = space_named(&app, &name).await;
+    let holder = account_of(&app, &h).await;
+    assert!(
+        row_of(&app, space, holder).await.is_none(),
+        "no member row without the role that goes with it"
+    );
+
+    // The same job resumes: the person is admitted with the role in one write.
+    execute_into(
+        &app.db,
+        Some(&MemorySink::default()),
+        &dir,
+        None,
+        fx.alice,
+        job,
+        settings(edition),
+    )
+    .await
+    .expect("the resume completes");
+    assert_eq!(standing_of(&app, space, holder).await, "member");
+    let assigned = count(
+        &app,
+        "SELECT count(*)::bigint AS n FROM space_role_assignments a JOIN space_roles r ON r.id = a.role_id \
+         WHERE a.space_id = $1 AND a.user_id = $2 AND r.name = 'Comptable'",
+        vec![space.into(), holder.into()],
+    )
+    .await;
+    assert_eq!(assigned, 1);
+}
+
+#[tokio::test]
+async fn a_run_that_stops_keeps_its_summary_and_its_journal_line() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let name = unique_space();
+    let (space, _) = crate::messaging::spaces::create_owned_space(&app.db, &name, fx.alice)
+        .await
+        .expect("space");
+    let squatter = make_user_with(&app, &address("sq")).await;
+    space_members::ActiveModel {
+        space_id: Set(space),
+        user_id: Set(squatter),
+        role: Set("member".to_owned()),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("member");
+    let (a, b) = (address("a"), address("b"));
+    let dir = people_archive(
+        2,
+        &name,
+        &[("a", &a), ("b", &b)],
+        &[("a", "admin", &[]), ("b", "member", &[])],
+        &[],
+    );
+    // Owner and squatter use two of three seats: the administrator fits, the member does not.
+    let (job, outcome) = run_people(&app, fx.alice, &dir, Arc::new(Seats(3))).await;
+    assert!(matches!(outcome, Err(RunError::SeatsFull { .. })));
+    let stored = crate::entities::import_jobs::Entity::find_by_id(job)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("job");
+    assert_eq!(stored.status, "failed");
+    let summary = stored.summary.expect("what the run did before it stopped");
+    assert_eq!(summary["administrators"], 1);
+    let lines = journal(&app, space).await;
+    assert_eq!(lines.len(), 1);
+    assert_eq!(lines[0].2["administrators"], 1);
+    assert_eq!(lines[0].2["job_id"], job.to_string());
+}
+
+#[tokio::test]
+async fn saving_twice_writes_one_journal_line_per_job_and_space() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (name, a) = (unique_space(), address("a"));
+    let dir = people_archive(2, &name, &[("a", &a)], &[("a", "admin", &[])], &[]);
+    let (job, outcome) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    let people = outcome.expect("run").written.people;
+    let space = space_named(&app, &name).await;
+    crate::importer::summary::save(
+        &app.db,
+        &CommunityEdition,
+        job,
+        fx.alice,
+        "mattermost",
+        &people,
+    )
+    .await
+    .expect("a retry");
+    assert_eq!(journal(&app, space).await.len(), 1);
 }

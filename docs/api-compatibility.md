@@ -144,8 +144,8 @@ and `missing` (`used + incoming - seats`), fields the other routes answering `se
 one: `administrators`, `guests`, `moderators`, `groups` with `group_names`, `kept` with `kept_names`,
 `custom_roles`, `fallbacks` as `space`, `role_name`, `fixed` and `people`, and `seats` as `space`,
 `used_before`, `added` and `total`) and `limits` (the producer's words, again). The member list
-carries `imported_from` for whoever manages people, and a group carries it for everyone who reads
-it. Archive format 2 (`docs/import-archive.md`) needs no feature name: an older instance refuses a
+carries `imported_from` for whoever manages people, and a group carries it for whoever manages
+groups or people. Archive format 2 (`docs/import-archive.md`) needs no feature name: an older instance refuses a
 format 2 archive with its version message.
 
 The last two are the enterprise edition's own names, listed after the instance's by that build

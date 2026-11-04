@@ -2384,7 +2384,7 @@
             "type": "string"
           },
           "imported_from": {
-            "description": "The import that made it (`<source>:<job id>`), when one did.",
+            "description": "The import that made it (`<source>:<job id>`), only for whoever manages groups or people.",
             "type": [
               "string",
               "null"

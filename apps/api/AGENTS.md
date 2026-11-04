@@ -528,7 +528,7 @@ with the community `ring` provider (never AWS `aws-lc-rs`), per the no-US-depend
   `lock_space_seats`, the edition's `seat_check`; a row there, an ended guest included, is `Present`
   and never touched). Nobody becomes owner. The plan (`plan::people_plan`) and the run count seats
   the same way; the run counts again under the lock and stops with `RunError::SeatsFull`.
-- Custom roles go through `Edition::import_custom_role`; the community edition answers `FallBack`.
+- Custom roles go through `Edition::import_custom_role` (the community edition answers `FallBack`) and are given to the people a job admits, in the same transaction as their member row (`admit_with_roles`): a person arrives with every role or not at all.
   Groups are recognised by their archive id (`KIND_GROUP`); only a resume of the same job fills them.
 - `importer/summary.rs` writes the job's `summary` and one `import.applied` journal line per touched
   space (none for a space where nothing changed).
