@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 
 import { parseInline } from "../src/logic/inline.ts";
 import { activeToken, insertToken } from "../src/logic/mentions.ts";
-import { groupByName, matchGroupMention, mentionOrder, mentionableGroups } from "../src/logic/groupMentions.ts";
+import { matchGroupMention } from "@ruchoir/client/permissionsLogic";
+import { groupByName, mentionOrder, mentionableGroups } from "../src/logic/groupMentions.ts";
 
 const group = (id: string, name: string, memberIds: string[] = []) => ({
   id,
@@ -77,4 +78,21 @@ test("a_group_name_with_spaces_keeps_the_token_open_while_it_begins_a_name", () 
   // A word that does not begin a group's name closes it, as before.
   assert.equal(activeToken("Salut @Chantier Xy", 18, names), null);
   assert.equal(activeToken("Salut @Chantier Re", 18), null);
+});
+
+test("a_pill_opens_the_group_the_parser_lit_it_for", () => {
+  // The parser folds with the server's table ("coeur" = "Cœur"); the tap must find the same group.
+  const groups = [group("g1", "Cœur"), group("g2", "R&D Paris")];
+  assert.deepEqual(parseInline("@coeur ok", [], ["Cœur"])[0], { kind: "group", text: "@coeur" });
+  assert.equal(groupByName(groups, "@coeur")?.id, "g1");
+  assert.equal(groupByName(groups, "@r&d  paris")?.id, "g2");
+});
+
+test("names_with_symbols_digits_and_prefixes_parse_as_one_mention", () => {
+  const names = ["R&D Paris", "Ops (nord)", "Compta 2024/25", "Ops", "Ops Nord"];
+  assert.deepEqual(parseInline("@R&D Paris merci", [], names)[0], { kind: "group", text: "@R&D Paris" });
+  assert.deepEqual(parseInline("@Ops (nord), ok", [], names)[0], { kind: "group", text: "@Ops (nord)" });
+  assert.deepEqual(parseInline("@Compta 2024/25.", [], names), [{ kind: "group", text: "@Compta 2024/25" }, { kind: "text", text: "." }]);
+  assert.deepEqual(parseInline("@Ops Nord ok", [], names)[0], { kind: "group", text: "@Ops Nord" });
+  assert.deepEqual(parseInline("@Ops Sud", [], names)[0], { kind: "group", text: "@Ops" });
 });

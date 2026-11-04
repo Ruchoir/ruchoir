@@ -2,7 +2,7 @@ import type { ApiMessage, Group } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { MessageSquare, Pin } from "lucide-react-native";
-import { memo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Alert, Keyboard, Pressable, StyleSheet, View } from "react-native";
 
 import { authHeadersFor, useApi } from "../../api/useApi";
@@ -81,6 +81,8 @@ export const MessageRow = memo(function MessageRow({
   const tablet = useTabletLayout() !== null;
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation();
+  // One list per change of groups, so the shared matcher folds the names once, not once per line.
+  const groupNames = useMemo(() => groups?.map((g) => g.name), [groups]);
 
   if (m.kind === "system") {
     const line = (
@@ -179,7 +181,7 @@ export const MessageRow = memo(function MessageRow({
           <RichText
             body={m.body}
             mentionNames={mentionNames}
-            groupNames={groups?.map((g) => g.name)}
+            groupNames={groupNames}
             onOpenGroup={(mention) => {
               const group = groupByName(groups ?? [], mention);
               if (group) navigation.navigate("groupPeople", { groupId: group.id });

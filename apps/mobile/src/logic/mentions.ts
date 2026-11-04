@@ -5,27 +5,42 @@
  * address), and a mention is the person's display name, whole, which is how the server resolves it.
  */
 
+import { foldMention, prepareGroupNames } from "@ruchoir/client/permissionsLogic";
+
 export type ActiveToken = { kind: "@" | "#"; query: string; start: number };
 
 const MENTION = /(?:^|\s)@([\p{L}\p{N}_'-]*)$/u;
 const CHANNEL = /(?:^|\s)#([\p{L}\p{N}_-]*)$/u;
 
-/** A group's name has spaces ("@Chantier Re"): the token reaches across them (the web's pattern). */
-const SPACED_MENTION = /(?:^|\s)@([\p{L}\p{N}_'-]+(?: [\p{L}\p{N}_'-]*)+)$/u;
+/** The `@` that starts a token (the text start or a space before it) and what follows it up to the cursor, on one line. */
+const OPEN_MENTION = /(?:^|\s)@([^\n@]*)$/u;
+
+/** Each group name folded as the server folds it, words joined by one space (read once per list). */
+const FOLDED_NAMES = new WeakMap<readonly string[], string[]>();
+function foldedNames(names: readonly string[]): string[] {
+  let folded = FOLDED_NAMES.get(names);
+  if (!folded) FOLDED_NAMES.set(names, (folded = names.map((n) => prepareGroupNames([n]).words[0].join(" "))));
+  return folded;
+}
 
 /**
  * The `@` or `#` token that ends at the cursor, or null when the cursor is not in one. Given the
- * names of the groups one may mention, an `@` token stays open across spaces while what was typed
- * still begins one of them, and closes at the first word that does not.
+ * names of the groups one may mention, an `@` token stays open across spaces and symbols while what
+ * was typed (case, accents and runs of spaces ignored) is still the beginning of one of them, and
+ * closes as soon as it is not.
  */
 export function activeToken(text: string, cursor: number, groupNames: readonly string[] = []): ActiveToken | null {
   const before = text.slice(0, cursor);
   const mention = MENTION.exec(before);
   if (mention) return { kind: "@", query: mention[1], start: cursor - mention[1].length - 1 };
-  const spaced = groupNames.length > 0 ? SPACED_MENTION.exec(before) : null;
-  if (spaced) {
-    const needle = fold(spaced[1]);
-    if (groupNames.some((n) => fold(n).startsWith(needle))) return { kind: "@", query: spaced[1], start: cursor - spaced[1].length - 1 };
+  const open = groupNames.length > 0 ? OPEN_MENTION.exec(before) : null;
+  if (open) {
+    const typed = open[1].replace(/\s+/g, " ");
+    const needle = foldMention(typed);
+    const plain = fold(typed);
+    if (foldedNames(groupNames).some((n) => n.startsWith(needle)) || groupNames.some((n) => fold(n.replace(/\s+/g, " ")).startsWith(plain))) {
+      return { kind: "@", query: open[1], start: cursor - open[1].length - 1 };
+    }
   }
   // One hash only: `##` is a heading, and a list of channels in front of a title would be in the way.
   const channel = CHANNEL.exec(before);

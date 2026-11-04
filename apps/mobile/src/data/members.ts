@@ -1,4 +1,4 @@
-import type { Group, Member } from "@ruchoir/client";
+import type { Member } from "@ruchoir/client";
 import { useMemo } from "react";
 
 import { useApi } from "../api/useApi";
@@ -8,15 +8,11 @@ import { useReloadOn } from "./useReloadOn";
 
 /** The people of a space: who wrote what, their pictures, and the names a mention can take. */
 export function useSpaceMembers(spaceId: string | undefined) {
-  const { getSpaceMembers, listGroups } = useApi();
+  const { getSpaceMembers } = useApi();
   const members = useLoad(spaceId ? `members:${spaceId}` : null, (signal) => getSpaceMembers(spaceId!, signal));
   // A new photo or name shows at once, not at the next launch; so does someone joining or leaving.
   useReloadOn((e) => !!spaceId && affects.members(e, spaceId), members.reload, 300);
-  // The groups a mention can name, under the key the groups screens use, so one request serves all.
-  const groups = useLoad(spaceId ? `groups:${spaceId}` : null, () => listGroups(spaceId!));
-  useReloadOn((e) => !!spaceId && affects.permissions(e, spaceId), groups.reload, 300);
   const list = members.data;
-  const groupList: Group[] | undefined = groups.data;
   return useMemo(() => {
     const byName = new Map<string, Member>();
     for (const m of list ?? []) byName.set(m.name, m);
@@ -24,9 +20,8 @@ export function useSpaceMembers(spaceId: string | undefined) {
       list: list ?? [],
       avatarOf: (name: string) => byName.get(name)?.avatarUrl,
       mentionNames: mentionNames(list ?? []),
-      groups: groupList ?? [],
     };
-  }, [list, groupList]);
+  }, [list]);
 }
 
 /**

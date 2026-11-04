@@ -12,6 +12,7 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useApi } from "../../api/useApi";
+import { useMentionGroups } from "../../data/mentionGroups";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
@@ -36,10 +37,12 @@ export function GroupPeopleSheet() {
   const { gates } = useRights();
   const roleLabel = useRoleLabel();
   const space = useSpaceMembers(current?.id);
+  // The same cached groups the message that was tapped read them from.
+  const groups = useMentionGroups(current?.id);
   // Roles are read by whoever may see them; for anyone else the line under a name is simply absent.
   const roles = useLoad(current ? `roles:${current.id}` : null, () => listRoles(current!.id));
 
-  const group = space.groups.find((g) => g.id === params.groupId);
+  const group = groups.find((g) => g.id === params.groupId);
   const { people } = groupPeople(group ?? { memberIds: [] }, space.list);
   const rolesOf = (roleIds: string[] | undefined) =>
     (roleIds ?? [])

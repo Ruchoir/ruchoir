@@ -5,15 +5,17 @@
  *
  * Mentions are recognised against the names the server resolves (`getMentionNames` on the web):
  * the longest one that follows an `@` wins, so "@Camille Roux" is one mention, not "@Camille" and a
- * stray " Roux".
+ * stray " Roux". Group names are read by the shared matcher (`@ruchoir/client`), which folds their
+ * words once per list: hand it the same array while the groups do not change.
  */
-import { matchGroupMention } from "./groupMentions.ts";
+import { matchGroupMention, type PreparedGroupNames } from "@ruchoir/client/permissionsLogic";
 
 export type Segment = { kind: "text" | "mention" | "group" | "bold" | "italic" | "code" | "link"; text: string };
 
 const TOKEN = /(\*\*[^*\n]+\*\*)|(`[^`\n]+`)|(?<![\w*])([_*])([^_*\n]+)\3(?![\w*])|(https?:\/\/[^\s<>()]+)|(@)/g;
 
-export function parseInline(line: string, names: readonly string[], groups: readonly string[] = []): Segment[] {
+export function parseInline(line: string, names: readonly string[], groups: readonly string[] | PreparedGroupNames = []): Segment[] {
+  const hasGroups = "words" in groups ? groups.maxWords > 0 : groups.length > 0;
   const sorted = [...names].sort((a, b) => b.length - a.length);
   const out: Segment[] = [];
   const push = (kind: Segment["kind"], text: string) => {
@@ -32,7 +34,7 @@ export function parseInline(line: string, names: readonly string[], groups: read
       const name = sorted.find(
         (n) => rest.toLowerCase().startsWith(n.toLowerCase()) && !/[\p{L}\p{N}]/u.test(rest.charAt(n.length)),
       );
-      const group = groups.length > 0 ? matchGroupMention(line, m.index + 1, groups) : null;
+      const group = hasGroups ? matchGroupMention(line, m.index + 1, groups) : null;
       if (!name && !group) continue;
       const isGroup = !!group && (!name || group.length > name.length);
       const length = isGroup ? group!.length : name!.length;
