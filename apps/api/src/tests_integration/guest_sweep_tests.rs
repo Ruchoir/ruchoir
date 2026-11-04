@@ -663,3 +663,98 @@ async fn a_read_by_a_client_that_knows_the_guest_notices_announces_its_own_count
     assert_eq!(feed["unread_count"], 1, "{feed}");
     assert_eq!(announced, Some(1), "the event agrees with the feed");
 }
+
+/// The feed a person reads, guest notices included.
+async fn feed(app: &TestApp, user: Uuid) -> Vec<Value> {
+    let cookie = app.cookie_for(user).await;
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            "/api/v1/notifications?guest_notices=true",
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("feed")
+        .json()
+        .await
+        .expect("json");
+    page["notifications"].as_array().expect("list").clone()
+}
+
+#[tokio::test]
+async fn the_manager_notice_carries_the_guests_title() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let guest = old_guest(&app, fx.space, "6 days", Some(fx.admin)).await;
+    exec(
+        &app.db,
+        "UPDATE users SET title = 'Bureau d''etudes Garnier' WHERE id = $1",
+        vec![guest.into()],
+    )
+    .await
+    .expect("title");
+    sweep(&app, fx.space, OffsetDateTime::now_utc()).await;
+    let list = feed(&app, fx.owner).await;
+    assert_eq!(list.len(), 1, "{list:?}");
+    assert_eq!(list[0]["guest_title"], "Bureau d'etudes Garnier");
+    assert!(list[0].get("contact_name").is_none(), "{:?}", list[0]);
+}
+
+#[tokio::test]
+async fn a_guest_without_a_title_has_none_in_the_notice() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    old_guest(&app, fx.space, "6 days", Some(fx.admin)).await;
+    sweep(&app, fx.space, OffsetDateTime::now_utc()).await;
+    let list = feed(&app, fx.owner).await;
+    assert!(list[0].get("guest_title").is_none(), "{:?}", list[0]);
+}
+
+#[tokio::test]
+async fn the_guests_notice_names_the_person_to_ask() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    // The administrator invited the guest and may still manage them: they are the contact.
+    let guest = old_guest(&app, fx.space, "20 hours", Some(fx.admin)).await;
+    sweep(&app, fx.space, OffsetDateTime::now_utc()).await;
+    let list = feed(&app, guest).await;
+    assert_eq!(list.len(), 1, "{list:?}");
+    assert_eq!(list[0]["kind"], "guest_access_ending");
+    assert_eq!(list[0]["contact_name"], "admin");
+
+    // A plain member invited the guest and cannot manage them: a manager is named instead.
+    let other = old_guest(&app, fx.space, "20 hours", Some(fx.member)).await;
+    sweep(&app, fx.space, OffsetDateTime::now_utc()).await;
+    let list = feed(&app, other).await;
+    let contact = list[0]["contact_name"].as_str().expect("a contact");
+    assert!(contact == "owner" || contact == "admin", "{contact}");
+}
+
+#[tokio::test]
+async fn the_expiry_lines_of_the_journal_have_no_author() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    guest_ending(&app.db, fx.space, "-1 second").await;
+    sweep(&app, fx.space, OffsetDateTime::now_utc()).await;
+    let cookie = app.cookie_for(fx.owner).await;
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/audit?category=guests", fx.space),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("audit")
+        .json()
+        .await
+        .expect("json");
+    let entries = page["entries"].as_array().expect("entries");
+    let expired: Vec<&Value> = entries
+        .iter()
+        .filter(|e| e["action"] == "member.expired")
+        .collect();
+    assert_eq!(expired.len(), 1, "{page}");
+    assert!(expired[0].get("actor").is_none_or(Value::is_null), "{page}");
+}

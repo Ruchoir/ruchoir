@@ -666,6 +666,8 @@ pub async fn hydrate<C: ConnectionTrait>(
                 event_my_status: None,
                 ends_at: None,
                 days_left: None,
+                guest_title: None,
+                contact_name: None,
                 emoji: None,
             })
         })
@@ -779,6 +781,8 @@ mod tests {
             event_my_status: None,
             ends_at: None,
             days_left: None,
+            guest_title: None,
+            contact_name: None,
             emoji: None,
         };
         // Due ten minutes before; the sweep runs 30 seconds after that.

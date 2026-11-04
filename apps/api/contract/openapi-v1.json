@@ -3642,6 +3642,13 @@
               "null"
             ]
           },
+          "contact_name": {
+            "description": "Who the guest should ask to extend their access, for `guest_access_ending`: whoever invited\nthem when that person may still manage them, otherwise one of the managers.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "conversation_id": {
             "description": "The conversation a message notification is about; absent for a reminder.",
             "format": "uuid",
@@ -3719,6 +3726,13 @@
             ]
           },
           "event_title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guest_title": {
+            "description": "The guest's profile title (\"Bureau d'etudes Garnier\"), for `guest_expiry_soon`; absent when\nthe guest has none.",
             "type": [
               "string",
               "null"

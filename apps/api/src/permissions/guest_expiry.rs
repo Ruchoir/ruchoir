@@ -328,25 +328,34 @@ async fn prepare_mail<C: ConnectionTrait>(
     if !settings.enabled || !settings.email {
         return None;
     }
-    let guest_name = users::Entity::find_by_id(guest.user_id)
+    let guest_row = users::Entity::find_by_id(guest.user_id)
         .one(db)
         .await
-        .ok()??
-        .display_name;
+        .ok()??;
+    let (guest_name, guest_title) = (guest_row.display_name, guest_row.title);
     let space = spaces::Entity::find_by_id(guest.space_id)
         .one(db)
         .await
         .ok()??;
     let locale = Locale::parse(reader.locale.as_deref());
     let ends = end_text(locale, guest.expires_at, &reader_time_zone(Some(&reader)));
+    // The button opens the space's settings on Members, with this guest's prolong dialog.
+    let link = format!(
+        "{}/e/{}?prolong={}",
+        state.mailer.base_url.trim_end_matches('/'),
+        space.slug,
+        guest.user_id
+    );
     let email = mail_text::guest_expiry_reminder(
         locale,
         &GuestExpiryWords {
+            reader: reader.display_name.split_whitespace().next().unwrap_or(""),
             guest: &guest_name,
+            title: guest_title.as_deref(),
             space: &space.name,
             ends: &ends,
             days: guest.days,
-            link: &state.mailer.base_url,
+            link: &link,
         },
         &state.mailer.instance_name(),
     );
@@ -460,6 +469,30 @@ async fn purge(
     txn.commit().await
 }
 
+/// Who a guest should ask to extend their access: whoever invited them when that person may still
+/// manage them, otherwise the first of the managers (in a stable order). `None` when nobody can.
+async fn contact_of<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    guest: Uuid,
+) -> Result<Option<String>, DbErr> {
+    let invited_by = space_members::Entity::find_by_id((space_id, guest))
+        .one(db)
+        .await?
+        .and_then(|member| member.invited_by);
+    let managers = managers_of(db, space_id, guest).await?;
+    let Some(contact) = invited_by
+        .filter(|who| managers.contains(who))
+        .or_else(|| managers.first().copied())
+    else {
+        return Ok(None);
+    };
+    Ok(users::Entity::find_by_id(contact)
+        .one(db)
+        .await?
+        .map(|user| user.display_name))
+}
+
 /// Draw guest notices: which guest, of which space, until when. The feed carries them only for a
 /// client that asked (`guest_notices=true`), so an app written before them never sees a kind it
 /// cannot draw.
@@ -486,6 +519,20 @@ pub async fn hydrate<C: ConnectionTrait>(
             .await?
             .map(|user| user.display_name);
         let about_someone = row.kind == KIND_SOON;
+        let guest_title = if about_someone {
+            users::Entity::find_by_id(payload.user_id)
+                .one(db)
+                .await?
+                .and_then(|user| user.title)
+                .filter(|title| !title.trim().is_empty())
+        } else {
+            None
+        };
+        let contact_name = if about_someone {
+            None
+        } else {
+            contact_of(db, payload.space_id, payload.user_id).await?
+        };
         drawn.push(NotificationDto {
             id: row.id,
             kind: row.kind.clone(),
@@ -511,6 +558,8 @@ pub async fn hydrate<C: ConnectionTrait>(
             emoji: None,
             ends_at: Some(payload.ends_at),
             days_left: Some(payload.days),
+            guest_title,
+            contact_name,
         });
     }
     Ok(drawn)

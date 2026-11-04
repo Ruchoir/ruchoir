@@ -643,35 +643,46 @@ pub fn notice(locale: Locale, notice: &Notice<'_>, instance: &str) -> Email {
 /// What a guest-expiry reminder says, for [`guest_expiry_reminder`].
 #[derive(Debug, Clone, Copy)]
 pub struct GuestExpiryWords<'a> {
+    /// The reader's first name, for the greeting.
+    pub reader: &'a str,
     pub guest: &'a str,
+    /// The guest's profile title, when they have one.
+    pub title: Option<&'a str>,
     pub space: &'a str,
     /// The end date as a reader writes it ("20 novembre 2026").
     pub ends: &'a str,
     /// Days left when it was written: `7` or `1`.
     pub days: i32,
+    /// Where the button leads: the space's settings, Members, with the prolong dialog of this guest.
     pub link: &'a str,
 }
 
 /// The mail sent to the people who manage a guest, some days before the guest's access ends.
+///
+/// Neutral about the guest's gender in every language: "son accès", "cette personne", never an
+/// "invité" or "invitée" agreeing with an assumption.
 pub fn guest_expiry_reminder(
     locale: Locale,
     words: &GuestExpiryWords<'_>,
     instance: &str,
 ) -> Email {
-    let (guest, space, ends) = (words.guest, words.space, words.ends);
+    let (guest, space, ends, reader) = (words.guest, words.space, words.ends, words.reader);
     let many = words.days > 1;
     let days = words.days;
-    let (subject, paragraph, button, note) = match locale {
+    let (subject, greeting, paragraph, until, after, button, note) = match locale {
         Locale::Fr => (
             if many {
                 format!("L'accès de {guest} à {space} se termine dans {days} jours")
             } else {
                 format!("L'accès de {guest} à {space} se termine demain")
             },
+            format!("Bonjour {reader},"),
             format!(
-                "L'accès de {guest} à l'espace {space} se termine le {ends}{}. Vous recevez ce message parce que vous gérez les invités de cet espace. Si son travail avec vous continue, prolongez son accès. Sinon, vous n'avez rien à faire : ses messages et ses fichiers resteront, et vous pourrez le réactiver pendant 90 jours.",
+                "L'accès de {guest} à l'espace {space} se termine le {ends}{}. Vous recevez ce message parce que vous gérez les invités de cet espace.",
                 if many { format!(", dans {days} jours") } else { ", demain".to_owned() }
             ),
+            "accès jusqu'au",
+            format!("Si son travail avec vous continue, prolongez son accès. Sinon, vous n'avez rien à faire : le {ends}, cette personne n'aura plus accès à l'espace. Ses messages et ses fichiers resteront, et vous pourrez réactiver son accès pendant 90 jours."),
             "Prolonger son accès",
             "Vous recevrez un dernier rappel la veille. Pour ne plus recevoir ces messages, retirez-vous des personnes qui gèrent les invités.",
         ),
@@ -681,10 +692,13 @@ pub fn guest_expiry_reminder(
             } else {
                 format!("{guest}'s access to {space} ends tomorrow")
             },
+            format!("Hello {reader},"),
             format!(
-                "{guest}'s access to the {space} space ends on {ends}{}. You receive this because you manage the guests of this space. If their work with you goes on, extend their access. Otherwise there is nothing to do: their messages and files stay, and you can reactivate them for 90 days.",
+                "{guest}'s access to the {space} space ends on {ends}{}. You receive this because you manage the guests of this space.",
                 if many { format!(", in {days} days") } else { ", tomorrow".to_owned() }
             ),
+            "access until",
+            format!("If their work with you goes on, extend their access. Otherwise there is nothing to do: on {ends}, this person will no longer have access to the space. Their messages and files stay, and you can reactivate their access for 90 days."),
             "Extend their access",
             "A last reminder comes the day before. To stop receiving these messages, step down from managing guests.",
         ),
@@ -694,10 +708,13 @@ pub fn guest_expiry_reminder(
             } else {
                 format!("El acceso de {guest} a {space} termina mañana")
             },
+            format!("Hola {reader},"),
             format!(
-                "El acceso de {guest} al espacio {space} termina el {ends}{}. Recibes este mensaje porque gestionas a los invitados de este espacio. Si su trabajo contigo continúa, prolonga su acceso. Si no, no tienes nada que hacer: sus mensajes y archivos se quedan y podrás reactivarlo durante 90 días.",
+                "El acceso de {guest} al espacio {space} termina el {ends}{}. Recibes este mensaje porque gestionas a los invitados de este espacio.",
                 if many { format!(", dentro de {days} días") } else { ", mañana".to_owned() }
             ),
+            "acceso hasta el",
+            format!("Si su trabajo contigo continúa, prolonga su acceso. Si no, no tienes nada que hacer: el {ends}, esta persona dejará de tener acceso al espacio. Sus mensajes y archivos se quedan y podrás reactivar su acceso durante 90 días."),
             "Prolongar su acceso",
             "Recibirás un último recordatorio la víspera. Para dejar de recibir estos mensajes, deja de gestionar a los invitados.",
         ),
@@ -707,10 +724,13 @@ pub fn guest_expiry_reminder(
             } else {
                 format!("Der Zugang von {guest} zu {space} endet morgen")
             },
+            format!("Guten Tag {reader},"),
             format!(
-                "Der Zugang von {guest} zum Bereich {space} endet am {ends}{}. Sie erhalten diese Nachricht, weil Sie die Gäste dieses Bereichs verwalten. Wenn die Zusammenarbeit weitergeht, verlängern Sie den Zugang. Andernfalls müssen Sie nichts tun: Nachrichten und Dateien bleiben erhalten, und Sie können den Zugang 90 Tage lang reaktivieren.",
+                "Der Zugang von {guest} zum Bereich {space} endet am {ends}{}. Sie erhalten diese Nachricht, weil Sie die Gäste dieses Bereichs verwalten.",
                 if many { format!(", in {days} Tagen") } else { ", morgen".to_owned() }
             ),
+            "Zugang bis",
+            format!("Wenn die Zusammenarbeit weitergeht, verlängern Sie den Zugang. Andernfalls müssen Sie nichts tun: Am {ends} hat diese Person keinen Zugang mehr zum Bereich. Nachrichten und Dateien bleiben erhalten, und Sie können den Zugang 90 Tage lang reaktivieren."),
             "Zugang verlängern",
             "Am Vortag folgt eine letzte Erinnerung. Um diese Nachrichten nicht mehr zu erhalten, geben Sie die Verwaltung der Gäste ab.",
         ),
@@ -720,10 +740,13 @@ pub fn guest_expiry_reminder(
             } else {
                 format!("L'accesso di {guest} a {space} termina domani")
             },
+            format!("Ciao {reader},"),
             format!(
-                "L'accesso di {guest} allo spazio {space} termina il {ends}{}. Ricevi questo messaggio perché gestisci gli ospiti di questo spazio. Se il lavoro con te continua, prolunga il suo accesso. Altrimenti non devi fare nulla: messaggi e file restano e potrai riattivarlo per 90 giorni.",
+                "L'accesso di {guest} allo spazio {space} termina il {ends}{}. Ricevi questo messaggio perché gestisci gli ospiti di questo spazio.",
                 if many { format!(", tra {days} giorni") } else { ", domani".to_owned() }
             ),
+            "accesso fino al",
+            format!("Se il lavoro con te continua, prolunga il suo accesso. Altrimenti non devi fare nulla: il {ends}, questa persona non avrà più accesso allo spazio. Messaggi e file restano e potrai riattivare il suo accesso per 90 giorni."),
             "Prolunga l'accesso",
             "Riceverai un ultimo promemoria il giorno prima. Per non ricevere più questi messaggi, smetti di gestire gli ospiti.",
         ),
@@ -733,26 +756,42 @@ pub fn guest_expiry_reminder(
             } else {
                 format!("Dostęp użytkownika {guest} do {space} kończy się jutro")
             },
+            format!("Cześć {reader},"),
             format!(
-                "Dostęp użytkownika {guest} do przestrzeni {space} kończy się {ends}{}. Dostajesz tę wiadomość, bo zarządzasz gośćmi tej przestrzeni. Jeśli współpraca trwa, przedłuż dostęp. W przeciwnym razie nic nie musisz robić: wiadomości i pliki zostają, a dostęp możesz przywrócić w ciągu 90 dni.",
+                "Dostęp użytkownika {guest} do przestrzeni {space} kończy się {ends}{}. Dostajesz tę wiadomość, bo zarządzasz gośćmi tej przestrzeni.",
                 if many { format!(", za {days} dni") } else { ", jutro".to_owned() }
             ),
+            "dostęp do",
+            format!("Jeśli współpraca trwa, przedłuż dostęp. W przeciwnym razie nic nie musisz robić: {ends} ta osoba straci dostęp do przestrzeni. Wiadomości i pliki zostają, a dostęp możesz przywrócić w ciągu 90 dni."),
             "Przedłuż dostęp",
             "Ostatnie przypomnienie przyjdzie dzień wcześniej. Aby nie dostawać tych wiadomości, przestań zarządzać gośćmi.",
         ),
     };
-    notice(
+    let access = format!("{until} {ends}");
+    let detail = match words.title.filter(|title| !title.trim().is_empty()) {
+        Some(title) => format!("{title} \u{b7} {access}"),
+        None => access,
+    };
+    render_extra(
         locale,
-        &Notice {
-            subject: &subject,
-            preheader: &subject,
-            heading: &subject,
-            paragraph: &paragraph,
-            button,
-            link: words.link,
-            note,
+        &Content {
+            subject: subject.clone(),
+            preheader: subject.clone(),
+            heading: subject,
+            paragraph,
+            button: button.to_owned(),
+            link: words.link.to_owned(),
+            note: note.to_owned(),
+            items: Vec::new(),
         },
         instance,
+        None,
+        &Extra {
+            greeting: Some(greeting),
+            bold: Some(ends.to_owned()),
+            card: Some((guest.to_owned(), detail)),
+            after: Some(after),
+        },
     )
 }
 
@@ -811,6 +850,30 @@ fn render_with_code(
     instance: &str,
     code: Option<&str>,
 ) -> Email {
+    render_extra(locale, content, instance, code, &Extra::default())
+}
+
+/// What a message may carry beyond the common layout: a greeting, a word in bold, a card about a
+/// person, a paragraph after the card. Empty for every message but the guest reminder.
+#[derive(Default)]
+struct Extra {
+    /// "Bonjour Sophie,", above the paragraph.
+    greeting: Option<String>,
+    /// A part of the paragraph to set in bold (the date).
+    bold: Option<String>,
+    /// A card between the paragraph and what follows: a name, and a line under it.
+    card: Option<(String, String)>,
+    /// A paragraph after the card.
+    after: Option<String>,
+}
+
+fn render_extra(
+    locale: Locale,
+    content: &Content,
+    instance: &str,
+    code: Option<&str>,
+    extra: &Extra,
+) -> Email {
     let common = common(locale);
     let items_text: String = content
         .items
@@ -827,6 +890,18 @@ fn render_with_code(
         content.paragraph.clone()
     } else {
         format!("{}\n\n{}", content.paragraph, items_text.trim_end())
+    };
+    let paragraph_text = match &extra.greeting {
+        Some(greeting) => format!("{greeting}\n\n{paragraph_text}"),
+        None => paragraph_text,
+    };
+    let paragraph_text = match &extra.card {
+        Some((name, detail)) => format!("{paragraph_text}\n\n{name}\n{detail}"),
+        None => paragraph_text,
+    };
+    let paragraph_text = match &extra.after {
+        Some(after) => format!("{paragraph_text}\n\n{after}"),
+        None => paragraph_text,
     };
     // A message with nothing to open (a cancellation sent outside) has no button.
     let action_text = if content.link.is_empty() {
@@ -913,6 +988,53 @@ fn render_with_code(
             )
         })
         .unwrap_or_default();
+    let greeting_html = extra
+        .greeting
+        .as_ref()
+        .map(|greeting| {
+            format!(
+                r#"<p class="rc-ink" style="margin:0 0 14px 0;font-family:{FONT};font-size:16px;line-height:1.6;color:{INK};">{}</p>"#,
+                esc(greeting)
+            )
+        })
+        .unwrap_or_default();
+    let mut paragraph_html = esc(&content.paragraph);
+    if let Some(bold) = &extra.bold {
+        let marked = esc(bold);
+        paragraph_html = paragraph_html.replacen(
+            &marked,
+            &format!(r#"<strong class="rc-ink" style="color:{INK};">{marked}</strong>"#),
+            1,
+        );
+    }
+    let card_html = extra
+        .card
+        .as_ref()
+        .map(|(name, detail)| {
+            let initials: String = name
+                .split_whitespace()
+                .filter_map(|word| word.chars().next())
+                .take(2)
+                .flat_map(char::to_uppercase)
+                .collect();
+            format!(
+                r#"<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="rc-surface" style="margin:0 0 20px 0;border:1px solid {LINE};border-radius:12px;background:{CARD};"><tr><td width="44" style="padding:14px 0 14px 16px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" width="40" height="40" style="width:40px;height:40px;border-radius:20px;background:{SKY};font-family:{FONT};font-size:14px;font-weight:700;color:{INK};">{initials}</td></tr></table></td><td style="padding:14px 16px 14px 12px;font-family:{FONT};"><span class="rc-ink" style="display:block;font-size:16px;font-weight:700;color:{INK};">{name}</span><span class="rc-muted" style="display:block;font-size:14px;line-height:1.4;color:{MUTED};">{detail}</span></td></tr></table>"#,
+                initials = esc(&initials),
+                name = esc(name),
+                detail = esc(detail),
+            )
+        })
+        .unwrap_or_default();
+    let after_html = extra
+        .after
+        .as_ref()
+        .map(|after| {
+            format!(
+                r#"<p class="rc-body" style="margin:0 0 28px 0;font-family:{FONT};font-size:16px;line-height:1.6;color:{BODY};">{}</p>"#,
+                esc(after)
+            )
+        })
+        .unwrap_or_default();
     let html = format!(
         r#"<!DOCTYPE html>
 <html lang="{lang}">
@@ -962,8 +1084,8 @@ fn render_with_code(
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="rc-surface" style="border:2px solid {INK};border-radius:16px;background:{CARD};box-shadow:8px 8px 0 {SKY};">
 <tr><td class="rc-card" style="padding:36px 32px 32px 32px;">
 <h1 class="rc-title rc-ink" style="margin:0 0 12px 0;font-family:{FONT};font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-0.02em;color:{INK};">{heading}</h1>
-<p class="rc-body" style="margin:0 0 28px 0;font-family:{FONT};font-size:16px;line-height:1.6;color:{BODY};">{paragraph}</p>
-{items_html}
+{greeting_html}<p class="rc-body" style="margin:0 0 {paragraph_gap};font-family:{FONT};font-size:16px;line-height:1.6;color:{BODY};">{paragraph}</p>
+{card_html}{after_html}{items_html}
 {action_html}{code_html}<p class="rc-muted rc-line" style="margin:0;padding-top:20px;border-top:1px solid {LINE};font-family:{FONT};font-size:13px;line-height:1.55;color:{MUTED};text-align:center;">{note}</p>
 </td></tr></table>
 </td></tr>
@@ -980,7 +1102,8 @@ fn render_with_code(
         subject = esc(&content.subject),
         preheader = esc(&content.preheader),
         heading = esc(&content.heading),
-        paragraph = esc(&content.paragraph),
+        paragraph = paragraph_html,
+        paragraph_gap = if extra.card.is_some() { "16px" } else { "28px" },
         note = esc(&content.note),
         tagline = esc(common.tagline),
         sent_by = esc(common.sent_by),
@@ -1419,11 +1542,13 @@ mod tests {
     #[test]
     fn a_guest_expiry_reminder_speaks_every_language_and_says_vous() {
         let words = GuestExpiryWords {
+            reader: "Sophie",
             guest: "Inès Garnier",
+            title: Some("Bureau d'études Garnier"),
             space: "Atelier Dupont",
             ends: "20 novembre 2026",
             days: 7,
-            link: "https://app.example.test",
+            link: "https://app.example.test/e/atelier?prolong=1",
         };
         let fr = guest_expiry_reminder(Locale::Fr, &words, "app.example.test");
         assert_eq!(
@@ -1431,7 +1556,9 @@ mod tests {
             "L'accès de Inès Garnier à Atelier Dupont se termine dans 7 jours"
         );
         assert!(fr.text.contains("Vous recevez"), "{}", fr.text);
-        assert!(fr.text.contains("https://app.example.test"));
+        assert!(fr
+            .text
+            .contains("https://app.example.test/e/atelier?prolong=1"));
         let eve = GuestExpiryWords { days: 1, ..words };
         assert!(guest_expiry_reminder(Locale::Fr, &eve, "x")
             .subject
@@ -1451,6 +1578,47 @@ mod tests {
             subjects.insert(mail.subject);
         }
         assert_eq!(subjects.len(), 6, "one text per language");
+    }
+
+    #[test]
+    fn the_reminder_greets_shows_the_guest_card_and_never_guesses_a_gender() {
+        let words = GuestExpiryWords {
+            reader: "Sophie",
+            guest: "Inès Garnier",
+            title: Some("Bureau d'études Garnier"),
+            space: "Atelier Dupont",
+            ends: "20 novembre 2026",
+            days: 7,
+            link: "https://app.example.test/e/atelier?prolong=abc",
+        };
+        let mail = guest_expiry_reminder(Locale::Fr, &words, "app.example.test");
+        assert!(mail.html.contains("Bonjour Sophie,"), "{}", mail.html);
+        assert!(mail.text.contains("Bonjour Sophie,"));
+        assert!(mail
+            .html
+            .contains("<strong class=\"rc-ink\" style=\"color:#15171c;\">20 novembre 2026</strong>, dans 7 jours"));
+        assert!(mail
+            .html
+            .contains("Bureau d&#39;études Garnier \u{b7} accès jusqu&#39;au 20 novembre 2026"));
+        assert!(mail
+            .html
+            .contains(r#"href="https://app.example.test/e/atelier?prolong=abc""#));
+        assert!(mail.html.contains("Prolonger son accès"));
+        let words_only = mail.text.to_lowercase().replace(['\n', ',', '.', ':'], " ");
+        for word in [" invitée ", " invité ", " elle ", " il ", " lui "] {
+            assert!(!words_only.contains(word), "{word:?} in {}", mail.text);
+        }
+        // No title: the card keeps the end alone.
+        let bare = GuestExpiryWords {
+            title: None,
+            ..words
+        };
+        let mail = guest_expiry_reminder(Locale::Fr, &bare, "x");
+        assert!(
+            mail.text.contains("\naccès jusqu'au 20 novembre 2026"),
+            "{}",
+            mail.text
+        );
     }
 
     #[test]

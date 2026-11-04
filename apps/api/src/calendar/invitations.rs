@@ -729,6 +729,8 @@ pub async fn hydrate<C: ConnectionTrait>(
                 event_my_status: my_status,
                 ends_at: None,
                 days_left: None,
+                guest_title: None,
+                contact_name: None,
                 emoji: None,
             })
         })

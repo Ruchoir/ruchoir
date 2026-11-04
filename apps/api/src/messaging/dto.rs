@@ -638,6 +638,14 @@ pub struct NotificationDto {
     /// How many days were left when the notice was written (`7` or `1`), for the same two kinds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub days_left: Option<i32>,
+    /// The guest's profile title ("Bureau d'etudes Garnier"), for `guest_expiry_soon`; absent when
+    /// the guest has none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guest_title: Option<String>,
+    /// Who the guest should ask to extend their access, for `guest_access_ending`: whoever invited
+    /// them when that person may still manage them, otherwise one of the managers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contact_name: Option<String>,
 }
 
 /// A page of notifications, newest first, with the caller's total unread count.
