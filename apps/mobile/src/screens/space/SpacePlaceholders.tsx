@@ -1,9 +1,9 @@
 /**
- * The sections of a space's settings whose screens come in later steps (groups, licence). Their
- * rows are not listed until `READY` (`logic/spaceSections.ts`) says so; the screens exist so the
- * routes do, and say so plainly if one is reached.
+ * The sections of a space's settings whose screens come in later steps (groups). Their rows are
+ * not listed until `READY` (`logic/spaceSections.ts`) says so; the screens exist so the routes do,
+ * and say so plainly if one is reached.
  */
-import { KeyRound, Users, type LucideIcon } from "lucide-react-native";
+import { Users, type LucideIcon } from "lucide-react-native";
 import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -29,6 +29,5 @@ function Placeholder({ section, icon }: { section: SectionKey; icon: LucideIcon 
 }
 
 export const SpaceGroupsScreen = () => <Placeholder section="groups" icon={Users} />;
-export const SpaceLicenceScreen = () => <Placeholder section="licence" icon={KeyRound} />;
 
 const styles = StyleSheet.create({ fill: { flex: 1 } });

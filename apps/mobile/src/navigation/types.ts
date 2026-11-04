@@ -143,6 +143,8 @@ export type RootParams = {
   spaceGroups: undefined;
   spaceAudit: undefined;
   spaceLicence: undefined;
+  /** Installing a licence in the current space: pasted, or read from a file. */
+  licenceInstall: undefined;
   /**
    * A member of the current space: Profil and Gestion. `prolong` opens on the guest's end date;
    * `spaceId` is the space the person belongs to when the caller selected it just before navigating

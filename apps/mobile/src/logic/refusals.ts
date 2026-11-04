@@ -26,11 +26,18 @@ const BY_CODE: Record<string, string> = {
   not_ended: key("guests.refusalNotEnded"),
   access_ended_for_good: key("guests.endedForGood"),
   no_self_role: key("groups.noSelfRole"),
+  licence_invalid: key("licence.refusal.invalid"),
+  licence_expired: key("licence.refusal.expired"),
 };
 
 export function refusalSaid(refusal: ReturnType<typeof refusalOf>): Said | null {
   if (!refusal) return null;
   if (refusal.code === "seats_full") return { key: key("roles.refusal.seatsFull"), vars: { count: refusal.seats } };
+  if (refusal.code === "licence_other_space") {
+    return refusal.organisation
+      ? { key: key("licence.refusal.otherSpaceNamed"), vars: { organisation: refusal.organisation } }
+      : { key: key("licence.refusal.otherSpace") };
+  }
   const said = BY_CODE[refusal.code];
   return said ? { key: said } : null;
 }
