@@ -70,7 +70,8 @@ pub enum Action {
     RuleCreated,
     RuleUpdated,
     RuleDeleted,
-    /// People were brought over from another product.
+    /// People were brought over from another product. Payload: `{ source, job_id,
+    /// administrators, guests, groups, moderators, custom_roles, fallbacks }`.
     ImportApplied,
 }
 

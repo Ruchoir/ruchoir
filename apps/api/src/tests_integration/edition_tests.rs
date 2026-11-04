@@ -693,12 +693,15 @@ async fn lock_space_seats_serialises_two_transactions() {
     lock_space_seats(&first, space).await.expect("first lock");
 
     let db = app.db.clone();
+    let (started, has_started) = tokio::sync::oneshot::channel();
     let second = tokio::spawn(async move {
         let txn = db.begin().await.expect("begin second");
+        started.send(()).expect("signal");
         lock_space_seats(&txn, space).await.expect("second lock");
         txn.commit().await.expect("commit second");
     });
-    tokio::time::sleep(Duration::from_millis(400)).await;
+    has_started.await.expect("the second task started");
+    tokio::time::sleep(Duration::from_millis(200)).await;
     assert!(!second.is_finished(), "the second waits for the first");
 
     first.commit().await.expect("commit first");
