@@ -2561,3 +2561,49 @@ async fn a_resumed_run_journals_what_it_added() {
     assert_eq!(in_lines, summary["administrators"].as_i64().expect("count"));
     assert_eq!(in_lines, 2);
 }
+
+#[tokio::test]
+async fn a_job_response_names_who_started_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let dir = crossing_archive(&unique_space(), "member");
+    let (job, outcome) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    outcome.expect("the run completes");
+    let alice = users::Entity::find_by_id(fx.alice)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("user");
+    let cookie = app.cookie_for(fx.alice).await;
+    let body = get_job(&app, &cookie, job).await;
+    assert_eq!(body["started_by"]["id"], fx.alice.to_string());
+    assert_eq!(body["started_by"]["name"], alice.display_name);
+
+    // The account is gone: the job stays, and says nobody rather than a stale name.
+    let mut stored: crate::entities::import_jobs::ActiveModel =
+        crate::entities::import_jobs::Entity::find_by_id(job)
+            .one(&app.db)
+            .await
+            .expect("query")
+            .expect("job")
+            .into();
+    stored.created_by = Set(None);
+    stored.update(&app.db).await.expect("detach");
+    let body = get_job(&app, &cookie, job).await;
+    assert!(body["started_by"].is_null(), "{body}");
+}
+
+#[tokio::test]
+async fn the_summary_lists_the_spaces_the_run_created() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let name = unique_space();
+    let dir = crossing_archive(&name, "member");
+    let (job, outcome) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    outcome.expect("the run completes");
+    let cookie = app.cookie_for(fx.alice).await;
+    let body = get_job(&app, &cookie, job).await;
+    assert_eq!(body["people"]["created_spaces"], json!([name]));
+}

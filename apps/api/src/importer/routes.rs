@@ -255,6 +255,62 @@ pub struct JobResponse {
     pub people: Option<super::summary::PeopleSummary>,
     /// What the producer said it left behind, again, so the done screen can show it.
     pub limits: Vec<String>,
+    /// Who started the import, for the done screen ("X stays the owner"); `None` once the account
+    /// is gone.
+    pub started_by: Option<StarterResponse>,
+}
+
+/// The person who started an import.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct StarterResponse {
+    pub id: Uuid,
+    pub name: String,
+}
+
+/// The jobs as the API answers them, with the names of whoever started them (one query for all).
+async fn responses(
+    db: &sea_orm::DatabaseConnection,
+    jobs: Vec<import_jobs::Model>,
+) -> Result<Vec<JobResponse>, ApiError> {
+    use sea_orm::{ColumnTrait, QueryFilter};
+
+    let ids: Vec<Uuid> = jobs.iter().filter_map(|job| job.created_by).collect();
+    let names: std::collections::HashMap<Uuid, String> = if ids.is_empty() {
+        Default::default()
+    } else {
+        users::Entity::find()
+            .filter(users::Column::Id.is_in(ids))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|user| (user.id, user.display_name))
+            .collect()
+    };
+    Ok(jobs
+        .into_iter()
+        .map(|job| {
+            let started_by = job.created_by.and_then(|id| {
+                names.get(&id).map(|name| StarterResponse {
+                    id,
+                    name: name.clone(),
+                })
+            });
+            JobResponse {
+                started_by,
+                ..JobResponse::from(job)
+            }
+        })
+        .collect())
+}
+
+async fn respond(
+    db: &sea_orm::DatabaseConnection,
+    job: import_jobs::Model,
+) -> Result<JobResponse, ApiError> {
+    Ok(responses(db, vec![job])
+        .await?
+        .pop()
+        .expect("one job in, one response out"))
 }
 
 impl From<import_jobs::Model> for JobResponse {
@@ -284,6 +340,7 @@ impl From<import_jobs::Model> for JobResponse {
                 .manifest
                 .and_then(|text| serde_json::from_str(&text).ok())
                 .unwrap_or_default(),
+            started_by: None,
         }
     }
 }
@@ -533,7 +590,10 @@ pub async fn start(
         .one(&state.db)
         .await?
         .ok_or(ApiError::NotFound)?;
-    Ok((axum::http::StatusCode::ACCEPTED, Json(job.into())))
+    Ok((
+        axum::http::StatusCode::ACCEPTED,
+        Json(respond(&state.db, job).await?),
+    ))
 }
 
 /// `GET /api/v1/imports`: every import this instance has run, most recent first.
@@ -557,7 +617,7 @@ pub async fn list_jobs(
         query = query.filter(import_jobs::Column::CreatedBy.eq(session.user_id));
     }
     let jobs = query.all(&state.db).await?;
-    Ok(Json(jobs.into_iter().map(JobResponse::from).collect()))
+    Ok(Json(responses(&state.db, jobs).await?))
 }
 
 /// `GET /api/v1/imports/{id}`: where one has got to.
@@ -576,7 +636,7 @@ pub async fn job(
     AxumPath(id): AxumPath<Uuid>,
 ) -> Result<Json<JobResponse>, ApiError> {
     let job = visible_job(&state, id, session.user_id).await?;
-    Ok(Json(job.into()))
+    Ok(Json(respond(&state.db, job).await?))
 }
 
 /// `POST /api/v1/imports/{id}/cancel`: ask it to stop.
@@ -606,7 +666,7 @@ pub async fn cancel(
     let mut model: import_jobs::ActiveModel = job.into();
     model.status = Set("cancelling".to_owned());
     let job = model.update(&state.db).await?;
-    Ok(Json(job.into()))
+    Ok(Json(respond(&state.db, job).await?))
 }
 
 /// Turns an archive failure into something safe to send back.

@@ -57,6 +57,10 @@ pub struct PeopleSummary {
     pub custom_roles: usize,
     pub fallbacks: Vec<FallbackSummary>,
     pub seats: Vec<SeatsSummary>,
+    /// The names of the spaces this job created (the others were filled): the done screen says who
+    /// stays owner of those.
+    #[serde(default)]
+    pub created_spaces: Vec<String>,
 }
 
 /// Writes the summary to the job and, for each space this attempt changed, its journal line. The
@@ -86,6 +90,23 @@ pub async fn save(
             total,
         });
     }
+    // A space that did not exist when the job opened was made by it.
+    let opened = import_jobs::Entity::find_by_id(job_id)
+        .one(db)
+        .await?
+        .map(|job| job.created_at);
+    let mut created_spaces = Vec::new();
+    if let Some(opened) = opened {
+        for counts in &people.spaces {
+            let born = crate::entities::spaces::Entity::find_by_id(counts.space_id)
+                .one(db)
+                .await?
+                .is_some_and(|space| space.created_at >= opened);
+            if born {
+                created_spaces.push(counts.name.clone());
+            }
+        }
+    }
     let summary = PeopleSummary {
         administrators: people.administrators,
         guests: people.guests,
@@ -111,6 +132,7 @@ pub async fn save(
             })
             .collect(),
         seats,
+        created_spaces,
     };
 
     if let Some(job) = import_jobs::Entity::find_by_id(job_id).one(db).await? {
