@@ -92,7 +92,7 @@ pub async fn execute<S: BlobSink>(
         )));
     }
 
-    let existing = existing_for(db, admin, settings.edition.as_ref()).await?;
+    let existing = existing_for(db, admin, settings.edition.as_ref(), &index).await?;
     let plan: Plan = plan::build(&index, &existing);
 
     let job_id = run::start_job(db, &source, admin, None, "{}").await?;
@@ -148,7 +148,7 @@ async fn run_into<S: BlobSink>(
         finish(db, job_id, "failed", &reason).await?;
         return Err(RunError::Ambiguous(reason));
     }
-    let existing = existing_for(db, admin, settings.edition.as_ref()).await?;
+    let existing = existing_for(db, admin, settings.edition.as_ref(), &index).await?;
     let plan = plan::build(&index, &existing);
     run_passes(
         db, storage, archive, passphrase, admin, job_id, index, plan, settings,
@@ -181,7 +181,7 @@ async fn run_passes<S: BlobSink>(
         .and_then(|job| serde_json::from_str::<serde_json::Value>(&job.options).ok())
         .and_then(|options| serde_json::from_value(options.get("people")?.clone()).ok())
         .unwrap_or_default();
-    let existing = existing_for(db, admin, settings.edition.as_ref()).await?;
+    let existing = existing_for(db, admin, settings.edition.as_ref(), &index).await?;
     if !choices.is_empty() {
         plan::apply_choices(&mut plan, &choices, &existing);
     }
@@ -503,6 +503,7 @@ pub async fn existing_for(
     db: &DatabaseConnection,
     importer: Uuid,
     edition: &dyn crate::edition::Edition,
+    index: &super::archive::Index,
 ) -> Result<Existing, RunError> {
     use crate::entities::{spaces, users};
 
@@ -511,11 +512,21 @@ pub async fn existing_for(
             "the person running this import has no account".to_owned(),
         ));
     };
+    // Found with the run's own lookup (`Mapper::resolve`), in the namespace the run will read.
+    let source = index
+        .manifest
+        .as_ref()
+        .map(|m| m.source.clone())
+        .unwrap_or_default();
+    let mapper =
+        Mapper::new(Uuid::nil(), &source).scoped_to((!me.is_instance_admin).then_some(importer));
+    let claimed_channels = run::claimed_channels(db, &mapper, index).await?;
     if !me.is_instance_admin {
         return Ok(Existing {
             importer_email: me.email.clone(),
             emails: vec![me.email],
             scoped: true,
+            claimed_channels,
             ..Default::default()
         });
     }
@@ -539,44 +550,8 @@ pub async fn existing_for(
         channels: run::existing_channels(db).await?,
         scoped: false,
         space_people: space_people(db, edition).await?,
-        claimed_channels: claimed_channels(db).await?,
+        claimed_channels,
     })
-}
-
-/// The channels earlier runs claimed, with who is in them now: what the plan needs to count the
-/// moderators a re-run writes (none, for a channel its mapping finds).
-async fn claimed_channels(
-    db: &DatabaseConnection,
-) -> Result<Vec<(String, String, Vec<String>)>, RunError> {
-    use sea_orm::{ConnectionTrait, DbBackend, Statement};
-
-    // management: who is in a claimed channel already, to not count a write the run will skip.
-    let mut out: Vec<(String, String, Vec<String>)> = Vec::new();
-    for row in db
-        .query_all_raw(Statement::from_string(
-            DbBackend::Postgres,
-            "SELECT im.source, im.external_ref, u.email FROM import_mappings im \
-             LEFT JOIN channel_members cm ON cm.channel_id = im.internal_id \
-             LEFT JOIN users u ON u.id = cm.user_id WHERE im.kind = 'channel'",
-        ))
-        .await?
-    {
-        let (Ok(source), Ok(external)) = (
-            row.try_get::<String>("", "source"),
-            row.try_get::<String>("", "external_ref"),
-        ) else {
-            continue;
-        };
-        let email = row.try_get::<Option<String>>("", "email").ok().flatten();
-        match out
-            .iter_mut()
-            .find(|(s, e, _)| *s == source && *e == external)
-        {
-            Some((_, _, emails)) => emails.extend(email),
-            None => out.push((source, external, email.into_iter().collect())),
-        }
-    }
-    Ok(out)
 }
 
 /// The people and seats of every space here, grouped by folded name. Only the plan reads it.

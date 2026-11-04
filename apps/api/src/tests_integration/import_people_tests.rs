@@ -888,7 +888,7 @@ async fn the_run_stops_when_the_space_filled_since_the_plan() {
     // The plan sees one seat free for the one arrival.
     let edition: Arc<dyn Edition> = Arc::new(Seats(2));
     let (index, _) = crate::importer::check::check(&dir, None).expect("check");
-    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref())
+    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref(), &index)
         .await
         .expect("existing");
     let plan = crate::importer::plan::build(&index, &existing);
@@ -1373,7 +1373,7 @@ async fn the_plan_counts_the_moderators_the_run_writes() {
     );
     let edition: Arc<dyn Edition> = Arc::new(CommunityEdition);
     let (index, _) = crate::importer::check::check(&dir, None).expect("check");
-    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref())
+    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref(), &index)
         .await
         .expect("existing");
     let plan = crate::importer::plan::build(&index, &existing);
@@ -1415,7 +1415,7 @@ async fn a_rerun_plan_counts_no_moderator_the_run_will_not_write() {
         .expect("rename");
 
     let (index, _) = crate::importer::check::check(&dir, None).expect("check");
-    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref())
+    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref(), &index)
         .await
         .expect("existing");
     let plan = crate::importer::plan::build(&index, &existing);
@@ -1424,6 +1424,67 @@ async fn a_rerun_plan_counts_no_moderator_the_run_will_not_write() {
     let written = second.expect("second run").written.moderators;
     assert_eq!(written, 0, "the channel is found by its mapping");
     assert_eq!(planned, written, "the plan counts what the run writes");
+}
+
+#[tokio::test]
+async fn the_plan_finds_a_claimed_channel_as_the_run_does() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (name, a, b) = (unique_space(), address("a"), address("b"));
+    let dir = people_archive_with(
+        2,
+        &name,
+        &[("a", &a), ("b", &b)],
+        &[("a", "member", &[]), ("b", "member", &[])],
+        &[("projets", &["a", "b"], &["a", "b"])],
+    );
+    let edition: Arc<dyn Edition> = Arc::new(CommunityEdition);
+    run_people(&app, fx.alice, &dir, edition.clone())
+        .await
+        .1
+        .expect("first run");
+    let (index, _) = crate::importer::check::check(&dir, None).expect("check");
+    let space = space_named(&app, &name).await;
+    let renamed = || {
+        app.db.execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE channels SET name = 'renamed' WHERE space_id = $1 AND name = 'projets'",
+            [space.into()],
+        ))
+    };
+    renamed().await.expect("rename");
+
+    // The mapping is recorded under another space: for this run it is not the channel's, the
+    // channel is written again (as a new one), and the plan has to say the same.
+    let (other, _) =
+        crate::messaging::spaces::create_owned_space(&app.db, &unique_space(), fx.alice)
+            .await
+            .expect("other space");
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE import_mappings SET space_id = $1 WHERE kind = 'channel' AND internal_id IN \
+             (SELECT id FROM channels WHERE space_id = $2)",
+            [other.into(), space.into()],
+        ))
+        .await
+        .expect("move the mapping");
+    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref(), &index)
+        .await
+        .expect("existing");
+    let plan = crate::importer::plan::build(&index, &existing);
+    let planned = crate::importer::plan::people_plan(&index, &plan, &existing).moderators;
+    let (_, second) = run_people(&app, fx.alice, &dir, edition).await;
+    let written = second.expect("second run").written.moderators;
+    assert_eq!(
+        written, 2,
+        "a mapping under another space is not this run's channel"
+    );
+    assert_eq!(
+        planned, written,
+        "the plan finds a claimed channel as the run does"
+    );
 }
 
 #[tokio::test]

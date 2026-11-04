@@ -939,6 +939,51 @@ pub async fn existing_channels<C: ConnectionTrait>(
         .collect())
 }
 
+/// The archive's channels an earlier run already claimed, with the addresses of who is in each now.
+///
+/// Asked of the run's own [`Mapper`] (`resolve`, for the space and then for the channel), so the plan
+/// and the run find a claimed channel by one and the same lookup: same source, same owner
+/// namespace, same space.
+pub async fn claimed_channels<C: ConnectionTrait>(
+    db: &C,
+    mapper: &Mapper<'_>,
+    index: &Index,
+) -> Result<Vec<(String, Vec<String>)>> {
+    let mut out = Vec::new();
+    for channel in index.channels.iter().filter(|c| c.kind != "direct") {
+        let Some(space) = mapper.resolve(db, KIND_SPACE, &channel.space, None).await? else {
+            continue;
+        };
+        let Some(found) = mapper
+            .resolve(db, KIND_CHANNEL, &channel.id, Some(space))
+            .await?
+        else {
+            continue;
+        };
+        // management: who is in a claimed channel already, to not count a write the run will skip.
+        let who: Vec<Uuid> = channel_members::Entity::find()
+            .filter(channel_members::Column::ChannelId.eq(found))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|row| row.user_id)
+            .collect();
+        let emails = if who.is_empty() {
+            Vec::new()
+        } else {
+            users::Entity::find()
+                .filter(users::Column::Id.is_in(who))
+                .all(db)
+                .await?
+                .into_iter()
+                .map(|user| user.email)
+                .collect()
+        };
+        out.push((channel.id.clone(), emails));
+    }
+    Ok(out)
+}
+
 /// The channel of that name this import may pour its history into, if there is one.
 ///
 /// A name is unique within a space, so an archive's "general" landing in a space that already has

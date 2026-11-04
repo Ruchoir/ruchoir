@@ -374,9 +374,10 @@ pub async fn preview(
         )));
     }
 
-    let existing = super::job::existing_for(&state.db, session.user_id, state.edition.as_ref())
-        .await
-        .map_err(|_| ApiError::Internal)?;
+    let existing =
+        super::job::existing_for(&state.db, session.user_id, state.edition.as_ref(), &index)
+            .await
+            .map_err(|_| ApiError::Internal)?;
     let plan = plan::build(&index, &existing);
     let people = plan::people_plan(&index, &plan, &existing);
 
@@ -513,9 +514,10 @@ pub async fn start(
     // written and before a job row exists: a refusal leaves nothing behind. A replacement empties
     // the instance first, so every space is then created and none has a seat to run out of.
     if body.replace_everything.is_none() {
-        let existing = super::job::existing_for(&state.db, session.user_id, state.edition.as_ref())
-            .await
-            .map_err(|_| ApiError::Internal)?;
+        let existing =
+            super::job::existing_for(&state.db, session.user_id, state.edition.as_ref(), &index)
+                .await
+                .map_err(|_| ApiError::Internal)?;
         let mut plan = plan::build(&index, &existing);
         plan::apply_choices(&mut plan, &body.people, &existing);
         if let Some(line) = plan::people_plan(&index, &plan, &existing)
