@@ -56,9 +56,6 @@ const MAX_TTL_HOURS: i64 = 24 * 30;
 /// Length of a token in its hex form (32 bytes).
 const TOKEN_LEN: usize = 64;
 
-/// How far ahead a guest's end date may lie.
-const MAX_GUEST_YEARS: i32 = 5;
-
 /// The `system_event` discriminator written into the channel when someone joins. The client turns it
 /// into a sentence; the database never stores one.
 const JOINED_EVENT: &str = "member_joined";
@@ -166,7 +163,7 @@ pub async fn create_invitation(
 }
 
 /// The end date an invitation hands its guest, checked: only a guest invitation carries one, it
-/// must lie ahead, and no further than [`MAX_GUEST_YEARS`] years (a date beyond is a typo or an
+/// must lie ahead, and no further than five years (a date beyond is a typo or an
 /// access that is not temporary). It only restricts the access, so it needs no right beyond
 /// inviting.
 fn guest_end(
@@ -181,19 +178,9 @@ fn guest_end(
             message: "only a guest invitation can carry an end date",
         });
     }
-    let bad = || ApiError::BadRequestCode {
-        code: "bad_expiry",
-        message: "the end date must be a date in the future, within five years",
-    };
     let end = OffsetDateTime::parse(raw.trim(), &time::format_description::well_known::Rfc3339)
-        .map_err(|_| bad())?;
-    // Five calendar years; from 29 February, where that year has no such day, 1826 days.
-    let furthest = now
-        .replace_year(now.year() + MAX_GUEST_YEARS)
-        .unwrap_or(now + Duration::days(1826));
-    if end <= now || end > furthest {
-        return Err(bad());
-    }
+        .map_err(|_| crate::permissions::expiry_routes::bad_expiry())?;
+    crate::permissions::expiry_routes::ensure_in_range(end, now)?;
     Ok(Some(end))
 }
 
@@ -632,6 +619,8 @@ pub async fn accept_invitation(
                 group_ids: None,
                 manageable: None,
                 joined_at: None,
+                standing: None,
+                expires_at: None,
             },
         };
         state
@@ -699,6 +688,10 @@ pub async fn accept_invitation(
         edition,
         licence,
         preview: None,
+        expires_at: crate::permissions::membership::active(&state.db, space.id, session.user_id)
+            .await?
+            .and_then(|m| m.expires_at)
+            .map(rfc3339),
     }))
 }
 

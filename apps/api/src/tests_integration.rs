@@ -12190,6 +12190,10 @@ mod guest_sweep_tests;
 #[cfg(test)]
 mod guest_invitation_tests;
 
+/// Setting, moving and removing a guest's end date, the ended list, reactivation.
+#[cfg(test)]
+mod guest_expiry_routes_tests;
+
 // --- The six-digit code sent next to the verification link ---
 
 /// A fresh pending account, as registration leaves it: its id and address.

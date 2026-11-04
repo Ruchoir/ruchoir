@@ -42,11 +42,6 @@ use crate::messaging::dto::{rfc3339, NotificationDto};
 use crate::notify::prefs;
 use crate::state::AppState;
 
-/// Days before the end at which the people who manage a guest are reminded (the sweep's SQL
-/// encodes the same two thresholds; the web reads them for its timeline).
-#[allow(dead_code)]
-pub const THRESHOLDS: [i32; 2] = [7, 1];
-
 /// Days an ended guest stays listed, reactivable, before their row is removed.
 pub const KEEP_DAYS: i64 = 90;
 
@@ -140,8 +135,6 @@ pub fn end_text(locale: Locale, ends: OffsetDateTime, zone: &str) -> String {
 
 /// Start a guest's reminders over, after their date moved: the next threshold they are within is
 /// reminded again. Part of the same transaction as the move.
-// Called by the route that moves a guest's date (task 5).
-#[allow(dead_code)]
 pub async fn restart<C: ConnectionTrait>(
     db: &C,
     space_id: Uuid,

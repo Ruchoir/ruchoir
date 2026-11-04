@@ -207,7 +207,6 @@ pub async fn spaces_of<C: ConnectionTrait>(db: &C, user_id: Uuid) -> Result<Vec<
 }
 
 /// The guests of the space whose access has ended and whose row is still there, oldest end first.
-#[allow(dead_code)] // used by the ended-access screens (task 5)
 pub async fn ended<C: ConnectionTrait>(
     db: &C,
     space_id: Uuid,

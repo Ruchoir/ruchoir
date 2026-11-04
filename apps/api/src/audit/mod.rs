@@ -30,6 +30,10 @@ pub enum Action {
     MemberExpired,
     /// An ended guest's row was removed after ninety days (done by the sweep, no actor).
     MemberPurged,
+    /// A guest's end date was set, moved or removed (`before`, `after`; `null` for no end).
+    MemberExpirySet,
+    /// An ended guest got their access back (`before`, `after`: the end that had passed, the new one).
+    MemberReactivated,
     /// The space was handed over to another owner.
     OwnershipTransferred,
     /// A person's roles changed (custom roles, Administrator).
@@ -66,13 +70,15 @@ pub enum Action {
 
 impl Action {
     /// Every action, for the read filter and its tests.
-    pub const ALL: [Action; 27] = [
+    pub const ALL: [Action; 29] = [
         Action::MemberJoined,
         Action::MemberLeft,
         Action::MemberRemoved,
         Action::MemberRoleChanged,
         Action::MemberExpired,
         Action::MemberPurged,
+        Action::MemberExpirySet,
+        Action::MemberReactivated,
         Action::OwnershipTransferred,
         Action::MemberRolesChanged,
         Action::RoleCreated,
@@ -104,6 +110,8 @@ impl Action {
             Action::MemberRoleChanged => "member.role_changed",
             Action::MemberExpired => "member.expired",
             Action::MemberPurged => "member.purged",
+            Action::MemberExpirySet => "member.expiry_set",
+            Action::MemberReactivated => "member.reactivated",
             Action::OwnershipTransferred => "space.ownership_transferred",
             Action::MemberRolesChanged => "member.roles_changed",
             Action::RoleCreated => "role.created",
@@ -137,6 +145,8 @@ impl Action {
             | Action::MemberRoleChanged
             | Action::MemberExpired
             | Action::MemberPurged
+            | Action::MemberExpirySet
+            | Action::MemberReactivated
             | Action::OwnershipTransferred
             | Action::MemberRolesChanged => "members",
             Action::RoleCreated

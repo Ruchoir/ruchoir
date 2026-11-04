@@ -106,6 +106,7 @@ pub async fn list_my_spaces(
             edition,
             licence,
             preview,
+            expires_at: membership.expires_at.map(super::dto::rfc3339),
         });
     }
     out.sort_by_key(|space| space.name.to_lowercase());
@@ -298,6 +299,11 @@ pub async fn list_members(
     // Who holds which role, and whom the caller may manage: the whole space in a few queries.
     let roles =
         crate::permissions::roles::MemberRoles::load(&state.db, space_id, session.user_id).await?;
+    let manages_people =
+        crate::permissions::check::space_rights(&state.db, space_id, session.user_id)
+            .await?
+            .contains(crate::permissions::catalogue::Permission::MembersManage);
+    let sees_standing = |person: Uuid| manages_people || person == session.user_id;
     let mut out = Vec::with_capacity(memberships.len());
     for membership in memberships {
         if let Some(user) = by_id.get(&membership.user_id) {
@@ -315,6 +321,12 @@ pub async fn list_members(
                 group_ids: Some(roles.group_ids(user.id)),
                 manageable: Some(roles.manageable(user.id)),
                 joined_at: Some(super::dto::rfc3339(membership.joined_at)),
+                // A guest's standing and end are for the people who manage them and for the
+                // guest; another guest, or a member who manages nobody, is not told.
+                standing: sees_standing(user.id).then(|| membership.standing.clone()),
+                expires_at: sees_standing(user.id)
+                    .then(|| membership.expires_at.map(super::dto::rfc3339))
+                    .flatten(),
             });
         }
     }

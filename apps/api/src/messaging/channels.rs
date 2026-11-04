@@ -969,6 +969,8 @@ pub async fn list_channel_members(
                 group_ids: None,
                 manageable: None,
                 joined_at: None,
+                standing: None,
+                expires_at: None,
             });
         }
     }

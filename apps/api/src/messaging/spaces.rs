@@ -152,6 +152,7 @@ pub async fn create_space(
             edition,
             licence,
             preview: None,
+            expires_at: None,
         }),
     ))
 }
@@ -592,7 +593,13 @@ pub async fn update_member_role(
     if !rights.contains(needed) {
         return Err(ApiError::Forbidden);
     }
-    if target.role == wanted {
+    if body.expires_at.is_some() && wanted != "guest" {
+        return Err(ApiError::BadRequestCode {
+            code: "guest_only",
+            message: "only a guest can have an end date",
+        });
+    }
+    if target.role == wanted && body.expires_at.is_none() {
         // Nothing to write, and nothing to announce. Answering `200` with an empty list keeps the
         // call idempotent instead of making a second press an error.
         return Ok(Json(Vec::new()));
@@ -625,25 +632,75 @@ pub async fn update_member_role(
         super::edition_view::ensure_a_seat(&state, space_id).await?;
     }
 
+    // The end that goes with a guest standing, read in the actor's zone and checked before anything
+    // is written: a bad date changes nothing, not even the role.
+    let role_changes = target.role != wanted;
+    let end_before = target.expires_at;
+    let new_end = match body.expires_at.as_deref() {
+        Some(raw) => {
+            if !role_changes
+                && crate::permissions::membership::any(&state.db, space_id, user_id)
+                    .await?
+                    .is_some_and(|m| m.ended)
+            {
+                return Err(ApiError::ConflictCode {
+                    code: "access_ended",
+                    message: "this access has ended: reactivate it to give it a new end",
+                });
+            }
+            let zone =
+                crate::permissions::expiry_routes::zone_of(&state.db, session.user_id).await?;
+            Some(crate::permissions::expiry_routes::parse_end(
+                raw,
+                time::OffsetDateTime::now_utc(),
+                &zone,
+            )?)
+        }
+        None => None,
+    };
+
     let txn = state.db.begin().await?;
     let before = target.role.clone();
-    let mut promoted = target.into_active_model();
-    promoted.role = Set(wanted.clone());
-    promoted.update(&txn).await?;
-    crate::audit::record(
-        &txn,
-        space_id,
-        Some(session.user_id),
-        crate::audit::Action::MemberRoleChanged,
-        crate::audit::Target::Member(user_id),
-        serde_json::json!({ "before": before, "after": wanted }),
-    )
-    .await?;
-    let mut changes = vec![MemberRoleChangedDto {
-        space_id,
-        user_id,
-        role: wanted,
-    }];
+    let mut changes = Vec::new();
+    if role_changes {
+        let mut promoted = target.into_active_model();
+        promoted.role = Set(wanted.clone());
+        promoted.update(&txn).await?;
+        crate::audit::record(
+            &txn,
+            space_id,
+            Some(session.user_id),
+            crate::audit::Action::MemberRoleChanged,
+            crate::audit::Target::Member(user_id),
+            serde_json::json!({ "before": before, "after": wanted }),
+        )
+        .await?;
+        changes.push(MemberRoleChangedDto {
+            space_id,
+            user_id,
+            role: wanted.clone(),
+        });
+    }
+    if let Some(end) = new_end {
+        // A member made a guest had no end; a guest keeps the one they had until it is replaced.
+        let end_before = if role_changes { None } else { end_before };
+        if !crate::permissions::expiry_routes::write_end(&txn, space_id, user_id, Some(end)).await?
+        {
+            return Err(ApiError::ConflictCode {
+                code: "access_ended",
+                message: "this access has ended: reactivate it to give it a new end",
+            });
+        }
+        crate::permissions::expiry_routes::audit_end(
+            &txn,
+            space_id,
+            session.user_id,
+            user_id,
+            end_before,
+            Some(end),
+        )
+        .await?;
+    }
     if transfer {
         let mut stepping_down = actor.into_active_model();
         stepping_down.role = Set("admin".to_owned());

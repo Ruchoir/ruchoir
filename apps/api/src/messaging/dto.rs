@@ -180,6 +180,10 @@ pub struct SpaceDto {
     /// set the space is read only, `my_permissions` and every list are those of that role, and the
     /// realtime transports are closed to the session.
     pub preview: Option<crate::permissions::preview::PreviewDto>,
+    /// When the caller's own access to this space ends (RFC 3339), for a guest given an end date;
+    /// absent otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
 }
 
 /// What an owner reads of the space's licence.
@@ -423,6 +427,15 @@ pub struct MemberDto {
     /// space's member list.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub joined_at: Option<String>,
+    /// `owner`, `member` or `guest`. Only in the space's member list, and only for whoever may
+    /// manage people there and for the person themself: another guest learns neither this nor
+    /// `expires_at`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub standing: Option<String>,
+    /// When a guest's access ends (RFC 3339); absent for no end, and for whoever may not see it
+    /// (see `standing`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
 }
 
 /// A space's shared identity after it changed, pushed in real time.
@@ -485,6 +498,10 @@ pub struct MemberLeftDto {
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct UpdateMemberRoleRequest {
     pub role: String,
+    /// The end of a guest's access, applied with the role change: a date (`YYYY-MM-DD`, read as the
+    /// end of that day in the caller's time zone) or an RFC 3339 instant. Only with `role: "guest"`.
+    #[serde(default)]
+    pub expires_at: Option<String>,
 }
 
 /// A channel membership's role after a change.
