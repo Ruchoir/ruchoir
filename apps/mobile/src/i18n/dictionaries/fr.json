@@ -1081,8 +1081,6 @@
     "licenceEnterprise": "Licence Entreprise",
     "licenceFrozen": "Licence expirée",
     "licenceCommunity": "Édition communautaire",
-    "soonTitle": "Bientôt disponible",
-    "soonText": "Cette section arrive dans une prochaine version de l’application.",
     "rolesCount_one": "{{count}} rôle",
     "rolesCount_other": "{{count}} rôles",
     "rolesCustom_one": "{{count}} personnalisé",
@@ -1463,7 +1461,13 @@
     "calendarsTitle": "Partage des agendas",
     "calendarsHint": "Choisissez l'agenda de l'espace dont vous réglez l'accès.",
     "calendarsEmpty": "Aucun agenda à partager",
-    "calendarsEmptyHint": "Les agendas de l'espace que vous gérez apparaissent ici."
+    "calendarsEmptyHint": "Les agendas de l'espace que vous gérez apparaissent ici.",
+    "verifyTitle": "Vérifier l'accès de quelqu'un.",
+    "verifyBody": "Choisissez une personne : on vous explique pas à pas pourquoi elle a, ou n'a pas, accès.",
+    "privateNote_one": "{{names}} voit maintenant {{channel}} dans sa liste de canaux et le rejoint en un clic. Personne ne reçoit d'avis : ni cette personne, ni les autres. Les accès donnés à un rôle, à un groupe ou à une personne agissent de la même façon.",
+    "privateNote_other": "{{names}} voient maintenant {{channel}} dans leur liste de canaux et le rejoignent en un clic. Personne ne reçoit d'avis : ni ces personnes, ni les autres. Les accès donnés à un rôle, à un groupe ou à une personne agissent de la même façon.",
+    "verify": "Vérifier",
+    "delegationFoot": "Vous ne donnez que des droits que vous avez vous-même ici. Tout est écrit au journal, sous votre nom."
   },
   "licence": {
     "installed": "Licence installée",
@@ -1854,7 +1858,8 @@
       "viaDirect": "attribué directement",
       "viaBoth": "attribué directement et reçu par le groupe {{groups}}"
     },
-    "headSub": "{{person}} sur {{resource}}"
+    "headSub": "{{person}} sur {{resource}}",
+    "alreadyVia": "A déjà accès par {{via}}"
   },
   "channel": {
     "everyoneInSpace": "Tout l'espace"

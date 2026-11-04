@@ -1081,8 +1081,6 @@
     "licenceEnterprise": "Enterprise licence",
     "licenceFrozen": "Licence expired",
     "licenceCommunity": "Community edition",
-    "soonTitle": "Coming soon",
-    "soonText": "This section arrives in a later version of the app.",
     "rolesCount_one": "{{count}} role",
     "rolesCount_other": "{{count}} roles",
     "rolesCustom_one": "{{count}} custom",
@@ -1463,7 +1461,13 @@
     "calendarsTitle": "Calendar sharing",
     "calendarsHint": "Pick the space calendar whose access you set.",
     "calendarsEmpty": "No calendar to share",
-    "calendarsEmptyHint": "The space calendars you manage appear here."
+    "calendarsEmptyHint": "The space calendars you manage appear here.",
+    "verifyTitle": "Check someone's access.",
+    "verifyBody": "Choose a person: we explain step by step why they have, or lack, access.",
+    "privateNote_one": "{{names}} now sees {{channel}} in their channel list and joins it in one click. Nobody is notified: not them, not the others. Access given to a role, a group or a person works the same way.",
+    "privateNote_other": "{{names}} now see {{channel}} in their channel list and join it in one click. Nobody is notified: not them, not the others. Access given to a role, a group or a person works the same way.",
+    "verify": "Verify",
+    "delegationFoot": "You only give rights you hold yourself here. Everything is written to the journal under your name."
   },
   "licence": {
     "installed": "Licence installed",
@@ -1855,7 +1859,8 @@
       "viaDirect": "given directly",
       "viaBoth": "given directly and received through the group {{groups}}"
     },
-    "headSub": "{{person}} on {{resource}}"
+    "headSub": "{{person}} on {{resource}}",
+    "alreadyVia": "Already has access through {{via}}"
   },
   "channel": {
     "everyoneInSpace": "Everyone in the space"

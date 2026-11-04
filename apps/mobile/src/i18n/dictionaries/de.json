@@ -1081,8 +1081,6 @@
     "licenceEnterprise": "Enterprise-Lizenz",
     "licenceFrozen": "Lizenz abgelaufen",
     "licenceCommunity": "Community-Edition",
-    "soonTitle": "Bald verfügbar",
-    "soonText": "Dieser Bereich kommt in einer späteren Version der App.",
     "rolesCount_one": "{{count}} Rolle",
     "rolesCount_other": "{{count}} Rollen",
     "rolesCustom_one": "{{count}} eigene",
@@ -1463,7 +1461,13 @@
     "calendarsTitle": "Kalender teilen",
     "calendarsHint": "Wählen Sie den Kalender des Space, dessen Zugriff Sie festlegen.",
     "calendarsEmpty": "Kein Kalender zum Teilen",
-    "calendarsEmptyHint": "Die Kalender des Space, die Sie verwalten, erscheinen hier."
+    "calendarsEmptyHint": "Die Kalender des Space, die Sie verwalten, erscheinen hier.",
+    "verifyTitle": "Zugriff einer Person prüfen.",
+    "verifyBody": "Wählen Sie eine Person: Wir erklären Schritt für Schritt, warum sie Zugriff hat oder nicht.",
+    "privateNote_one": "{{names}} sieht {{channel}} jetzt in der Kanalliste und tritt mit einem Klick bei. Niemand wird benachrichtigt: weder die Person noch die anderen. Zugriffe für eine Rolle, eine Gruppe oder eine Person wirken genauso.",
+    "privateNote_other": "{{names}} sehen {{channel}} jetzt in der Kanalliste und treten mit einem Klick bei. Niemand wird benachrichtigt: weder diese Personen noch die anderen. Zugriffe für eine Rolle, eine Gruppe oder eine Person wirken genauso.",
+    "verify": "Prüfen",
+    "delegationFoot": "Sie vergeben nur Rechte, die Sie hier selbst haben. Alles wird unter Ihrem Namen im Journal festgehalten."
   },
   "licence": {
     "installed": "Lizenz installiert",
@@ -1855,7 +1859,8 @@
       "viaDirect": "direkt vergeben",
       "viaBoth": "direkt vergeben und über die Gruppe {{groups}}"
     },
-    "headSub": "{{person}} auf {{resource}}"
+    "headSub": "{{person}} auf {{resource}}",
+    "alreadyVia": "Hat bereits Zugriff über {{via}}"
   },
   "channel": {
     "everyoneInSpace": "Der ganze Bereich"

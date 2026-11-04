@@ -21,7 +21,7 @@ import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { useSharedT } from "../../i18n/sharedT";
-import { communityLock, entryLine, entryRows, subtitleOf, titleOf } from "../../logic/accessScreen";
+import { communityLock, entryLine, entryRows, levelGlossary, privateNoteFor, subtitleOf, titleOf } from "../../logic/accessScreen";
 import { refusalSaid } from "../../logic/refusals";
 import type { RootParams } from "../../navigation/types";
 import { affects } from "../../realtime/events";
@@ -30,6 +30,7 @@ import { useSession } from "../../session/SessionProvider";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
+import { Button } from "../../ui/Button";
 import { feel } from "../../ui/haptics";
 import { Segmented } from "../../ui/Segmented";
 import { LoadState } from "../../ui/States";
@@ -37,6 +38,7 @@ import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
 import { useToast } from "../../ui/Toast";
 import { EntryTile, LevelButton, useEntryName } from "./AccessParts";
+import { VerifyPicker } from "./VerifyPicker";
 import { useAccess, useAccessNames } from "./useAccess";
 
 export function AccessScreen() {
@@ -76,6 +78,15 @@ function Body({ spaceId, view, reload }: { spaceId: string; view: AccessView; re
   const names = useAccessNames(spaceId);
   const nameOf = useEntryName();
   const [busy, setBusy] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  // Who was just added from the add screen (it hands them back through the route), for the private channel's note.
+  const [added, setAdded] = useState<{ key: string; name: string }[]>([]);
+  const justAdded = params.added;
+  const [seenAdded, setSeenAdded] = useState(justAdded);
+  if (justAdded !== seenAdded) {
+    setSeenAdded(justAdded);
+    if (justAdded?.length) setAdded((prev) => [...prev, ...justAdded]);
+  }
 
   // For a file or folder: what the folder above lists, which is what this item would inherit.
   const parentId = kind === "file" && view.resource.parent && !view.resource.parent.hidden ? view.resource.parent.id : undefined;
@@ -96,6 +107,8 @@ function Body({ spaceId, view, reload }: { spaceId: string; view: AccessView; re
   })();
   const shownName = kind === "channel" ? `#${params.title}` : params.title;
   const firstOverride = rows.find((r) => r.override);
+  const note = privateNoteFor(view, added);
+  const glossary = levelGlossary(kind);
 
   /** One write; whatever happens, the screen reads the access again, and the rest of the app is told. */
   const run = async (write: () => Promise<unknown>, tell?: "channels") => {
@@ -266,6 +279,23 @@ function Body({ spaceId, view, reload }: { spaceId: string; view: AccessView; re
         </View>
       ) : null}
 
+      <View style={styles.glossary}>
+        <Info size={14} color={c.muted} style={styles.glossaryIcon} />
+        <Text variant="small" tone="muted" style={styles.boxText}>
+          {delegated
+            ? t("access.delegationFoot")
+            : glossary.map((g, i) => (
+                <Text key={g.label} variant="small" tone="muted">
+                  <Text variant="smallStrong" tone="body">
+                    {say(g.label)}
+                  </Text>{" "}
+                  {say(g.desc)}
+                  {i < glossary.length - 1 ? " " : ""}
+                </Text>
+              ))}
+        </Text>
+      </View>
+
       {firstOverride?.override ? (
         <Box tone="plain" icon={<Info size={15} color={c.ink} />}>
           <Text variant="small" tone="body">
@@ -279,6 +309,21 @@ function Body({ spaceId, view, reload }: { spaceId: string; view: AccessView; re
         </Box>
       ) : null}
 
+      {note ? (
+        <Box tone="plain" icon={<Info size={15} color={c.ink} />}>
+          <Text variant="small" tone="body">
+            {t("access.privateNote", { count: note.names.length, names: list(note.names), channel: shownName })}
+          </Text>
+        </Box>
+      ) : null}
+
+      <Box tone="dashed" icon={<UserCheck size={16} color={c.muted} />}>
+        <Text variant="small" tone="body">
+          <Text variant="smallStrong">{t("access.verifyTitle")}</Text> {t("access.verifyBody")}
+        </Text>
+        <Button label={t("access.verify")} variant="secondary" onPress={() => setVerifying(true)} style={styles.verify} />
+      </Box>
+
       {!view.may.fine && pricingUrl ? (
         <Box tone="dashed" icon={<Lock size={16} color={c.muted} />}>
           <Text variant="small" tone="body">
@@ -288,6 +333,16 @@ function Body({ spaceId, view, reload }: { spaceId: string; view: AccessView; re
             </Text>
           </Text>
         </Box>
+      ) : null}
+      {verifying ? (
+        <VerifyPicker
+          people={names.members}
+          onClose={() => setVerifying(false)}
+          onPick={(member) => {
+            setVerifying(false);
+            navigation.navigate("why", { kind, resourceId, userId: member.userId, title: params.title, folder });
+          }}
+        />
       ) : null}
     </ScrollView>
   );
@@ -322,5 +377,8 @@ const makeStyles = styleCache((shape) =>
     box: { flexDirection: "row", gap: 8, marginHorizontal: 16, marginVertical: 6, paddingVertical: 10, paddingHorizontal: 12, borderRadius: shape.radius.m, borderWidth: shape.hairline },
     boxIcon: { paddingTop: 2 },
     boxText: { flex: 1, minWidth: 0 },
+    glossary: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 10 },
+    glossaryIcon: { marginTop: 2 },
+    verify: { marginTop: 8, alignSelf: "flex-start" },
   }),
 );

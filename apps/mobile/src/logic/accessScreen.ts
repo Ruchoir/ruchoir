@@ -9,6 +9,7 @@
  */
 import {
   addLevelOptions,
+  alreadyVia,
   askWho,
   canCustomise,
   canEdit,
@@ -29,6 +30,7 @@ import {
   levelWordKey,
   locksOf,
   outline,
+  privateNote,
   reasonKey,
   removable,
   resultOf,
@@ -347,4 +349,33 @@ export function resultRows(say: Say, kind: Kind, why: Pick<WhyLike, "steps" | "r
             : say("why.reason.none");
     return { id: card.id, granted: card.granted, label: say(card.labelKey), reason: text };
   });
+}
+
+/** The permission that means "can see it", per kind of resource: what "already has access through ..." reads. */
+const VIEW_PERMISSION: Record<Kind, string> = { channel: "channel.view", file: "files.view", calendar: "calendar.view" };
+
+/** Who the add picker asks "how do they already have access?": a short list only, each person being one explanation. */
+export function viaAsks(people: { userId: string }[]): string[] {
+  return people.length <= 6 ? people.map((p) => p.userId) : [];
+}
+
+/** What a person already reaches the item through (a group, a role), from the "Pourquoi ?" answer; undefined when nothing names it. */
+export function viaNote(why: Parameters<typeof alreadyVia>[0], kind: Kind): string | undefined {
+  return alreadyVia(why, VIEW_PERMISSION[kind]);
+}
+
+/** The three preset levels with what each means for the kind, the footer of the access screen (the web's). */
+export function levelGlossary(kind: Kind): { label: string; desc: string }[] {
+  return (["read", "contribute", "manage"] as const).map((level) => ({ label: levelLabelKey(kind, level), desc: levelDescKey(kind, level) }));
+}
+
+/** The note of a private channel after people were added: those just added who are still on its list. */
+export function privateNoteFor(view: { private: boolean; entries: { target: { kind: string; id?: string } }[] }, added: { key: string; name: string }[]): { names: string[] } | undefined {
+  const listed = new Set(view.entries.map((e) => targetKey(e.target)));
+  return privateNote(view.private, added.filter((a) => listed.has(a.key)).map((a) => a.name));
+}
+
+/** The people whose access can be checked: everyone but the bots. */
+export function verifyPeople<M extends { bot?: boolean }>(members: M[]): M[] {
+  return members.filter((m) => !m.bot);
 }

@@ -152,7 +152,7 @@ export type RootParams = {
    * is its name as a person says it (a channel without the `#`). The level sheet, the adding screen,
    * "Pourquoi ?" and "Personnaliser" open over it, each on the same `kind` and `resourceId`.
    */
-  access: { kind: "channel" | "calendar" | "file"; resourceId: string; title: string; folder?: boolean };
+  access: { kind: "channel" | "calendar" | "file"; resourceId: string; title: string; folder?: boolean; /** People just added from the add screen, for the private channel note. */ added?: { key: string; name: string }[] };
   accessLevel: { kind: "channel" | "calendar" | "file"; resourceId: string; target: { kind: "everyone" | "role" | "group" | "user" | "audience"; id?: string }; title: string; folder?: boolean };
   accessAdd: { kind: "channel" | "calendar" | "file"; resourceId: string; title: string; folder?: boolean };
   why: { kind: "channel" | "calendar" | "file"; resourceId: string; userId: string; title: string; folder?: boolean };

@@ -1181,8 +1181,6 @@
     "licenceEnterprise": "Licencja Enterprise",
     "licenceFrozen": "Licencja wygasła",
     "licenceCommunity": "Wersja społecznościowa",
-    "soonTitle": "Wkrótce",
-    "soonText": "Ta sekcja pojawi się w jednej z kolejnych wersji aplikacji.",
     "rolesCount_one": "{{count}} rola",
     "rolesCount_few": "{{count}} ról",
     "rolesCount_many": "{{count}} ról",
@@ -1595,7 +1593,15 @@
     "customChanges_few": "{{level}}, zmieniono {{count}} uprawnienia",
     "levelForSelected_few": "Poziom dla {{count}} zaznaczeń",
     "addConfirm_few": "Dodaj {{count}} wpisy",
-    "guestGroupNotice_few": "W wybranych grupach poziom gości jest ograniczony w ten sam sposób."
+    "guestGroupNotice_few": "W wybranych grupach poziom gości jest ograniczony w ten sam sposób.",
+    "verifyTitle": "Sprawdź czyjś dostęp.",
+    "verifyBody": "Wybierz osobę: wyjaśnimy krok po kroku, dlaczego ma lub nie ma dostępu.",
+    "privateNote_one": "{{names}} widzi teraz {{channel}} na swojej liście kanałów i dołącza jednym kliknięciem. Nikt nie jest powiadamiany: ani ta osoba, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo.",
+    "privateNote_few": "{{names}} widzą teraz {{channel}} na swojej liście kanałów i dołączają jednym kliknięciem. Nikt nie jest powiadamiany: ani te osoby, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo.",
+    "privateNote_many": "{{names}} widzą teraz {{channel}} na swojej liście kanałów i dołączają jednym kliknięciem. Nikt nie jest powiadamiany: ani te osoby, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo.",
+    "privateNote_other": "{{names}} widzą teraz {{channel}} na swojej liście kanałów i dołączają jednym kliknięciem. Nikt nie jest powiadamiany: ani te osoby, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo.",
+    "verify": "Sprawdź",
+    "delegationFoot": "Nadajesz tylko uprawnienia, które tu posiadasz. Wszystko trafia do dziennika pod Twoim nazwiskiem."
   },
   "licence": {
     "installed": "Licencja zainstalowana",
@@ -2001,7 +2007,8 @@
       "viaDirect": "nadana bezpośrednio",
       "viaBoth": "nadana bezpośrednio i przez grupę {{groups}}"
     },
-    "headSub": "{{person}} w {{resource}}"
+    "headSub": "{{person}} w {{resource}}",
+    "alreadyVia": "Ma już dostęp przez {{via}}"
   },
   "channel": {
     "everyoneInSpace": "Cała przestrzeń"

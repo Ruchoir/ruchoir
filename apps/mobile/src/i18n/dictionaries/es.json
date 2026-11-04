@@ -1131,8 +1131,6 @@
     "licenceEnterprise": "Licencia Enterprise",
     "licenceFrozen": "Licencia caducada",
     "licenceCommunity": "Edición comunitaria",
-    "soonTitle": "Próximamente",
-    "soonText": "Esta sección llegará en una próxima versión de la app.",
     "rolesCount_one": "{{count}} rol",
     "rolesCount_many": "{{count}} roles",
     "rolesCount_other": "{{count}} roles",
@@ -1529,7 +1527,14 @@
     "calendarsTitle": "Compartir calendarios",
     "calendarsHint": "Elige el calendario del espacio cuyo acceso quieres ajustar.",
     "calendarsEmpty": "Ningún calendario que compartir",
-    "calendarsEmptyHint": "Aquí aparecen los calendarios del espacio que gestionas."
+    "calendarsEmptyHint": "Aquí aparecen los calendarios del espacio que gestionas.",
+    "verifyTitle": "Comprobar el acceso de alguien.",
+    "verifyBody": "Elige una persona: te explicamos paso a paso por qué tiene, o no, acceso.",
+    "privateNote_one": "{{names}} ve ahora {{channel}} en su lista de canales y se une con un clic. Nadie recibe aviso: ni la persona ni los demás. Los accesos dados a un rol, a un grupo o a una persona funcionan igual.",
+    "privateNote_other": "{{names}} ven ahora {{channel}} en su lista de canales y se unen con un clic. Nadie recibe aviso: ni ellos ni los demás. Los accesos dados a un rol, a un grupo o a una persona funcionan igual.",
+    "verify": "Comprobar",
+    "delegationFoot": "Solo das permisos que tienes tú aquí. Todo queda en el diario, a tu nombre.",
+    "privateNote_many": "{{names}} ven ahora {{channel}} en su lista de canales y se unen con un clic. Nadie recibe aviso: ni ellos ni los demás. Los accesos dados a un rol, a un grupo o a una persona funcionan igual."
   },
   "licence": {
     "installed": "Licencia instalada",
@@ -1928,7 +1933,8 @@
       "viaDirect": "asignado directamente",
       "viaBoth": "asignado directamente y recibido por el grupo {{groups}}"
     },
-    "headSub": "{{person}} en {{resource}}"
+    "headSub": "{{person}} en {{resource}}",
+    "alreadyVia": "Ya tiene acceso por {{via}}"
   },
   "channel": {
     "everyoneInSpace": "Todo el espacio"

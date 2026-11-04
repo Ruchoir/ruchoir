@@ -1131,8 +1131,6 @@
     "licenceEnterprise": "Licenza Enterprise",
     "licenceFrozen": "Licenza scaduta",
     "licenceCommunity": "Edizione community",
-    "soonTitle": "Presto disponibile",
-    "soonText": "Questa sezione arriverà in una prossima versione dell'app.",
     "rolesCount_one": "{{count}} ruolo",
     "rolesCount_many": "{{count}} ruoli",
     "rolesCount_other": "{{count}} ruoli",
@@ -1529,7 +1527,14 @@
     "calendarsTitle": "Condivisione dei calendari",
     "calendarsHint": "Scegli il calendario dello spazio di cui regoli l'accesso.",
     "calendarsEmpty": "Nessun calendario da condividere",
-    "calendarsEmptyHint": "Qui compaiono i calendari dello spazio che gestisci."
+    "calendarsEmptyHint": "Qui compaiono i calendari dello spazio che gestisci.",
+    "verifyTitle": "Verificare l'accesso di qualcuno.",
+    "verifyBody": "Scegli una persona: ti spieghiamo passo per passo perché ha, o non ha, accesso.",
+    "privateNote_one": "{{names}} vede ora {{channel}} nell'elenco dei canali e vi entra con un clic. Nessuno viene avvisato: né la persona né gli altri. Gli accessi dati a un ruolo, a un gruppo o a una persona funzionano allo stesso modo.",
+    "privateNote_other": "{{names}} vedono ora {{channel}} nell'elenco dei canali e vi entrano con un clic. Nessuno viene avvisato: né loro né gli altri. Gli accessi dati a un ruolo, a un gruppo o a una persona funzionano allo stesso modo.",
+    "verify": "Verifica",
+    "delegationFoot": "Dai solo permessi che hai tu qui. Tutto viene scritto nel registro, a tuo nome.",
+    "privateNote_many": "{{names}} vedono ora {{channel}} nell'elenco dei canali e vi entrano con un clic. Nessuno viene avvisato: né loro né gli altri. Gli accessi dati a un ruolo, a un gruppo o a una persona funzionano allo stesso modo."
   },
   "licence": {
     "installed": "Licenza installata",
@@ -1928,7 +1933,8 @@
       "viaDirect": "assegnato direttamente",
       "viaBoth": "assegnato direttamente e ricevuto dal gruppo {{groups}}"
     },
-    "headSub": "{{person}} su {{resource}}"
+    "headSub": "{{person}} su {{resource}}",
+    "alreadyVia": "Ha già accesso tramite {{via}}"
   },
   "channel": {
     "everyoneInSpace": "Tutto lo spazio"

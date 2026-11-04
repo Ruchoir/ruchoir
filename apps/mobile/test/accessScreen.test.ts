@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { addRows, communityLock, customiseDecision, customiseView, entryLine, entryRows, findEntry, levelRows, resultRows, subtitleOf, titleOf, whyCards } from "../src/logic/accessScreen.ts";
+import { addRows, communityLock, levelGlossary, privateNoteFor, verifyPeople, viaAsks, viaNote, customiseDecision, customiseView, entryLine, entryRows, findEntry, levelRows, resultRows, subtitleOf, titleOf, whyCards } from "../src/logic/accessScreen.ts";
 
 type Target = { kind: "everyone" | "role" | "group" | "user" | "audience"; id?: string; name?: string; hidden: boolean };
 const entry = (target: Omit<Target, "hidden">, over: Record<string, unknown> = {}) => ({
@@ -207,15 +207,57 @@ test("a_line_is_found_again_after_a_read_the_items_own_before_the_inherited_one"
   assert.equal(findEntry([own], { kind: "user", id: "hugo" }), undefined);
 });
 
-test("every_key_the_glue_names_is_in_the_french_dictionary", () => {
-  const dictionary = JSON.parse(readFileSync(new URL("../src/i18n/dictionaries/fr.json", import.meta.url), "utf8")) as Record<string, unknown>;
-  // A plural key lives under its categories (`access.groupSub_one`).
-  const has = (key: string) => flatHas(dictionary, key) || flatHas(dictionary, `${key}_other`);
+test("every_key_the_glue_names_is_in_the_six_dictionaries", () => {
   const source = readFileSync(new URL("../src/logic/accessScreen.ts", import.meta.url), "utf8");
   const keys = [...source.matchAll(/["'`]((?:access|why|customise|invite|roles)\.[A-Za-z][\w.]*)["'`]/g)].map((m) => m[1]!);
   assert.ok(keys.length > 20);
-  assert.deepEqual(keys.filter((key) => !has(key)), []);
+  for (const lang of ["fr", "en", "es", "de", "it", "pl"]) {
+    const dictionary = JSON.parse(readFileSync(new URL(`../src/i18n/dictionaries/${lang}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
+    // A plural key lives under its categories (`access.groupSub_one`, `_few` in Polish...).
+    const has = (key: string) => flatHas(dictionary, key) || ["one", "other", "few", "many", "zero", "two"].some((c) => flatHas(dictionary, `${key}_${c}`));
+    assert.deepEqual(keys.filter((key) => !has(key)), [], lang);
+  }
 });
+
+test("a_short_list_of_people_is_asked_how_they_already_have_access", () => {
+  const ids = (n: number) => Array.from({ length: n }, (_, i) => ({ userId: `u${i}` }));
+  assert.deepEqual(viaAsks(ids(2)), ["u0", "u1"]);
+  assert.equal(viaAsks(ids(6)).length, 6);
+  // Each person is one explanation: a long list is not asked.
+  assert.deepEqual(viaAsks(ids(7)), []);
+});
+
+test("the_note_under_a_person_names_what_gives_them_sight_of_the_item", () => {
+  const why = {
+    steps: [{ n: 1, kind: "rule", target: { kind: "group", id: "g", name: "Compta", hidden: false } }],
+    result: [{ permission: "files.view", granted: true, reasonStep: 1 }],
+  } as never;
+  assert.equal(viaNote(why, "file"), "Compta");
+  // The permission read depends on the kind: this answer says nothing about a channel.
+  assert.equal(viaNote(why, "channel"), undefined);
+});
+
+test("the_levels_glossary_names_the_three_levels_of_the_kind", () => {
+  assert.deepEqual(levelGlossary("calendar"), [
+    { label: "access.level.read", desc: "access.levelDesc.calendar.read" },
+    { label: "access.level.calendar.contribute", desc: "access.levelDesc.calendar.contribute" },
+    { label: "access.level.manage", desc: "access.levelDesc.calendar.manage" },
+  ]);
+});
+
+test("the_private_note_names_only_those_added_who_are_still_on_the_list", () => {
+  const view = { private: true, entries: [{ target: { kind: "user", id: "a" } }, { target: { kind: "group", id: "g" } }] };
+  const added = [{ key: "user:a", name: "Léa" }, { key: "user:gone", name: "Paul" }, { key: "group:g", name: "Compta" }];
+  assert.deepEqual(privateNoteFor(view, added), { names: ["Léa", "Compta"] });
+  assert.equal(privateNoteFor({ ...view, private: false }, added), undefined);
+  assert.equal(privateNoteFor(view, []), undefined);
+});
+
+test("anyone_but_a_bot_can_be_checked", () => {
+  const people = [{ userId: "a", bot: false }, { userId: "b", bot: true }, { userId: "c" }];
+  assert.deepEqual(verifyPeople(people).map((m) => m.userId), ["a", "c"]);
+});
+
 function flatHas(dictionary: Record<string, unknown>, key: string): boolean {
   const found = key.split(".").reduce<unknown>((node, part) => (node && typeof node === "object" ? (node as Record<string, unknown>)[part] : undefined), dictionary);
   return found !== undefined;
