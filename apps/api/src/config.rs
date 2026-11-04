@@ -97,6 +97,9 @@ pub struct Config {
     /// Time-to-live, in seconds, of a live-presence heartbeat in Valkey. A connection refreshes its
     /// heartbeat within this window; once it lapses the user is considered offline.
     pub presence_ttl_secs: i64,
+    /// How long, in seconds, a "view as a role" preview may sit idle before it ends by itself.
+    /// Fixed in production (30 minutes); tests shorten it.
+    pub preview_idle_ttl_secs: i64,
     /// Interval, in seconds, at which a realtime connection is expected to refresh its heartbeat.
     /// Kept comfortably below `presence_ttl_secs` so a single missed beat does not flip presence.
     pub presence_heartbeat_secs: i64,
@@ -475,6 +478,7 @@ impl Config {
             oidc_google_enabled,
             oidc_microsoft_enabled,
             presence_ttl_secs,
+            preview_idle_ttl_secs: 1800,
             presence_heartbeat_secs,
             typing_min_interval_ms,
             realtime_send_buffer,

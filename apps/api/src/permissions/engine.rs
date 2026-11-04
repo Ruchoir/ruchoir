@@ -78,6 +78,16 @@ pub enum Source {
     Implicit(&'static str),
 }
 
+/// Whom a rule is about while a preview is on: the previewed role's standing, the viewer's own, or
+/// both. Always `Both` when nothing is previewed. The loader tags, `check::resolved` filters: the
+/// preview resolves with the first two kinds and the viewer's ceiling with the last two.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Whom {
+    Both,
+    Preview,
+    Viewer,
+}
+
 /// One rule on a resource: what it adds and what it removes for its target.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Rule {
@@ -89,6 +99,7 @@ pub struct Rule {
     /// true for a group, a person and a custom role, false for the base roles, the Administrator
     /// role, a channel role and the readers of a channel.
     pub lifts_lock: bool,
+    pub whom: Whom,
 }
 
 /// What kind of resource a level of the chain is.
@@ -380,6 +391,7 @@ mod tests {
             deny: set(deny),
             source,
             lifts_lock: false,
+            whom: Whom::Both,
         }
     }
 

@@ -56,3 +56,9 @@ pub use crate::permissions::rules::{
     RuleRefusal, RuleRow, RuleSubject, Shown, TargetRef, UsedIn,
 };
 pub use crate::permissions::system_roles::GUEST_CEILING;
+/// "View as a role": the paid routes start and end it (after their own checks) with these. The
+/// core refuses writes and the realtime transports while it is on, and resolves every right
+/// through it; the audit entry (`role.previewed`) is the caller's.
+pub mod preview {
+    pub use crate::permissions::preview::{current, start, stop, PreviewDto, PreviewState};
+}

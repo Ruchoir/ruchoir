@@ -4275,6 +4275,23 @@
         ],
         "type": "object"
       },
+      "PreviewDto": {
+        "description": "What a space tells its viewer while a preview is on.",
+        "properties": {
+          "role_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "role_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role_id",
+          "role_name"
+        ],
+        "type": "object"
+      },
       "PublicAnswer": {
         "properties": {
           "status": {
@@ -5126,6 +5143,17 @@
           "notify_level": {
             "description": "How much this space notifies the caller: `default` (their own settings), `all`, `mentions`\nor `none`.",
             "type": "string"
+          },
+          "preview": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PreviewDto",
+                "description": "The role this session is viewing the space as (\"Voir en tant que\"), or `null`. While it is\nset the space is read only, `my_permissions` and every list are those of that role, and the\nrealtime transports are closed to the session."
+              }
+            ]
           },
           "role": {
             "description": "The caller's role in the space: `owner`, `admin`, `member` or `guest`.",

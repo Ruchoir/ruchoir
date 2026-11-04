@@ -19,7 +19,7 @@ use sea_orm::{
 use uuid::Uuid;
 
 use super::catalogue::{Permission, PermissionSet};
-use super::engine::{Facts, Level, LevelKind, Rule, Source, Standing, Subject, TargetRef};
+use super::engine::{Facts, Level, LevelKind, Rule, Source, Standing, Subject, TargetRef, Whom};
 use crate::entities::{
     calendars, channel_members, channels, conversations, dm_participants, permission_overrides,
 };
@@ -52,9 +52,16 @@ pub(super) struct Person {
     pub readable_audiences: HashSet<Uuid>,
     /// The roles they hold that are not system roles: the ones whose allow may open a private channel.
     pub custom_roles: HashSet<Uuid>,
-    /// The ceiling of a preview (none until a preview sets it).
-    #[allow(dead_code)]
-    pub ceiling: Option<Subject>,
+    /// While the person previews a role: who they really are, which the preview never exceeds.
+    pub ceiling: Option<Ceiling>,
+}
+
+/// The viewer behind a preview: their own subject, and what the rules need to match them.
+#[derive(Clone, Debug)]
+pub(super) struct Ceiling {
+    pub subject: Subject,
+    pub groups: Vec<Uuid>,
+    pub custom_roles: HashSet<Uuid>,
 }
 
 /// A rule as stored, before it is matched to a person.
@@ -72,6 +79,21 @@ pub(super) struct StoredRule {
 }
 
 impl Person {
+    /// Somebody who is not in the space, with only the rights that `subject` carries and no rules
+    /// aimed at them (a participant of a direct conversation they were left out of).
+    pub fn bare(user_id: Uuid, subject: Subject) -> Person {
+        Person {
+            user_id,
+            subject,
+            base_role: None,
+            groups: Vec::new(),
+            role_groups: HashMap::new(),
+            readable_audiences: HashSet::new(),
+            custom_roles: HashSet::new(),
+            ceiling: None,
+        }
+    }
+
     /// The stored rules that apply to this person, as the engine's rules, `first` ahead of the
     /// personal ones (a channel role is a personal rule that a rule on the person can still undo).
     pub fn rules<'a>(
@@ -79,33 +101,36 @@ impl Person {
         stored: impl Iterator<Item = &'a StoredRule>,
         first: Option<Rule>,
     ) -> Vec<Rule> {
-        let mut rules: Vec<Rule> = first.into_iter().collect();
-        for rule in stored {
-            let target = if let Some(role) = rule.role_id {
-                if Some(role) == self.base_role {
-                    TargetRef::BaseRole
-                } else if self.subject.roles.iter().any(|(held, _)| *held == role) {
-                    TargetRef::Role(role)
+        // The channel role is the viewer's own, not the previewed role's.
+        let mut rules: Vec<Rule> = first
+            .into_iter()
+            .map(|rule| Rule {
+                whom: if self.ceiling.is_some() {
+                    Whom::Viewer
                 } else {
-                    continue;
-                }
-            } else if let Some(user) = rule.user_id {
-                if user != self.user_id {
-                    continue;
-                }
-                TargetRef::User
-            } else if let Some(group) = rule.group_id {
-                if !self.groups.contains(&group) {
-                    continue;
-                }
-                TargetRef::Group(group)
-            } else if let Some(channel) = rule.audience_channel_id {
-                if !self.readable_audiences.contains(&channel) {
-                    continue;
-                }
-                TargetRef::Audience(channel)
-            } else {
-                continue;
+                    rule.whom
+                },
+                ..rule
+            })
+            .collect();
+        for rule in stored {
+            // A preview is of a role, not of a person: the viewer's personal rules are theirs alone.
+            let own = self.target_of(
+                rule,
+                &self.held_roles(),
+                &self.groups,
+                self.ceiling.is_none(),
+            );
+            let theirs = self.ceiling.as_ref().and_then(|ceiling| {
+                let held: Vec<Uuid> = ceiling.subject.roles.iter().map(|(id, _)| *id).collect();
+                self.target_of(rule, &held, &ceiling.groups, true)
+            });
+            let (target, whom) = match (own, theirs, self.ceiling.is_some()) {
+                (Some(target), _, false) => (target, Whom::Both),
+                (Some(target), Some(_), true) => (target, Whom::Both),
+                (Some(target), None, true) => (target, Whom::Preview),
+                (None, Some(target), true) => (target, Whom::Viewer),
+                _ => continue,
             };
             let source = match target {
                 TargetRef::BaseRole => Source::BaseRole,
@@ -114,8 +139,15 @@ impl Person {
                 TargetRef::Group(group) => Source::Group(group),
                 TargetRef::Audience(channel) => Source::Audience(channel),
             };
+            let custom = |role: Uuid| {
+                self.custom_roles.contains(&role)
+                    || self
+                        .ceiling
+                        .as_ref()
+                        .is_some_and(|ceiling| ceiling.custom_roles.contains(&role))
+            };
             let lifts_lock = match target {
-                TargetRef::Role(role) => self.custom_roles.contains(&role),
+                TargetRef::Role(role) => custom(role),
                 TargetRef::User | TargetRef::Group(_) => true,
                 TargetRef::BaseRole | TargetRef::Audience(_) => false,
             };
@@ -125,9 +157,44 @@ impl Person {
                 deny: rule.deny,
                 source,
                 lifts_lock,
+                whom,
             });
         }
         rules
+    }
+
+    fn held_roles(&self) -> Vec<Uuid> {
+        self.subject.roles.iter().map(|(id, _)| *id).collect()
+    }
+
+    /// What a stored rule is aimed at, for somebody holding `roles` and belonging to `groups`
+    /// (`personal`: whether rules aimed at the person count); `None` when it is not about them.
+    fn target_of(
+        &self,
+        rule: &StoredRule,
+        roles: &[Uuid],
+        groups: &[Uuid],
+        personal: bool,
+    ) -> Option<TargetRef> {
+        if let Some(role) = rule.role_id {
+            if Some(role) == self.base_role {
+                Some(TargetRef::BaseRole)
+            } else if roles.contains(&role) {
+                Some(TargetRef::Role(role))
+            } else {
+                None
+            }
+        } else if let Some(user) = rule.user_id {
+            (personal && user == self.user_id).then_some(TargetRef::User)
+        } else if let Some(group) = rule.group_id {
+            groups.contains(&group).then_some(TargetRef::Group(group))
+        } else if let Some(channel) = rule.audience_channel_id {
+            self.readable_audiences
+                .contains(&channel)
+                .then_some(TargetRef::Audience(channel))
+        } else {
+            None
+        }
     }
 }
 
@@ -311,6 +378,7 @@ async fn people_where<C: ConnectionTrait>(
         let broken = drifted || people.values().any(|person| person.base_role.is_none());
         if !broken || repaired {
             attach_groups(db, space_id, &users, &mut people).await?;
+            apply_preview(db, space_id, &mut people).await?;
             return Ok(people);
         }
         tracing::warn!(%space_id, "space without its system roles: deriving them again");
@@ -323,6 +391,64 @@ async fn people_where<C: ConnectionTrait>(
         .await?;
         repaired = true;
     }
+}
+
+#[derive(FromQueryResult)]
+struct PreviewedRole {
+    system_key: Option<String>,
+    permissions: Vec<String>,
+}
+
+/// While this request is a preview of `space_id`, the viewer stands as a member (a guest stays a
+/// guest) holding the base role and the previewed role alone, no group; who they really are is kept
+/// as the ceiling the preview never exceeds. Everyone else in the map, and every other space, is
+/// left as it is. This is the one place a preview changes who somebody is.
+async fn apply_preview<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    people: &mut BTreeMap<Uuid, Person>,
+) -> Result<(), DbErr> {
+    let Some(preview) = super::preview::of_space(space_id) else {
+        return Ok(());
+    };
+    let Some(person) = people.get_mut(&preview.user_id) else {
+        return Ok(());
+    };
+    // A role deleted meanwhile leaves the base role alone: less, never more.
+    let role = PreviewedRole::find_by_statement(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT system_key, permissions FROM space_roles WHERE id = $1 AND space_id = $2",
+        [preview.role_id.into(), space_id.into()],
+    ))
+    .one(db)
+    .await?;
+    let real = person.subject.clone();
+    let mut roles = Vec::new();
+    let mut custom_roles = HashSet::new();
+    if let Some(role) = role {
+        roles.push((
+            preview.role_id,
+            PermissionSet::from_names(&role.permissions),
+        ));
+        if role.system_key.is_none() {
+            custom_roles.insert(preview.role_id);
+        }
+    }
+    person.ceiling = Some(Ceiling {
+        subject: real.clone(),
+        groups: std::mem::take(&mut person.groups),
+        custom_roles: std::mem::replace(&mut person.custom_roles, custom_roles),
+    });
+    person.role_groups.clear();
+    person.subject = Subject {
+        standing: match real.standing {
+            Standing::Guest => Standing::Guest,
+            Standing::Owner | Standing::Member => Standing::Member,
+        },
+        base: real.base,
+        roles,
+    };
+    Ok(())
 }
 
 #[derive(FromQueryResult)]
@@ -675,6 +801,7 @@ pub(super) fn channel_level(
         deny: PermissionSet::EMPTY,
         source: Source::ChannelRole(role),
         lifts_lock: false,
+        whom: Whom::Both,
     });
     let level = Level {
         kind: LevelKind::Channel,

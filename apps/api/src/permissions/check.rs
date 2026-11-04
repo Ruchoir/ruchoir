@@ -24,7 +24,7 @@ use uuid::Uuid;
 
 use super::catalogue::{Family, Permission, PermissionSet};
 use super::engine::{
-    resolve, Decision, Effect, Facts, Level, LevelKind, Source, Standing, Step, Subject,
+    resolve, Decision, Effect, Facts, Level, LevelKind, Source, Standing, Step, Subject, Whom,
 };
 use super::load::{self, Person, StoredRule};
 use crate::entities::{
@@ -103,8 +103,43 @@ pub async fn explain_for(
 
 /// The decision engine over one person and the levels of a resource. Every call goes through here
 /// so that what applies to somebody beyond their own rules (a preview's ceiling) lives in one place.
+///
+/// While the person previews a role they hold what the preview gives them **and** what they
+/// really hold: the decision is the intersection of the two, each over the rules that are about
+/// it, so a preview never shows a channel, file or calendar its viewer cannot open. The trace is
+/// the preview's.
 pub(super) fn resolved(person: &Person, levels: &[Level], facts: Facts, explain: bool) -> Decision {
-    resolve(&person.subject, levels, facts, explain)
+    let Some(ceiling) = &person.ceiling else {
+        return resolve(&person.subject, levels, facts, explain);
+    };
+    let of = |keep: fn(Whom) -> bool| -> Vec<Level> {
+        levels
+            .iter()
+            .map(|level| Level {
+                rules: level
+                    .rules
+                    .iter()
+                    .filter(|rule| keep(rule.whom))
+                    .cloned()
+                    .collect(),
+                ..level.clone()
+            })
+            .collect()
+    };
+    let mut decision = resolve(
+        &person.subject,
+        &of(|whom| whom != Whom::Viewer),
+        facts,
+        explain,
+    );
+    let viewer = resolve(
+        &ceiling.subject,
+        &of(|whom| whom != Whom::Preview),
+        facts,
+        false,
+    );
+    decision.granted = decision.granted.intersect(viewer.granted);
+    decision
 }
 
 /// `person` with the channels whose readers they are, among the audiences the `stored` rules name:
@@ -906,7 +941,12 @@ async fn file_decision(
         decision = match owner {
             Some(person) => resolved(person, &levels, facts, explain),
             // Somebody who left the space: only the participant's right, no rules.
-            None => resolve(subject, &levels, facts, explain),
+            None => resolved(
+                &Person::bare(user_id, subject.clone()),
+                &levels,
+                facts,
+                explain,
+            ),
         };
         // A conversation's file is its readers', whatever the space-wide right says.
         let view = match conversation {

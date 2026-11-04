@@ -164,6 +164,10 @@ pub async fn delete(valkey: &Pool, id: &str) -> Result<(), AuthError> {
         .del(session_key.as_str())
         .await
         .map_err(|_| AuthError::Internal)?;
+    // A preview ends with the session it belongs to.
+    crate::permissions::preview::stop(valkey, id)
+        .await
+        .map_err(|_| AuthError::Internal)?;
     Ok(())
 }
 
@@ -178,6 +182,9 @@ pub async fn delete_all(valkey: &Pool, user_id: Uuid) -> Result<(), AuthError> {
         let session_key = format!("{SESSION_PREFIX}{id}");
         let _: () = valkey
             .del(session_key.as_str())
+            .await
+            .map_err(|_| AuthError::Internal)?;
+        crate::permissions::preview::stop(valkey, id)
             .await
             .map_err(|_| AuthError::Internal)?;
     }

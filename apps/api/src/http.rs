@@ -423,6 +423,12 @@ pub fn router(state: AppState) -> Router {
             HeaderName::from_static("permissions-policy"),
             "geolocation=(), camera=(), microphone=()",
         ))
+        // A session that is previewing a space as a role: read only, no realtime, and the preview
+        // scoped to the request (see `permissions::preview`). Inside the same-site guard.
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            crate::permissions::preview::guard,
+        ))
         // Writes from another site are refused before they reach a handler (see `same_site_guard`).
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),

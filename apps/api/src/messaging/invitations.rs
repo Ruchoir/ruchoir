@@ -640,6 +640,7 @@ pub async fn accept_invitation(
         ),
         edition,
         licence,
+        preview: None,
     }))
 }
 

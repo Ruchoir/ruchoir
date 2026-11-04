@@ -34,6 +34,8 @@ pub enum Action {
     RoleUpdated,
     RoleDeleted,
     RolesReordered,
+    /// Somebody started, or left, the read only view of the space as a role.
+    RolePreviewed,
     /// A channel's reservation to some roles changed.
     ChannelReserved,
     /// Who may write in a space calendar changed.
@@ -59,7 +61,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, for the read filter and its tests.
-    pub const ALL: [Action; 24] = [
+    pub const ALL: [Action; 25] = [
         Action::MemberJoined,
         Action::MemberLeft,
         Action::MemberRemoved,
@@ -70,6 +72,7 @@ impl Action {
         Action::RoleUpdated,
         Action::RoleDeleted,
         Action::RolesReordered,
+        Action::RolePreviewed,
         Action::ChannelReserved,
         Action::CalendarWriteAccessChanged,
         Action::LicenceInstalled,
@@ -98,6 +101,7 @@ impl Action {
             Action::RoleUpdated => "role.updated",
             Action::RoleDeleted => "role.deleted",
             Action::RolesReordered => "roles.reordered",
+            Action::RolePreviewed => "role.previewed",
             Action::ChannelReserved => "channel.reserved",
             Action::CalendarWriteAccessChanged => "calendar.write_access_changed",
             Action::LicenceInstalled => "licence.installed",
@@ -127,7 +131,8 @@ impl Action {
             Action::RoleCreated
             | Action::RoleUpdated
             | Action::RoleDeleted
-            | Action::RolesReordered => "roles",
+            | Action::RolesReordered
+            | Action::RolePreviewed => "roles",
             Action::ChannelReserved => "channels",
             Action::CalendarWriteAccessChanged => "calendars",
             Action::LicenceInstalled | Action::LicenceRemoved => "licence",

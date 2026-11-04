@@ -12686,3 +12686,7 @@ mod why_tests;
 
 /// The share routes of a file, now backed by rules: a share really grants access.
 mod file_share_tests;
+
+/// "Voir en tant que": the preview door. It reads, it never writes, it never shows more than the
+/// viewer holds, and it stays with its request.
+mod preview_tests;
