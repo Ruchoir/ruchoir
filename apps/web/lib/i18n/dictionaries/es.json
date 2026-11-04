@@ -2510,7 +2510,7 @@
     "passerMembreAction": "Hacer miembro",
     "passerFailed": "No se pudo hacer el cambio.",
     "accessSection": "Acceso al espacio",
-    "remaining": "{{when}}. Se avisa a quienes gestionan a los invitados, tú incluido, 7 días y luego 1 día antes; a {{name}} la víspera.",
+    "remaining": "{{when}}. Se avisa a quienes gestionan a los invitados, tú también, 7 días y luego 1 día antes; a {{name}} la víspera.",
     "removeDate": "Quitar la fecha",
     "memberStatusNote": "Un miembro ve todo el espacio y ocupa una plaza de la licencia. Su fecha de fin se borra entonces.",
     "guestStatusNote": "Un invitado solo accede a lo que se le abre y no ocupa plaza en la licencia.",

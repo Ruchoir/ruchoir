@@ -1048,7 +1048,7 @@
     "leave": "Opuść przestrzeń",
     "leaveTitle": "Opuścić {{name}}?",
     "leaveBody": "Stracisz dostęp do jej kanałów, wiadomości i plików. Powrót będzie wymagał nowego zaproszenia.",
-    "leaveKeepsMessages": "To, co tam napisałeś, zostaje: rozmowa należy do tych, którzy ją prowadzili.",
+    "leaveKeepsMessages": "Twoje wiadomości tam zostają: rozmowa należy do osób, które ją prowadziły.",
     "leaveLastOwner": "Jesteś ostatnim właścicielem tej przestrzeni. Wyznacz innego właściciela albo usuń przestrzeń.",
     "danger": "Strefa zagrożenia",
     "delete": "Usuń przestrzeń",
@@ -1067,7 +1067,7 @@
     "removeNamed": "Usuń osobę {{name}} z przestrzeni",
     "removeTitle": "Usunąć osobę {{name}} z przestrzeni?",
     "removeBody": "{{name}} traci dostęp do przestrzeni {{space}}: jej kanałów, wiadomości i plików. Powrót będzie wymagał nowego zaproszenia.",
-    "removeKeepsMessages": "To, co tam napisała, zostaje: rozmowa należy do tych, którzy ją prowadzili.",
+    "removeKeepsMessages": "Wiadomości tej osoby tam zostają: rozmowa należy do osób, które ją prowadziły.",
     "ownerOnlyIcon": "Tylko właściciel przestrzeni może ją zmienić.",
     "ownerOnlyRename": "Tylko właściciel przestrzeni może zmienić jej nazwę.",
     "deleteNameMismatch": "To nie jest nazwa tej przestrzeni."

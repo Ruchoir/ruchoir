@@ -634,7 +634,7 @@
     "delete": "Löschen",
     "cancel": "Abbrechen",
     "broadcastChannel": "Benachrichtigt alle Mitglieder des Kanals",
-    "broadcastHere": "Benachrichtigt nur die gerade Verbundenen",
+    "broadcastHere": "Benachrichtigt nur Personen, die gerade verbunden sind",
     "archived": "Dieser Kanal ist archiviert: Hier wird nicht mehr geschrieben.",
     "notMember": "Treten Sie dem Kanal bei, um darin zu schreiben.",
     "join": "Beitreten",
@@ -1332,10 +1332,10 @@
         "channel": "Ihre Stufe Verwalten für {{name}} erlaubt Ihnen, Nachrichten zu moderieren und den Kanal einzurichten. Um den Zugriff zu ändern, wenden Sie sich an {{who}}."
       },
       "upsell": {
-        "folder": "Das Teilen eines Ordners an dessen Verwalter zu delegieren: Enterprise-Edition.",
-        "file": "Das Teilen einer Datei an deren Verwalter zu delegieren: Enterprise-Edition.",
-        "calendar": "Das Teilen eines Kalenders an dessen Verwalter zu delegieren: Enterprise-Edition.",
-        "channel": "Das Teilen eines Kanals an dessen Verwalter zu delegieren: Enterprise-Edition."
+        "folder": "Das Teilen eines Ordners an die Personen zu delegieren, die ihn verwalten: Enterprise-Edition.",
+        "file": "Das Teilen einer Datei an die Personen zu delegieren, die sie verwalten: Enterprise-Edition.",
+        "calendar": "Das Teilen eines Kalenders an die Personen zu delegieren, die ihn verwalten: Enterprise-Edition.",
+        "channel": "Das Teilen eines Kanals an die Personen zu delegieren, die ihn verwalten: Enterprise-Edition."
       }
     },
     "delegation": {

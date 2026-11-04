@@ -18,7 +18,7 @@
     "noAccount": "Pas encore de compte ?",
     "createAccount": "Créer un compte",
     "expired": "Votre session a pris fin. Reconnectez-vous.",
-    "locked": "Le verrou de l’appli vous a déconnecté. Reconnectez-vous, puis choisissez un nouveau code PIN."
+    "locked": "Le verrou de l’appli a fermé votre session. Reconnectez-vous, puis choisissez un nouveau code PIN."
   },
   "auth": {
     "error": {
@@ -39,7 +39,7 @@
       "emailTaken": "Un compte existe déjà avec cette adresse. Connectez-vous, ou utilisez « Mot de passe oublié ».",
       "weakPassword": "Ce mot de passe est trop court : 12 caractères au moins.",
       "breachedPassword": "Ce mot de passe figure dans des fuites de données connues. Choisissez-en un autre.",
-      "alreadyAdded": "Vous êtes déjà connecté à ce serveur sur ce téléphone."
+      "alreadyAdded": "Votre session est déjà ouverte sur ce serveur sur ce téléphone."
     }
   },
   "mfa": {
@@ -71,8 +71,8 @@
     "securityHint": "Mot de passe, double authentification",
     "instances": "Instances",
     "instanceShown": "Affichée en ce moment",
-    "instanceSignedInAs": "Connecté en tant que {{name}}",
-    "instanceSignedOut": "Déconnecté",
+    "instanceSignedInAs": "Session ouverte en tant que {{name}}",
+    "instanceSignedOut": "Session fermée",
     "signOutOf": "Se déconnecter de {{host}}",
     "removeInstance": "Retirer de ce téléphone",
     "removeTitle": "Retirer {{host}} ?",
@@ -634,7 +634,7 @@
     "delete": "Supprimer",
     "cancel": "Annuler",
     "broadcastChannel": "Prévient tous les membres du canal",
-    "broadcastHere": "Prévient seulement les membres connectés",
+    "broadcastHere": "Avertit seulement les membres en ligne",
     "archived": "Ce canal est archivé : on n’y écrit plus.",
     "notMember": "Rejoignez le canal pour y écrire.",
     "join": "Rejoindre",
@@ -911,7 +911,7 @@
     "reactions": "Réactions",
     "reactionsText": "Quelqu’un réagit à un de vos messages.",
     "edits": "Messages modifiés",
-    "editsText": "Un message dont vous avez été prévenu est modifié.",
+    "editsText": "Un message dont vous avez reçu l'avis est modifié.",
     "enabled": "Activer les notifications",
     "enabledText": "Tout est silencieux tant que c’est désactivé.",
     "mentions": "Mentions de votre nom",
@@ -1032,7 +1032,7 @@
     "passkeyRemoved": "Clé d’accès retirée",
     "passkeysPhone": "Une clé d’accès s’ajoute dans une fenêtre du navigateur, où le téléphone demande Face ID, l’empreinte ou son code.",
     "sessions": "Sessions",
-    "sessionsDesc": "Si un autre appareil est resté connecté, coupez tout : chaque session est fermée, y compris celle-ci.",
+    "sessionsDesc": "Si une session est restée ouverte sur un autre appareil, coupez tout : chaque session est fermée, y compris celle-ci.",
     "signOutEverywhere": "Tout déconnecter",
     "signOutFailed": "Déconnexion impossible",
     "lockSection": "Verrouillage",
@@ -1139,7 +1139,7 @@
     "wrongPin_one": "Code incorrect. Il reste {{count}} essai.",
     "wrongPin_other": "Code incorrect. Il reste {{count}} essais.",
     "forgot": "Code PIN oublié ?",
-    "forgotBody": "Vous allez être déconnecté. Reconnectez-vous avec votre mot de passe, puis choisissez un nouveau code PIN.",
+    "forgotBody": "Votre session va être fermée. Reconnectez-vous avec votre mot de passe, puis choisissez un nouveau code PIN.",
     "verifyTitle": "Confirmez avec votre code PIN",
     "choosePin": "Choisissez un code PIN",
     "chooseNewPin": "Choisissez un nouveau code PIN",
@@ -1332,10 +1332,10 @@
         "channel": "Votre niveau Gérer sur {{name}} vous permet de modérer les messages et de régler le canal. Pour changer ses accès, demandez à {{who}}."
       },
       "upsell": {
-        "folder": "Déléguer le partage d'un dossier à ceux qui le gèrent : édition Entreprise.",
-        "file": "Déléguer le partage d'un fichier à ceux qui le gèrent : édition Entreprise.",
-        "calendar": "Déléguer le partage d'un agenda à ceux qui le gèrent : édition Entreprise.",
-        "channel": "Déléguer le partage d'un canal à ceux qui le gèrent : édition Entreprise."
+        "folder": "Déléguer le partage d'un dossier aux personnes qui le gèrent : édition Entreprise.",
+        "file": "Déléguer le partage d'un fichier aux personnes qui le gèrent : édition Entreprise.",
+        "calendar": "Déléguer le partage d'un agenda aux personnes qui le gèrent : édition Entreprise.",
+        "channel": "Déléguer le partage d'un canal aux personnes qui le gèrent : édition Entreprise."
       }
     },
     "delegation": {

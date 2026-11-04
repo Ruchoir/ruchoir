@@ -478,7 +478,7 @@
     "send": "Senden",
     "hint": "Eingabe zum Senden · Umschalt+Eingabe für eine neue Zeile",
     "broadcastChannel": "Benachrichtigt alle Mitglieder des Kanals",
-    "broadcastHere": "Benachrichtigt nur die gerade Verbundenen",
+    "broadcastHere": "Benachrichtigt nur Personen, die gerade verbunden sind",
     "uploading": "wird gesendet…",
     "uploadFailedName": "\\u201e{{name}}\\u201c konnte nicht hochgeladen werden.",
     "writeIn": "In #{{name}} schreiben",
@@ -2593,10 +2593,10 @@
         "channel": "Ihre Stufe Verwalten für {{name}} erlaubt Ihnen, Nachrichten zu moderieren und den Kanal einzurichten. Um den Zugriff zu ändern, wenden Sie sich an {{who}}."
       },
       "upsell": {
-        "folder": "Das Teilen eines Ordners an dessen Verwalter zu delegieren: Enterprise-Edition.",
-        "file": "Das Teilen einer Datei an deren Verwalter zu delegieren: Enterprise-Edition.",
-        "calendar": "Das Teilen eines Kalenders an dessen Verwalter zu delegieren: Enterprise-Edition.",
-        "channel": "Das Teilen eines Kanals an dessen Verwalter zu delegieren: Enterprise-Edition."
+        "folder": "Das Teilen eines Ordners an die Personen zu delegieren, die ihn verwalten: Enterprise-Edition.",
+        "file": "Das Teilen einer Datei an die Personen zu delegieren, die sie verwalten: Enterprise-Edition.",
+        "calendar": "Das Teilen eines Kalenders an die Personen zu delegieren, die ihn verwalten: Enterprise-Edition.",
+        "channel": "Das Teilen eines Kanals an die Personen zu delegieren, die ihn verwalten: Enterprise-Edition."
       }
     },
     "you": "Sie",
@@ -2613,7 +2613,7 @@
     "givenBy": "{{name}} hat es vergeben",
     "addedByYou": "Von Ihnen hinzugefügt",
     "publicLink": "Öffentlicher Link",
-    "publicLinkHint": "Wer den Link hat, öffnet die Datei ohne Konto. Nur für Verwalter."
+    "publicLinkHint": "Wer den Link hat, öffnet die Datei ohne Konto. Nur für Personen, die verwalten."
   },
   "customise": {
     "title": "Anpassen: {{name}}",
