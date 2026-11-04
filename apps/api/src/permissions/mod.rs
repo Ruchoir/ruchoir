@@ -14,4 +14,5 @@ pub mod groups;
 pub mod levels;
 pub mod load;
 pub mod roles;
+pub mod rules;
 pub mod system_roles;

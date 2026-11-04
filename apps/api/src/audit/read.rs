@@ -26,13 +26,14 @@ use crate::state::AppState;
 
 const DEFAULT_LIMIT: u32 = 50;
 const MAX_LIMIT: u32 = 100;
-const CATEGORIES: [&str; 6] = [
+const CATEGORIES: [&str; 7] = [
     "members",
     "roles",
     "groups",
     "channels",
     "calendars",
     "licence",
+    "access",
 ];
 
 pub fn router() -> Router<AppState> {
@@ -44,7 +45,7 @@ pub fn router() -> Router<AppState> {
 pub struct AuditQuery {
     /// Only what this person did.
     actor: Option<Uuid>,
-    /// Only one family: `members`, `roles`, `groups`, `channels`, `calendars` or `licence`.
+    /// Only one family: `members`, `roles`, `groups`, `channels`, `calendars`, `licence` or `access`.
     category: Option<String>,
     /// Only what happened at or after this instant (RFC 3339).
     since: Option<String>,
@@ -300,6 +301,7 @@ async fn labels<'a>(
         ("role", "space_roles", "name", true),
         ("group", "space_groups", "name", true),
         ("channel", "channels", "name", true),
+        ("file", "files", "name", true),
         ("calendar", "calendars", "name", true),
     ] {
         let Some(ids) = by_kind.get(kind) else {

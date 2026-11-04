@@ -6,8 +6,6 @@
 //! [`LevelRead::Custom`] when it matches no level. Pure: no I/O, so every dialog, route and
 //! screen agrees by construction.
 
-#![allow(dead_code)] // Read by the rule routes (permissions lot 4, task 4).
-
 use super::catalogue::{Family, Permission, PermissionSet};
 use super::system_roles::GUEST_CEILING;
 
@@ -63,6 +61,7 @@ pub enum TriState {
     Unset,
 }
 
+#[cfg(test)]
 const LEVELS: [Level; 3] = [Level::Read, Level::Contribute, Level::Manage];
 
 fn view_of(kind: Kind) -> Permission {

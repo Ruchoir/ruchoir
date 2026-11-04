@@ -11546,7 +11546,7 @@
             }
           },
           {
-            "description": "Only one family: `members`, `roles`, `groups`, `channels`, `calendars` or `licence`.",
+            "description": "Only one family: `members`, `roles`, `groups`, `channels`, `calendars`, `licence` or `access`.",
             "in": "query",
             "name": "category",
             "required": false,

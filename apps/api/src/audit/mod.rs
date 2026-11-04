@@ -51,11 +51,15 @@ pub enum Action {
     GroupRolesChanged,
     /// Who manages a group changed.
     GroupManagersChanged,
+    /// A rule on a channel, file or calendar was added.
+    RuleCreated,
+    RuleUpdated,
+    RuleDeleted,
 }
 
 impl Action {
     /// Every action, for the read filter and its tests.
-    pub const ALL: [Action; 21] = [
+    pub const ALL: [Action; 24] = [
         Action::MemberJoined,
         Action::MemberLeft,
         Action::MemberRemoved,
@@ -77,6 +81,9 @@ impl Action {
         Action::GroupMembersRemoved,
         Action::GroupRolesChanged,
         Action::GroupManagersChanged,
+        Action::RuleCreated,
+        Action::RuleUpdated,
+        Action::RuleDeleted,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -102,10 +109,13 @@ impl Action {
             Action::GroupMembersRemoved => "group.members_removed",
             Action::GroupRolesChanged => "group.roles_changed",
             Action::GroupManagersChanged => "group.managers_changed",
+            Action::RuleCreated => "rule.created",
+            Action::RuleUpdated => "rule.updated",
+            Action::RuleDeleted => "rule.deleted",
         }
     }
 
-    /// The family the screen filters by: `members`, `roles`, `groups`, `channels`, `calendars`, `licence`.
+    /// The family the screen filters by: `members`, `roles`, `groups`, `channels`, `calendars`, `licence`, `access`.
     pub fn category(self) -> &'static str {
         match self {
             Action::MemberJoined
@@ -128,6 +138,7 @@ impl Action {
             | Action::GroupMembersRemoved
             | Action::GroupRolesChanged
             | Action::GroupManagersChanged => "groups",
+            Action::RuleCreated | Action::RuleUpdated | Action::RuleDeleted => "access",
         }
     }
 }
@@ -139,6 +150,8 @@ pub enum Target {
     Role(Uuid),
     Group(Uuid),
     Channel(Uuid),
+    /// A file or a folder.
+    File(Uuid),
     Calendar(Uuid),
     Space,
     Licence,
@@ -151,6 +164,7 @@ impl Target {
             Target::Role(_) => "role",
             Target::Group(_) => "group",
             Target::Channel(_) => "channel",
+            Target::File(_) => "file",
             Target::Calendar(_) => "calendar",
             Target::Space => "space",
             Target::Licence => "licence",
@@ -163,6 +177,7 @@ impl Target {
             | Target::Role(id)
             | Target::Group(id)
             | Target::Channel(id)
+            | Target::File(id)
             | Target::Calendar(id) => Some(id),
             Target::Space | Target::Licence => None,
         }
@@ -207,5 +222,18 @@ mod tests {
         names.sort_unstable();
         names.dedup();
         assert_eq!(names.len(), Action::ALL.len());
+    }
+
+    #[test]
+    fn rule_writes_are_dotted_and_filed_under_access() {
+        for (action, name) in [
+            (Action::RuleCreated, "rule.created"),
+            (Action::RuleUpdated, "rule.updated"),
+            (Action::RuleDeleted, "rule.deleted"),
+        ] {
+            assert_eq!(action.as_str(), name);
+            assert_eq!(action.category(), "access");
+            assert!(Action::ALL.contains(&action));
+        }
     }
 }

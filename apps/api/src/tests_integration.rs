@@ -12674,3 +12674,6 @@ async fn the_space_keeps_no_duplicate_file() {
         .expect("query");
     assert_eq!(files.len(), 2, "Devis.pdf and Devis (1).pdf, nothing else");
 }
+
+/// Who edits a resource's access, and what a group or role is used in.
+mod rule_editor_tests;
