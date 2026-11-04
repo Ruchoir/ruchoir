@@ -164,11 +164,16 @@ pub async fn delete(valkey: &Pool, id: &str) -> Result<(), AuthError> {
         .del(session_key.as_str())
         .await
         .map_err(|_| AuthError::Internal)?;
+    // A preview ends with the session it belongs to.
+    crate::permissions::preview::stop(valkey, id)
+        .await
+        .map_err(|_| AuthError::Internal)?;
     Ok(())
 }
 
 /// Revoke every session belonging to a user ("log out everywhere").
-pub async fn delete_all(valkey: &Pool, user_id: Uuid) -> Result<(), AuthError> {
+/// Returns the ids revoked, so their realtime connections can be closed too.
+pub async fn delete_all(valkey: &Pool, user_id: Uuid) -> Result<Vec<String>, AuthError> {
     let user_key = format!("{USER_SESSIONS_PREFIX}{user_id}");
     let ids: Vec<String> = valkey
         .smembers(user_key.as_str())
@@ -180,12 +185,15 @@ pub async fn delete_all(valkey: &Pool, user_id: Uuid) -> Result<(), AuthError> {
             .del(session_key.as_str())
             .await
             .map_err(|_| AuthError::Internal)?;
+        crate::permissions::preview::stop(valkey, id)
+            .await
+            .map_err(|_| AuthError::Internal)?;
     }
     let _: () = valkey
         .del(user_key.as_str())
         .await
         .map_err(|_| AuthError::Internal)?;
-    Ok(())
+    Ok(ids)
 }
 
 /// Current unix time in seconds.

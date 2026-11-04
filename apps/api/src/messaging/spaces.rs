@@ -151,6 +151,7 @@ pub async fn create_space(
             ),
             edition,
             licence,
+            preview: None,
         }),
     ))
 }

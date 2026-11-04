@@ -1,6 +1,195 @@
 {
   "components": {
     "schemas": {
+      "AccessChangeDto": {
+        "properties": {
+          "permission": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "permission",
+          "state"
+        ],
+        "type": "object"
+      },
+      "AccessDto": {
+        "description": "Who has what on a channel, a file or folder, or a calendar.",
+        "properties": {
+          "archived": {
+            "description": "An archived channel, or a trashed file.",
+            "type": "boolean"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/EntryDto"
+            },
+            "type": "array"
+          },
+          "may": {
+            "$ref": "#/components/schemas/AccessMayDto"
+          },
+          "private": {
+            "description": "A private channel.",
+            "type": "boolean"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/AccessResourceDto"
+          }
+        },
+        "required": [
+          "resource",
+          "private",
+          "entries",
+          "may",
+          "archived"
+        ],
+        "type": "object"
+      },
+      "AccessMayDto": {
+        "description": "What the caller may do in this dialog, each flag drawn from [`ensure_writable`]'s own rules.",
+        "properties": {
+          "edit": {
+            "description": "Edit the levels.",
+            "type": "boolean"
+          },
+          "fine": {
+            "description": "Write rules that match no preset, and name custom roles (enterprise edition).",
+            "type": "boolean"
+          },
+          "manage_target_levels": {
+            "description": "The levels the caller may give here (`none` only to those who may reserve).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "reason": {
+            "description": "Why `edit` is false: `licence_required`, `licence_frozen`, or `not_allowed`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "edit",
+          "fine",
+          "manage_target_levels"
+        ],
+        "type": "object"
+      },
+      "AccessResourceDto": {
+        "description": "The resource the dialog is about.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "description": "`channel`, `file` or `calendar`.",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NamedRefDto",
+                "description": "The folder a file or folder sits in."
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "AccessSummaryDto": {
+        "description": "How a custom entry differs from its nearest level.",
+        "properties": {
+          "changes": {
+            "description": "Each permission that differs, as `allow` (added), `deny` or `unset` (the level grants it,\nthe entry does not).",
+            "items": {
+              "$ref": "#/components/schemas/AccessChangeDto"
+            },
+            "type": "array"
+          },
+          "nearest": {
+            "description": "The preset level it is nearest to.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nearest",
+          "changes"
+        ],
+        "type": "object"
+      },
+      "AccessTargetDto": {
+        "description": "Whom an entry is about.",
+        "properties": {
+          "hidden": {
+            "description": "An audience whose channel the viewer cannot see: no id, no name.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "`everyone` (`@members` or `@guests`, by `id`), `role` (the Administrator or a custom role),\n`group`, `user`, or `audience` (whoever reads a channel; files only).",
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "AccessTargetRequest": {
+        "description": "Whom a new entry is aimed at.",
+        "properties": {
+          "id": {
+            "description": "Required but for `everyone`, where it names `@guests` (absent: `@members`).",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "`everyone`, `role`, `group`, `user` or `audience`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
       "AddChannelMembersRequest": {
         "description": "Who to add to a channel.",
         "properties": {
@@ -1387,6 +1576,82 @@
         },
         "required": [
           "erased"
+        ],
+        "type": "object"
+      },
+      "EntryDto": {
+        "description": "One line of the dialog.",
+        "properties": {
+          "allow": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "clamped": {
+            "description": "A group holding guests whose level reaches what a guest can never hold: its guests get less.",
+            "type": "boolean"
+          },
+          "deny": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "guest": {
+            "description": "The target is a guest.",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "The rule behind it; null for an inherited line and for what the base roles grant.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "inherited_from": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NamedRefDto",
+                "description": "The folder a file's inherited line comes from; never editable here."
+              }
+            ]
+          },
+          "level": {
+            "description": "`none`, `read`, `contribute`, `manage`, or `custom` (a rule that matches no preset).",
+            "type": "string"
+          },
+          "summary": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccessSummaryDto",
+                "description": "For a `custom` entry."
+              }
+            ]
+          },
+          "target": {
+            "$ref": "#/components/schemas/AccessTargetDto"
+          },
+          "via_legacy": {
+            "description": "The view of a channel or the write bit of a calendar is the legacy setting of the system\nrole (`allowed_roles`, `write_access`).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "target",
+          "level",
+          "allow",
+          "deny",
+          "clamped",
+          "guest",
+          "via_legacy"
         ],
         "type": "object"
       },
@@ -3184,6 +3449,40 @@
         ],
         "type": "string"
       },
+      "NamedRefDto": {
+        "description": "A thing of the space, named: the folder an entry is inherited from, a file's parent.",
+        "properties": {
+          "hidden": {
+            "description": "A folder or channel the viewer cannot open: no id, no name.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Absent when the viewer cannot open that folder.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "`file` (a folder is a file), `channel` or `calendar`.",
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
       "NativeCodeRequest": {
         "description": "The app's challenge, for a native code: the SHA-256 of a verifier only the app holds, hex.",
         "properties": {
@@ -3976,6 +4275,23 @@
         ],
         "type": "object"
       },
+      "PreviewDto": {
+        "description": "What a space tells its viewer while a preview is on.",
+        "properties": {
+          "role_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "role_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role_id",
+          "role_name"
+        ],
+        "type": "object"
+      },
       "PublicAnswer": {
         "properties": {
           "status": {
@@ -4228,6 +4544,22 @@
         "required": [
           "subscriptions",
           "delivered"
+        ],
+        "type": "object"
+      },
+      "PutEntryRequest": {
+        "properties": {
+          "level": {
+            "description": "`none` (for everyone; a fine rule for anyone else), `read`, `contribute` or `manage`.",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/AccessTargetRequest"
+          }
+        },
+        "required": [
+          "target",
+          "level"
         ],
         "type": "object"
       },
@@ -4812,6 +5144,17 @@
             "description": "How much this space notifies the caller: `default` (their own settings), `all`, `mentions`\nor `none`.",
             "type": "string"
           },
+          "preview": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PreviewDto",
+                "description": "The role this session is viewing the space as (\"Voir en tant que\"), or `null`. While it is\nset the space is read only, `my_permissions` and every list are those of that role, and the\nrealtime transports are closed to the session."
+              }
+            ]
+          },
           "role": {
             "description": "The caller's role in the space: `owner`, `admin`, `member` or `guest`.",
             "type": "string"
@@ -4950,6 +5293,81 @@
           "id",
           "name",
           "slug"
+        ],
+        "type": "object"
+      },
+      "StepDto": {
+        "description": "One change, in the order the engine applied it.",
+        "properties": {
+          "effect": {
+            "description": "`granted` or `removed`.",
+            "type": "string"
+          },
+          "kind": {
+            "description": "`base`, `role`, `rule`, `private_lock` (taken away, or `granted` when a rule lifted it),\n`guest_ceiling`, `owner`, `author`, `archived`, `joined`, and `unseen`, `conversation`,\n`message`, `event` for the paths to a file that are not rules.",
+            "type": "string"
+          },
+          "level": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NamedRefDto",
+                "description": "Where it happened: a folder, the file, the channel or the calendar."
+              }
+            ]
+          },
+          "n": {
+            "description": "Position, from 1.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "permission": {
+            "type": "string"
+          },
+          "role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WhyRoleDto",
+                "description": "The role (`kind: role`)."
+              }
+            ]
+          },
+          "target": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccessTargetDto",
+                "description": "Whom the rule is about (`kind: rule`, or the rule that lifted a private lock)."
+              }
+            ]
+          }
+        },
+        "required": [
+          "n",
+          "kind",
+          "permission",
+          "effect"
+        ],
+        "type": "object"
+      },
+      "StepRefDto": {
+        "properties": {
+          "n": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "n"
         ],
         "type": "object"
       },
@@ -5385,6 +5803,37 @@
         ],
         "type": "object"
       },
+      "UsedIn": {
+        "description": "A place that names a group or a role in a rule.",
+        "properties": {
+          "hidden": {
+            "description": "A place the caller cannot open: no id, no name.",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Absent when the caller cannot open that place.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "`channel`, `file` or `calendar`.",
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
       "UserProfileDto": {
         "description": "A member's global profile, as shown in the profile card and member list. Presence is not folded\nin here: it is volatile and sourced separately (`GET /spaces/{id}/presence` and realtime events),\nso this stays the stable, self-editable profile. Returned only for a user who shares a space with\nthe caller.",
         "properties": {
@@ -5648,6 +6097,125 @@
           "messages",
           "space_names",
           "replacement_allowed"
+        ],
+        "type": "object"
+      },
+      "WhyDto": {
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/WhyPersonDto"
+          },
+          "result": {
+            "description": "One line per permission of the resource's family, the engine's decision.",
+            "items": {
+              "$ref": "#/components/schemas/WhyResultDto"
+            },
+            "type": "array"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "person",
+          "steps",
+          "result"
+        ],
+        "type": "object"
+      },
+      "WhyGroupDto": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "WhyPersonDto": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "standing": {
+            "description": "`owner`, `member` or `guest`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "standing"
+        ],
+        "type": "object"
+      },
+      "WhyResultDto": {
+        "properties": {
+          "granted": {
+            "type": "boolean"
+          },
+          "permission": {
+            "type": "string"
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StepRefDto",
+                "description": "The last step that touched it; absent when nothing did."
+              }
+            ]
+          }
+        },
+        "required": [
+          "permission",
+          "granted"
+        ],
+        "type": "object"
+      },
+      "WhyRoleDto": {
+        "description": "A role a step is about, and how the person holds it.",
+        "properties": {
+          "direct": {
+            "description": "The role is given to the person themselves (or, for a role no group carries, by their\nstanding). It can be true together with `via_groups`: they hold it both ways.",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "via_groups": {
+            "description": "Every group of theirs that carries the role, sorted by name.",
+            "items": {
+              "$ref": "#/components/schemas/WhyGroupDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "direct",
+          "via_groups"
         ],
         "type": "object"
       }
@@ -9191,6 +9759,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareDto"
+                }
+              }
+            },
+            "description": "The target already had a share: it now has the asked level"
+          },
           "201": {
             "content": {
               "application/json": {
@@ -9204,8 +9782,14 @@
           "400": {
             "description": "Invalid target or permission"
           },
+          "402": {
+            "description": "`licence_required`"
+          },
           "403": {
-            "description": "Not allowed to share this file"
+            "description": "Not allowed to share this file, or `cannot_grant`, `target_above_you`"
+          },
+          "409": {
+            "description": "`licence_frozen`"
           }
         },
         "summary": "`POST /api/v1/files/{file_id}/shares`: share a file with a user or a channel.",
@@ -9229,7 +9813,7 @@
             }
           },
           {
-            "description": "Share id",
+            "description": "Share id: the id of the rule it is",
             "in": "path",
             "name": "share_id",
             "required": true,
@@ -9244,10 +9828,13 @@
             "description": "Share removed"
           },
           "403": {
-            "description": "Not allowed to modify this file"
+            "description": "Not allowed to modify this file, or `target_above_you`"
           },
           "404": {
-            "description": "Share not found"
+            "description": "Share not found (a share of the old table is not one)"
+          },
+          "409": {
+            "description": "`licence_frozen`"
           }
         },
         "summary": "`DELETE /api/v1/files/{file_id}/shares/{share_id}`: remove a share.",
@@ -11518,6 +12105,269 @@
         ]
       }
     },
+    "/api/v1/spaces/{space_id}/access/{kind}/{resource_id}": {
+      "get": {
+        "operationId": "read_access",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "`channel`, `file` (or a folder) or `calendar`",
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The channel, file, folder or calendar",
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessDto"
+                }
+              }
+            },
+            "description": "Who has what here, and what the caller may do about it"
+          },
+          "403": {
+            "description": "The caller cannot open this resource"
+          },
+          "404": {
+            "description": "Not a kind of resource"
+          }
+        },
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/v1/spaces/{space_id}/access/{kind}/{resource_id}/entries": {
+      "put": {
+        "operationId": "put_entry",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "`channel`, `file` (or a folder) or `calendar`",
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The channel, file, folder or calendar",
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessDto"
+                }
+              }
+            },
+            "description": "The dialog as it is now"
+          },
+          "400": {
+            "description": "An unusable level or target, `guest_ceiling`, `not_in_space`, or `audience_files_only`"
+          },
+          "402": {
+            "description": "`licence_required`: a rule that is not a preset level, or a custom role"
+          },
+          "403": {
+            "description": "Not an editor of this resource, or `cannot_grant`, `target_above_you`, `reservation_admins_only`"
+          },
+          "404": {
+            "description": "Not a kind of resource"
+          },
+          "409": {
+            "description": "`licence_frozen`, or the default channel cannot be reserved"
+          }
+        },
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/v1/spaces/{space_id}/access/{kind}/{resource_id}/entries/{rule_id}": {
+      "delete": {
+        "operationId": "delete_entry",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "`channel`, `file` (or a folder) or `calendar`",
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The channel, file, folder or calendar",
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The entry's `id`",
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The line is gone: what the base roles grant applies again"
+          },
+          "403": {
+            "description": "Not an editor of this resource, or `target_above_you`, `reservation_admins_only`"
+          },
+          "404": {
+            "description": "Not a rule of this resource"
+          },
+          "409": {
+            "description": "`licence_frozen`"
+          }
+        },
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/v1/spaces/{space_id}/access/{kind}/{resource_id}/why": {
+      "get": {
+        "operationId": "read_why",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "`channel`, `file` (or a folder) or `calendar`",
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The channel, file, folder or calendar",
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The person to explain; the caller when absent",
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhyDto"
+                }
+              }
+            },
+            "description": "The steps that give or take each permission, then the result"
+          },
+          "403": {
+            "description": "Explaining somebody else needs the right to see members"
+          },
+          "404": {
+            "description": "A resource the caller cannot see, or a person not in the space"
+          }
+        },
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
     "/api/v1/spaces/{space_id}/audit": {
       "get": {
         "operationId": "read_log",
@@ -11546,7 +12396,7 @@
             }
           },
           {
-            "description": "Only one family: `members`, `roles`, `groups`, `channels`, `calendars` or `licence`.",
+            "description": "Only one family: `members`, `roles`, `groups`, `channels`, `calendars`, `licence` or `access`.",
             "in": "query",
             "name": "category",
             "required": false,
@@ -12449,7 +13299,7 @@
             "description": "Not a group of this space"
           },
           "409": {
-            "description": "`group_from_directory`, or `licence_frozen`"
+            "description": "`group_from_directory`, `licence_frozen`, or `group_has_rules` with `used_in`: the channels, files and calendars whose rules name it"
           }
         },
         "tags": [

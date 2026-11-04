@@ -736,6 +736,7 @@ pub async fn logout(
 ) -> Result<(StatusCode, CookieJar), AuthError> {
     if let Some(id) = session::presented_id(&headers) {
         session::delete(&state.valkey, &id).await?;
+        state.hub.close_session(&id);
     }
     Ok((StatusCode::NO_CONTENT, jar.add(clear_session_cookie())))
 }
@@ -777,7 +778,9 @@ pub async fn logout_all(
 ) -> Result<(StatusCode, CookieJar), AuthError> {
     if let Some(id) = session::presented_id(&headers) {
         if let Some(record) = session::get(&state.valkey, &id).await? {
-            session::delete_all(&state.valkey, record.user_id).await?;
+            for id in session::delete_all(&state.valkey, record.user_id).await? {
+                state.hub.close_session(&id);
+            }
             // A phone signed out with them must not keep being woken (ADR 0006).
             crate::notify::phone::forget_user(&state.db, record.user_id).await;
         }
@@ -956,7 +959,9 @@ pub async fn password_reset_confirm(
         .map_err(|_| AuthError::Internal)?;
 
     // A password change invalidates every existing session.
-    session::delete_all(&state.valkey, user_id).await?;
+    for id in session::delete_all(&state.valkey, user_id).await? {
+        state.hub.close_session(&id);
+    }
     crate::notify::phone::forget_user(&state.db, user_id).await;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -1051,7 +1056,9 @@ pub async fn password_reset_recovery(
     throttle::record_success(&state.valkey, &email).await?;
     // Whoever knew the old password is no longer the only claimant: as with any password change,
     // every existing session goes.
-    session::delete_all(&state.valkey, user_id).await?;
+    for id in session::delete_all(&state.valkey, user_id).await? {
+        state.hub.close_session(&id);
+    }
     crate::notify::phone::forget_user(&state.db, user_id).await;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -1233,7 +1240,9 @@ pub async fn change_password(
         .await
         .map_err(|_| AuthError::Internal)?;
 
-    session::delete_all(&state.valkey, user_id).await?;
+    for id in session::delete_all(&state.valkey, user_id).await? {
+        state.hub.close_session(&id);
+    }
 
     crate::notify::phone::forget_user(&state.db, user_id).await;
     Ok(StatusCode::NO_CONTENT)

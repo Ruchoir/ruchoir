@@ -176,6 +176,10 @@ pub struct SpaceDto {
     /// The space's licence, for its owners alone, when it has one (`enterprise` or `frozen`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub licence: Option<SpaceLicenceDto>,
+    /// The role this session is viewing the space as ("Voir en tant que"), or `null`. While it is
+    /// set the space is read only, `my_permissions` and every list are those of that role, and the
+    /// realtime transports are closed to the session.
+    pub preview: Option<crate::permissions::preview::PreviewDto>,
 }
 
 /// What an owner reads of the space's licence.

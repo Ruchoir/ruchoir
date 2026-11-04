@@ -23,6 +23,7 @@ use super::groups::{
     actor, decide, group, groups_of, name_taken, validate_group_name, GroupAct, GroupActor,
     GroupRow, GroupSource,
 };
+use super::rules::{hide_unopened, uses_of, Named};
 use crate::audit::{record, Action, Target};
 use crate::auth::extract::AuthSession;
 use crate::messaging::error::ApiError;
@@ -388,7 +389,7 @@ pub async fn update_group(
         (status = 402, description = "`licence_required`: it carries roles"),
         (status = 403, description = "Needs `groups.manage`, and every role it carries below the caller"),
         (status = 404, description = "Not a group of this space"),
-        (status = 409, description = "`group_from_directory`, or `licence_frozen`")
+        (status = 409, description = "`group_from_directory`, `licence_frozen`, or `group_has_rules` with `used_in`: the channels, files and calendars whose rules name it")
     )
 )]
 pub async fn delete_group(
@@ -400,6 +401,18 @@ pub async fn delete_group(
     let txn = state.db.begin().await?;
     let current = lock(&txn, space_id, group_id).await?;
     decide(&actor, &current, GroupAct::Delete).map_err(|r| refused(&state, r))?;
+    // A rule that names the group stays what it says: a deny that went with its target would open
+    // the resource to everyone it was keeping out.
+    let used = uses_of(&txn, space_id, Named::Group(group_id)).await?;
+    if !used.is_empty() {
+        // Names only for what the caller can open; the rest is a kind and nothing else.
+        let used = hide_unopened(&state.db, space_id, session.user_id, used).await?;
+        return Err(ApiError::ConflictUsedIn {
+            code: "group_has_rules",
+            message: "This group is named by rules; remove them first.",
+            used_in: serde_json::to_value(&used).map_err(|_| ApiError::Internal)?,
+        });
+    }
     record(
         &txn,
         space_id,

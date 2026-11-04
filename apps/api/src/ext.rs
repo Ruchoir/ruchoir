@@ -42,5 +42,28 @@ pub use crate::permissions::group_routes::{group_dto, group_dtos, GroupDto, Grou
 pub use crate::permissions::groups::{
     actor, decide, group, groups_of, GroupAct, GroupActor, GroupRow, Paid, Refusal,
 };
+/// The preset levels (Read, Contribute, Manage) and their rule sets, for the access dialogs.
+pub use crate::permissions::levels::{
+    clamp_for_guest, guest_may, level_of, level_sets, nearest_level, rule_sets, summary, Kind,
+    Level, LevelError, LevelRead, Target as RuleTarget, TriState,
+};
 pub use crate::permissions::roles::{roles_of, validate_role_name, RoleDto, ROLE_COLOURS};
+/// Who edits a resource's access and the one decision every rule write goes through, the writes
+/// themselves (log entry included), and where a group or a role is still named by a rule.
+pub use crate::permissions::rules::{
+    current_rule, delete_rule, describe, editor_of, ensure_writable, hide_unopened, level_name,
+    lock_resource, log_rule, uses_of, write_rule, Aim, Editor, EditorKind, Existing, Named,
+    ResourceRef, RuleRefusal, RuleRow, RuleSubject, Shown, TargetRef, UsedIn,
+};
 pub use crate::permissions::system_roles::GUEST_CEILING;
+/// Close a session's realtime connections (sockets and streams) on this instance, the person's
+/// other sessions untouched: what starting a preview does to the session that starts it.
+pub fn close_realtime_session(state: &crate::state::AppState, session_id: &str) {
+    state.hub.close_session(session_id);
+}
+/// "View as a role": the paid routes start and end it (after their own checks) with these. The
+/// core refuses writes and the realtime transports while it is on, and resolves every right
+/// through it; the audit entry (`role.previewed`) is the caller's.
+pub mod preview {
+    pub use crate::permissions::preview::{current, start, stop, PreviewDto, PreviewState};
+}

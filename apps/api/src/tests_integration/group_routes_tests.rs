@@ -776,7 +776,9 @@ async fn every_group_write_is_logged_and_announced() {
 }
 
 /// Assert no `permissions.changed` reaches the socket in a short window.
-async fn expect_no_permissions_changed(ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>) {
+pub(super) async fn expect_no_permissions_changed(
+    ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+) {
     let deadline = tokio::time::Instant::now() + Duration::from_millis(800);
     while let Ok(Some(frame)) = tokio::time::timeout_at(deadline, ws.next()).await {
         if let Ok(WsMessage::Text(text)) = frame {
@@ -789,7 +791,7 @@ async fn expect_no_permissions_changed(ws: &mut WebSocketStream<MaybeTlsStream<T
     }
 }
 
-async fn expect_permissions_changed(
+pub(super) async fn expect_permissions_changed(
     ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
     space: Uuid,
 ) {

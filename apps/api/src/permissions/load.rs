@@ -19,7 +19,7 @@ use sea_orm::{
 use uuid::Uuid;
 
 use super::catalogue::{Permission, PermissionSet};
-use super::engine::{Facts, Level, LevelKind, Rule, Source, Standing, Subject, TargetRef};
+use super::engine::{Facts, Level, LevelKind, Rule, Source, Standing, Subject, TargetRef, Whom};
 use crate::entities::{
     calendars, channel_members, channels, conversations, dm_participants, permission_overrides,
 };
@@ -44,6 +44,24 @@ pub(super) struct Person {
     pub subject: Subject,
     /// The base role their standing implies (`@members` or `@guests`), which rules may target.
     pub base_role: Option<Uuid>,
+    /// The groups they belong to.
+    pub groups: Vec<Uuid>,
+    /// Each role they hold through a group, with the groups of theirs that carry it.
+    pub role_groups: HashMap<Uuid, Vec<Uuid>>,
+    /// The channels whose readers they are (filled by the caller that needs it, empty at load).
+    pub readable_audiences: HashSet<Uuid>,
+    /// The roles they hold that are not system roles: the ones whose allow may open a private channel.
+    pub custom_roles: HashSet<Uuid>,
+    /// While the person previews a role: who they really are, which the preview never exceeds.
+    pub ceiling: Option<Ceiling>,
+}
+
+/// The viewer behind a preview: their own subject, and what the rules need to match them.
+#[derive(Clone, Debug)]
+pub(super) struct Ceiling {
+    pub subject: Subject,
+    pub groups: Vec<Uuid>,
+    pub custom_roles: HashSet<Uuid>,
 }
 
 /// A rule as stored, before it is matched to a person.
@@ -54,11 +72,28 @@ pub(super) struct StoredRule {
     pub calendar_id: Option<Uuid>,
     pub role_id: Option<Uuid>,
     pub user_id: Option<Uuid>,
+    pub group_id: Option<Uuid>,
+    pub audience_channel_id: Option<Uuid>,
     pub allow: PermissionSet,
     pub deny: PermissionSet,
 }
 
 impl Person {
+    /// Somebody who is not in the space, with only the rights that `subject` carries and no rules
+    /// aimed at them (a participant of a direct conversation they were left out of).
+    pub fn bare(user_id: Uuid, subject: Subject) -> Person {
+        Person {
+            user_id,
+            subject,
+            base_role: None,
+            groups: Vec::new(),
+            role_groups: HashMap::new(),
+            readable_audiences: HashSet::new(),
+            custom_roles: HashSet::new(),
+            ceiling: None,
+        }
+    }
+
     /// The stored rules that apply to this person, as the engine's rules, `first` ahead of the
     /// personal ones (a channel role is a personal rule that a rule on the person can still undo).
     pub fn rules<'a>(
@@ -66,29 +101,101 @@ impl Person {
         stored: impl Iterator<Item = &'a StoredRule>,
         first: Option<Rule>,
     ) -> Vec<Rule> {
-        let mut rules: Vec<Rule> = first.into_iter().collect();
+        // The channel role is the viewer's own, not the previewed role's (as is joining the
+        // channel, which `check::resolved` leaves to the ceiling's side).
+        let mut rules: Vec<Rule> = first
+            .into_iter()
+            .map(|rule| Rule {
+                whom: if self.ceiling.is_some() {
+                    Whom::Viewer
+                } else {
+                    rule.whom
+                },
+                ..rule
+            })
+            .collect();
         for rule in stored {
-            let target = match (rule.role_id, rule.user_id) {
-                (Some(role), _) if Some(role) == self.base_role => TargetRef::BaseRole,
-                (Some(role), _) if self.subject.roles.iter().any(|(held, _)| *held == role) => {
-                    TargetRef::Role(role)
-                }
-                (None, Some(user)) if user == self.user_id => TargetRef::User,
+            // A preview is of a role, not of a person: the viewer's personal rules are theirs alone.
+            let own = self.target_of(
+                rule,
+                &self.held_roles(),
+                &self.groups,
+                self.ceiling.is_none(),
+            );
+            let theirs = self.ceiling.as_ref().and_then(|ceiling| {
+                let held: Vec<Uuid> = ceiling.subject.roles.iter().map(|(id, _)| *id).collect();
+                self.target_of(rule, &held, &ceiling.groups, true)
+            });
+            let (target, whom) = match (own, theirs, self.ceiling.is_some()) {
+                (Some(target), _, false) => (target, Whom::Both),
+                (Some(target), Some(_), true) => (target, Whom::Both),
+                (Some(target), None, true) => (target, Whom::Preview),
+                (None, Some(target), true) => (target, Whom::Viewer),
                 _ => continue,
             };
             let source = match target {
                 TargetRef::BaseRole => Source::BaseRole,
                 TargetRef::Role(role) => Source::Role(role),
                 TargetRef::User => Source::User,
+                TargetRef::Group(group) => Source::Group(group),
+                TargetRef::Audience(channel) => Source::Audience(channel),
+            };
+            let custom = |role: Uuid| {
+                self.custom_roles.contains(&role)
+                    || self
+                        .ceiling
+                        .as_ref()
+                        .is_some_and(|ceiling| ceiling.custom_roles.contains(&role))
+            };
+            let lifts_lock = match target {
+                TargetRef::Role(role) => custom(role),
+                TargetRef::User | TargetRef::Group(_) => true,
+                TargetRef::BaseRole | TargetRef::Audience(_) => false,
             };
             rules.push(Rule {
                 target,
                 allow: rule.allow,
                 deny: rule.deny,
                 source,
+                lifts_lock,
+                whom,
             });
         }
         rules
+    }
+
+    fn held_roles(&self) -> Vec<Uuid> {
+        self.subject.roles.iter().map(|(id, _)| *id).collect()
+    }
+
+    /// What a stored rule is aimed at, for somebody holding `roles` and belonging to `groups`
+    /// (`personal`: whether rules aimed at the person count); `None` when it is not about them.
+    fn target_of(
+        &self,
+        rule: &StoredRule,
+        roles: &[Uuid],
+        groups: &[Uuid],
+        personal: bool,
+    ) -> Option<TargetRef> {
+        if let Some(role) = rule.role_id {
+            if Some(role) == self.base_role {
+                Some(TargetRef::BaseRole)
+            } else if roles.contains(&role) {
+                Some(TargetRef::Role(role))
+            } else {
+                None
+            }
+        } else if let Some(user) = rule.user_id {
+            (personal && user == self.user_id).then_some(TargetRef::User)
+        } else if let Some(group) = rule.group_id {
+            groups.contains(&group).then_some(TargetRef::Group(group))
+        } else if let Some(channel) = rule.audience_channel_id {
+            self.readable_audiences
+                .contains(&channel)
+                .then_some(TargetRef::Audience(channel))
+        } else {
+            None
+        }
     }
 }
 
@@ -245,6 +352,11 @@ async fn people_where<C: ConnectionTrait>(
                     roles: Vec::new(),
                 },
                 base_role: None,
+                groups: Vec::new(),
+                role_groups: HashMap::new(),
+                custom_roles: HashSet::new(),
+                readable_audiences: HashSet::new(),
+                ceiling: None,
             });
             let (Some(role_id), Some(names)) = (row.role_id, row.permissions) else {
                 continue;
@@ -255,12 +367,19 @@ async fn people_where<C: ConnectionTrait>(
                     person.base_role = Some(role_id);
                     person.subject.base = permissions;
                 }
-                _ => person.subject.roles.push((role_id, permissions)),
+                key => {
+                    if key.is_none() {
+                        person.custom_roles.insert(role_id);
+                    }
+                    person.subject.roles.push((role_id, permissions));
+                }
             }
         }
         read_people(space_id, people.len());
         let broken = drifted || people.values().any(|person| person.base_role.is_none());
         if !broken || repaired {
+            attach_groups(db, space_id, &users, &mut people).await?;
+            apply_preview(db, space_id, &mut people).await?;
             return Ok(people);
         }
         tracing::warn!(%space_id, "space without its system roles: deriving them again");
@@ -273,6 +392,123 @@ async fn people_where<C: ConnectionTrait>(
         .await?;
         repaired = true;
     }
+}
+
+#[derive(FromQueryResult)]
+struct PreviewedRole {
+    system_key: Option<String>,
+    permissions: Vec<String>,
+}
+
+/// While this request is a preview of `space_id`, the viewer stands as a member (a guest stays a
+/// guest) holding the base role and the previewed role alone, no group; who they really are is kept
+/// as the ceiling the preview never exceeds. Everyone else in the map, and every other space, is
+/// left as it is. This is the one place a preview changes who somebody is.
+async fn apply_preview<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    people: &mut BTreeMap<Uuid, Person>,
+) -> Result<(), DbErr> {
+    let Some(preview) = super::preview::of_space(space_id) else {
+        return Ok(());
+    };
+    let Some(person) = people.get_mut(&preview.user_id) else {
+        return Ok(());
+    };
+    // A role deleted meanwhile leaves the base role alone: less, never more.
+    let role = PreviewedRole::find_by_statement(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT system_key, permissions FROM space_roles WHERE id = $1 AND space_id = $2",
+        [preview.role_id.into(), space_id.into()],
+    ))
+    .one(db)
+    .await?;
+    let real = person.subject.clone();
+    let mut roles = Vec::new();
+    let mut custom_roles = HashSet::new();
+    if let Some(role) = role {
+        roles.push((
+            preview.role_id,
+            PermissionSet::from_names(&role.permissions),
+        ));
+        if role.system_key.is_none() {
+            custom_roles.insert(preview.role_id);
+        }
+    }
+    person.ceiling = Some(Ceiling {
+        subject: real.clone(),
+        groups: std::mem::take(&mut person.groups),
+        custom_roles: std::mem::replace(&mut person.custom_roles, custom_roles),
+    });
+    person.role_groups.clear();
+    person.subject = Subject {
+        standing: match real.standing {
+            Standing::Guest => Standing::Guest,
+            Standing::Owner | Standing::Member => Standing::Member,
+        },
+        base: real.base,
+        roles,
+    };
+    Ok(())
+}
+
+#[derive(FromQueryResult)]
+struct GroupRow {
+    user_id: Uuid,
+    group_id: Uuid,
+    role_id: Option<Uuid>,
+}
+
+/// The groups of these people and the roles those groups carry, in one query whatever the count.
+async fn attach_groups<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    users: &sea_orm::Value,
+    people: &mut BTreeMap<Uuid, Person>,
+) -> Result<(), DbErr> {
+    if people.is_empty() {
+        return Ok(());
+    }
+    issued(space_id);
+    let rows = GroupRow::find_by_statement(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT m.user_id, m.group_id, r.role_id \
+           FROM space_group_members m \
+           LEFT JOIN space_group_roles r ON r.group_id = m.group_id \
+          WHERE m.space_id = $1 AND ($2::uuid[] IS NULL OR m.user_id = ANY($2))",
+        [space_id.into(), users.clone()],
+    ))
+    .all(db)
+    .await?;
+    for row in rows {
+        // Somebody the first query left out (an expired guest) has no groups here either.
+        let Some(person) = people.get_mut(&row.user_id) else {
+            continue;
+        };
+        if !person.groups.contains(&row.group_id) {
+            person.groups.push(row.group_id);
+        }
+        if let Some(role) = row.role_id {
+            let carriers = person.role_groups.entry(role).or_default();
+            if !carriers.contains(&row.group_id) {
+                carriers.push(row.group_id);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Each person of the space with their groups and the roles those carry (tests only).
+#[cfg(test)]
+pub async fn people_groups_for_test<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+) -> Result<HashMap<Uuid, (Vec<Uuid>, HashMap<Uuid, Vec<Uuid>>)>, DbErr> {
+    Ok(people(db, space_id, None)
+        .await?
+        .into_iter()
+        .map(|(id, person)| (id, (person.groups, person.role_groups)))
+        .collect())
 }
 
 /// The rules stored on some channels, files or calendars of a space.
@@ -298,6 +534,8 @@ pub(super) async fn rules<C: ConnectionTrait>(
             calendar_id: row.calendar_id,
             role_id: row.role_id,
             user_id: row.user_id,
+            group_id: row.group_id,
+            audience_channel_id: row.audience_channel_id,
             allow: PermissionSet::from_names(&row.allow),
             deny: PermissionSet::from_names(&row.deny),
         })
@@ -563,6 +801,8 @@ pub(super) fn channel_level(
         allow: CHANNEL_MODERATION,
         deny: PermissionSet::EMPTY,
         source: Source::ChannelRole(role),
+        lifts_lock: false,
+        whom: Whom::Both,
     });
     let level = Level {
         kind: LevelKind::Channel,
@@ -581,4 +821,81 @@ pub(super) fn channel_level(
         author: false,
     };
     (level, facts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn person(base: Uuid, group: Uuid, custom: Uuid, system: Uuid, audience: Uuid) -> Person {
+        Person {
+            user_id: Uuid::new_v4(),
+            subject: Subject {
+                standing: Standing::Member,
+                base: PermissionSet::EMPTY,
+                roles: vec![
+                    (custom, PermissionSet::EMPTY),
+                    (system, PermissionSet::EMPTY),
+                ],
+            },
+            base_role: Some(base),
+            groups: vec![group],
+            role_groups: HashMap::new(),
+            readable_audiences: HashSet::from([audience]),
+            custom_roles: HashSet::from([custom]),
+            ceiling: None,
+        }
+    }
+
+    fn aimed(f: impl FnOnce(&mut StoredRule)) -> StoredRule {
+        let mut rule = StoredRule {
+            channel_id: Some(Uuid::new_v4()),
+            file_id: None,
+            calendar_id: None,
+            role_id: None,
+            user_id: None,
+            group_id: None,
+            audience_channel_id: None,
+            allow: PermissionSet::of(&[crate::permissions::catalogue::Permission::ChannelView]),
+            deny: PermissionSet::EMPTY,
+        };
+        f(&mut rule);
+        rule
+    }
+
+    /// Only a group, a person or a custom role opens a private channel: never a base role, the
+    /// Administrator (a system role) or the readers of a channel.
+    #[test]
+    fn lifts_lock_is_never_true_on_a_base_role_a_system_role_or_an_audience() {
+        let (base, group, custom, system, audience) = (
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+        );
+        let who = person(base, group, custom, system, audience);
+        let stored = [
+            aimed(|r| r.role_id = Some(base)),
+            aimed(|r| r.role_id = Some(system)),
+            aimed(|r| r.audience_channel_id = Some(audience)),
+            aimed(|r| r.role_id = Some(custom)),
+            aimed(|r| r.group_id = Some(group)),
+            aimed(|r| r.user_id = Some(who.user_id)),
+        ];
+        let rules = who.rules(stored.iter(), None);
+        let lifts: Vec<(TargetRef, bool)> =
+            rules.iter().map(|r| (r.target, r.lifts_lock)).collect();
+        assert_eq!(
+            lifts,
+            [
+                (TargetRef::BaseRole, false),
+                (TargetRef::Role(system), false),
+                (TargetRef::Audience(audience), false),
+                (TargetRef::Role(custom), true),
+                (TargetRef::Group(group), true),
+                (TargetRef::User, true),
+            ]
+        );
+    }
 }

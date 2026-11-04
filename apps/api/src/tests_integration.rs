@@ -12170,6 +12170,9 @@ mod group_routes_tests;
 /// Mentioning a group: who is told, and who is not.
 mod group_mentions_tests;
 
+/// Rules aimed at a group or at the readers of a channel: the schema and the loader.
+mod rules_tests;
+
 /// The preferences that follow an account, and hidden direct conversations, in their own file.
 mod preferences_tests;
 
@@ -12671,3 +12674,19 @@ async fn the_space_keeps_no_duplicate_file() {
         .expect("query");
     assert_eq!(files.len(), 2, "Devis.pdf and Devis (1).pdf, nothing else");
 }
+
+/// Who edits a resource's access, and what a group or role is used in.
+mod rule_editor_tests;
+
+/// The rule routes of the Access and Share dialogs.
+mod rule_routes_tests;
+
+/// "Pourquoi ?": the steps that lead to a person's access on a resource.
+mod why_tests;
+
+/// The share routes of a file, now backed by rules: a share really grants access.
+mod file_share_tests;
+
+/// "Voir en tant que": the preview door. It reads, it never writes, it never shows more than the
+/// viewer holds, and it stays with its request.
+mod preview_tests;

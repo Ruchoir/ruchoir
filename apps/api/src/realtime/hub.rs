@@ -37,6 +37,13 @@ type ConnId = u64;
 /// dropped (the client resyncs over REST) rather than stalling the fan-out for everyone.
 type Outbound = mpsc::Sender<RealtimeEnvelope>;
 
+/// A live connection: its queue, and the session it was opened with (so one session's connections
+/// can be closed without touching the person's others).
+struct Conn {
+    session_id: String,
+    tx: Outbound,
+}
+
 /// Shared real-time state: the command pool used to publish, and the in-memory registry of
 /// locally-connected clients keyed by user then connection id.
 pub struct Hub {
@@ -44,7 +51,7 @@ pub struct Hub {
     valkey: Pool,
     /// `user_id -> { connection_id -> outbound sender }`. Guarded by a plain mutex: held only for
     /// the microseconds it takes to insert, remove, or clone the senders for one audience.
-    connections: Mutex<HashMap<Uuid, HashMap<ConnId, Outbound>>>,
+    connections: Mutex<HashMap<Uuid, HashMap<ConnId, Conn>>>,
     /// Monotonic source of connection ids.
     next_conn_id: AtomicU64,
     /// Per-connection outbound buffer capacity.
@@ -113,11 +120,21 @@ impl Hub {
     }
 
     /// Register a new connection for a user and return its id plus the receiving end of its queue.
-    pub fn register(&self, user_id: Uuid) -> (ConnId, mpsc::Receiver<RealtimeEnvelope>) {
+    pub fn register(
+        &self,
+        user_id: Uuid,
+        session_id: &str,
+    ) -> (ConnId, mpsc::Receiver<RealtimeEnvelope>) {
         let conn_id = self.next_conn_id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = mpsc::channel(self.send_buffer);
         let mut guard = self.connections.lock().expect("hub registry poisoned");
-        guard.entry(user_id).or_default().insert(conn_id, tx);
+        guard.entry(user_id).or_default().insert(
+            conn_id,
+            Conn {
+                session_id: session_id.to_owned(),
+                tx,
+            },
+        );
         (conn_id, rx)
     }
 
@@ -125,14 +142,28 @@ impl Hub {
     /// caller uses to decide whether to clear the user's live-presence heartbeat.
     pub fn unregister(&self, user_id: Uuid, conn_id: ConnId) -> bool {
         let mut guard = self.connections.lock().expect("hub registry poisoned");
-        if let Some(conns) = guard.get_mut(&user_id) {
-            conns.remove(&conn_id);
-            if conns.is_empty() {
-                guard.remove(&user_id);
-                return true;
+        match guard.get_mut(&user_id) {
+            Some(conns) => {
+                conns.remove(&conn_id);
+                if conns.is_empty() {
+                    guard.remove(&user_id);
+                    return true;
+                }
+                false
             }
+            // Already gone (its session was closed): nothing is left of the user here either.
+            None => true,
         }
-        false
+    }
+
+    /// Close every connection a session opened, on this instance: dropping a queue's sender ends
+    /// its socket or stream, which then deregisters itself. The person's other sessions keep theirs.
+    pub fn close_session(&self, session_id: &str) {
+        let mut guard = self.connections.lock().expect("hub registry poisoned");
+        guard.retain(|_, conns| {
+            conns.retain(|_, conn| conn.session_id != session_id);
+            !conns.is_empty()
+        });
     }
 
     /// Whether the user currently has at least one connection on THIS instance.
@@ -174,9 +205,9 @@ impl Hub {
             let Some(conns) = guard.get(user_id) else {
                 continue;
             };
-            for sender in conns.values() {
+            for conn in conns.values() {
                 if let Err(mpsc::error::TrySendError::Full(_)) =
-                    sender.try_send(message.envelope.clone())
+                    conn.tx.try_send(message.envelope.clone())
                 {
                     tracing::debug!(%user_id, "real-time buffer full; dropping event for one client");
                 }

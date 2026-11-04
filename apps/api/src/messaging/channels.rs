@@ -101,6 +101,109 @@ async fn set_allowed_roles<C: sea_orm::ConnectionTrait>(
     Ok(())
 }
 
+/// Tell the members who may read the channel that it changed (its summary, and so its place in their
+/// sidebar). Every member of the space is a candidate, whatever the new visibility: a channel turned
+/// private has to leave the sidebar of those who are not in it, and they can only learn that from this
+/// event. The payload carries no per-caller state, so nothing private about a member leaks with it.
+pub(crate) async fn publish_channel_updated(
+    state: &AppState,
+    channel: &channels::Model,
+    actor: Uuid,
+) {
+    let (space_id, channel_id) = (channel.space_id, channel.id);
+    let summary = ChannelSummaryDto {
+        id: channel_id,
+        space_id,
+        name: channel.name.clone(),
+        channel_type: channel.channel_type.clone(),
+        topic: channel.topic.clone(),
+    };
+    // Best effort, like `permissions.changed`: the change is committed, and a client that missed the
+    // event gets the truth on its next request.
+    let audience = match space_member_ids(&state.db, space_id, actor).await {
+        Ok(audience) => visible_only(&state.db, space_id, channel_id, audience).await,
+        Err(error) => Err(error),
+    };
+    let audience = match audience {
+        Ok(audience) => audience,
+        Err(error) => {
+            tracing::warn!(%channel_id, ?error, "channel.updated not published");
+            return;
+        }
+    };
+    state
+        .hub
+        .publish(
+            audience,
+            RealtimeEnvelope::channel_updated(channel_id, &summary),
+        )
+        .await;
+}
+
+/// Let one legacy role (`owner`, `admin`, `member` or `guest`) reach the channel, or keep it out:
+/// what the access dialog's "Tout l'espace" and Administrator lines write for the view of a channel
+/// (the rules of the system roles are derived from `channel_role_access`, never written beside it).
+/// A channel nobody reserved admits every role, so keeping one out lists the others. A list is never
+/// left empty (an empty list reads "no restriction"): the space's owner always remains. Returns
+/// whether the list changed. The rules derived from it are brought up to date either way.
+pub(crate) async fn set_role_admitted<C: sea_orm::ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    channel_id: Uuid,
+    role: &str,
+    admitted: bool,
+) -> Result<bool, ApiError> {
+    let before = super::authz::channel_allowed_roles(db, channel_id).await?;
+    let after: Option<std::collections::BTreeSet<String>> = match (&before, admitted) {
+        (None, true) => None,
+        (None, false) => Some(
+            super::authz::SPACE_ROLES
+                .iter()
+                .filter(|r| **r != role)
+                .map(|r| (*r).to_owned())
+                .collect(),
+        ),
+        (Some(roles), true) => {
+            let mut roles = roles.clone();
+            roles.insert(role.to_owned());
+            Some(roles)
+        }
+        (Some(roles), false) => {
+            let mut roles = roles.clone();
+            roles.remove(role);
+            if roles.is_empty() {
+                roles.insert("owner".to_owned());
+            }
+            Some(roles)
+        }
+    };
+    let changed = after != before;
+    if changed {
+        let default_channel = spaces::Entity::find_by_id(space_id)
+            .one(db)
+            .await?
+            .and_then(|space| space.default_channel_id);
+        if after.is_some() && default_channel == Some(channel_id) {
+            return Err(ApiError::Conflict(
+                "choose another default channel before restricting this channel",
+            ));
+        }
+        set_allowed_roles(
+            db,
+            channel_id,
+            after.map(|roles| roles.into_iter().collect()),
+        )
+        .await?;
+    }
+    db.execute_raw(sea_orm::Statement::from_sql_and_values(
+        sea_orm::DbBackend::Postgres,
+        "SELECT permissions_sync_reservation($1::uuid)",
+        [channel_id.into()],
+    ))
+    .await?;
+    Ok(changed)
+}
+
 /// The `system_event` discriminators written into a channel's own history. The client turns each
 /// into a sentence; the database stores the event and never the words, like everywhere else.
 ///
@@ -544,25 +647,7 @@ pub async fn update_channel(
 
     let updated = active.update(&state.db).await?;
 
-    // Every member of the space is told, whatever the new visibility: a channel turned private has
-    // to leave the sidebar of those who are not in it, and they can only learn that from this event.
-    // The payload carries no per-caller state, so nothing private about a member leaks with it.
-    let summary = ChannelSummaryDto {
-        id: updated.id,
-        space_id,
-        name: updated.name.clone(),
-        channel_type: updated.channel_type.clone(),
-        topic: updated.topic.clone(),
-    };
-    let audience = space_member_ids(&state.db, space_id, session.user_id).await?;
-    let audience = visible_only(&state.db, space_id, channel_id, audience).await?;
-    state
-        .hub
-        .publish(
-            audience,
-            RealtimeEnvelope::channel_updated(channel_id, &summary),
-        )
-        .await;
+    publish_channel_updated(&state, &updated, session.user_id).await;
     // Then the change goes into the channel's own history, said by whoever made it.
     for (event, detail) in change_notices(&channel, &updated, access_changed) {
         write_channel_notice_with(&state, channel_id, Some(session.user_id), event, detail).await;

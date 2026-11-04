@@ -80,11 +80,17 @@ pub async fn list_my_spaces(
             session.user_id,
         )
         .await?;
+        let preview = crate::permissions::preview::dto_of_space(space.id);
         out.push(SpaceDto {
             id: space.id,
             name: space.name,
             slug: space.slug,
-            role: membership.role,
+            // Looking at the space as a role, the person stands as a member (or a guest) there.
+            role: if preview.is_some() && membership.role != "guest" {
+                "member".to_owned()
+            } else {
+                membership.role
+            },
             members,
             unread: unread_by_space.get(&space.id).copied().unwrap_or(0),
             mentions: mentions_by_space.get(&space.id).copied().unwrap_or(0),
@@ -104,6 +110,7 @@ pub async fn list_my_spaces(
             ),
             edition,
             licence,
+            preview,
         });
     }
     out.sort_by_key(|space| space.name.to_lowercase());

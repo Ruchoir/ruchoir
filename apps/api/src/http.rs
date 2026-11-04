@@ -349,6 +349,8 @@ pub fn router(state: AppState) -> Router {
         .merge(crate::permissions::roles::router())
         // A space's groups: their people, free in every edition.
         .merge(crate::permissions::group_routes::router())
+        // Who has what on a channel, a file or a calendar: the Access and Share dialogs.
+        .merge(crate::permissions::rule_routes::router())
         // What the edition adds (nothing for the community build), guarded per request like the
         // rest.
         .merge(state.edition.routes());
@@ -420,6 +422,12 @@ pub fn router(state: AppState) -> Router {
         .layer(set_header(
             HeaderName::from_static("permissions-policy"),
             "geolocation=(), camera=(), microphone=()",
+        ))
+        // A session that is previewing a space as a role: read only, no realtime, and the preview
+        // scoped to the request (see `permissions::preview`). Inside the same-site guard.
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            crate::permissions::preview::guard,
         ))
         // Writes from another site are refused before they reach a handler (see `same_site_guard`).
         .layer(axum::middleware::from_fn_with_state(
