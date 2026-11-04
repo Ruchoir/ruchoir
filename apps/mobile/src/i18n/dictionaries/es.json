@@ -1138,7 +1138,8 @@
     "rolesCustom_other": "{{count}} personalizados",
     "groupsCount_one": "{{count}} grupo",
     "groupsCount_many": "{{count}} grupos",
-    "groupsCount_other": "{{count}} grupos"
+    "groupsCount_other": "{{count}} grupos",
+    "auditLast": "Último cambio {{day}} a las {{time}}"
   },
   "spaceAdmin": {
     "invite": "Invitar a personas",
@@ -1486,7 +1487,8 @@
       "empty": "Este archivo está vacío.",
       "notText": "Este archivo no es texto: una licencia es una línea de texto.",
       "unreadable": "No se ha podido leer este archivo. Vuelve a intentarlo o pega el texto de la licencia."
-    }
+    },
+    "active": "Activa"
   },
   "groups": {
     "noSelfRole": "Nadie se da un rol a sí mismo, tampoco a través de un grupo: no puedes cambiar los roles de un grupo del que formas parte.",

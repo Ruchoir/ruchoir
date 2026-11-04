@@ -149,7 +149,18 @@ function StateCard({ view, day, timeZone }: { view: LicenceView; day: (iso: stri
   const { fraction, full } = seatsFraction(view.used, view.seats);
   return (
     <View style={[styles.card, { borderColor: c.lineStrong, backgroundColor: c.surface }]}>
-      <Text variant="heading">{view.edition === "frozen" ? t("spaceSections.licenceFrozen") : t("licence.enterprise")}</Text>
+      <View style={styles.titleRow}>
+        <Text variant="heading" style={styles.title}>
+          {view.edition === "frozen" ? t("spaceSections.licenceFrozen") : t("licence.enterprise")}
+        </Text>
+        {view.edition === "frozen" ? null : (
+          <View style={[styles.pill, { backgroundColor: `${c.mint}66`, borderColor: c.mint }]}>
+            <Text variant="label" style={{ color: c.onPastel }}>
+              {t("licence.active")}
+            </Text>
+          </View>
+        )}
+      </View>
       <Text variant="small" tone="muted">
         {view.organisation}
       </Text>
@@ -201,6 +212,9 @@ const makeStyles = styleCache((shape) =>
     bannerIcon: { marginTop: 1 },
     bannerText: { flex: 1 },
     card: { padding: 16, gap: 6, borderRadius: shape.radius.l, borderWidth: shape.hairline },
+    titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+    title: { flex: 1 },
+    pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, borderWidth: shape.hairline },
     line: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: 8 },
     track: { height: 6, borderRadius: 3, overflow: "hidden" },
     fillBar: { height: 6, borderRadius: 3 },

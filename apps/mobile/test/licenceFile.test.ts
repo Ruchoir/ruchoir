@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { checkLicence, daysLeft, LICENCE_MAX_BYTES, seatsFraction } from "../src/logic/licenceFile.ts";
+import { checkLicence, knownFileSize, LICENCE_MAX_BYTES, seatsFraction } from "../src/logic/licenceFile.ts";
 
 const GOOD = "RUCHOIR-LICENCE-1.eyJhIjoxfQ.MEUCIQDk3vZ1c9mXq0hT8aYpL2sN";
 
@@ -62,11 +62,11 @@ test("the_seats_bar_is_the_share_used_kept_between_zero_and_one", () => {
   assert.deepEqual(seatsFraction(3, 0), { fraction: 1, full: true });
 });
 
-test("the_days_left_round_up_and_stop_at_zero", () => {
-  const now = new Date("2026-11-04T10:00:00Z");
-  assert.equal(daysLeft("2026-11-16T00:00:00Z", now), 12);
-  assert.equal(daysLeft("2026-11-04T12:00:00Z", now), 1);
-  assert.equal(daysLeft("2026-11-04T10:00:00Z", now), 0);
-  assert.equal(daysLeft("2026-10-01T00:00:00Z", now), 0);
-  assert.equal(daysLeft("not a date", now), 0);
+test("a_file_whose_size_nobody_knows_is_never_read", () => {
+  assert.equal(knownFileSize(undefined, undefined), null);
+  assert.equal(knownFileSize(null, Number.NaN), null);
+  assert.equal(knownFileSize(undefined, 1200), 1200);
+  assert.equal(knownFileSize(300, 1200), 300);
+  assert.equal(knownFileSize(0, 1200), 0);
+  assert.equal(knownFileSize(-1, undefined), null);
 });

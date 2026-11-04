@@ -21,7 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useApi } from "../../api/useApi";
 import { useLocale } from "../../i18n/useLocale";
 import { key, useTranslation, type DictKey } from "../../i18n";
-import { checkLicence, type LicenceProblem } from "../../logic/licenceFile";
+import { checkLicence, knownFileSize, type LicenceProblem } from "../../logic/licenceFile";
 import { fileSize } from "../../logic/format";
 import { refusalSaid } from "../../logic/refusals";
 import type { RootParams } from "../../navigation/types";
@@ -105,11 +105,12 @@ function Install({ spaceId }: { spaceId: string }) {
     setPicked(null);
     try {
       const file = new File(asset.uri);
-      const size = asset.size ?? file.size ?? 0;
-      // Type and size first: a photo or a huge file is never read as text.
-      const early = checkLicence({ name: asset.name, mime: asset.mimeType, size, text: "x" });
-      if (early === "type" || early === "size") {
-        setError(t(PROBLEM_KEY[early]));
+      const size = knownFileSize(asset.size, file.size);
+      // Type and size first: a photo or a huge file is never read as text, and a file whose size
+      // nobody can tell is not read at all (it could be of any size).
+      const early = size === null ? "size" : checkLicence({ name: asset.name, mime: asset.mimeType, size, text: "x" });
+      if (size === null || early === "type" || early === "size") {
+        setError(t(PROBLEM_KEY[early ?? "size"]));
         return;
       }
       const read = await file.text();
@@ -175,6 +176,7 @@ function Install({ spaceId }: { spaceId: string }) {
               setError(undefined);
             }}
             multiline
+            minHeight={150}
             autoCapitalize="none"
             autoCorrect={false}
             spellCheck={false}

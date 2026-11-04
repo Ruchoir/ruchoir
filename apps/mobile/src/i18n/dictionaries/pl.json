@@ -1190,7 +1190,8 @@
     "groupsCount_one": "{{count}} grupa",
     "groupsCount_few": "{{count}} grup",
     "groupsCount_many": "{{count}} grup",
-    "groupsCount_other": "{{count}} grup"
+    "groupsCount_other": "{{count}} grup",
+    "auditLast": "Ostatnia zmiana {{day}} o {{time}}"
   },
   "spaceAdmin": {
     "invite": "Zaproś osoby",
@@ -1547,7 +1548,8 @@
       "empty": "Ten plik jest pusty.",
       "notText": "Ten plik nie jest tekstem: licencja to jedna linia tekstu.",
       "unreadable": "Nie udało się odczytać tego pliku. Spróbuj ponownie lub wklej tekst licencji."
-    }
+    },
+    "active": "Aktywna"
   },
   "groups": {
     "noSelfRole": "Nikt nie nadaje sobie roli, także przez grupę: nie możesz zmieniać ról grupy, do której należysz.",

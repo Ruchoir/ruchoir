@@ -1086,7 +1086,8 @@
     "rolesCustom_one": "{{count}} custom",
     "rolesCustom_other": "{{count}} custom",
     "groupsCount_one": "{{count}} group",
-    "groupsCount_other": "{{count}} groups"
+    "groupsCount_other": "{{count}} groups",
+    "auditLast": "Last change {{day}} at {{time}}"
   },
   "spaceAdmin": {
     "invite": "Invite people",
@@ -1425,7 +1426,8 @@
       "empty": "This file is empty.",
       "notText": "This file is not text: a licence is a line of text.",
       "unreadable": "This file could not be read. Try again, or paste the licence's text."
-    }
+    },
+    "active": "Active"
   },
   "groups": {
     "noSelfRole": "Nobody gives themselves a role, through a group either: you cannot change the roles of a group you belong to.",

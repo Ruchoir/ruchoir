@@ -48,9 +48,11 @@ export function seatsFraction(used: number, seats: number): { fraction: number; 
   return { fraction, full: seats <= 0 || used >= seats };
 }
 
-/** Whole days until `validUntil` (an RFC 3339 date), rounded up, 0 once it has passed. */
-export function daysLeft(validUntil: string, now: Date): number {
-  const end = Date.parse(validUntil);
-  if (Number.isNaN(end)) return 0;
-  return Math.max(0, Math.ceil((end - now.getTime()) / 86_400_000));
+/**
+ * The size of a picked file, from what the picker and the file system say (the first usable one), or
+ * `null` when neither does: such a file is refused, never read, since a big one would be read whole.
+ */
+export function knownFileSize(...sizes: (number | null | undefined)[]): number | null {
+  for (const size of sizes) if (typeof size === "number" && Number.isFinite(size) && size >= 0) return size;
+  return null;
 }
