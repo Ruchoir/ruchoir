@@ -112,8 +112,8 @@ export function canEdit(access: AccessLike): boolean {
 }
 
 /** Why the dialog is read-only, as a dictionary key; nothing when it is not. */
-export function readOnlyReason(access: AccessLike): string | undefined {
-  if (access.archived) return "access.readOnly.archived";
+export function readOnlyReason(access: AccessLike, kind: Kind = "channel"): string | undefined {
+  if (access.archived) return kind === "channel" ? "access.readOnly.archived" : "access.readOnly.trashed";
   if (access.may.edit) return undefined;
   switch (access.may.reason) {
     case "licence_required":
@@ -136,4 +136,49 @@ const ORDER: Record<TargetKind, number> = { everyone: 0, role: 1, group: 2, audi
 export function groupEntries<E extends EntryLike>(entries: E[]): E[] {
   const key = (e: E) => (e.inheritedFrom ? 10 : 0) + ORDER[e.target.kind];
   return entries.map((e, i) => ({ e, i })).sort((a, b) => key(a.e) - key(b.e) || a.i - b.i).map((x) => x.e);
+}
+
+/** Whether a line may be changed here: the viewer may edit, the item is live, and the line is its own. */
+export function entryEditable(access: AccessLike, entry: EntryLike): boolean {
+  return canEdit(access) && !entry.inheritedFrom;
+}
+
+/** The folder an inherited line comes from, when the viewer may open it; nothing for a hidden one. */
+export function inheritedLink(entry: EntryLike): { id: string; name: string } | undefined {
+  const from = entry.inheritedFrom;
+  if (!from || from.hidden || !from.id) return undefined;
+  return { id: from.id, name: from.name ?? "" };
+}
+
+/** What a line of the item replaces: the level its target had from above, and the folder it came from. */
+export type Override = { level: Level; folder?: string };
+
+const targetId = (e: EntryLike) => `${e.target.kind}:${e.target.id ?? ""}`;
+
+/**
+ * The lines of a file or folder, with what each of its own lines replaces. The nearest rule wins
+ * (the server already lists one line per target); `parent` is what the parent folder's dialog
+ * lists, which is exactly what the item would inherit. A line of the item's own for a target the
+ * parent also has is an override, and drops the inherited line for that target should one remain.
+ * Without the parent's view nothing is claimed.
+ */
+export function withOverrides<E extends EntryLike>(
+  entries: E[],
+  parent: EntryLike[] | undefined,
+  parentName: string | undefined,
+): { entries: E[]; overrides: Map<string, Override> } {
+  const overrides = new Map<string, Override>();
+  if (!parent) return { entries, overrides };
+  const own = new Set(entries.filter((e) => !e.inheritedFrom && e.id).map(targetId));
+  for (const line of parent) {
+    const key = targetId(line);
+    if (!own.has(key) || overrides.has(key)) continue;
+    overrides.set(key, { level: line.level, folder: line.inheritedFrom ? (line.inheritedFrom.hidden ? undefined : line.inheritedFrom.name) : parentName });
+  }
+  return { entries: entries.filter((e) => !e.inheritedFrom || !own.has(targetId(e))), overrides };
+}
+
+/** The level the legacy "who may write" setting of a space calendar stood for: members write, admins only read. */
+export function calendarLevelOf(writeAccess: "members" | "admins"): Level {
+  return writeAccess === "members" ? "contribute" : "read";
 }

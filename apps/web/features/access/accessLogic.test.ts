@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { addLevelOptions, canEdit, entryNote, groupEntries, levelLabelKey, levelOptions, privateNote, readOnlyReason, removable, type EntryLike } from "./accessLogic.ts";
+import { addLevelOptions, calendarLevelOf, canEdit, entryEditable, inheritedLink, withOverrides, entryNote, groupEntries, levelLabelKey, levelOptions, privateNote, readOnlyReason, removable, type EntryLike } from "./accessLogic.ts";
 
 const may = (levels: string[], over: Partial<{ edit: boolean; reason: string }> = {}) => ({
   edit: over.edit ?? true,
@@ -132,4 +132,53 @@ test("entries_are_grouped_everyone_roles_groups_people_with_inherited_last", () 
   };
   const rows = groupEntries([e("user", "Marc"), e("group", "Compta"), e("role", "RH"), e("everyone", "Tout"), e("group", "Archive", { inheritedFrom: { kind: "folder", name: "F", hidden: false } })]);
   assert.deepEqual(rows.map((r) => r.target.name), ["Tout", "RH", "Compta", "Marc", "Archive"]);
+});
+
+const folderRef = (id: string | undefined, name?: string) => ({ kind: "folder", id, name, hidden: id === undefined });
+
+test("an_inherited_line_links_to_its_folder", () => {
+  const line = entry({ id: undefined, inheritedFrom: folderRef("f1", "Compta") });
+  assert.deepEqual(inheritedLink(line), { id: "f1", name: "Compta" });
+  // A folder the viewer may not see is named "un dossier parent" and has no link.
+  assert.equal(inheritedLink(entry({ id: undefined, inheritedFrom: folderRef(undefined) })), undefined);
+  // A line of the item itself links nowhere.
+  assert.equal(inheritedLink(entry()), undefined);
+});
+
+test("an_override_replaces_the_inherited_line", () => {
+  const up = (name: string, level: EntryLike["level"], from?: string): EntryLike => {
+    const e = entry({ id: from ? undefined : "p1", level, inheritedFrom: from ? folderRef("f", from) : undefined });
+    e.target = { kind: "group", id: "g1", name, hidden: false };
+    return e;
+  };
+  const own = entry({ id: "r1", level: "read" });
+  // The parent's view says the group may contribute, from the folder Compta.
+  const merged = withOverrides([own, up("Comptabilité", "contribute", "Compta")], [up("Comptabilité", "contribute", "Compta")], "2026");
+  assert.equal(merged.entries.length, 1);
+  assert.deepEqual(merged.overrides.get("group:g1"), { level: "contribute", folder: "Compta" });
+  // Another target stays inherited and nothing is overridden for it.
+  const other = entry({ id: undefined, inheritedFrom: folderRef("f", "Compta") });
+  other.target = { kind: "role", id: "r", name: "Admin", hidden: false };
+  const kept = withOverrides([own, other], [other], "2026");
+  assert.equal(kept.entries.length, 2);
+  assert.equal(kept.overrides.has("role:r"), false);
+  // The parent's own line (not inherited by it) is named after the parent.
+  const direct = withOverrides([own], [up("Comptabilité", "contribute")], "2026");
+  assert.equal(direct.overrides.get("group:g1")?.folder, "2026");
+  // Without the parent's view nothing is claimed.
+  assert.equal(withOverrides([own], undefined, undefined).overrides.size, 0);
+});
+
+test("the_calendar_write_toggle_maps_to_levels", () => {
+  assert.equal(calendarLevelOf("members"), "contribute");
+  assert.equal(calendarLevelOf("admins"), "read");
+});
+
+test("a_member_without_edit_sees_the_list_read_only", () => {
+  const view = { archived: false, may: may([], { edit: false, reason: "not_allowed" }) };
+  assert.equal(entryEditable(view, entry()), false);
+  assert.equal(entryEditable({ archived: false, may: may(ALL) }, entry()), true);
+  // An inherited line is never edited here, whoever looks.
+  assert.equal(entryEditable({ archived: false, may: may(ALL) }, entry({ id: undefined, inheritedFrom: folderRef("f", "F") })), false);
+  assert.equal(entryEditable({ archived: true, may: may(ALL) }, entry()), false);
 });

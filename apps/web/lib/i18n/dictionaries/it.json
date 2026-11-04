@@ -1819,7 +1819,9 @@
       "read": "Vedere i dettagli",
       "write": "Modificare gli eventi"
     },
-    "printFile": "calendario.pdf"
+    "printFile": "calendario.pdf",
+    "writeSummary": "Oggi l'intero spazio ha il livello «{{level}}» su questo calendario.",
+    "shareByLevels": "Condividi il calendario"
   },
   "invitationPage": {
     "title": "Invito",
@@ -2508,14 +2510,15 @@
     "denyNote": "Accesso negato qui",
     "clamped": "il suo livello è limitato per i suoi ospiti",
     "inheritedFrom": "Ereditato da {{folder}}",
-    "inheritedHidden": "Ereditato da una cartella",
+    "inheritedHidden": "Ereditato da una cartella superiore",
     "levelFor": "Livello di {{name}}",
     "editDetail": "Modifica il dettaglio",
     "readOnly": {
       "licenceRequired": "Può consultare questo accesso senza modificarlo: delegare la gestione dell'accesso fa parte dell'edizione Enterprise.",
       "licenceFrozen": "Le modifiche sono sospese: la licenza di questo spazio è congelata. Può comunque consultare l'accesso.",
       "notAllowed": "Può consultare questo accesso, ma non modificarlo.",
-      "archived": "Questo canale è archiviato: il suo accesso non si può più modificare."
+      "archived": "Questo canale è archiviato: il suo accesso non si può più modificare.",
+      "trashed": "Questo elemento è nel cestino: il suo accesso non può più essere modificato."
     },
     "verifyTitle": "Verificare l'accesso di qualcuno.",
     "verifyBody": "Scelga una persona: le spieghiamo passo per passo perché ha, o non ha, accesso.",
@@ -2561,6 +2564,22 @@
     "guestGroupNotice_other": "Nei gruppi scelti, il livello degli ospiti è limitato allo stesso modo.",
     "privateNote_one": "{{names}} vede ora {{channel}} nell'elenco dei canali e vi entra con un clic. Nessuno viene avvisato: né la persona né gli altri. Gli accessi dati a un ruolo, a un gruppo o a una persona funzionano allo stesso modo.",
     "privateNote_many": "{{names}} vedono ora {{channel}} nell'elenco dei canali e vi entrano con un clic. Nessuno viene avvisato: né loro né gli altri. Gli accessi dati a un ruolo, a un gruppo o a una persona funzionano allo stesso modo.",
-    "privateNote_other": "{{names}} vedono ora {{channel}} nell'elenco dei canali e vi entrano con un clic. Nessuno viene avvisato: né loro né gli altri. Gli accessi dati a un ruolo, a un gruppo o a una persona funzionano allo stesso modo."
+    "privateNote_other": "{{names}} vedono ora {{channel}} nell'elenco dei canali e vi entrano con un clic. Nessuno viene avvisato: né loro né gli altri. Gli accessi dati a un ruolo, a un gruppo o a una persona funzionano allo stesso modo.",
+    "subtitleFile": "Questo file segue la sua cartella, tranne per le voci modificate qui sotto.",
+    "subtitleFileIn": "{{parent}}. Questo file segue la sua cartella, tranne per le voci modificate qui sotto.",
+    "subtitleFolder": "Quello che imposti qui vale per tutto ciò che questa cartella contiene.",
+    "subtitleFolderIn": "{{parent}}. Quello che imposti qui vale per tutto ciò che questa cartella contiene.",
+    "subtitleCalendar": "Chi vede gli eventi, chi può crearli, chi gestisce il calendario.",
+    "shareFolderTitle": "Condividi la cartella {{name}}",
+    "shareCalendarTitle": "Condividi il calendario {{name}}",
+    "tab": "Accesso",
+    "inheritedFromLabel": "Ereditato da",
+    "modifiedHere": "Modificato qui",
+    "overrides": "Sostituisce «{{level}}» ereditato da {{folder}}",
+    "overridesHidden": "Sostituisce «{{level}}» ereditato da una cartella superiore",
+    "restore": "Ripristina l'ereditarietà",
+    "audienceName": "Lettori di #{{name}}",
+    "closestWins": "Vince la regola più vicina.",
+    "closestWinsBody": "Per {{name}}, questo elemento è impostato su «{{level}}» anche se la cartella sopra dà «{{parentLevel}}». Le altre voci continuano a seguire la cartella."
   }
 }

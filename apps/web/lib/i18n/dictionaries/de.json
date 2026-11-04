@@ -1748,7 +1748,9 @@
       "read": "Details sehen",
       "write": "Termine bearbeiten"
     },
-    "printFile": "kalender.pdf"
+    "printFile": "kalender.pdf",
+    "writeSummary": "Derzeit hat der ganze Bereich die Stufe „{{level}}“ für diesen Kalender.",
+    "shareByLevels": "Kalender teilen"
   },
   "invitationPage": {
     "title": "Einladung",
@@ -2417,14 +2419,15 @@
     "denyNote": "Hier verweigert",
     "clamped": "die Stufe ist für seine Gäste begrenzt",
     "inheritedFrom": "Geerbt von {{folder}}",
-    "inheritedHidden": "Von einem Ordner geerbt",
+    "inheritedHidden": "Von einem übergeordneten Ordner geerbt",
     "levelFor": "Stufe von {{name}}",
     "editDetail": "Details bearbeiten",
     "readOnly": {
       "licenceRequired": "Sie können diesen Zugriff einsehen, aber nicht ändern: Die Delegation der Zugriffsverwaltung gehört zur Enterprise-Edition.",
       "licenceFrozen": "Änderungen sind ausgesetzt: Die Lizenz dieses Space ist eingefroren. Sie können den Zugriff weiterhin einsehen.",
       "notAllowed": "Sie können diesen Zugriff einsehen, aber nicht ändern.",
-      "archived": "Dieser Kanal ist archiviert: Sein Zugriff kann nicht mehr geändert werden."
+      "archived": "Dieser Kanal ist archiviert: Sein Zugriff kann nicht mehr geändert werden.",
+      "trashed": "Dieses Element liegt im Papierkorb: Sein Zugriff kann nicht mehr geändert werden."
     },
     "verifyTitle": "Zugriff einer Person prüfen.",
     "verifyBody": "Wählen Sie eine Person: Wir erklären Schritt für Schritt, warum sie Zugriff hat oder nicht.",
@@ -2462,6 +2465,22 @@
     "guestGroupNotice_one": "In der gewählten Gruppe ist die Stufe der Gäste ebenso begrenzt.",
     "guestGroupNotice_other": "In den gewählten Gruppen ist die Stufe der Gäste ebenso begrenzt.",
     "privateNote_one": "{{names}} sieht {{channel}} jetzt in der Kanalliste und tritt mit einem Klick bei. Niemand wird benachrichtigt: weder die Person noch die anderen. Zugriffe für eine Rolle, eine Gruppe oder eine Person wirken genauso.",
-    "privateNote_other": "{{names}} sehen {{channel}} jetzt in der Kanalliste und treten mit einem Klick bei. Niemand wird benachrichtigt: weder diese Personen noch die anderen. Zugriffe für eine Rolle, eine Gruppe oder eine Person wirken genauso."
+    "privateNote_other": "{{names}} sehen {{channel}} jetzt in der Kanalliste und treten mit einem Klick bei. Niemand wird benachrichtigt: weder diese Personen noch die anderen. Zugriffe für eine Rolle, eine Gruppe oder eine Person wirken genauso.",
+    "subtitleFile": "Diese Datei folgt ihrem Ordner, außer bei den unten geänderten Einträgen.",
+    "subtitleFileIn": "{{parent}}. Diese Datei folgt ihrem Ordner, außer bei den unten geänderten Einträgen.",
+    "subtitleFolder": "Was Sie hier einstellen, gilt für alles, was dieser Ordner enthält.",
+    "subtitleFolderIn": "{{parent}}. Was Sie hier einstellen, gilt für alles, was dieser Ordner enthält.",
+    "subtitleCalendar": "Wer die Termine sieht, wer sie anlegen darf und wer den Kalender verwaltet.",
+    "shareFolderTitle": "Ordner {{name}} teilen",
+    "shareCalendarTitle": "Kalender {{name}} teilen",
+    "tab": "Zugriff",
+    "inheritedFromLabel": "Geerbt von",
+    "modifiedHere": "Hier geändert",
+    "overrides": "Ersetzt „{{level}}“, geerbt von {{folder}}",
+    "overridesHidden": "Ersetzt „{{level}}“, geerbt von einem übergeordneten Ordner",
+    "restore": "Vererbung wiederherstellen",
+    "audienceName": "Leser von #{{name}}",
+    "closestWins": "Die nächstgelegene Regel gilt.",
+    "closestWinsBody": "Für {{name}} ist dieses Element auf „{{level}}“ eingestellt, auch wenn der Ordner darüber „{{parentLevel}}“ vergibt. Die übrigen Einträge folgen weiter dem Ordner."
   }
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Calendar, CalendarEvent, Occurrence } from "@/lib/data/calendar";
 import { useTranslation } from "@/lib/i18n";
+import type { ChannelAccessRules } from "../channel/ChannelAccess";
 import { CalendarSettingsDialog, FeedsDialog } from "./CalendarSettingsDialog";
 import type { Draft } from "./CalendarScreen";
 import { EventDetails } from "./EventDetails";
@@ -30,10 +31,11 @@ export type CalendarOverlaysProps = {
   onChanged: () => void;
   onNotify?: (toast: { tone: "info" | "success" | "danger"; title: string }) => void;
   onOpenChannel?: (spaceId: string, channelId: string) => void;
+  accessRules?: ChannelAccessRules;
 };
 
 /** The calendar's windows: an event's details, the event form, a calendar's settings. */
-export function CalendarOverlays({ compact, timeZone, spaces, calendars, filter, currentSpaceId, viewerId, opened, draft, settings, onClose, onChanged, onNotify, onOpenChannel }: CalendarOverlaysProps) {
+export function CalendarOverlays({ compact, timeZone, spaces, calendars, filter, currentSpaceId, viewerId, opened, draft, settings, onClose, onChanged, onNotify, onOpenChannel, accessRules }: CalendarOverlaysProps) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState<{ occurrence: Occurrence; event: CalendarEvent } | null>(null);
   const spaceName = (id?: string) => spaces.find((s) => s.id === id)?.name;
@@ -63,7 +65,7 @@ export function CalendarOverlays({ compact, timeZone, spaces, calendars, filter,
   if (settings) {
     const calendar = settings.kind === "edit" ? settings.calendar : undefined;
     const spaceId = settings.kind === "new" ? settings.spaceId : calendar?.spaceId;
-    return <CalendarSettingsDialog calendar={calendar} spaceId={spaceId} spaceName={spaceName(spaceId)} suggestedColor={freeColor(calendars)} onDone={finish} onClose={close} />;
+    return <CalendarSettingsDialog calendar={calendar} spaceId={spaceId} spaceName={spaceName(spaceId)} suggestedColor={freeColor(calendars)} accessRules={accessRules} onNotify={onNotify} onDone={finish} onClose={close} />;
   }
   if (editing) {
     return <EventForm compact={compact} calendars={calendars} currentSpaceId={currentSpaceId} viewerId={viewerId} spaces={spaces} timeZone={timeZone} editing={editing} onDone={finish} onCancel={close} />;

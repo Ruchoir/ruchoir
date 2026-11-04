@@ -1774,7 +1774,9 @@
       "read": "Voir les détails",
       "write": "Modifier les événements"
     },
-    "printFile": "agenda.pdf"
+    "printFile": "agenda.pdf",
+    "writeSummary": "Aujourd'hui, tout l'espace a le niveau « {{level}} » sur cet agenda.",
+    "shareByLevels": "Partager l'agenda"
   },
   "invitationPage": {
     "title": "Invitation",
@@ -2443,14 +2445,15 @@
     "denyNote": "Accès refusé ici",
     "clamped": "son niveau est limité pour ses invités",
     "inheritedFrom": "Hérité de {{folder}}",
-    "inheritedHidden": "Hérité d'un dossier",
+    "inheritedHidden": "Hérité d'un dossier parent",
     "levelFor": "Niveau de {{name}}",
     "editDetail": "Modifier le détail",
     "readOnly": {
       "licenceRequired": "Vous pouvez consulter cet accès sans le modifier : déléguer la gestion de l'accès relève de l'édition Entreprise.",
       "licenceFrozen": "Les modifications sont suspendues : la licence de cet espace est gelée. Vous pouvez consulter l'accès.",
       "notAllowed": "Vous pouvez consulter cet accès, mais pas le modifier.",
-      "archived": "Ce canal est archivé : son accès ne peut plus être modifié."
+      "archived": "Ce canal est archivé : son accès ne peut plus être modifié.",
+      "trashed": "Cet élément est dans la corbeille : son accès ne peut plus être modifié."
     },
     "verifyTitle": "Vérifier l'accès de quelqu'un.",
     "verifyBody": "Choisissez une personne : on vous explique pas à pas pourquoi elle a, ou n'a pas, accès.",
@@ -2496,6 +2499,22 @@
     "guestGroupNotice_other": "Dans les groupes choisis, le niveau des invités est limité de la même façon.",
     "privateNote_one": "{{names}} voit maintenant {{channel}} dans sa liste de canaux et le rejoint en un clic. Personne n'est prévenu : ni cette personne, ni les autres. Les accès donnés à un rôle, à un groupe ou à une personne agissent de la même façon.",
     "privateNote_many": "{{names}} voient maintenant {{channel}} dans leur liste de canaux et le rejoignent en un clic. Personne n'est prévenu : ni ces personnes, ni les autres. Les accès donnés à un rôle, à un groupe ou à une personne agissent de la même façon.",
-    "privateNote_other": "{{names}} voient maintenant {{channel}} dans leur liste de canaux et le rejoignent en un clic. Personne n'est prévenu : ni ces personnes, ni les autres. Les accès donnés à un rôle, à un groupe ou à une personne agissent de la même façon."
+    "privateNote_other": "{{names}} voient maintenant {{channel}} dans leur liste de canaux et le rejoignent en un clic. Personne n'est prévenu : ni ces personnes, ni les autres. Les accès donnés à un rôle, à un groupe ou à une personne agissent de la même façon.",
+    "subtitleFile": "Ce fichier suit son dossier, sauf pour les entrées modifiées ci-dessous.",
+    "subtitleFileIn": "{{parent}}. Ce fichier suit son dossier, sauf pour les entrées modifiées ci-dessous.",
+    "subtitleFolder": "Ce que vous réglez ici vaut pour tout ce que contient ce dossier.",
+    "subtitleFolderIn": "{{parent}}. Ce que vous réglez ici vaut pour tout ce que contient ce dossier.",
+    "subtitleCalendar": "Qui voit les événements, qui peut en créer, qui gère l'agenda.",
+    "shareFolderTitle": "Partager le dossier {{name}}",
+    "shareCalendarTitle": "Partager l'agenda {{name}}",
+    "tab": "Accès",
+    "inheritedFromLabel": "Hérité de",
+    "modifiedHere": "Modifié ici",
+    "overrides": "Remplace « {{level}} » hérité de {{folder}}",
+    "overridesHidden": "Remplace « {{level}} » hérité d'un dossier parent",
+    "restore": "Rétablir l'héritage",
+    "audienceName": "Lecteurs de #{{name}}",
+    "closestWins": "La règle la plus proche gagne.",
+    "closestWinsBody": "Pour {{name}}, cet élément est réglé sur « {{level}} » même si le dossier du dessus donne « {{parentLevel}} ». Les autres entrées continuent de suivre le dossier."
   }
 }

@@ -4,8 +4,11 @@ import { type CSSProperties, useEffect, useState } from "react";
 import { Avatar, Button, Dialog, Field, Icon, IconButton, Input, Select, Skeleton, SkeletonGroup, Tag, Textarea } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import { createLink, type FileLink, listLinks, revokeLink, sendMessage } from "@/lib/data/api";
+import type { AccessView } from "@/lib/data/types";
 import { useTranslation } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/format";
+import { AccessPanel, accessSubtitle } from "../access/AccessDialog";
+import type { ChannelAccessRules } from "../channel/ChannelAccess";
 import type { Toast } from "../app/types";
 
 /** A conversation a file can be sent into. */
@@ -52,6 +55,8 @@ export function ShareDialog({
   canManage,
   publicLinks,
   targets,
+  rules,
+  isFolder = false,
   onNotify,
   onClose,
 }: {
@@ -61,6 +66,13 @@ export function ShareDialog({
   /** Whether the instance allows public links. */
   publicLinks: boolean;
   targets: ShareTarget[];
+  /**
+   * Set when the instance lists `resource_rules`: the dialog then has an "Accès" tab (levels, what is
+   * inherited from the folders above) next to sending into a conversation. Absent, it is what it was.
+   */
+  rules?: ChannelAccessRules;
+  /** A folder: it has an access tab only (a conversation takes files, and links are files'). */
+  isFolder?: boolean;
   onNotify: (toast: Toast) => void;
   onClose: () => void;
 }) {
@@ -75,8 +87,12 @@ export function ShareDialog({
   const [password, setPassword] = useState("");
   const [creating, setCreating] = useState(false);
   const [openedFor, setOpenedFor] = useState<SpaceFile | null>(null);
+  const [tab, setTab] = useState<"access" | "send">("access");
+  const [view, setView] = useState<AccessView | null>(null);
 
-  const manageLinks = canManage && publicLinks;
+  const levels = rules != null && file?.id != null;
+  const showSend = !isFolder && (!levels || tab === "send");
+  const manageLinks = canManage && publicLinks && !isFolder;
   // Every opening starts afresh.
   if (file && openedFor !== file) {
     setOpenedFor(file);
@@ -87,6 +103,8 @@ export function ShareDialog({
     setExpiry("never");
     setDate("");
     setPassword("");
+    setTab("access");
+    setView(null);
   }
 
   useEffect(() => {
@@ -158,9 +176,64 @@ export function ShareDialog({
 
   const today = new Date().toISOString().slice(0, 10);
 
+  const sub = levels ? accessSubtitle("file", isFolder, view, false) : undefined;
+  const tabButton = (id: "access" | "send", label: string) => (
+    <button
+      key={id}
+      type="button"
+      role="tab"
+      aria-selected={tab === id}
+      onClick={() => setTab(id)}
+      style={{
+        padding: "8px 14px",
+        border: 0,
+        borderBottom: tab === id ? "2px solid var(--text-strong)" : "2px solid transparent",
+        background: "none",
+        font: "inherit",
+        fontSize: "var(--text-sm)",
+        fontWeight: 600,
+        color: tab === id ? "var(--text-strong)" : "var(--text-muted)",
+        cursor: "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
+
   return (
-    <Dialog open={file != null} title={file ? t("files.shareTitle", { name: file.name }) : undefined} closeLabel={t("common.close")} size="md" onClose={onClose}>
-      <h3 style={section}>{t("files.sendToConversation")}</h3>
+    <Dialog
+      open={file != null}
+      title={file ? (isFolder ? t("access.shareFolderTitle", { name: file.name }) : t("files.shareTitle", { name: file.name })) : undefined}
+      subtitle={sub ? t(sub.key, { parent: sub.parent ?? "" }) : undefined}
+      closeLabel={t("common.close")}
+      size={levels && tab === "access" ? "lg" : "md"}
+      onClose={onClose}
+    >
+      {levels && !isFolder ? (
+        <div role="tablist" style={{ display: "flex", gap: 4, margin: "0 0 14px", borderBottom: "1px solid var(--border-subtle)" }}>
+          {tabButton("access", t("access.tab"))}
+          {tabButton("send", t("files.sendToConversation"))}
+        </div>
+      ) : null}
+      {levels && file?.id && tab === "access" ? (
+        <AccessPanel
+          spaceId={rules.spaceId}
+          kind="file"
+          resourceId={file.id}
+          resourceName={file.name}
+          isFolder={isFolder}
+          archived={false}
+          viewerId={rules.viewerId}
+          pricingUrl={rules.pricingUrl}
+          onChanged={rules.onChanged}
+          onExplain={rules.onExplain}
+          onNotify={onNotify}
+          onLoaded={setView}
+        />
+      ) : null}
+      {showSend ? (
+        <>
+      {levels ? null : <h3 style={section}>{t("files.sendToConversation")}</h3>}
       {target ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <Tag icon={target.kind === "channel" ? "hash" : undefined}>{target.name}</Tag>
@@ -235,7 +308,10 @@ export function ShareDialog({
         </>
       ) : null}
 
-      {manageLinks ? (
+        </>
+      ) : null}
+
+      {manageLinks && (!levels || tab === "access") ? (
         <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border-subtle)" }}>
           <h3 style={section}>{t("files.publicLinks")}</h3>
           <p style={muted}>{t("files.publicLinksHint")}</p>
@@ -290,7 +366,7 @@ export function ShareDialog({
             </Button>
           </div>
         </div>
-      ) : canManage && !publicLinks ? (
+      ) : canManage && !publicLinks && !isFolder && (!levels || tab === "access") ? (
         <p style={{ ...muted, marginTop: 18 }}>{t("files.publicLinksOff")}</p>
       ) : null}
     </Dialog>

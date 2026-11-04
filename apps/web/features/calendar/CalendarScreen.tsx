@@ -17,6 +17,7 @@ import {
   type Occurrence,
 } from "@/lib/data/calendar";
 import { useTranslation } from "@/lib/i18n";
+import type { ChannelAccessRules } from "../channel/ChannelAccess";
 import { CalendarOverlays, type SettingsTarget } from "./CalendarOverlays";
 import { CalendarSidebar, ScopeSwitch, SpacePicker } from "./CalendarSidebar";
 import { CalendarSearchDialog } from "./EventSearch";
@@ -95,6 +96,8 @@ export type CalendarScreenProps = {
   onComposeUsed?: () => void;
   /** Go to a channel an event is linked to. */
   onOpenChannel?: (spaceId: string, channelId: string) => void;
+  /** Set when the instance lists `resource_rules`: a space calendar is shared by levels. */
+  accessRules?: ChannelAccessRules;
   onNotify?: (toast: {
     tone: "info" | "success" | "danger";
     title: string;
@@ -122,6 +125,7 @@ export function CalendarScreen({
   onFocusUsed,
   onComposeUsed,
   onOpenChannel,
+  accessRules,
   onNotify,
 }: CalendarScreenProps) {
   const { t } = useTranslation();
@@ -769,6 +773,7 @@ export function CalendarScreen({
             onChanged={reload}
             onNotify={onNotify}
             onOpenChannel={onOpenChannel}
+            accessRules={accessRules}
           />
         ) : null}
       </div>

@@ -1,60 +1,87 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Dialog, Icon, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
 import { getAccess, getSpaceMembers, listGroups, listRoles, refusalOf, removeAccessEntry, setAccessLevel } from "@/lib/data/api";
-import type { AccessEntry, AccessLevel, AccessView, Group, Role } from "@/lib/data/types";
+import type { AccessEntry, AccessKind, AccessLevel, AccessView, Group, Role } from "@/lib/data/types";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { refusalMessage } from "../settings/roleChips";
-import { canEdit, groupEntries, levelDescKey, levelLabelKey, privateNote, readOnlyReason } from "./accessLogic.ts";
+import { canEdit, groupEntries, levelDescKey, levelLabelKey, privateNote, readOnlyReason, withOverrides } from "./accessLogic.ts";
 import { AddTargetDialog } from "./AddTargetDialog";
 import { EntryRow, targetKey, tk } from "./EntryRow";
 
 type Notify = (toast: { tone: "danger" | "success" | "info"; title: string; description?: string }) => void;
 
-/**
- * Who has access to a channel, and at what level (frames 1, 2 and 4). Public or private stays a choice
- * of its own; the lines below say who may read, take part or manage, a level each, and every level
- * includes the one before it. What the caller may do comes from the API's `may` block: the dialog
- * offers that and says why the rest is off, it never decides.
- */
-export function AccessDialog({
-  spaceId,
-  channelId,
-  channelName,
-  isPrivate,
-  archived,
-  viewerId,
-  pricingUrl,
-  onTypeChange,
-  onChanged,
-  onClose,
-  onNotify,
-  onExplain,
-  onCustomise,
-}: {
+type PanelProps = {
   spaceId: string;
-  channelId: string;
-  channelName: string;
-  /** `private` or `public`, as the channel itself says it. */
-  isPrivate: boolean;
+  /** What is shared: a channel, a file or folder (`file`), or a space calendar. */
+  kind: AccessKind;
+  resourceId: string;
+  /** Its name as a person knows it (a channel without the `#`). */
+  resourceName: string;
+  /** A folder rather than a file (the words differ; the rules are the same). */
+  isFolder?: boolean;
+  /** `private` or `public`, as the channel itself says it (channels only). */
+  isPrivate?: boolean;
   archived: boolean;
   viewerId: string | undefined;
   pricingUrl?: string;
-  /** Make the channel public or private (the caller's own save). */
-  onTypeChange: (type: "public" | "private") => void | Promise<unknown>;
+  /** Make the channel public or private (the caller's own save); channels only. */
+  onTypeChange?: (type: "public" | "private") => void | Promise<unknown>;
   /** Called after any change, so the rest of the app can refresh what depends on access. */
   onChanged?: () => void;
-  onClose: () => void;
   onNotify: Notify;
   /** Opens "Pourquoi ?" (the entry point; absent, the block is not drawn). */
   onExplain?: () => void;
   /** Opens the fine rules of a line (enterprise; absent, the button is not drawn). */
   onCustomise?: (entry: AccessEntry) => void;
-}) {
+  /** Told each time the view loads, for whoever draws the title around the panel. */
+  onLoaded?: (view: AccessView) => void;
+};
+
+/** The line under the title: what this dialog is about, for the kind of thing it shares. */
+export function accessSubtitle(kind: AccessKind, isFolder: boolean, view: AccessView | null, fallbackPrivate: boolean): { key: TranslationKey; parent?: string } {
+  if (kind === "calendar") return { key: key("access.subtitleCalendar") };
+  if (kind === "file") {
+    const parent = view?.resource.parent;
+    const name = parent && !parent.hidden ? parent.name : undefined;
+    if (name) return { key: isFolder ? key("access.subtitleFolderIn") : key("access.subtitleFileIn"), parent: name };
+    return { key: isFolder ? key("access.subtitleFolder") : key("access.subtitleFile") };
+  }
+  if (view?.may.fine) return { key: key("access.subtitleEnterprise") };
+  return { key: (view?.private ?? fallbackPrivate) ? key("access.subtitlePrivate") : key("access.subtitle") };
+}
+
+/**
+ * Who has access to a channel, a file, a folder or a calendar, and at what level (frames 1, 2, 4, 6,
+ * 7 and 8). The lines say who may read, take part or manage, a level each, and every level includes
+ * the one before it. What the caller may do comes from the API's `may` block: the panel offers that
+ * and says why the rest is off, it never decides. For files, lines inherited from a folder above are
+ * greyed with a link to that folder's own dialog, and a line of the item's own replaces the
+ * inherited one for its target until the inheritance is restored.
+ */
+export function AccessPanel({
+  spaceId,
+  kind,
+  resourceId,
+  resourceName,
+  isFolder = false,
+  isPrivate = false,
+  archived,
+  viewerId,
+  pricingUrl,
+  onTypeChange,
+  onChanged,
+  onNotify,
+  onExplain,
+  onCustomise,
+  onLoaded,
+}: PanelProps) {
   const { t } = useTranslation();
   const [access, setAccess] = useState<AccessView | null>(null);
+  /** What the parent folder lists: what a file inherits, to tell which of its lines are overrides. */
+  const [parentView, setParentView] = useState<AccessView | undefined>(undefined);
   const [members, setMembers] = useState<Member[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -62,25 +89,53 @@ export function AccessDialog({
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState<{ key: string; name: string }[]>([]);
+  /** The folder whose own dialog is open above this one (a click on "Hérité de ..."). */
+  const [folder, setFolder] = useState<{ id: string; name: string } | null>(null);
+  /** Bumped when that dialog closes: what this item inherits may have changed. */
+  const [stamp, setStamp] = useState(0);
+
+  const loaded = useRef(onLoaded);
+  useEffect(() => {
+    loaded.current = onLoaded;
+  });
 
   const load = useCallback(async () => {
     try {
-      setAccess(await getAccess(spaceId, "channel", channelId));
+      const view = await getAccess(spaceId, kind, resourceId);
+      setAccess(view);
+      loaded.current?.(view);
       setFailed(false);
     } catch {
       setFailed(true);
     }
-  }, [spaceId, channelId]);
+  }, [spaceId, kind, resourceId]);
 
   useEffect(() => {
     let active = true;
-    getAccess(spaceId, "channel", channelId)
-      .then((view) => active && setAccess(view))
+    getAccess(spaceId, kind, resourceId)
+      .then((view) => {
+        if (!active) return;
+        setAccess(view);
+        loaded.current?.(view);
+        setFailed(false);
+      })
       .catch(() => active && setFailed(true));
     return () => {
       active = false;
     };
-  }, [spaceId, channelId]);
+  }, [spaceId, kind, resourceId, stamp]);
+
+  const parentId = kind === "file" && access?.resource.parent && !access.resource.parent.hidden ? access.resource.parent.id : undefined;
+  useEffect(() => {
+    if (!parentId) return;
+    let active = true;
+    getAccess(spaceId, "file", parentId)
+      .then((view) => active && setParentView(view))
+      .catch(() => active && setParentView(undefined));
+    return () => {
+      active = false;
+    };
+  }, [spaceId, parentId, stamp]);
 
   // The names the lines show. A failure here leaves the lines unnamed rather than the dialog empty.
   useEffect(() => {
@@ -100,8 +155,10 @@ export function AccessDialog({
     setBusy(true);
     try {
       const view = await work();
-      if (view) setAccess(view);
-      else await load();
+      if (view) {
+        setAccess(view);
+        loaded.current?.(view);
+      } else await load();
       onChanged?.();
     } catch (err) {
       onNotify({ tone: "danger", title: t("toast.editNotSaved"), description: refusalMessage(refusalOf(err), t, t("space.retry")) });
@@ -112,15 +169,18 @@ export function AccessDialog({
   };
 
   const onLevel = (entry: AccessEntry, level: Exclude<AccessLevel, "custom">) =>
-    void run(() => setAccessLevel(spaceId, "channel", channelId, { kind: entry.target.kind, id: entry.target.id }, level));
+    void run(() => setAccessLevel(spaceId, kind, resourceId, { kind: entry.target.kind, id: entry.target.id }, level));
   const onRemove = (entry: AccessEntry) => {
-    if (entry.id) void run(() => removeAccessEntry(spaceId, "channel", channelId, entry.id!));
+    if (entry.id) void run(() => removeAccessEntry(spaceId, kind, resourceId, entry.id!));
   };
 
   const editable = access ? canEdit(access) : false;
-  const readOnly = access ? readOnlyReason(access) : undefined;
+  const readOnly = access ? readOnlyReason(access, kind) : undefined;
   const note = access ? privateNote(access.private, added.filter((a) => access.entries.some((e) => targetKey(e.target) === a.key)).map((a) => a.name)) : undefined;
   const justAdded = new Set(added.map((a) => a.key));
+  const merged = access ? withOverrides(access.entries, parentView?.entries, access.resource.parent?.name) : undefined;
+  const firstOverride = merged && access ? access.entries.find((e) => !e.inheritedFrom && merged.overrides.has(targetKey(e.target))) : undefined;
+  const channelName = `#${resourceName}`;
 
   const typeCard = (type: "public" | "private") => {
     const active = (type === "private") === (access?.private ?? isPrivate);
@@ -131,7 +191,7 @@ export function AccessDialog({
         role="radio"
         aria-checked={active}
         disabled={!editable || busy}
-        onClick={() => !active && void run(async () => { await onTypeChange(type); })}
+        onClick={() => !active && void run(async () => { await onTypeChange?.(type); })}
         style={{
           flex: 1,
           display: "flex",
@@ -156,135 +216,134 @@ export function AccessDialog({
     );
   };
 
-  const subtitle: TranslationKey = access?.may.fine ? key("access.subtitleEnterprise") : access?.private ? key("access.subtitlePrivate") : key("access.subtitle");
   const levels = ["read", "contribute", "manage"] as const;
+  const box = { margin: 0, padding: "10px 12px", borderRadius: "var(--radius-md)", fontSize: "var(--text-xs)", color: "var(--text-body)", lineHeight: 1.5 } as const;
 
   return (
     <>
-      <Dialog
-        open
-        size="lg"
-        title={
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-            {t("access.title", { name: `#${channelName}` })}
-            {access?.may.fine ? (
-              <Tag tone="info" icon="sparkles">
-                {t("access.enterprise")}
-              </Tag>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {failed ? (
+          <p role="alert" style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--status-danger-fg)" }}>
+            {t("access.loadFailed")}{" "}
+            <Button size="sm" onClick={() => void load()}>
+              {t("common.retry")}
+            </Button>
+          </p>
+        ) : null}
+        {!access && !failed ? <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>{t("access.loading")}</p> : null}
+
+        {access && merged ? (
+          <>
+            {readOnly ? (
+              <p role="status" style={{ ...box, background: "var(--surface-sunken)", border: "1px solid var(--border-subtle)" }}>
+                {t(tk(readOnly))}
+              </p>
             ) : null}
-          </span>
-        }
-        subtitle={t(subtitle)}
-        onClose={onClose}
-        closeLabel={t("common.close")}
-        footer={
-          <Button variant="primary" onClick={onClose}>
-            {t("onboarding.finish")}
-          </Button>
-        }
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {failed ? (
-            <p role="alert" style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--status-danger-fg)" }}>
-              {t("access.loadFailed")}{" "}
-              <Button size="sm" onClick={() => void load()}>
-                {t("common.retry")}
-              </Button>
-            </p>
-          ) : null}
-          {!access && !failed ? <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "var(--text-sm)" }}>{t("access.loading")}</p> : null}
 
-          {access ? (
-            <>
-              {readOnly ? (
-                <p
-                  role="status"
-                  style={{ margin: 0, padding: "10px 12px", background: "var(--surface-sunken)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", fontSize: "var(--text-xs)", color: "var(--text-body)", lineHeight: 1.5 }}
-                >
-                  {t(tk(readOnly))}
-                </p>
-              ) : null}
-
+            {kind === "channel" && onTypeChange ? (
               <div role="radiogroup" aria-label={t("access.typeLabel")} style={{ display: "flex", gap: 12 }}>
                 {typeCard("public")}
                 {typeCard("private")}
               </div>
+            ) : null}
 
-              <div role="table" aria-label={t("access.colWho")} style={{ border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-                <div style={{ display: "flex", padding: "8px 12px", background: "var(--surface-sunken)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                  <span style={{ flex: 1 }}>{t("access.colWho")}</span>
-                  <span style={{ width: 168, flex: "none" }}>{t("access.colLevel")}</span>
-                </div>
-                {groupEntries(access.entries).map((entry) => (
-                  <EntryRow
-                    key={entry.id ?? `${targetKey(entry.target)}:${entry.inheritedFrom?.id ?? ""}`}
-                    entry={entry}
-                    ctx={{ kind: "channel", access, members, groups, roles, viewerId, justAdded, busy, onLevel, onRemove, onCustomise }}
-                  />
-                ))}
+            <div role="table" aria-label={t("access.colWho")} style={{ border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+              <div style={{ display: "flex", padding: "8px 12px", background: "var(--surface-sunken)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                <span style={{ flex: 1 }}>{t("access.colWho")}</span>
+                <span style={{ width: 168, flex: "none" }}>{t("access.colLevel")}</span>
               </div>
+              {groupEntries(merged.entries).map((entry) => (
+                <EntryRow
+                  key={entry.id ?? `${targetKey(entry.target)}:${entry.inheritedFrom?.id ?? ""}`}
+                  entry={entry}
+                  ctx={{
+                    kind,
+                    access,
+                    members,
+                    groups,
+                    roles,
+                    viewerId,
+                    justAdded,
+                    busy,
+                    onLevel,
+                    onRemove,
+                    onCustomise,
+                    overrides: merged.overrides,
+                    onOpenFolder: setFolder,
+                    onRestore: onRemove,
+                  }}
+                />
+              ))}
+            </div>
 
-              {editable ? (
-                <div>
-                  <Button iconLeft="user-plus" onClick={() => setAdding(true)} disabled={busy}>
-                    {t("access.add")}
-                  </Button>
-                </div>
-              ) : null}
+            {editable ? (
+              <div>
+                <Button iconLeft="user-plus" onClick={() => setAdding(true)} disabled={busy}>
+                  {t("access.add")}
+                </Button>
+              </div>
+            ) : null}
 
-              <p style={{ margin: 0, display: "flex", gap: 8, fontSize: "var(--text-xs)", color: "var(--text-muted)", lineHeight: 1.5 }}>
-                <Icon name="info" size={14} style={{ flex: "none", marginTop: 2 }} />
-                <span>
-                  {levels.map((level, i) => (
-                    <span key={level}>
-                      <strong style={{ color: "var(--text-body)" }}>{t(tk(levelLabelKey("channel", level)))}</strong>
-                      {" "}
-                      {t(tk(levelDescKey("channel", level)))}
-                      {i < levels.length - 1 ? " " : ""}
-                    </span>
-                  ))}
-                </span>
-              </p>
-
-              {note ? (
-                <p
-                  role="status"
-                  style={{ margin: 0, padding: "10px 12px", background: "var(--status-info-bg)", border: "1px solid var(--status-info-border)", borderRadius: "var(--radius-md)", fontSize: "var(--text-xs)", color: "var(--text-body)", lineHeight: 1.5 }}
-                >
-                  {t("access.privateNote", { count: note.names.length, names: note.names.join(", "), channel: `#${channelName}` })}
-                </p>
-              ) : null}
-
-              {onExplain ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px dashed var(--border-strong)", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", color: "var(--text-body)" }}>
-                  <Icon name="user-check" size={16} style={{ flex: "none" }} />
-                  <span style={{ flex: 1 }}>
-                    <strong>{t("access.verifyTitle")}</strong> {t("access.verifyBody")}
+            <p style={{ margin: 0, display: "flex", gap: 8, fontSize: "var(--text-xs)", color: "var(--text-muted)", lineHeight: 1.5 }}>
+              <Icon name="info" size={14} style={{ flex: "none", marginTop: 2 }} />
+              <span>
+                {levels.map((level, i) => (
+                  <span key={level}>
+                    <strong style={{ color: "var(--text-body)" }}>{t(tk(levelLabelKey(kind, level)))}</strong>
+                    {" "}
+                    {t(tk(levelDescKey(kind, level)))}
+                    {i < levels.length - 1 ? " " : ""}
                   </span>
-                  <Button onClick={onExplain}>{t("mfa.verify")}</Button>
-                </div>
-              ) : null}
+                ))}
+              </span>
+            </p>
 
-              {!access.may.fine && pricingUrl ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px dashed var(--border-strong)", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                  <Icon name="sparkles" size={16} style={{ flex: "none" }} />
-                  <span style={{ flex: 1 }}>{t("access.teaser")}</span>
-                  <a href={pricingUrl} target="_blank" rel="noreferrer" style={{ color: "var(--text-link, var(--text-strong))", fontWeight: 600, whiteSpace: "nowrap" }}>
-                    {t("roles.seePricing")} <Icon name="external-link" size={12} />
-                  </a>
-                </div>
-              ) : null}
-            </>
-          ) : null}
-        </div>
-      </Dialog>
+            {firstOverride ? (
+              <p role="status" style={{ ...box, background: "var(--status-info-bg)", border: "1px solid var(--status-info-border)" }}>
+                <strong>{t("access.closestWins")}</strong>{" "}
+                {t("access.closestWinsBody", {
+                  name: firstOverride.target.name ?? t("access.hiddenTarget"),
+                  level: t(tk(levelLabelKey(kind, firstOverride.level))),
+                  parentLevel: t(tk(levelLabelKey(kind, merged.overrides.get(targetKey(firstOverride.target))!.level))),
+                })}
+              </p>
+            ) : null}
+
+            {note ? (
+              <p role="status" style={{ ...box, background: "var(--status-info-bg)", border: "1px solid var(--status-info-border)" }}>
+                {t("access.privateNote", { count: note.names.length, names: note.names.join(", "), channel: channelName })}
+              </p>
+            ) : null}
+
+            {onExplain ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px dashed var(--border-strong)", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", color: "var(--text-body)" }}>
+                <Icon name="user-check" size={16} style={{ flex: "none" }} />
+                <span style={{ flex: 1 }}>
+                  <strong>{t("access.verifyTitle")}</strong> {t("access.verifyBody")}
+                </span>
+                <Button onClick={onExplain}>{t("mfa.verify")}</Button>
+              </div>
+            ) : null}
+
+            {!access.may.fine && pricingUrl ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px dashed var(--border-strong)", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                <Icon name="sparkles" size={16} style={{ flex: "none" }} />
+                <span style={{ flex: 1 }}>{t("access.teaser")}</span>
+                <a href={pricingUrl} target="_blank" rel="noreferrer" style={{ color: "var(--text-link, var(--text-strong))", fontWeight: 600, whiteSpace: "nowrap" }}>
+                  {t("roles.seePricing")} <Icon name="external-link" size={12} />
+                </a>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </div>
 
       {adding && access ? (
         <AddTargetDialog
           spaceId={spaceId}
-          kind="channel"
-          resourceId={channelId}
-          resourceName={`#${channelName}`}
+          kind={kind}
+          resourceId={resourceId}
+          resourceName={kind === "channel" ? channelName : resourceName}
           access={access}
           members={members}
           groups={groups}
@@ -293,12 +352,81 @@ export function AccessDialog({
           onClose={() => setAdding(false)}
           onAdded={(view, names) => {
             setAccess(view);
+            loaded.current?.(view);
             setAdded((prev) => [...prev, ...names]);
             onChanged?.();
           }}
           onNotify={onNotify}
         />
       ) : null}
+
+      {folder ? (
+        <AccessDialog
+          spaceId={spaceId}
+          kind="file"
+          isFolder
+          resourceId={folder.id}
+          resourceName={folder.name}
+          archived={false}
+          viewerId={viewerId}
+          pricingUrl={pricingUrl}
+          onChanged={onChanged}
+          onNotify={onNotify}
+          onClose={() => {
+            setFolder(null);
+            setStamp((n) => n + 1);
+            onChanged?.();
+          }}
+        />
+      ) : null}
     </>
+  );
+}
+
+/** The panel in a dialog of its own: the channel's, a calendar's, or a folder opened from a line. */
+export function AccessDialog({ onClose, ...panel }: PanelProps & { onClose: () => void }) {
+  const { t } = useTranslation();
+  const [view, setView] = useState<AccessView | null>(null);
+  const { onLoaded } = panel;
+  const sub = accessSubtitle(panel.kind, panel.isFolder ?? false, view, panel.isPrivate ?? false);
+  const title =
+    panel.kind === "channel"
+      ? t("access.title", { name: `#${panel.resourceName}` })
+      : panel.kind === "calendar"
+        ? t("access.shareCalendarTitle", { name: panel.resourceName })
+        : panel.isFolder
+          ? t("access.shareFolderTitle", { name: panel.resourceName })
+          : t("files.shareTitle", { name: panel.resourceName });
+  return (
+    <Dialog
+      open
+      size="lg"
+      title={
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+          {title}
+          {view?.may.fine ? (
+            <Tag tone="info" icon="sparkles">
+              {t("access.enterprise")}
+            </Tag>
+          ) : null}
+        </span>
+      }
+      subtitle={t(sub.key, { parent: sub.parent ?? "" })}
+      onClose={onClose}
+      closeLabel={t("common.close")}
+      footer={
+        <Button variant="primary" onClick={onClose}>
+          {t("onboarding.finish")}
+        </Button>
+      }
+    >
+      <AccessPanel
+        {...panel}
+        onLoaded={(v) => {
+          setView(v);
+          onLoaded?.(v);
+        }}
+      />
+    </Dialog>
   );
 }

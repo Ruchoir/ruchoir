@@ -105,8 +105,9 @@ export function ChannelAccess({
         {open ? (
           <AccessDialog
             spaceId={rules.spaceId}
-            channelId={rules.channelId}
-            channelName={rules.channelName}
+            kind="channel"
+            resourceId={rules.channelId}
+            resourceName={rules.channelName}
             isPrivate={type === "private"}
             archived={disabled}
             viewerId={rules.viewerId}

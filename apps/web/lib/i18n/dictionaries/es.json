@@ -1819,7 +1819,9 @@
       "read": "Ver los detalles",
       "write": "Editar los eventos"
     },
-    "printFile": "agenda.pdf"
+    "printFile": "agenda.pdf",
+    "writeSummary": "Hoy, todo el espacio tiene el nivel «{{level}}» en este calendario.",
+    "shareByLevels": "Compartir el calendario"
   },
   "invitationPage": {
     "title": "Invitación",
@@ -2508,14 +2510,15 @@
     "denyNote": "Acceso denegado aquí",
     "clamped": "su nivel está limitado para sus invitados",
     "inheritedFrom": "Heredado de {{folder}}",
-    "inheritedHidden": "Heredado de una carpeta",
+    "inheritedHidden": "Heredado de una carpeta superior",
     "levelFor": "Nivel de {{name}}",
     "editDetail": "Editar el detalle",
     "readOnly": {
       "licenceRequired": "Puede consultar este acceso sin modificarlo: delegar la gestión del acceso es propio de la edición Enterprise.",
       "licenceFrozen": "Los cambios están suspendidos: la licencia de este espacio está congelada. Puede consultar el acceso.",
       "notAllowed": "Puede consultar este acceso, pero no modificarlo.",
-      "archived": "Este canal está archivado: su acceso ya no se puede modificar."
+      "archived": "Este canal está archivado: su acceso ya no se puede modificar.",
+      "trashed": "Este elemento está en la papelera: su acceso ya no se puede modificar."
     },
     "verifyTitle": "Comprobar el acceso de alguien.",
     "verifyBody": "Elija una persona: le explicamos paso a paso por qué tiene, o no, acceso.",
@@ -2561,6 +2564,22 @@
     "guestGroupNotice_other": "En los grupos elegidos, el nivel de sus invitados se limita igual.",
     "privateNote_one": "{{names}} ve ahora {{channel}} en su lista de canales y se une con un clic. Nadie recibe aviso: ni la persona ni los demás. Los accesos dados a un rol, a un grupo o a una persona funcionan igual.",
     "privateNote_many": "{{names}} ven ahora {{channel}} en su lista de canales y se unen con un clic. Nadie recibe aviso: ni ellos ni los demás. Los accesos dados a un rol, a un grupo o a una persona funcionan igual.",
-    "privateNote_other": "{{names}} ven ahora {{channel}} en su lista de canales y se unen con un clic. Nadie recibe aviso: ni ellos ni los demás. Los accesos dados a un rol, a un grupo o a una persona funcionan igual."
+    "privateNote_other": "{{names}} ven ahora {{channel}} en su lista de canales y se unen con un clic. Nadie recibe aviso: ni ellos ni los demás. Los accesos dados a un rol, a un grupo o a una persona funcionan igual.",
+    "subtitleFile": "Este archivo sigue a su carpeta, salvo en las entradas modificadas a continuación.",
+    "subtitleFileIn": "{{parent}}. Este archivo sigue a su carpeta, salvo en las entradas modificadas a continuación.",
+    "subtitleFolder": "Lo que configures aquí vale para todo lo que contiene esta carpeta.",
+    "subtitleFolderIn": "{{parent}}. Lo que configures aquí vale para todo lo que contiene esta carpeta.",
+    "subtitleCalendar": "Quién ve los eventos, quién puede crearlos y quién gestiona el calendario.",
+    "shareFolderTitle": "Compartir la carpeta {{name}}",
+    "shareCalendarTitle": "Compartir el calendario {{name}}",
+    "tab": "Acceso",
+    "inheritedFromLabel": "Heredado de",
+    "modifiedHere": "Modificado aquí",
+    "overrides": "Sustituye «{{level}}» heredado de {{folder}}",
+    "overridesHidden": "Sustituye «{{level}}» heredado de una carpeta superior",
+    "restore": "Restablecer la herencia",
+    "audienceName": "Lectores de #{{name}}",
+    "closestWins": "Gana la regla más cercana.",
+    "closestWinsBody": "Para {{name}}, este elemento está en «{{level}}» aunque la carpeta superior dé «{{parentLevel}}». Las demás entradas siguen a la carpeta."
   }
 }

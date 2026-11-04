@@ -4511,6 +4511,7 @@ function AppShell() {
           slugs={workspaces.map((w) => w.slug)}
           onEditorChange={setEditorOpen}
           initialFolderId={filesFolder}
+          accessRules={accessRules}
           shareTargets={[
             ...channels.filter((c) => c.member !== false).map((c) => ({ id: c.id, name: c.name, kind: "channel" as const, fav: c.fav })),
             ...visibleDms.filter((d) => !d.bot).map((d) => ({ id: d.id, name: d.name, kind: "dm" as const, lastAt: d.lastMessage?.at })),
@@ -4534,6 +4535,7 @@ function AppShell() {
           onBack={compact ? backToTabs : undefined}
           onLeave={compact ? undefined : () => setView("channel")}
           onNotify={showToast}
+          accessRules={accessRules}
         />
       ) : null}
       {contentView === "settings" ? (
@@ -5032,6 +5034,7 @@ function AppShell() {
             spaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
             rememberFilter
             onNotify={showToast}
+            accessRules={accessRules}
           />
         ) : null}
         {mobileTab === "activity" ? (

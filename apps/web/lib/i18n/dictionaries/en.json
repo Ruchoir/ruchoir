@@ -1748,7 +1748,9 @@
       "read": "See details",
       "write": "Edit events"
     },
-    "printFile": "calendar.pdf"
+    "printFile": "calendar.pdf",
+    "writeSummary": "Today, the whole space has the \"{{level}}\" level on this calendar.",
+    "shareByLevels": "Share the calendar"
   },
   "invitationPage": {
     "title": "Invitation",
@@ -2417,14 +2419,15 @@
     "denyNote": "Access denied here",
     "clamped": "its level is capped for its guests",
     "inheritedFrom": "Inherited from {{folder}}",
-    "inheritedHidden": "Inherited from a folder",
+    "inheritedHidden": "Inherited from a parent folder",
     "levelFor": "Level of {{name}}",
     "editDetail": "Edit the detail",
     "readOnly": {
       "licenceRequired": "You can see this access but not change it: delegating who manages access belongs to the Enterprise edition.",
       "licenceFrozen": "Changes are suspended: this space's licence is frozen. You can still see the access.",
       "notAllowed": "You can see this access, but not change it.",
-      "archived": "This channel is archived: its access can no longer be changed."
+      "archived": "This channel is archived: its access can no longer be changed.",
+      "trashed": "This item is in the trash: its access can no longer be changed."
     },
     "verifyTitle": "Check someone's access.",
     "verifyBody": "Pick a person: we explain step by step why they do, or do not, have access.",
@@ -2462,6 +2465,22 @@
     "guestGroupNotice_one": "In the chosen group, guests' level is capped the same way.",
     "guestGroupNotice_other": "In the chosen groups, guests' level is capped the same way.",
     "privateNote_one": "{{names}} now sees {{channel}} in their channel list and joins it in one click. Nobody is notified: not them, not the others. Access given to a role, a group or a person works the same way.",
-    "privateNote_other": "{{names}} now see {{channel}} in their channel list and join it in one click. Nobody is notified: not them, not the others. Access given to a role, a group or a person works the same way."
+    "privateNote_other": "{{names}} now see {{channel}} in their channel list and join it in one click. Nobody is notified: not them, not the others. Access given to a role, a group or a person works the same way.",
+    "subtitleFile": "This file follows its folder, except for the entries changed below.",
+    "subtitleFileIn": "{{parent}}. This file follows its folder, except for the entries changed below.",
+    "subtitleFolder": "What you set here applies to everything this folder contains.",
+    "subtitleFolderIn": "{{parent}}. What you set here applies to everything this folder contains.",
+    "subtitleCalendar": "Who sees the events, who can create them, who manages the calendar.",
+    "shareFolderTitle": "Share the folder {{name}}",
+    "shareCalendarTitle": "Share the calendar {{name}}",
+    "tab": "Access",
+    "inheritedFromLabel": "Inherited from",
+    "modifiedHere": "Changed here",
+    "overrides": "Replaces \"{{level}}\" inherited from {{folder}}",
+    "overridesHidden": "Replaces \"{{level}}\" inherited from a parent folder",
+    "restore": "Restore inheritance",
+    "audienceName": "Readers of #{{name}}",
+    "closestWins": "The closest rule wins.",
+    "closestWinsBody": "For {{name}}, this item is set to \"{{level}}\" even though the folder above gives \"{{parentLevel}}\". The other entries keep following the folder."
   }
 }

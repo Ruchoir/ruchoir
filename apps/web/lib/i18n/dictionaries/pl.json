@@ -1890,7 +1890,9 @@
       "read": "Widzi szczegóły",
       "write": "Edytuje wydarzenia"
     },
-    "printFile": "kalendarz.pdf"
+    "printFile": "kalendarz.pdf",
+    "writeSummary": "Obecnie cała przestrzeń ma poziom „{{level}}” w tym kalendarzu.",
+    "shareByLevels": "Udostępnij kalendarz"
   },
   "invitationPage": {
     "title": "Zaproszenie",
@@ -2599,14 +2601,15 @@
     "denyNote": "Dostęp odmówiony tutaj",
     "clamped": "jego poziom jest ograniczony dla jego gości",
     "inheritedFrom": "Odziedziczone z {{folder}}",
-    "inheritedHidden": "Odziedziczone z folderu",
+    "inheritedHidden": "Odziedziczone z folderu nadrzędnego",
     "levelFor": "Poziom: {{name}}",
     "editDetail": "Edytuj szczegóły",
     "readOnly": {
       "licenceRequired": "Możesz zobaczyć ten dostęp, ale go nie zmienisz: delegowanie zarządzania dostępem należy do edycji Enterprise.",
       "licenceFrozen": "Zmiany są wstrzymane: licencja tej przestrzeni jest zamrożona. Nadal możesz przeglądać dostęp.",
       "notAllowed": "Możesz zobaczyć ten dostęp, ale nie możesz go zmienić.",
-      "archived": "Ten kanał jest zarchiwizowany: jego dostępu nie można już zmieniać."
+      "archived": "Ten kanał jest zarchiwizowany: jego dostępu nie można już zmieniać.",
+      "trashed": "Ten element jest w koszu: jego dostępu nie można już zmieniać."
     },
     "verifyTitle": "Sprawdź czyjś dostęp.",
     "verifyBody": "Wybierz osobę: wyjaśnimy krok po kroku, dlaczego ma lub nie ma dostępu.",
@@ -2660,6 +2663,22 @@
     "privateNote_one": "{{names}} widzi teraz {{channel}} na swojej liście kanałów i dołącza jednym kliknięciem. Nikt nie jest powiadamiany: ani ta osoba, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo.",
     "privateNote_few": "{{names}} widzą teraz {{channel}} na swojej liście kanałów i dołączają jednym kliknięciem. Nikt nie jest powiadamiany: ani te osoby, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo.",
     "privateNote_many": "{{names}} widzą teraz {{channel}} na swojej liście kanałów i dołączają jednym kliknięciem. Nikt nie jest powiadamiany: ani te osoby, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo.",
-    "privateNote_other": "{{names}} widzą teraz {{channel}} na swojej liście kanałów i dołączają jednym kliknięciem. Nikt nie jest powiadamiany: ani te osoby, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo."
+    "privateNote_other": "{{names}} widzą teraz {{channel}} na swojej liście kanałów i dołączają jednym kliknięciem. Nikt nie jest powiadamiany: ani te osoby, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo.",
+    "subtitleFile": "Ten plik podąża za swoim folderem, poza wpisami zmienionymi poniżej.",
+    "subtitleFileIn": "{{parent}}. Ten plik podąża za swoim folderem, poza wpisami zmienionymi poniżej.",
+    "subtitleFolder": "To, co tu ustawisz, dotyczy wszystkiego, co zawiera ten folder.",
+    "subtitleFolderIn": "{{parent}}. To, co tu ustawisz, dotyczy wszystkiego, co zawiera ten folder.",
+    "subtitleCalendar": "Kto widzi wydarzenia, kto może je tworzyć i kto zarządza kalendarzem.",
+    "shareFolderTitle": "Udostępnij folder {{name}}",
+    "shareCalendarTitle": "Udostępnij kalendarz {{name}}",
+    "tab": "Dostęp",
+    "inheritedFromLabel": "Odziedziczone z",
+    "modifiedHere": "Zmieniono tutaj",
+    "overrides": "Zastępuje „{{level}}” odziedziczone z {{folder}}",
+    "overridesHidden": "Zastępuje „{{level}}” odziedziczone z folderu nadrzędnego",
+    "restore": "Przywróć dziedziczenie",
+    "audienceName": "Czytelnicy #{{name}}",
+    "closestWins": "Wygrywa najbliższa reguła.",
+    "closestWinsBody": "Dla {{name}} ten element ma poziom „{{level}}”, nawet jeśli folder wyżej daje „{{parentLevel}}”. Pozostałe wpisy nadal podążają za folderem."
   }
 }

@@ -7,7 +7,7 @@ import type { AccessEntry, AccessKind, AccessLevel, AccessView, Group, Role } fr
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { GroupIcon } from "../groups/GroupIcon";
 import { roleColour } from "../settings/roleChips";
-import { entryNote, levelLabelKey, levelOptions, removable, type OffReason } from "./accessLogic.ts";
+import { entryEditable, entryNote, inheritedLink, levelLabelKey, levelOptions, removable, type OffReason, type Override } from "./accessLogic.ts";
 
 /** A key built by the logic module, as the translator takes it (the keys exist: the tests name them). */
 export function tk(name: string): TranslationKey {
@@ -34,6 +34,12 @@ export type RowContext = {
   onRemove: (entry: AccessEntry) => void;
   /** Opens the fine rules of a line (enterprise); absent, the button is not drawn. */
   onCustomise?: (entry: AccessEntry) => void;
+  /** For a file: what each of its own lines replaces, by target (see `withOverrides`). */
+  overrides?: Map<string, Override>;
+  /** Opens the dialog of the folder an inherited line comes from. */
+  onOpenFolder?: (folder: { id: string; name: string }) => void;
+  /** Removes a line of the item's own, so the inherited one applies again. */
+  onRestore?: (entry: AccessEntry) => void;
 };
 
 export function targetKey(target: { kind: string; id?: string }): string {
@@ -44,7 +50,9 @@ export function targetKey(target: { kind: string; id?: string }): string {
 export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }) {
   const { t } = useTranslation();
   const { target } = entry;
-  const editable = ctx.access.may.edit && !ctx.access.archived && !entry.inheritedFrom;
+  const editable = entryEditable(ctx.access, entry);
+  const override = entry.inheritedFrom ? undefined : ctx.overrides?.get(targetKey(entry.target));
+  const link = inheritedLink(entry);
   const note = entryNote(entry, ctx.access.entries);
   const options = levelOptions(ctx.access.may, ctx.kind, entry, ctx.viewerId);
   const member = target.kind === "user" ? ctx.members.find((m) => m.userId === target.id) : undefined;
@@ -71,6 +79,7 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
     sub = group ? t("access.groupSub", { count: group.memberIds.length }) : t("groups.colGroup");
     lead = <GroupIcon id={target.id ?? name} size={36} />;
   } else if (target.kind === "audience") {
+    name = target.name ? t("access.audienceName", { name: target.name }) : t("access.hiddenTarget");
     sub = t("access.audienceSub");
     lead = <LeadBox><Icon name="message-square" size={18} /></LeadBox>;
   } else {
@@ -96,7 +105,11 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
       </Tag>
     );
   } else if (note?.type === "clamped") noteText = t("access.clamped");
-  else if (note?.type === "inherited") noteText = note.folder ? t("access.inheritedFrom", { folder: note.folder }) : t("access.inheritedHidden");
+  else if (note?.type === "inherited") noteText = note.folder && !link ? t("access.inheritedFrom", { folder: note.folder }) : note.folder ? undefined : t("access.inheritedHidden");
+  if (override) {
+    const level = t(tk(levelLabelKey(ctx.kind, override.level)));
+    noteText = override.folder ? t("access.overrides", { level, folder: override.folder }) : t("access.overridesHidden", { level });
+  }
 
   const selectable = editable && !ctx.busy;
   const canRemove = editable && removable(entry, ctx.viewerId);
@@ -121,9 +134,30 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
           <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{name}</span>
           {entry.guest && target.kind !== "everyone" ? <Tag tone="warning">{t("role.guest")}</Tag> : null}
           {fresh ? <Tag tone="info">{t("access.justAdded")}</Tag> : null}
+          {override ? <Tag tone="info">{t("access.modifiedHere")}</Tag> : null}
           {noteTag}
         </div>
-        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{[sub, noteText].filter(Boolean).join(" · ")}</div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+          {[sub, noteText].filter(Boolean).join(" · ")}
+          {link ? (
+            <>
+              {sub || noteText ? " · " : ""}
+              {t("access.inheritedFromLabel")}{" "}
+              <button type="button" onClick={() => ctx.onOpenFolder?.(link)} style={linkButton}>
+                <Icon name="folder" size={12} style={{ verticalAlign: "-1px", marginRight: 3 }} />
+                {link.name}
+              </button>
+            </>
+          ) : null}
+          {override && editable && entry.id ? (
+            <>
+              {" · "}
+              <button type="button" disabled={ctx.busy} onClick={() => ctx.onRestore?.(entry)} style={linkButton}>
+                {t("access.restore")}
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
       {ctx.onCustomise && ctx.access.may.fine && editable && target.kind !== "audience" ? (
         <button
@@ -157,6 +191,8 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
     </div>
   );
 }
+
+const linkButton = { background: "none", border: 0, padding: 0, cursor: "pointer", font: "inherit", fontWeight: 600, color: "var(--text-strong)" } as const;
 
 function LeadBox({ children, background }: { children: React.ReactNode; background?: string }) {
   return (
