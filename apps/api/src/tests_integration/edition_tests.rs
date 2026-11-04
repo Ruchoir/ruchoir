@@ -27,7 +27,7 @@ impl Edition for ProbeEdition {
 
     async fn seat_check(
         &self,
-        _db: &DatabaseConnection,
+        _db: &sea_orm::DatabaseTransaction,
         _space_id: Uuid,
     ) -> Result<SeatCheck, sea_orm::DbErr> {
         Ok(SeatCheck::Allowed)
@@ -122,7 +122,12 @@ async fn the_community_edition_changes_nothing() {
     );
     assert_eq!(
         CommunityEdition
-            .seat_check(&app.db, space)
+            .seat_check(
+                &sea_orm::TransactionTrait::begin(&app.db)
+                    .await
+                    .expect("txn"),
+                space
+            )
             .await
             .expect("seats"),
         SeatCheck::Allowed
@@ -154,7 +159,7 @@ impl Edition for LicensedEdition {
 
     async fn seat_check(
         &self,
-        _db: &DatabaseConnection,
+        _db: &sea_orm::DatabaseTransaction,
         _space_id: Uuid,
     ) -> Result<SeatCheck, sea_orm::DbErr> {
         Ok(SeatCheck::Allowed)
@@ -193,7 +198,7 @@ impl Edition for FrozenEdition {
 
     async fn seat_check(
         &self,
-        _db: &DatabaseConnection,
+        _db: &sea_orm::DatabaseTransaction,
         _space_id: Uuid,
     ) -> Result<SeatCheck, sea_orm::DbErr> {
         Ok(SeatCheck::Allowed)
@@ -354,7 +359,7 @@ impl Edition for FullEdition {
 
     async fn seat_check(
         &self,
-        _db: &DatabaseConnection,
+        _db: &sea_orm::DatabaseTransaction,
         _space_id: Uuid,
     ) -> Result<SeatCheck, sea_orm::DbErr> {
         Ok(SeatCheck::Full { seats: 7 })
@@ -532,7 +537,7 @@ impl Edition for GatedEdition {
 
     async fn seat_check(
         &self,
-        _db: &DatabaseConnection,
+        _db: &sea_orm::DatabaseTransaction,
         _space_id: Uuid,
     ) -> Result<SeatCheck, sea_orm::DbErr> {
         Ok(SeatCheck::Allowed)

@@ -628,12 +628,11 @@ pub async fn update_member_role(
     }
     // An ended guest is not in the space: they come back by reactivation, not by a promotion.
     let role_changes = target.role != wanted;
-    if role_changes
-        && target.role == "guest"
+    let target_ended = target.role == "guest"
         && crate::permissions::membership::any(&state.db, space_id, user_id)
             .await?
-            .is_some_and(|m| m.ended)
-    {
+            .is_some_and(|m| m.ended);
+    if role_changes && target_ended {
         return Err(ApiError::ConflictCode {
             code: "access_ended",
             message: "this access has ended: reactivate it before changing its role",
@@ -645,11 +644,7 @@ pub async fn update_member_role(
     let end_before = target.expires_at;
     let new_end = match body.expires_at.as_deref() {
         Some(raw) => {
-            if !role_changes
-                && crate::permissions::membership::any(&state.db, space_id, user_id)
-                    .await?
-                    .is_some_and(|m| m.ended)
-            {
+            if !role_changes && target_ended {
                 return Err(ApiError::ConflictCode {
                     code: "access_ended",
                     message: "this access has ended: reactivate it to give it a new end",

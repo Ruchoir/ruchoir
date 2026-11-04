@@ -31,7 +31,7 @@ impl Edition for Seats {
 
     async fn seat_check(
         &self,
-        db: &DatabaseConnection,
+        db: &sea_orm::DatabaseTransaction,
         space_id: Uuid,
     ) -> Result<SeatCheck, sea_orm::DbErr> {
         Ok(if seats_used(db, space_id).await? >= self.0 {
@@ -77,6 +77,14 @@ async fn fx(app: &TestApp) -> Fx {
 
 async fn boot_seats(limit: u32) -> Option<TestApp> {
     boot_as(Arc::new(Seats(limit)), None, |_| {}).await
+}
+
+/// [`boot_seats`] with a database pool of `pool` connections.
+async fn boot_seats_pool(limit: u32, pool: u32) -> Option<TestApp> {
+    boot_as(Arc::new(Seats(limit)), None, move |config| {
+        config.db_max_connections = pool;
+    })
+    .await
 }
 
 async fn set_role(
@@ -130,7 +138,8 @@ async fn a_full_space_refuses_passer_membre() {
 
 #[tokio::test]
 async fn two_promotions_for_one_seat_admit_one() {
-    let Some(app) = boot_seats(4).await else {
+    // A pool smaller than the callers: those waiting on the lock must not starve the holder.
+    let Some(app) = boot_seats_pool(4, 3).await else {
         return;
     };
     let fx = fx(&app).await;
@@ -271,10 +280,8 @@ async fn passer_invite_keeps_channels_and_loses_space_wide_visibility() {
     assert!(sees(shared).await, "a joined channel stays");
     assert!(!sees(open).await, "a public channel not joined goes");
     assert!(
-        !sees(general).await || {
-            // The default channel the member had joined at creation stays only if they joined it.
-            channel_has(&app, general, fx.member).await
-        }
+        !sees(general).await,
+        "another public channel not joined goes too"
     );
     let rights = space_rights(fx.member).await;
     assert!(
@@ -315,14 +322,6 @@ async fn passer_invite_keeps_channels_and_loses_space_wide_visibility() {
         .collect();
     assert!(ids.contains(&other.to_string()), "{ids:?}");
     assert!(!ids.contains(&fx.admin.to_string()), "{ids:?}");
-}
-
-async fn channel_has(app: &TestApp, channel: Uuid, user: Uuid) -> bool {
-    channel_members::Entity::find_by_id((channel, user))
-        .one(&app.db)
-        .await
-        .expect("q")
-        .is_some()
 }
 
 #[tokio::test]

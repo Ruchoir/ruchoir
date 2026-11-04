@@ -13,7 +13,9 @@
 //! licensed build wrote keeps applying every rule it finds there.
 
 use axum::Router;
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, DbErr, Statement};
+use sea_orm::{
+    ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, DbErr, Statement,
+};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -50,7 +52,10 @@ pub enum SeatCheck {
 /// The seats a space uses: its owners and members. Guests take none, and neither does someone whose
 /// membership is gone. What an edition's [`Edition::seat_check`] compares with the seats it sells,
 /// and what the space's owners read as `used`.
-pub async fn seats_used(db: &impl ConnectionTrait, space_id: Uuid) -> Result<u32, DbErr> {
+pub async fn seats_used(
+    db: &(impl ConnectionTrait + ?Sized),
+    space_id: Uuid,
+) -> Result<u32, DbErr> {
     let row = db
         .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
@@ -80,9 +85,13 @@ pub trait Edition: Send + Sync + 'static {
         space_id: Uuid,
     ) -> Result<Entitlement, DbErr>;
 
-    /// Whether one more owner or member may be added to `space_id`.
-    async fn seat_check(&self, db: &DatabaseConnection, space_id: Uuid)
-        -> Result<SeatCheck, DbErr>;
+    /// Whether one more owner or member may be added to `space_id`. Counted on the transaction the
+    /// caller holds the space's seat lock in, so asking never needs a second connection.
+    async fn seat_check(
+        &self,
+        db: &DatabaseTransaction,
+        space_id: Uuid,
+    ) -> Result<SeatCheck, DbErr>;
 
     /// Routes this edition adds to the API, merged beside the core's. Absolute `/api/v1/...` paths,
     /// guarded per request like the core's own.
@@ -116,7 +125,7 @@ impl Edition for CommunityEdition {
 
     async fn seat_check(
         &self,
-        _db: &DatabaseConnection,
+        _db: &DatabaseTransaction,
         _space_id: Uuid,
     ) -> Result<SeatCheck, DbErr> {
         Ok(SeatCheck::Allowed)

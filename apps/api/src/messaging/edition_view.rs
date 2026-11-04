@@ -1,7 +1,10 @@
 //! How a space's edition reads in its DTO (`edition` for every member, `licence` for its owners),
 //! and the seat check every way of adding an owner or a member goes through.
 
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::{
+    ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, Statement,
+    TransactionTrait,
+};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -49,7 +52,16 @@ pub async fn describe(
 /// one, and nobody is ever taken out for it. A write that takes the seat asks
 /// [`ensure_a_seat_locked`] instead, which closes that window.
 pub async fn ensure_a_seat(state: &AppState, space_id: Uuid) -> Result<(), ApiError> {
-    match state.edition.seat_check(&state.db, space_id).await? {
+    let txn = state.db.begin().await?;
+    seat_gate(state, &txn, space_id).await
+}
+
+async fn seat_gate(
+    state: &AppState,
+    db: &DatabaseTransaction,
+    space_id: Uuid,
+) -> Result<(), ApiError> {
+    match state.edition.seat_check(db, space_id).await? {
         SeatCheck::Allowed => Ok(()),
         SeatCheck::Full { seats } => Err(ApiError::SeatsFull {
             seats,
@@ -63,7 +75,7 @@ pub async fn ensure_a_seat(state: &AppState, space_id: Uuid) -> Result<(), ApiEr
 /// after the other and the second finds it gone. Every way of taking a seat after the space exists
 /// (a guest made a member, a member link accepted) goes through here.
 pub async fn ensure_a_seat_locked(
-    txn: &impl ConnectionTrait,
+    txn: &DatabaseTransaction,
     state: &AppState,
     space_id: Uuid,
 ) -> Result<(), ApiError> {
@@ -73,7 +85,9 @@ pub async fn ensure_a_seat_locked(
         [space_id.to_string().into()],
     ))
     .await?;
-    ensure_a_seat(state, space_id).await
+    // Counted on the transaction's own connection: a waiter on the lock never needs a second one,
+    // so a burst of promotions cannot starve the pool of the one holding the lock.
+    seat_gate(state, txn, space_id).await
 }
 
 /// The gate of every paid write (custom roles, their order, the base roles' rights, fine rules):

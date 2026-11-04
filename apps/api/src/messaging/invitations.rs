@@ -126,6 +126,8 @@ pub async fn create_invitation(
         role,
         OffsetDateTime::now_utc(),
     )?;
+    // Only an early hint, so nobody shares a link that cannot work: nothing is taken here, and
+    // acceptance asks again under the seat lock.
     if super::edition_view::takes_a_seat(role) {
         super::edition_view::ensure_a_seat(&state, space_id).await?;
     }
