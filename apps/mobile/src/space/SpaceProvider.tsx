@@ -6,11 +6,14 @@
  * first space is the default.
  */
 import type { Workspace } from "@ruchoir/client";
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 
 import { useApi } from "../api/useApi";
 import { useLoad, type Loaded } from "../data/useLoad";
 import { useReloadOn } from "../data/useReloadOn";
+import { useTranslation } from "../i18n";
+import { spaceEndings } from "../logic/guestNotices";
+import { useToast } from "../ui/Toast";
 import { spaceStatus } from "./status";
 import { useAccounts } from "../accounts/AccountsProvider";
 
@@ -41,6 +44,22 @@ export function SpaceProvider({ instanceId, children }: { instanceId: string; ch
   const select = useCallback((id: string) => rememberSpace(instanceId, id), [instanceId, rememberSpace]);
 
   const list = spaces.data;
+
+  // A space that left the list is said once, as on the web: a guest whose access ended is told so
+  // (and that their messages stay), a removed member that they no longer belong to it.
+  const { t } = useTranslation();
+  const toast = useToast();
+  const seen = useRef<Workspace[] | null>(null);
+  const told = useRef(new Set<string>());
+  useEffect(() => {
+    if (!list) return;
+    const before = seen.current;
+    seen.current = list;
+    if (!before) return;
+    for (const e of spaceEndings(before, list, told.current)) {
+      toast(t(e.title, { space: e.space }), "warning", e.body ? { body: t(e.body) } : undefined);
+    }
+  }, [list, t, toast]);
   const current = useMemo(() => list?.find((w) => w.id === chosen) ?? list?.[0] ?? null, [list, chosen]);
   const status = spaceStatus(list);
   const api = useMemo(() => ({ spaces, status, current, select }), [spaces, status, current, select]);

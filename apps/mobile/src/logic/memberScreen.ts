@@ -4,7 +4,7 @@
  * of a guest's end and of an ended access. The sentences are dictionary keys the screens translate;
  * the rights themselves come from `@ruchoir/client/permissionsLogic`, shared with the web.
  */
-import { keepLabel, rolesViaGroups, type RoleChoice } from "@ruchoir/client/permissionsLogic";
+import { keepLabel, ROLE_COLOURS, rolesViaGroups, type RoleChoice, type RoleColourKey } from "@ruchoir/client/permissionsLogic";
 import type { EndedAccess } from "@ruchoir/client";
 
 /** Parts of a date are read in a fixed numeric format and never shown: any locale that writes digits the same way will do. */
@@ -35,11 +35,6 @@ export function rowAccess(member: { userId: string; bot: boolean; manageable?: b
 }
 
 type RoleView = { id: string; systemKey?: "administrator" | "members" | "guests"; colour?: string };
-
-/** The phone's own time zone, read when needed: a guest's end is the end of a day where the person setting it is. */
-export function deviceZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
-}
 
 /** A day picked on the phone's calendar as `YYYY-MM-DD`, read in the phone's own zone (what the shared date logic takes). */
 export function pickedDay(date: Date): string {
@@ -83,8 +78,8 @@ export function systemRoleKey(role: Pick<RoleView, "systemKey">): "role.admin" |
 }
 
 /** The pastel names the server knows (`ROLE_COLOURS`), the ones the theme's palette carries too. */
-const PASTELS = ["sky", "mint", "violet", "pink", "peach", "lime", "sun"] as const;
-export type RoleColour = (typeof PASTELS)[number] | "line";
+const PASTELS = ROLE_COLOURS;
+export type RoleColour = RoleColourKey | "line";
 
 /** A role's dot: Administrator is peach, a named pastel is itself, the base roles a neutral line. */
 export function roleColourKey(role: Pick<RoleView, "colour" | "systemKey">): RoleColour {

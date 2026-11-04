@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { GROUP_PASTELS, groupAbilities, groupColour, groupOpens, pickablePeople, personActions, roleToggleRows, rowLine, settledRoles, togglePayload } from "../src/logic/groupEditor.ts";
+import { ROLE_COLOURS as GROUP_PASTELS } from "@ruchoir/client/permissionsLogic";
+import { groupAbilities, groupColour, groupOpens, pickablePeople, personActions, roleToggleRows, rowLine, settledRoles, togglePayload } from "../src/logic/groupEditor.ts";
 
 type May = { edit: boolean; delete: boolean; changeMembers: boolean; changeRoles: boolean; appoint: boolean };
 const ALL: May = { edit: true, delete: true, changeMembers: true, changeRoles: true, appoint: true };

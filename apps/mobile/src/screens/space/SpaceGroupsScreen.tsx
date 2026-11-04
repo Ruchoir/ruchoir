@@ -5,7 +5,7 @@
  * change, the web's rule). The floating button creates one: a name and a description, then the editor.
  */
 import type { Group, Role, Workspace } from "@ruchoir/client";
-import { groupPeople, groupRow, sortGroups } from "@ruchoir/client/permissionsLogic";
+import { groupPeople, groupRow, groupTagFor, sortGroups } from "@ruchoir/client/permissionsLogic";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ChevronRight, Clock, Lock, Plus, Users } from "lucide-react-native";
@@ -110,6 +110,7 @@ function Groups({ space }: { space: Workspace }) {
                       {group.name}
                     </Text>
                     {group.source === "directory" ? <GroupTag label={t("groups.directoryTag")} /> : null}
+                    {groupTagFor(group, members.data) === "guests" ? <GroupTag label={t("guests.sectionTitle")} /> : null}
                   </View>
                   <Text variant="tiny" tone="muted" numberOfLines={2}>
                     {text}

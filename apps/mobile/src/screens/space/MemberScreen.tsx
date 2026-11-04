@@ -4,7 +4,7 @@
  * them). On an instance older than the permissions it keeps the single-role sheet it always was.
  */
 import type { Group, Member, Role, Workspace } from "@ruchoir/client";
-import { groupRow, importedGroupSource } from "@ruchoir/client/permissionsLogic";
+import { groupRow, groupTagFor, importedGroupSource } from "@ruchoir/client/permissionsLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -16,7 +16,7 @@ import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
-import { deviceZone, heldRoles, memberStatus, roleColourKey, shortDay, systemRoleKey } from "../../logic/memberScreen";
+import { heldRoles, memberStatus, roleColourKey, shortDay, systemRoleKey } from "../../logic/memberScreen";
 import { grantableRoles } from "../../logic/spaceRoles";
 import { groupOpens } from "../../logic/groupEditor";
 import type { RootParams } from "../../navigation/types";
@@ -132,9 +132,9 @@ function Person({ space }: { space: Workspace }) {
         />
       ) : null}
       {shown === "profile" ? (
-        <Profile space={space} member={member} roles={roles.data ?? []} groups={groups.data ?? []} />
+        <Profile space={space} member={member} roles={roles.data ?? []} groups={groups.data ?? []} people={list} />
       ) : ready ? (
-        <MemberManage space={space} member={member} me={list?.find((m) => m.userId === me)} roles={roles.data ?? []} groups={groups.data ?? []} onChanged={reloadAll} />
+        <MemberManage space={space} member={member} me={list?.find((m) => m.userId === me)} roles={roles.data ?? []} groups={groups.data ?? []} people={list} onChanged={reloadAll} />
       ) : (
         <LoadState error={roles.error} onRetry={roles.reload} />
       )}
@@ -143,11 +143,10 @@ function Person({ space }: { space: Workspace }) {
 }
 
 /** Who they are: their roles, since when, until when for a guest, their groups, where an import brought them from. */
-function Profile({ space, member, roles, groups }: { space: Workspace; member: Member; roles: Role[]; groups: Group[] }) {
+function Profile({ space, member, roles, groups, people }: { space: Workspace; member: Member; roles: Role[]; groups: Group[]; people?: Member[] }) {
   const { t } = useTranslation();
   const styles = useThemedStyles(makeStyles);
-  const { locale } = useLocale();
-  const zone = deviceZone();
+  const { locale, timeZone: zone } = useLocale();
   const now = new Date();
   const held = heldRoles(member, roles, groups);
   const mine = groups.filter((g) => g.memberIds.includes(member.userId));
@@ -192,7 +191,7 @@ function Profile({ space, member, roles, groups }: { space: Workspace; member: M
         <Section label={t("spaceSections.groups")}>
           <View style={styles.wrap}>
             {mine.map((g) => (
-              <GroupChip key={g.id} name={g.name} onPress={opens(g) ? () => navigation.navigate("groupEditor", { groupId: g.id }) : undefined} />
+              <GroupChip key={g.id} name={g.name} guestsOnly={groupTagFor(g, people) === "guests"} onPress={opens(g) ? () => navigation.navigate("groupEditor", { groupId: g.id }) : undefined} />
             ))}
           </View>
         </Section>

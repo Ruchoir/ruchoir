@@ -44,3 +44,19 @@ test("a_waiting_prolong_link_waits_for_the_list_opens_a_known_space_and_is_dropp
   assert.deepEqual(prolongStep(spaces, "atelier"), { kind: "open", space: spaces[0] });
   assert.deepEqual(prolongStep(spaces, "other"), { kind: "drop" });
 });
+
+test("a_space_that_left_the_list_is_told_once_to_a_guest_and_to_a_removed_member", async () => {
+  const { spaceEndings } = await import("../src/logic/guestNotices.ts");
+  const told = new Set<string>();
+  const before = [
+    { id: "a", name: "Atelier", role: "guest" },
+    { id: "b", name: "Studio", role: "member" },
+    { id: "c", name: "Reste", role: "member" },
+  ];
+  const after = [{ id: "c" }];
+  assert.deepEqual(spaceEndings(before, after, told), [
+    { space: "Atelier", title: "guests.endedNotice", body: "guests.endedNoticeBody" },
+    { space: "Studio", title: "guests.leftNotice" },
+  ]);
+  assert.deepEqual(spaceEndings(before, after, told), []);
+});

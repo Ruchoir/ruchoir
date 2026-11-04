@@ -4,7 +4,7 @@
  * warning card. The wording and the dates come from `@ruchoir/client/permissionsLogic`, shared with
  * the web.
  */
-import { daysLeft, expiryTone, guestBanner, noticeTarget, SOON_DAYS } from "@ruchoir/client/permissionsLogic";
+import { daysLeft, endedNoticeKeys, endedSpaces, expiryTone, guestBanner, noticeTarget, SOON_DAYS } from "@ruchoir/client/permissionsLogic";
 
 /** The two guest notices; a tap on either is handled by `tapTarget` from this data. */
 export function isGuestNotice(kind: string): boolean {
@@ -48,4 +48,20 @@ export function prolongStep<T extends { slug: string }>(spaces: T[] | undefined,
   if (!spaces) return { kind: "wait" };
   const space = spaceBySlug(spaces, slug);
   return space ? { kind: "open", space } : { kind: "drop" };
+}
+
+/**
+ * What to tell about the spaces that left the list since the last read: a guest whose access ended,
+ * a member who was removed. Once per space (`told` is kept by the caller). The keys are the ones the
+ * web uses, `guests.endedNotice`, `guests.endedNoticeBody` and `guests.leftNotice`.
+ */
+export function spaceEndings(
+  before: { id: string; name: string; role?: string }[],
+  after: { id: string }[],
+  told: Set<string>,
+): { space: string; title: "guests.endedNotice" | "guests.leftNotice"; body?: "guests.endedNoticeBody" }[] {
+  return endedSpaces(before, after, told).map((s) => {
+    const keys = endedNoticeKeys(s.role);
+    return { space: s.name, title: keys.title as "guests.endedNotice" | "guests.leftNotice", ...(keys.body ? { body: keys.body as "guests.endedNoticeBody" } : {}) };
+  });
 }

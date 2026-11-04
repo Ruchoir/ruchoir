@@ -26,6 +26,7 @@ import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { BackHeader } from "../../ui/BackHeader";
+import { LicenceBanner } from "./LicenceBanner";
 
 const ROUTE: Record<SectionKey, keyof RootParams> = {
   general: "spaceGeneral",
@@ -111,6 +112,7 @@ export function SpaceSettingsScreen() {
     <SafeAreaView edges={["top"]} style={[styles.fill, { backgroundColor: c.bg }]}>
       <BackHeader title={t("spaceAdmin.settings")} subtitle={current?.name} />
       <ScrollView contentContainerStyle={styles.page}>
+        <LicenceBanner space={current} />
         {sections.map((section) => (
           <ActionRow
             key={section.key}

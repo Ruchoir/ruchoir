@@ -99,11 +99,4 @@ export function settledRoles(pending: string[] | null, actual: string[]): string
   return same ? null : pending;
 }
 
-/** The pastels a group's square can wear (the server's role colours), the same for the same group (the web's `groupColour`). */
-export const GROUP_PASTELS = ["sky", "mint", "violet", "pink", "peach", "lime", "sun"] as const;
-
-export function groupColour(id: string): (typeof GROUP_PASTELS)[number] {
-  let hash = 0;
-  for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return GROUP_PASTELS[hash % GROUP_PASTELS.length];
-}
+export { groupColour } from "@ruchoir/client/permissionsLogic";

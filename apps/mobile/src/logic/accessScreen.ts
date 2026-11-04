@@ -277,6 +277,7 @@ export function whyCards(deps: WhyDeps, why: WhyLike, chain: ChainLevel[]): WhyC
       target: deps.roleName(group.target, say("why.hiddenTarget")),
       person,
       permission: names(group.permissions),
+      count: sentence.count,
     });
   };
   const cards: WhyCard[] = [];

@@ -6,7 +6,7 @@
  * A group mirrored from a directory keeps its people and managers there (read only), as on the web.
  */
 import { refusalOf, type Group, type Member, type Role } from "@ruchoir/client";
-import { groupPeople, groupRow, guestCeilingApplies, usedInRows } from "@ruchoir/client/permissionsLogic";
+import { groupPeople, groupRow, groupTagFor, guestCeilingApplies, usedInRows } from "@ruchoir/client/permissionsLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react-native";
@@ -262,7 +262,7 @@ function Body({
   const count = t("conversation.people", { count: people.length });
   return (
     <View style={styles.fill}>
-      <BackHeader title={group.name} subtitle={group.description ? t("groups.headSub", { description: group.description, people: count }) : count} leading={<GroupTile id={group.id} size={36} />} />
+      <BackHeader title={group.name} subtitle={group.description ? t("groups.headSub", { description: group.description, people: count }) : count} leading={<GroupTile id={group.id} size={36} />} trailing={groupTagFor(group, members) === "guests" ? <GroupTag label={t("guests.sectionTitle")} /> : undefined} />
       <ScrollView contentContainerStyle={styles.scroll}>
         {directory ? (
           <Text variant="small" tone="body" style={styles.note}>

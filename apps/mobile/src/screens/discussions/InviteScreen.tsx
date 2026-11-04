@@ -16,7 +16,6 @@ import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { isEmail } from "../../logic/email";
-import { deviceZone } from "../../logic/memberScreen";
 import { useSpace } from "../../space/SpaceProvider";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
@@ -47,13 +46,13 @@ export function InviteScreen() {
   const [sent, setSent] = useState<{ email: string; url?: string } | null>(null);
   // One link per role, made the first time it is asked for and shared again after.
   const [links, setLinks] = useState<Partial<Record<Role, string>>>({});
+  const { locale, timeZone } = useLocale();
   const guest = role === "guest";
   // An older instance has no guest end dates (they arrive with the permissions): nothing to choose, nothing sent.
   const dated = useSupports("permissions");
   // The end of the access, in the phone's zone; a guest only. A hand-picked day not yet valid blocks sending.
-  const blocked = guest && dated && choiceRefusal(end, new Date(), deviceZone()) !== null;
-  const guestEnd = () => (guest && dated ? { guestExpiresAt: presetToInstant(end, new Date(), deviceZone()) } : {});
-  const { locale } = useLocale();
+  const blocked = guest && dated && choiceRefusal(end, new Date(), timeZone) !== null;
+  const guestEnd = () => (guest && dated ? { guestExpiresAt: presetToInstant(end, new Date(), timeZone) } : {});
   const toast = useToast();
   const invitations = useLoad(current ? `invitations:${current.id}` : null, (signal) => getInvitations(current!.id, signal));
   const waiting = invitations.data?.filter((inv) => inv.status === "active");
