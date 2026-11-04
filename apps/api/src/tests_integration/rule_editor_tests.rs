@@ -599,3 +599,76 @@ async fn a_place_naming_a_group_says_the_level_of_its_rule() {
     assert_eq!(json["hidden"], true);
     assert!(json.get("level").is_none() && json.get("parent_id").is_none());
 }
+
+#[tokio::test]
+async fn a_shown_place_names_no_folder_the_viewer_cannot_open() {
+    use crate::permissions::levels::{rule_sets, Kind, Level, Target};
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let group = make_group(&app.db, fx.space_id, "Compta").await;
+    let parent = Uuid::new_v4();
+    let folder = Uuid::new_v4();
+    for (id, parent_id) in [(parent, None), (folder, Some(parent))] {
+        exec(
+            &app.db,
+            "INSERT INTO files (id, space_id, owner_id, name, kind, parent_folder_id) \
+             VALUES ($1, $2, $3, $4, 'folder', $5)",
+            vec![
+                id.into(),
+                fx.space_id.into(),
+                fx.owner.into(),
+                format!("dossier-{id}").into(),
+                parent_id.into(),
+            ],
+        )
+        .await;
+    }
+    // The member is kept out of the parent and let into the folder below it.
+    exec(
+        &app.db,
+        "INSERT INTO permission_overrides (space_id, file_id, user_id, allow, deny) \
+         VALUES ($1, $2, $3, '{}', $4)",
+        vec![
+            fx.space_id.into(),
+            parent.into(),
+            fx.member.into(),
+            vec!["files.view".to_owned()].into(),
+        ],
+    )
+    .await;
+    rule(
+        &app.db,
+        fx.space_id,
+        ("file_id", folder),
+        ("user_id", fx.member),
+        &["files.view"],
+    )
+    .await;
+    let (allow, deny) = rule_sets(Kind::File, Target::Group, Level::Read).expect("read");
+    exec(
+        &app.db,
+        "INSERT INTO permission_overrides (space_id, file_id, group_id, allow, deny) \
+         VALUES ($1, $2, $3, $4, $5)",
+        vec![
+            fx.space_id.into(),
+            folder.into(),
+            group.into(),
+            allow.to_names().into(),
+            deny.to_names().into(),
+        ],
+    )
+    .await;
+    let used = uses_of(&app.db, fx.space_id, Named::Group(group))
+        .await
+        .expect("uses");
+    let shown = hide_unopened(&app.db, fx.space_id, fx.member, used)
+        .await
+        .expect("hide");
+    assert_eq!(shown.len(), 1);
+    assert!(!shown[0].hidden, "the member opens the folder itself");
+    assert_eq!(shown[0].id, Some(folder));
+    assert_eq!(
+        shown[0].parent_id, None,
+        "the folder above is not theirs to learn"
+    );
+}

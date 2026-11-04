@@ -520,6 +520,21 @@ pub async fn hide_unopened(
             _ => (Resource::Calendar(id), Permission::CalendarView),
         };
         if super::check::can(db, space_id, viewer, resource, permission).await? {
+            let mut place = place;
+            // The folder above is named only to who may open it, like the place itself.
+            if let Some(parent) = place.parent_id {
+                if !super::check::can(
+                    db,
+                    space_id,
+                    viewer,
+                    Resource::File(parent),
+                    Permission::FilesView,
+                )
+                .await?
+                {
+                    place.parent_id = None;
+                }
+            }
             shown.push(place);
         } else {
             shown.push(UsedIn {
