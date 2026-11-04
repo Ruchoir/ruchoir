@@ -6,8 +6,9 @@ import type { Member } from "@/lib/data/api";
 import { getAccess, getSpaceMembers, listGroups, listRoles, refusalOf, removeAccessEntry, setAccessLevel } from "@/lib/data/api";
 import type { AccessEntry, AccessKind, AccessLevel, AccessView, Group, Role } from "@/lib/data/types";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { shouldToastRefusal } from "../app/previewLogic.ts";
 import { refusalMessage, roleLabel } from "../settings/roleChips";
-import { canEdit, groupEntries, levelDescKey, levelLabelKey, privateNote, readOnlyReason, withOverrides } from "./accessLogic.ts";
+import { askWho, canEdit, everyoneLine, freeManage, groupEntries, levelDescKey, levelLabelKey, privateNote, readOnlyReason, withOverrides } from "./accessLogic.ts";
 import { AddTargetDialog } from "./AddTargetDialog";
 import { CustomiseDialog } from "./CustomiseDialog";
 import { WhyDialog } from "./WhyDialog";
@@ -45,7 +46,7 @@ type PanelProps = {
 /** The name a line goes by in a title: the person's, the group's, the role's, or what the line itself says. */
 function entryDisplayName(entry: AccessEntry, members: Member[], groups: Group[], roles: Role[], t: ReturnType<typeof useTranslation>["t"]): string {
   const { target } = entry;
-  if (target.kind === "everyone") return (target.id ?? "").includes("guest") ? t("access.allGuests") : t("channel.everyoneInSpace");
+  if (target.kind === "everyone") return everyoneLine(entry) === "guests" ? t("access.allGuests") : t("channel.everyoneInSpace");
   if (target.kind === "user") return members.find((m) => m.userId === target.id)?.name ?? target.name ?? t("access.hiddenTarget");
   if (target.kind === "group") return groups.find((g) => g.id === target.id)?.name ?? target.name ?? t("access.hiddenTarget");
   if (target.kind === "role") {
@@ -57,6 +58,8 @@ function entryDisplayName(entry: AccessEntry, members: Member[], groups: Group[]
 
 /** The line under the title: what this dialog is about, for the kind of thing it shares. */
 export function accessSubtitle(kind: AccessKind, isFolder: boolean, view: AccessView | null, fallbackPrivate: boolean): { key: TranslationKey; parent?: string } {
+  // A manager of a free space reads the dialog without changing it (frame 11).
+  if (view && freeManage(view, kind, isFolder)) return { key: key("access.freeManage.subtitle") };
   if (kind === "calendar") return { key: key("access.subtitleCalendar") };
   if (kind === "file") {
     const parent = view?.resource.parent;
@@ -179,7 +182,7 @@ export function AccessPanel({
       } else await load();
       onChanged?.();
     } catch (err) {
-      onNotify({ tone: "danger", title: t("toast.editNotSaved"), description: refusalMessage(refusalOf(err), t, t("space.retry")) });
+      if (shouldToastRefusal(refusalOf(err))) onNotify({ tone: "danger", title: t("toast.editNotSaved"), description: refusalMessage(refusalOf(err), t, t("space.retry")) });
       await load();
     } finally {
       setBusy(false);
@@ -194,6 +197,9 @@ export function AccessPanel({
 
   const editable = access ? canEdit(access) : false;
   const readOnly = access ? readOnlyReason(access, kind) : undefined;
+  const free = access ? freeManage(access, kind, isFolder) : undefined;
+  const asked = askWho(members);
+  const who = asked.length === 0 ? t("access.freeManage.noNames") : asked.length === 1 ? asked[0] : `${asked.slice(0, -1).join(", ")} ${t("common.or")} ${asked[asked.length - 1]}`;
   const note = access ? privateNote(access.private, added.filter((a) => access.entries.some((e) => targetKey(e.target) === a.key)).map((a) => a.name)) : undefined;
   const justAdded = new Set(added.map((a) => a.key));
   const merged = access ? withOverrides(access.entries, parentView?.entries, access.resource.parent?.name) : undefined;
@@ -252,7 +258,14 @@ export function AccessPanel({
 
         {access && merged ? (
           <>
-            {readOnly ? (
+            {free ? (
+              <p role="status" style={{ ...box, display: "flex", gap: 8, alignItems: "flex-start", background: "var(--status-warning-bg)", border: "1px solid var(--status-warning-border)" }}>
+                <Icon name="lock" size={15} style={{ flex: "none", marginTop: 1 }} />
+                <span>
+                  <strong>{t(tk(free.lead))}</strong> {t(tk(free.detail), { name: kind === "channel" ? channelName : resourceName, who })}
+                </span>
+              </p>
+            ) : readOnly ? (
               <p role="status" style={{ ...box, background: "var(--surface-sunken)", border: "1px solid var(--border-subtle)" }}>
                 {t(tk(readOnly))}
               </p>
@@ -338,15 +351,15 @@ export function AccessPanel({
               <span style={{ flex: 1 }}>
                 <strong>{t("access.verifyTitle")}</strong> {t("access.verifyBody")}
               </span>
-              <Button onClick={onExplain ?? (() => setExplaining(true))}>{t("mfa.verify")}</Button>
+              <Button onClick={onExplain ?? (() => setExplaining(true))}>{t("access.verify")}</Button>
             </div>
 
             {!access.may.fine && pricingUrl ? (
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px dashed var(--border-strong)", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
                 <Icon name="sparkles" size={16} style={{ flex: "none" }} />
-                <span style={{ flex: 1 }}>{t("access.teaser")}</span>
+                <span style={{ flex: 1 }}>{free ? t(tk(free.cta)) : t("access.teaser")}</span>
                 <a href={pricingUrl} target="_blank" rel="noreferrer" style={{ color: "var(--text-link, var(--text-strong))", fontWeight: 600, whiteSpace: "nowrap" }}>
-                  {t("roles.seePricing")} <Icon name="external-link" size={12} />
+                  {free ? t("access.learnMore") : t("roles.seePricing")} <Icon name="external-link" size={12} />
                 </a>
               </div>
             ) : null}

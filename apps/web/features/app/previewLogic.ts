@@ -17,7 +17,8 @@ export function viewAsState(
   ctx: { edition: Edition; canManageRoles: boolean },
 ): "button" | "locked" | "hidden" {
   if (!ctx.canManageRoles || !role.manageable) return "hidden";
-  if (role.systemKey === "members" || role.systemKey === "guests") return "hidden";
+  // The three system roles are base roles: the API answers `base_role_not_previewable` for them.
+  if (role.systemKey) return "hidden";
   return ctx.edition === "community" ? "locked" : "button";
 }
 
@@ -29,4 +30,24 @@ export function bannerOf(preview: { roleName: string; idleSeconds?: number }, sp
 /** The toast of a write the server refused during a preview (frame 14); the keys are dictionary keys. */
 export function previewToast(): { tone: "danger"; titleKey: "preview.readOnlyTitle"; bodyKey: "preview.readOnlyBody" } {
   return { tone: "danger", titleKey: "preview.readOnlyTitle", bodyKey: "preview.readOnlyBody" };
+}
+
+/**
+ * Whether the preview this screen shows has ended on the server (30 minutes without activity, or
+ * quit from another window): the fresh list of spaces no longer says the same role. A space missing
+ * from the answer proves nothing.
+ */
+export function previewGone(
+  localRoleId: string | undefined,
+  fresh: { id: string; preview?: { roleId: string } }[],
+  spaceId: string,
+): boolean {
+  if (!localRoleId) return false;
+  const space = fresh.find((w) => w.id === spaceId);
+  return space !== undefined && space.preview?.roleId !== localRoleId;
+}
+
+/** A refusal the global preview toast already said: the screen's own failure toast stays quiet. */
+export function shouldToastRefusal(refusal: { code: string } | undefined): boolean {
+  return refusal?.code !== "preview_read_only";
 }

@@ -9,6 +9,7 @@ import type { AccessKind, AccessLevel, AccessTargetRef, AccessView, Group, Role 
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { GroupIcon } from "../groups/GroupIcon";
 import { foldName } from "../settings/groupsLogic.ts";
+import { shouldToastRefusal } from "../app/previewLogic.ts";
 import { refusalMessage, roleColour, roleLabel } from "../settings/roleChips";
 import { addLevelOptions, levelDescKey, levelLabelKey } from "./accessLogic.ts";
 import { targetKey, tk } from "./EntryRow";
@@ -115,7 +116,7 @@ export function AddTargetDialog({
     } catch (err) {
       // What went through stays; the dialog stays open on what did not.
       if (added.length > 0) onAdded(view, added);
-      onNotify({ tone: "danger", title: t("toast.editNotSaved"), description: refusalMessage(refusalOf(err), t, t("space.retry")) });
+      if (shouldToastRefusal(refusalOf(err))) onNotify({ tone: "danger", title: t("toast.editNotSaved"), description: refusalMessage(refusalOf(err), t, t("space.retry")) });
       setPicked((prev) => {
         const next = new Map(prev);
         for (const a of added) next.delete(a.key);

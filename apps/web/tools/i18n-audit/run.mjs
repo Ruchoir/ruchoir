@@ -325,6 +325,9 @@ const ALLOWED_DUPLICATES = new Set([
   // The desktop tray's "Quitter" closes the app; the preview band's leaves "Voir en tant que" and
   // returns to one's own rights. Same French word, two actions, free to be worded apart elsewhere.
   "preview.quit",
+  // "Vérifier" on the access dialog opens "Pourquoi ?" for a person; the MFA button checks a code.
+  // The same French word, two actions, worded apart in other languages.
+  "access.verify",
   // The composer's group hint (a head count while the channel roster loads) and a reaction's
   // reactors list read the same today; they are two screens, free to part ways in any language.
   "composer.groupHeadCount_one",

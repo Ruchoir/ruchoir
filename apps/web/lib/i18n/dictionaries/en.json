@@ -2266,7 +2266,9 @@
     "aRole": "a role",
     "onUnnamedChannel": "on a channel",
     "onUnnamedFile": "on a file or folder",
-    "onUnnamedCalendar": "on a calendar"
+    "onUnnamedCalendar": "on a calendar",
+    "theChannel": "the channel",
+    "aChannel": "a channel"
   },
   "guests": {
     "endTitle": "Access until",
@@ -2441,29 +2443,29 @@
     "levelFor": "Level of {{name}}",
     "editDetail": "Edit the detail",
     "readOnly": {
-      "licenceRequired": "You can see this access but not change it: delegating who manages access belongs to the Enterprise edition.",
-      "licenceFrozen": "Changes are suspended: this space's licence is frozen. You can still see the access.",
-      "notAllowed": "You can see this access, but not change it.",
+      "licenceRequired": "You can view this access without changing it: delegating access management is part of the Enterprise edition.",
+      "licenceFrozen": "Changes are suspended: this space's licence is frozen. You can view the access.",
+      "notAllowed": "You can view this access, but not change it.",
       "archived": "This channel is archived: its access can no longer be changed.",
       "trashed": "This item is in the trash: its access can no longer be changed."
     },
     "verifyTitle": "Check someone's access.",
-    "verifyBody": "Pick a person: we explain step by step why they do, or do not, have access.",
+    "verifyBody": "Choose a person: we explain step by step why they have, or lack, access.",
     "teaser": "A custom role as a target, denying a person access, setting each permission one by one: Enterprise edition.",
     "add": "Add people or groups",
     "loading": "Loading access…",
     "loadFailed": "Could not load the access.",
     "open": "Manage access",
-    "summaryPublic": "Public: everyone in the space sees this channel and can join. Set who can read, take part or manage.",
-    "summaryPrivate": "Private: only those with access see this channel. Set who can read, take part or manage.",
+    "summaryPublic": "Public: everyone in the space sees this channel and can join it. Set who can read, take part or manage.",
+    "summaryPrivate": "Private: only people with access see this channel. Set who can read, take part or manage.",
     "addTitle": "Add to {{name}}",
-    "addSub": "Search the groups, roles, members and guests of the space.",
+    "addSub": "Search among the space's groups, roles, members and guests.",
     "search": "Search for a group, a role or a person",
     "alreadyListed": "Already on the list",
     "guestNotice": "{{name}} is a guest: their access never goes beyond the guest ceiling, whatever level is chosen.",
     "refusal": {
-      "cannotGrant": "You cannot give a permission you do not hold here yourself.",
-      "targetAboveYou": "This person or group ranks above you: you cannot change their access.",
+      "cannotGrant": "You cannot give a permission you do not hold yourself here.",
+      "targetAboveYou": "This person or group is above you: you cannot change their access.",
       "reservationAdminsOnly": "Only the owner and administrators can take access away from everyone.",
       "guestCeiling": "A guest cannot go beyond the guest ceiling.",
       "audienceFilesOnly": "The readers of a channel can only be chosen for files.",
@@ -2511,6 +2513,29 @@
       "warnBody": "Remove it from each rule below first, then come back to delete it.",
       "where": "Where it is used",
       "hidden": "An item you cannot open"
+    },
+    "verify": "Verify",
+    "learnMore": "Learn more",
+    "freeManage": {
+      "subtitle": "You can read who has access here, but not change it.",
+      "noNames": "the space's administrators",
+      "title": {
+        "folder": "Who has access to a folder is set from the space settings.",
+        "file": "Who has access to a file is set from the space settings.",
+        "calendar": "Who has access to a calendar is set from the space settings.",
+        "channel": "Who has access to a channel is set from the space settings."
+      },
+      "body": {
+        "file": "Your Manage level on {{name}} lets you rename it, delete it and create a public link. To change who has access, ask {{who}}.",
+        "calendar": "Your Manage level on {{name}} lets you rename it, edit it and delete it. To change who has access, ask {{who}}.",
+        "channel": "Your Manage level on {{name}} lets you moderate messages and set up the channel. To change who has access, ask {{who}}."
+      },
+      "upsell": {
+        "folder": "Delegating the sharing of a folder to those who manage it: Enterprise edition.",
+        "file": "Delegating the sharing of a file to those who manage it: Enterprise edition.",
+        "calendar": "Delegating the sharing of a calendar to those who manage it: Enterprise edition.",
+        "channel": "Delegating the sharing of a channel to those who manage it: Enterprise edition."
+      }
     }
   },
   "customise": {

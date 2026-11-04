@@ -8,7 +8,7 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { GroupIcon } from "../groups/GroupIcon";
 import { roleColour } from "../settings/roleChips";
 import { canCustomise } from "./customiseLogic.ts";
-import { entryEditable, entryNote, inheritedLink, levelLabelKey, levelOptions, removable, type OffReason, type Override } from "./accessLogic.ts";
+import { entryEditable, everyoneLine, entryNote, inheritedLink, levelLabelKey, levelOptions, removable, type OffReason, type Override } from "./accessLogic.ts";
 
 /** A key built by the logic module, as the translator takes it (the keys exist: the tests name them). */
 export function tk(name: string): TranslationKey {
@@ -55,11 +55,11 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
   const override = entry.inheritedFrom ? undefined : ctx.overrides?.get(targetKey(entry.target));
   const link = inheritedLink(entry);
   const note = entryNote(entry, ctx.access.entries);
-  const options = levelOptions(ctx.access.may, ctx.kind, entry, ctx.viewerId);
+  const options = levelOptions(ctx.access.may, entry, ctx.viewerId);
   const member = target.kind === "user" ? ctx.members.find((m) => m.userId === target.id) : undefined;
   const group = target.kind === "group" ? ctx.groups.find((g) => g.id === target.id) : undefined;
   const role = target.kind === "role" ? ctx.roles.find((r) => r.id === target.id) : undefined;
-  const guestsLine = target.kind === "everyone" && (target.id ?? "").includes("guest");
+  const guestsLine = everyoneLine(entry) === "guests";
 
   let name = target.name ?? t("access.hiddenTarget");
   let sub: string | undefined;
@@ -160,7 +160,7 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
           ) : null}
         </div>
       </div>
-      {ctx.onCustomise && ctx.access.may.fine && editable && canCustomise(ctx.kind, target, role?.systemKey === "administrator") ? (
+      {ctx.onCustomise && ctx.access.may.fine && editable && canCustomise(ctx.kind, entry, role?.systemKey === "administrator") ? (
         <button
           type="button"
           onClick={() => ctx.onCustomise?.(entry)}
@@ -171,20 +171,24 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
           {entry.level === "custom" ? t("access.editDetail") : t("dialogs.customize")}
         </button>
       ) : null}
-      <Select
-        size="sm"
-        aria-label={t("access.levelFor", { name })}
-        value={entry.level}
-        disabled={!selectable}
-        style={{ minWidth: 140 }}
-        onChange={(e) => ctx.onLevel(entry, e.target.value as Exclude<AccessLevel, "custom">)}
-      >
-        {options.map((o) => (
-          <option key={o.level} value={o.level} disabled={o.disabled && o.level !== entry.level} title={o.reason ? t(OFF_TITLE[o.reason]) : undefined}>
-            {t(tk(levelLabelKey(ctx.kind, o.level)))}
-          </option>
-        ))}
-      </Select>
+      <span style={{ position: "relative", display: "inline-flex", flex: "none" }}>
+        <Select
+          size="sm"
+          aria-label={t("access.levelFor", { name })}
+          value={entry.level}
+          disabled={!selectable}
+          style={{ minWidth: 140 }}
+          onChange={(e) => ctx.onLevel(entry, e.target.value as Exclude<AccessLevel, "custom">)}
+        >
+          {options.map((o) => (
+            <option key={o.level} value={o.level} disabled={o.disabled && o.level !== entry.level} title={o.reason ? t(OFF_TITLE[o.reason]) : undefined}>
+              {t(tk(levelLabelKey(ctx.kind, o.level)))}
+            </option>
+          ))}
+        </Select>
+        {/* A line the viewer cannot change says so (frame 11); a busy one is only waiting. */}
+        {!editable ? <Icon name="lock" size={14} aria-hidden style={{ position: "absolute", right: 28, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} /> : null}
+      </span>
       <span style={{ width: 28, flex: "none" }}>
         {canRemove ? (
           <IconButton icon="x" size="sm" label={t("calendar.removeAttendee", { name })} disabled={ctx.busy} onClick={() => ctx.onRemove(entry)} />

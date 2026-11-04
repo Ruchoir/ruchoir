@@ -26,7 +26,7 @@ export type Slot =
   /** The readers of a channel (a rule on a file). */
   | { kind: "audience" }
   /** What a rule is on: a channel, a file or folder, a calendar. */
-  | { kind: "resource"; of: "channel" | "file" | "calendar"; name: string }
+  | { kind: "resource"; of: "channel" | "file" | "calendar"; name: string; bare?: boolean }
   | { kind: "legacy"; roles: string[] };
 
 /** The families of the journal, in the order the filter lists them (the API's `category` values). */
@@ -166,7 +166,7 @@ function ruleLine(entry: EntryLike, nameOf: NameOf, refs: Refs | undefined, line
     return line("ruleDeleted", { slots, values, diff: gone ? permissions({ allow: [], deny: [...gone.allow, ...gone.deny] }) : { kind: "level", added: [], removed: level(before) } });
   }
   if (customAfter) return line("ruleCustomised", { slots, values, diff: permissions(customAfter) });
-  if (reserved && after === "none" && kind === "channel") return line("ruleReserved", { slots, values, diff: { kind: "level", added: [], removed: level(before) } });
+  if (reserved && after === "none" && kind === "channel") return line("ruleReserved", { slots: { ...slots, resource: { ...(slots.resource as Extract<Slot, { kind: "resource" }>), bare: true } }, values, diff: { kind: "level", added: [], removed: level(before) } });
   return line(entry.action === "rule.created" ? "ruleCreated" : "ruleUpdated", { slots, values, diff: { kind: "level", added: level(after), removed: level(before) } });
 }
 

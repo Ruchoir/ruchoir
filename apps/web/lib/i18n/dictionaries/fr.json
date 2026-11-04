@@ -2292,7 +2292,9 @@
     "aRole": "un rôle",
     "onUnnamedChannel": "sur un canal",
     "onUnnamedFile": "sur un fichier ou dossier",
-    "onUnnamedCalendar": "sur un agenda"
+    "onUnnamedCalendar": "sur un agenda",
+    "theChannel": "le canal",
+    "aChannel": "un canal"
   },
   "guests": {
     "endTitle": "Accès jusqu'au",
@@ -2480,13 +2482,13 @@
     "loading": "Chargement de l'accès…",
     "loadFailed": "Impossible de charger l'accès.",
     "open": "Gérer l'accès",
-    "summaryPublic": "Public : tout le monde dans l'espace voit ce canal et le rejoint. Réglez qui peut lire, participer ou gérer.",
-    "summaryPrivate": "Privé : seuls ceux qui ont accès voient ce canal. Réglez qui peut lire, participer ou gérer.",
+    "summaryPublic": "Public : tout le monde dans l'espace voit ce canal et peut le rejoindre. Définissez qui peut lire, participer ou gérer.",
+    "summaryPrivate": "Privé : seules les personnes qui ont accès voient ce canal. Définissez qui peut lire, participer ou gérer.",
     "addTitle": "Ajouter à {{name}}",
     "addSub": "Cherchez parmi les groupes, les rôles, les membres et les invités de l'espace.",
     "search": "Rechercher un groupe, un rôle ou une personne",
     "alreadyListed": "Déjà dans la liste",
-    "guestNotice": "{{name}} est invité : son accès ne dépasse jamais le plafond des invités, quel que soit le niveau choisi.",
+    "guestNotice": "{{name}} a le statut d'invité : son accès ne dépasse jamais le plafond des invités, quel que soit le niveau choisi.",
     "refusal": {
       "cannotGrant": "Vous ne pouvez pas donner un droit que vous n'avez pas vous-même ici.",
       "targetAboveYou": "Cette personne ou ce groupe est au-dessus de vous : vous ne pouvez pas modifier son accès.",
@@ -2545,6 +2547,29 @@
       "warnBody": "Retirez-le d'abord de chaque règle ci-dessous, puis revenez le supprimer.",
       "where": "Où il est utilisé",
       "hidden": "Un élément que vous ne pouvez pas ouvrir"
+    },
+    "verify": "Vérifier",
+    "learnMore": "En savoir plus",
+    "freeManage": {
+      "subtitle": "Vous pouvez lire qui a accès ici, mais pas le modifier.",
+      "noNames": "les administrateurs de l'espace",
+      "title": {
+        "folder": "Qui a accès à un dossier se règle depuis les réglages de l'espace.",
+        "file": "Qui a accès à un fichier se règle depuis les réglages de l'espace.",
+        "calendar": "Qui a accès à un agenda se règle depuis les réglages de l'espace.",
+        "channel": "Qui a accès à un canal se règle depuis les réglages de l'espace."
+      },
+      "body": {
+        "file": "Votre niveau Gérer sur {{name}} vous permet de le renommer, de le supprimer et de créer un lien public. Pour changer ses accès, demandez à {{who}}.",
+        "calendar": "Votre niveau Gérer sur {{name}} vous permet de le renommer, de le modifier et de le supprimer. Pour changer ses accès, demandez à {{who}}.",
+        "channel": "Votre niveau Gérer sur {{name}} vous permet de modérer les messages et de régler le canal. Pour changer ses accès, demandez à {{who}}."
+      },
+      "upsell": {
+        "folder": "Déléguer le partage d'un dossier à ceux qui le gèrent : édition Entreprise.",
+        "file": "Déléguer le partage d'un fichier à ceux qui le gèrent : édition Entreprise.",
+        "calendar": "Déléguer le partage d'un agenda à ceux qui le gèrent : édition Entreprise.",
+        "channel": "Déléguer le partage d'un canal à ceux qui le gèrent : édition Entreprise."
+      }
     }
   },
   "customise": {
@@ -2604,7 +2629,7 @@
       },
       "guest_ceiling": {
         "granted": "Plafond des invités : {{permission}} reste permis à un invité.",
-        "removed": "Plafond des invités : {{person}} est invité, {{permission}} dépasse ce qu'un invité peut avoir."
+        "removed": "Plafond des invités : {{person}} a le statut d'invité, {{permission}} dépasse ce qu'un invité peut avoir."
       },
       "owner": {
         "granted": "Propriétaire : {{person}} est propriétaire de l'espace, {{permission}} est accordé.",

@@ -2351,13 +2351,15 @@
     "levelChip": "Livello {{level}}",
     "readersOfChannel": "i lettori di un canale",
     "rolePreviewStarted": "{{actor}} ha visualizzato lo spazio come {{role}}",
-    "rolePreviewEnded": "{{actor}} è uscito dall'anteprima come {{role}}",
+    "rolePreviewEnded": "{{actor}} ha lasciato l'anteprima come {{role}}",
     "somebody": "una persona",
     "aGroup": "un gruppo",
     "aRole": "un ruolo",
     "onUnnamedChannel": "su un canale",
     "onUnnamedFile": "su un file o cartella",
-    "onUnnamedCalendar": "su un calendario"
+    "onUnnamedCalendar": "su un calendario",
+    "theChannel": "il canale",
+    "aChannel": "un canale"
   },
   "guests": {
     "endTitle": "Accesso fino al",
@@ -2521,7 +2523,7 @@
       }
     },
     "guestCap": "Non per un ospite: il limite degli ospiti lo impedisce.",
-    "selfLocked": "Non può modificare il suo stesso accesso.",
+    "selfLocked": "Non puoi modificare il tuo stesso accesso.",
     "levelNotHeld": "Non ha questo livello qui.",
     "atLeast": "almeno {{level}} (tutto lo spazio)",
     "denyTag": "Negato",
@@ -2532,29 +2534,29 @@
     "levelFor": "Livello di {{name}}",
     "editDetail": "Modifica il dettaglio",
     "readOnly": {
-      "licenceRequired": "Può consultare questo accesso senza modificarlo: delegare la gestione dell'accesso fa parte dell'edizione Enterprise.",
-      "licenceFrozen": "Le modifiche sono sospese: la licenza di questo spazio è congelata. Può comunque consultare l'accesso.",
-      "notAllowed": "Può consultare questo accesso, ma non modificarlo.",
+      "licenceRequired": "Puoi consultare questo accesso senza modificarlo: delegare la gestione dell'accesso fa parte dell'edizione Enterprise.",
+      "licenceFrozen": "Le modifiche sono sospese: la licenza di questo spazio è congelata. Puoi comunque consultare l'accesso.",
+      "notAllowed": "Puoi consultare questo accesso, ma non modificarlo.",
       "archived": "Questo canale è archiviato: il suo accesso non si può più modificare.",
       "trashed": "Questo elemento è nel cestino: il suo accesso non può più essere modificato."
     },
     "verifyTitle": "Verificare l'accesso di qualcuno.",
-    "verifyBody": "Scelga una persona: le spieghiamo passo per passo perché ha, o non ha, accesso.",
+    "verifyBody": "Scegli una persona: ti spieghiamo passo per passo perché ha, o non ha, accesso.",
     "teaser": "Un ruolo personalizzato come destinatario, negare l'accesso a una persona, regolare ogni permesso uno per uno: edizione Enterprise.",
     "add": "Aggiungi persone o gruppi",
     "loading": "Caricamento dell'accesso…",
     "loadFailed": "Impossibile caricare l'accesso.",
     "open": "Gestisci l'accesso",
-    "summaryPublic": "Pubblico: tutti nello spazio vedono questo canale e possono unirsi. Stabilisca chi può leggere, partecipare o gestire.",
-    "summaryPrivate": "Privato: solo chi ha accesso vede questo canale. Stabilisca chi può leggere, partecipare o gestire.",
+    "summaryPublic": "Pubblico: tutti nello spazio vedono questo canale e possono unirsi. Stabilisci chi può leggere, partecipare o gestire.",
+    "summaryPrivate": "Privato: solo chi ha accesso vede questo canale. Stabilisci chi può leggere, partecipare o gestire.",
     "addTitle": "Aggiungi a {{name}}",
-    "addSub": "Cerchi tra i gruppi, i ruoli, i membri e gli ospiti dello spazio.",
+    "addSub": "Cerca tra i gruppi, i ruoli, i membri e gli ospiti dello spazio.",
     "search": "Cerca un gruppo, un ruolo o una persona",
     "alreadyListed": "Già nell'elenco",
     "guestNotice": "{{name}} è ospite: il suo accesso non supera mai il limite degli ospiti, qualunque sia il livello scelto.",
     "refusal": {
-      "cannotGrant": "Non può concedere un permesso che non ha lei stessa qui.",
-      "targetAboveYou": "Questa persona o questo gruppo è al di sopra di lei: non può modificarne l'accesso.",
+      "cannotGrant": "Non puoi concedere un permesso che non hai tu stesso qui.",
+      "targetAboveYou": "Questa persona o questo gruppo è al di sopra di te: non puoi modificarne l'accesso.",
       "reservationAdminsOnly": "Solo il proprietario e gli amministratori possono togliere l'accesso a tutti.",
       "guestCeiling": "Un ospite non può superare il limite degli ospiti.",
       "audienceFilesOnly": "I lettori di un canale si scelgono solo per i file.",
@@ -2610,6 +2612,29 @@
       "warnBody": "Toglilo prima da ogni regola qui sotto, poi torna a eliminarlo.",
       "where": "Dove è usato",
       "hidden": "Un elemento che non puoi aprire"
+    },
+    "verify": "Verifica",
+    "learnMore": "Scopri di più",
+    "freeManage": {
+      "subtitle": "Puoi leggere chi ha accesso qui, ma non modificarlo.",
+      "noNames": "gli amministratori dello spazio",
+      "title": {
+        "folder": "Chi ha accesso a una cartella si imposta dalle impostazioni dello spazio.",
+        "file": "Chi ha accesso a un file si imposta dalle impostazioni dello spazio.",
+        "calendar": "Chi ha accesso a un calendario si imposta dalle impostazioni dello spazio.",
+        "channel": "Chi ha accesso a un canale si imposta dalle impostazioni dello spazio."
+      },
+      "body": {
+        "file": "Il tuo livello Gestisci su {{name}} ti permette di rinominarlo, eliminarlo e creare un link pubblico. Per cambiare chi ha accesso, chiedi a {{who}}.",
+        "calendar": "Il tuo livello Gestisci su {{name}} ti permette di rinominarlo, modificarlo ed eliminarlo. Per cambiare chi ha accesso, chiedi a {{who}}.",
+        "channel": "Il tuo livello Gestisci su {{name}} ti permette di moderare i messaggi e configurare il canale. Per cambiare chi ha accesso, chiedi a {{who}}."
+      },
+      "upsell": {
+        "folder": "Delegare la condivisione di una cartella a chi la gestisce: edizione Enterprise.",
+        "file": "Delegare la condivisione di un file a chi lo gestisce: edizione Enterprise.",
+        "calendar": "Delegare la condivisione di un calendario a chi lo gestisce: edizione Enterprise.",
+        "channel": "Delegare la condivisione di un canale a chi lo gestisce: edizione Enterprise."
+      }
     }
   },
   "customise": {
@@ -2684,7 +2709,7 @@
         "removed": "Archiviato: l'elemento è archiviato o nel cestino, quindi {{permission}} è tolto."
       },
       "joined": {
-        "granted": "Membro del canale: {{person}} è entrato nel canale, quindi {{permission}} è concesso.",
+        "granted": "Membro del canale: {{person}} ha aderito al canale, quindi {{permission}} è concesso.",
         "removed": "Membro del canale: {{person}} perde {{permission}} pur essendo nel canale."
       },
       "unseen": {

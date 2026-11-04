@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { addLevelOptions, calendarLevelOf, canEdit, entryEditable, inheritedLink, withOverrides, entryNote, groupEntries, levelLabelKey, levelOptions, privateNote, readOnlyReason, removable, type EntryLike } from "./accessLogic.ts";
+import { readFileSync } from "node:fs";
+import { freeManage, askWho } from "./accessLogic.ts";
+import { canCustomise } from "./customiseLogic.ts";
+import { everyoneLine, addLevelOptions, calendarLevelOf, canEdit, entryEditable, inheritedLink, withOverrides, entryNote, groupEntries, levelLabelKey, levelOptions, privateNote, readOnlyReason, removable, type EntryLike } from "./accessLogic.ts";
 
 const may = (levels: string[], over: Partial<{ edit: boolean; reason: string }> = {}) => ({
   edit: over.edit ?? true,
@@ -11,8 +14,8 @@ const may = (levels: string[], over: Partial<{ edit: boolean; reason: string }> 
 });
 
 const entry = (over: Partial<EntryLike> & { kind?: EntryLike["target"]["kind"] } = {}): EntryLike => ({
-  id: "r1",
-  target: { kind: over.kind ?? "group", id: "g1", name: "Comptabilité", hidden: false },
+  id: "3633b614-fdd6-5fc5-a819-a8c9d5c56fcd",
+  target: { kind: over.kind ?? "group", id: "7532ecb1-2661-5a23-b725-0713adf42f31", name: "Comptabilité", hidden: false },
   level: "contribute",
   allow: [],
   deny: [],
@@ -25,16 +28,16 @@ const entry = (over: Partial<EntryLike> & { kind?: EntryLike["target"]["kind"] }
 const ALL = ["none", "read", "contribute", "manage"];
 
 test("none_is_offered_for_everyone_only", () => {
-  const everyone = levelOptions(may(ALL), "channel", entry({ kind: "everyone" }), "me").map((o) => o.level);
+  const everyone = levelOptions(may(ALL), entry({ kind: "everyone" }), "me").map((o) => o.level);
   assert.deepEqual(everyone, ["none", "read", "contribute", "manage"]);
   for (const kind of ["role", "group", "user"] as const) {
-    const levels = levelOptions(may(ALL), "channel", entry({ kind }), "me").map((o) => o.level);
+    const levels = levelOptions(may(ALL), entry({ kind }), "me").map((o) => o.level);
     assert.deepEqual(levels, ["read", "contribute", "manage"]);
   }
 });
 
 test("only_the_levels_the_viewer_holds_are_offered_and_the_current_one_stays_visible", () => {
-  const options = levelOptions(may(["read", "contribute"]), "channel", entry({ level: "manage" }), "me");
+  const options = levelOptions(may(["read", "contribute"]), entry({ level: "manage" }), "me");
   const manage = options.find((o) => o.level === "manage");
   assert.equal(manage?.disabled, true);
   assert.equal(manage?.reason, "not_held");
@@ -42,7 +45,7 @@ test("only_the_levels_the_viewer_holds_are_offered_and_the_current_one_stays_vis
 });
 
 test("manage_is_disabled_for_a_guest_with_a_reason", () => {
-  const options = levelOptions(may(ALL), "channel", entry({ kind: "user", guest: true, level: "read" }), "me");
+  const options = levelOptions(may(ALL), entry({ kind: "user", guest: true, level: "read" }), "me");
   const manage = options.find((o) => o.level === "manage");
   assert.equal(manage?.disabled, true);
   assert.equal(manage?.reason, "guest");
@@ -52,13 +55,13 @@ test("manage_is_disabled_for_a_guest_with_a_reason", () => {
 test("nobody_edits_a_rule_aimed_at_themselves", () => {
   const mine = entry({ kind: "user" });
   mine.target.id = "me";
-  const options = levelOptions(may(ALL), "channel", mine, "me");
+  const options = levelOptions(may(ALL), mine, "me");
   assert.ok(options.every((o) => o.disabled && o.reason === "self"));
   assert.equal(removable(mine, "me"), false);
 });
 
 test("a_custom_entry_shows_personalised_and_is_not_selectable", () => {
-  const options = levelOptions(may(ALL), "channel", entry({ level: "custom" }), "me");
+  const options = levelOptions(may(ALL), entry({ level: "custom" }), "me");
   const custom = options.find((o) => o.level === "custom");
   assert.equal(custom?.disabled, true);
   assert.equal(levelLabelKey("channel", "custom"), "access.level.custom");
@@ -92,7 +95,7 @@ test("a_deny_and_a_custom_entry_say_what_they_are", () => {
 
 test("a_clamped_group_and_an_inherited_line_are_said", () => {
   assert.deepEqual(entryNote(entry({ clamped: true }), []), { type: "clamped" });
-  const inherited = entry({ inheritedFrom: { kind: "folder", id: "f", name: "Compta", hidden: false }, id: undefined });
+  const inherited = entry({ inheritedFrom: { kind: "folder", id: "9a49e33a-5efb-506c-97f9-a07f0242714f", name: "Compta", hidden: false }, id: undefined });
   assert.deepEqual(entryNote(inherited, []), { type: "inherited", folder: "Compta" });
 });
 
@@ -137,8 +140,8 @@ test("entries_are_grouped_everyone_roles_groups_people_with_inherited_last", () 
 const folderRef = (id: string | undefined, name?: string) => ({ kind: "folder", id, name, hidden: id === undefined });
 
 test("an_inherited_line_links_to_its_folder", () => {
-  const line = entry({ id: undefined, inheritedFrom: folderRef("f1", "Compta") });
-  assert.deepEqual(inheritedLink(line), { id: "f1", name: "Compta" });
+  const line = entry({ id: undefined, inheritedFrom: folderRef("e106010e-830a-53f1-854e-0d5b1635b305", "Compta") });
+  assert.deepEqual(inheritedLink(line), { id: "e106010e-830a-53f1-854e-0d5b1635b305", name: "Compta" });
   // A folder the viewer may not see is named "un dossier parent" and has no link.
   assert.equal(inheritedLink(entry({ id: undefined, inheritedFrom: folderRef(undefined) })), undefined);
   // A line of the item itself links nowhere.
@@ -147,24 +150,24 @@ test("an_inherited_line_links_to_its_folder", () => {
 
 test("an_override_replaces_the_inherited_line", () => {
   const up = (name: string, level: EntryLike["level"], from?: string): EntryLike => {
-    const e = entry({ id: from ? undefined : "p1", level, inheritedFrom: from ? folderRef("f", from) : undefined });
-    e.target = { kind: "group", id: "g1", name, hidden: false };
+    const e = entry({ id: from ? undefined : "p1", level, inheritedFrom: from ? folderRef("9a49e33a-5efb-506c-97f9-a07f0242714f", from) : undefined });
+    e.target = { kind: "group", id: "7532ecb1-2661-5a23-b725-0713adf42f31", name, hidden: false };
     return e;
   };
-  const own = entry({ id: "r1", level: "read" });
+  const own = entry({ id: "3633b614-fdd6-5fc5-a819-a8c9d5c56fcd", level: "read" });
   // The parent's view says the group may contribute, from the folder Compta.
   const merged = withOverrides([own, up("Comptabilité", "contribute", "Compta")], [up("Comptabilité", "contribute", "Compta")], "2026");
   assert.equal(merged.entries.length, 1);
-  assert.deepEqual(merged.overrides.get("group:g1"), { level: "contribute", folder: "Compta" });
+  assert.deepEqual(merged.overrides.get("group:7532ecb1-2661-5a23-b725-0713adf42f31"), { level: "contribute", folder: "Compta" });
   // Another target stays inherited and nothing is overridden for it.
-  const other = entry({ id: undefined, inheritedFrom: folderRef("f", "Compta") });
-  other.target = { kind: "role", id: "r", name: "Admin", hidden: false };
+  const other = entry({ id: undefined, inheritedFrom: folderRef("9a49e33a-5efb-506c-97f9-a07f0242714f", "Compta") });
+  other.target = { kind: "role", id: "c6f204bc-8cc0-55a4-b2e2-799dcda9120e", name: "Admin", hidden: false };
   const kept = withOverrides([own, other], [other], "2026");
   assert.equal(kept.entries.length, 2);
-  assert.equal(kept.overrides.has("role:r"), false);
+  assert.equal(kept.overrides.has("role:c6f204bc-8cc0-55a4-b2e2-799dcda9120e"), false);
   // The parent's own line (not inherited by it) is named after the parent.
   const direct = withOverrides([own], [up("Comptabilité", "contribute")], "2026");
-  assert.equal(direct.overrides.get("group:g1")?.folder, "2026");
+  assert.equal(direct.overrides.get("group:7532ecb1-2661-5a23-b725-0713adf42f31")?.folder, "2026");
   // Without the parent's view nothing is claimed.
   assert.equal(withOverrides([own], undefined, undefined).overrides.size, 0);
 });
@@ -179,6 +182,51 @@ test("a_member_without_edit_sees_the_list_read_only", () => {
   assert.equal(entryEditable(view, entry()), false);
   assert.equal(entryEditable({ archived: false, may: may(ALL) }, entry()), true);
   // An inherited line is never edited here, whoever looks.
-  assert.equal(entryEditable({ archived: false, may: may(ALL) }, entry({ id: undefined, inheritedFrom: folderRef("f", "F") })), false);
+  assert.equal(entryEditable({ archived: false, may: may(ALL) }, entry({ id: undefined, inheritedFrom: folderRef("9a49e33a-5efb-506c-97f9-a07f0242714f", "F") })), false);
   assert.equal(entryEditable({ archived: true, may: may(ALL) }, entry()), false);
+});
+
+test("the_guests_line_is_told_apart_from_everyone", () => {
+  // On the wire both lines are `everyone` and name their base role by UUID: only `guest` tells them apart.
+  const members = entry({ kind: "everyone", level: "contribute", guest: false });
+  members.target.id = "0a1c6d2e-3b4f-4a5b-8c6d-7e8f9a0b1c2d";
+  const guests = entry({ kind: "everyone", level: "read", guest: true });
+  guests.target.id = "1b2d7e3f-4c50-4b6c-9d7e-8f9a0b1c2d3e";
+  assert.equal(everyoneLine(members), "members");
+  assert.equal(everyoneLine(guests), "guests");
+  assert.equal(everyoneLine(entry({ kind: "group", guest: true })), undefined);
+  // The "au moins" note compares with the members line, even when the guests line comes first.
+  const group = entry({ kind: "group", level: "read" });
+  assert.deepEqual(entryNote(group, [guests, members, group]), { type: "atLeast", level: "contribute" });
+  assert.equal(entryNote(group, [guests, group]), undefined);
+  // The Personnaliser rule on a calendar: the guests line has it, the members line does not.
+  assert.equal(canCustomise("calendar", guests, false), true);
+  assert.equal(canCustomise("calendar", members, false), false);
+  assert.equal(canCustomise("channel", guests, false), false);
+  assert.equal(canCustomise("file", guests, false), true);
+});
+
+test("a_free_space_manager_is_told_who_to_ask", () => {
+  // The case is a read-only dialog because of the licence; not an archived or frozen one.
+  const view = (reason: string | undefined, archived = false) => ({ archived, may: { edit: false, fine: false, manageTargetLevels: [], reason } });
+  assert.equal(freeManage(view("licence_required"), "file", true)?.lead, "access.freeManage.title.folder");
+  assert.equal(freeManage(view("licence_required"), "file", false)?.detail, "access.freeManage.body.file");
+  assert.equal(freeManage(view("licence_required"), "calendar", false)?.cta, "access.freeManage.upsell.calendar");
+  assert.equal(freeManage(view("licence_required"), "channel", false)?.lead, "access.freeManage.title.channel");
+  assert.equal(freeManage(view("licence_frozen"), "file", false), undefined);
+  assert.equal(freeManage(view("not_allowed"), "file", false), undefined);
+  assert.equal(freeManage(view("licence_required", true), "file", false), undefined);
+  // Who to ask: the owner first, then the administrators, three at most; bots and others never.
+  const m = (name: string, role: string, bot = false) => ({ name, role, bot });
+  assert.deepEqual(askWho([m("Camille", "admin"), m("Julie", "member"), m("Sophie", "owner"), m("Bot", "admin", true), m("Léo", "admin"), m("Zoé", "admin"), m("Max", "admin")]), ["Sophie", "Camille", "Léo"]);
+  assert.deepEqual(askWho([m("Julie", "member")]), []);
+  for (const locale of ["fr", "en", "de", "es", "it", "pl"]) {
+    const dict = JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, unknown>;
+    const has = (key: string) => key.split(".").reduce<unknown>((at, p) => (at as Record<string, unknown> | undefined)?.[p], dict) !== undefined;
+    for (const kind of ["channel", "file", "calendar"] as const) for (const folder of [true, false]) {
+      const keys = freeManage(view("licence_required"), kind, folder)!;
+      for (const key of [keys.lead, keys.detail, keys.cta]) assert.ok(has(key), `${locale}: ${key}`);
+    }
+    for (const key of ["access.freeManage.subtitle", "access.freeManage.noNames", "common.or", "access.learnMore", "access.verify"]) assert.ok(has(key), `${locale}: ${key}`);
+  }
 });

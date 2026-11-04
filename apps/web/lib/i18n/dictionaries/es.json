@@ -2357,7 +2357,9 @@
     "aRole": "un rol",
     "onUnnamedChannel": "en un canal",
     "onUnnamedFile": "en un archivo o carpeta",
-    "onUnnamedCalendar": "en una agenda"
+    "onUnnamedCalendar": "en una agenda",
+    "theChannel": "el canal",
+    "aChannel": "un canal"
   },
   "guests": {
     "endTitle": "Acceso hasta",
@@ -2521,7 +2523,7 @@
       }
     },
     "guestCap": "No para un invitado: el tope de invitados lo impide.",
-    "selfLocked": "No puede modificar su propio acceso.",
+    "selfLocked": "No puedes modificar tu propio acceso.",
     "levelNotHeld": "No tiene este nivel aquí.",
     "atLeast": "al menos {{level}} (todo el espacio)",
     "denyTag": "Denegado",
@@ -2532,29 +2534,29 @@
     "levelFor": "Nivel de {{name}}",
     "editDetail": "Editar el detalle",
     "readOnly": {
-      "licenceRequired": "Puede consultar este acceso sin modificarlo: delegar la gestión del acceso es propio de la edición Enterprise.",
-      "licenceFrozen": "Los cambios están suspendidos: la licencia de este espacio está congelada. Puede consultar el acceso.",
-      "notAllowed": "Puede consultar este acceso, pero no modificarlo.",
+      "licenceRequired": "Puedes consultar este acceso sin modificarlo: delegar la gestión del acceso es propio de la edición Enterprise.",
+      "licenceFrozen": "Los cambios están suspendidos: la licencia de este espacio está congelada. Puedes consultar el acceso.",
+      "notAllowed": "Puedes consultar este acceso, pero no modificarlo.",
       "archived": "Este canal está archivado: su acceso ya no se puede modificar.",
       "trashed": "Este elemento está en la papelera: su acceso ya no se puede modificar."
     },
     "verifyTitle": "Comprobar el acceso de alguien.",
-    "verifyBody": "Elija una persona: le explicamos paso a paso por qué tiene, o no, acceso.",
+    "verifyBody": "Elige una persona: te explicamos paso a paso por qué tiene, o no, acceso.",
     "teaser": "Un rol a medida como destinatario, denegar el acceso a una persona, ajustar cada permiso uno a uno: edición Enterprise.",
     "add": "Añadir personas o grupos",
     "loading": "Cargando el acceso…",
     "loadFailed": "No se pudo cargar el acceso.",
     "open": "Gestionar el acceso",
-    "summaryPublic": "Público: todos en el espacio ven este canal y pueden unirse. Defina quién puede leer, participar o gestionar.",
-    "summaryPrivate": "Privado: solo quienes tienen acceso ven este canal. Defina quién puede leer, participar o gestionar.",
+    "summaryPublic": "Público: todos en el espacio ven este canal y pueden unirse. Define quién puede leer, participar o gestionar.",
+    "summaryPrivate": "Privado: solo quienes tienen acceso ven este canal. Define quién puede leer, participar o gestionar.",
     "addTitle": "Añadir a {{name}}",
-    "addSub": "Busque entre los grupos, roles, miembros e invitados del espacio.",
+    "addSub": "Busca entre los grupos, roles, miembros e invitados del espacio.",
     "search": "Buscar un grupo, un rol o una persona",
     "alreadyListed": "Ya está en la lista",
-    "guestNotice": "{{name}} es invitado: su acceso nunca supera el tope de invitados, sea cual sea el nivel elegido.",
+    "guestNotice": "{{name}} tiene el estatus de invitado: su acceso nunca supera el tope de invitados, sea cual sea el nivel elegido.",
     "refusal": {
-      "cannotGrant": "No puede conceder un permiso que usted mismo no tiene aquí.",
-      "targetAboveYou": "Esta persona o grupo está por encima de usted: no puede modificar su acceso.",
+      "cannotGrant": "No puedes conceder un permiso que tú mismo no tienes aquí.",
+      "targetAboveYou": "Esta persona o grupo está por encima de ti: no puedes modificar su acceso.",
       "reservationAdminsOnly": "Solo el propietario y los administradores pueden quitar el acceso a todo el mundo.",
       "guestCeiling": "Un invitado no puede superar el tope de invitados.",
       "audienceFilesOnly": "Los lectores de un canal solo se eligen para archivos.",
@@ -2610,6 +2612,29 @@
       "warnBody": "Quítalo primero de cada regla de abajo y vuelve a eliminarlo.",
       "where": "Dónde se usa",
       "hidden": "Un elemento que no puedes abrir"
+    },
+    "verify": "Comprobar",
+    "learnMore": "Más información",
+    "freeManage": {
+      "subtitle": "Puedes leer quién tiene acceso aquí, pero no modificarlo.",
+      "noNames": "los administradores del espacio",
+      "title": {
+        "folder": "Quién tiene acceso a una carpeta se ajusta desde los ajustes del espacio.",
+        "file": "Quién tiene acceso a un archivo se ajusta desde los ajustes del espacio.",
+        "calendar": "Quién tiene acceso a una agenda se ajusta desde los ajustes del espacio.",
+        "channel": "Quién tiene acceso a un canal se ajusta desde los ajustes del espacio."
+      },
+      "body": {
+        "file": "Tu nivel Gestionar en {{name}} te permite renombrarlo, eliminarlo y crear un enlace público. Para cambiar quién tiene acceso, pídeselo a {{who}}.",
+        "calendar": "Tu nivel Gestionar en {{name}} te permite renombrarla, modificarla y eliminarla. Para cambiar quién tiene acceso, pídeselo a {{who}}.",
+        "channel": "Tu nivel Gestionar en {{name}} te permite moderar los mensajes y ajustar el canal. Para cambiar quién tiene acceso, pídeselo a {{who}}."
+      },
+      "upsell": {
+        "folder": "Delegar el uso compartido de una carpeta a quienes la gestionan: edición Enterprise.",
+        "file": "Delegar el uso compartido de un archivo a quienes lo gestionan: edición Enterprise.",
+        "calendar": "Delegar el uso compartido de una agenda a quienes la gestionan: edición Enterprise.",
+        "channel": "Delegar el uso compartido de un canal a quienes lo gestionan: edición Enterprise."
+      }
     }
   },
   "customise": {
@@ -2669,7 +2694,7 @@
       },
       "guest_ceiling": {
         "granted": "Techo de invitados: un invitado puede conservar {{permission}}.",
-        "removed": "Techo de invitados: {{person}} es invitado y {{permission}} supera lo que puede tener un invitado."
+        "removed": "Techo de invitados: {{person}} tiene el estatus de invitado y {{permission}} supera lo que puede tener un invitado."
       },
       "owner": {
         "granted": "Propietario: {{person}} es propietario del espacio, así que {{permission}} se concede.",

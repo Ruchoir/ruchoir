@@ -7,11 +7,13 @@ import type { AccessEntry, AccessKind, AccessView } from "@/lib/data/types";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatList } from "@/lib/i18n/format";
 import { PERMISSION_TEXT } from "../settings/permissionText";
+import { shouldToastRefusal } from "../app/previewLogic.ts";
 import { refusalMessage } from "../settings/roleChips";
 import { levelLabelKey } from "./accessLogic.ts";
-import { changedCount, draftOf, groupsOf, locksOf, resultOf, ruleOf, setState, stateOf, type State } from "./customiseLogic.ts";
+import { changedCount, nextRadio, draftOf, groupsOf, locksOf, resultOf, ruleOf, setState, stateOf, type State } from "./customiseLogic.ts";
 import { tk } from "./EntryRow";
 
+const STATES = ["inherited", "allow", "deny"] as const;
 const GROUP_LABEL: Record<"read" | "participate" | "manage", TranslationKey> = {
   read: key("customise.groupRead"),
   participate: key("customise.groupParticipate"),
@@ -71,7 +73,7 @@ export function CustomiseDialog({
       onSaved(await setAccessRule(spaceId, kind, resourceId, { kind: entry.target.kind, id: entry.target.id }, ruleOf(kind, draft)));
       onClose();
     } catch (err) {
-      onNotify({ tone: "danger", title: t("customise.saveFailed"), description: refusalMessage(refusalOf(err), t, t("space.retry")) });
+      if (shouldToastRefusal(refusalOf(err))) onNotify({ tone: "danger", title: t("customise.saveFailed"), description: refusalMessage(refusalOf(err), t, t("space.retry")) });
       setBusy(false);
     }
   };
@@ -140,7 +142,7 @@ export function CustomiseDialog({
                       </div>
                     </div>
                     <div role="radiogroup" aria-label={name(permission)} style={{ display: "inline-flex", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-md)", overflow: "hidden", flex: "none" }}>
-                      {(["inherited", "allow", "deny"] as const).map((option) => {
+                      {STATES.map((option, optionIndex) => {
                         const active = state === option;
                         return (
                           <button
@@ -148,6 +150,15 @@ export function CustomiseDialog({
                             type="button"
                             role="radio"
                             aria-checked={active}
+                            // Roving tabindex: the group is one stop, arrows move inside it.
+                            tabIndex={active ? 0 : -1}
+                            onKeyDown={(e) => {
+                              const next = nextRadio(e.key, optionIndex, STATES.length);
+                              if (next === undefined) return;
+                              e.preventDefault();
+                              setDraft((d) => setState(d, permission, STATES[next]));
+                              (e.currentTarget.parentElement?.querySelectorAll<HTMLElement>('[role="radio"]')[next])?.focus();
+                            }}
                             disabled={lock !== undefined || busy}
                             onClick={() => setDraft((d) => setState(d, permission, option))}
                             style={{

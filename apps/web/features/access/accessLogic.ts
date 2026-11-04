@@ -44,7 +44,7 @@ export function levelDescKey(kind: Kind, level: Exclude<Level, "none" | "custom"
 }
 
 /** The levels a line's selector offers. The current one is always listed, even when it is off. */
-export function levelOptions(may: MayLike, _kind: Kind, entry: EntryLike, meId: string | undefined): LevelOption[] {
+export function levelOptions(may: MayLike, entry: EntryLike, meId: string | undefined): LevelOption[] {
   const self = entry.target.kind === "user" && entry.target.id !== undefined && entry.target.id === meId;
   const out: LevelOption[] = [];
   for (const level of ["none", "read", "contribute", "manage"] as const) {
@@ -101,10 +101,41 @@ export function entryNote(entry: EntryLike, entries: EntryLike[]): EntryNote | u
   if (entry.level === "none" && entry.target.kind !== "everyone") return { type: "deny" };
   if (entry.clamped) return { type: "clamped" };
   if (entry.target.kind !== "everyone" && entry.level !== "custom" && entry.level !== "none") {
-    const base = entries.find((e) => e.target.kind === "everyone" && !e.target.id?.startsWith("@guests") && !e.inheritedFrom);
+    const base = entries.find((e) => everyoneLine(e) === "members" && !e.inheritedFrom);
     if (base && base.level !== "custom" && RANK[base.level] > RANK[entry.level]) return { type: "atLeast", level: base.level };
   }
   return undefined;
+}
+
+/**
+ * Which "everyone" line this is. Both are `everyone` on the wire and name their base role by UUID, so
+ * the entry's `guest` flag (true on the guests line) is what tells them apart.
+ */
+export function everyoneLine(entry: EntryLike): "members" | "guests" | undefined {
+  if (entry.target.kind !== "everyone") return undefined;
+  return entry.guest ? "guests" : "members";
+}
+
+/**
+ * The read-only dialog of someone who manages a resource in a free space (frame 11): the level gives
+ * its own rights, but changing who has access is the Enterprise edition's. Not for an archived item
+ * nor a frozen licence, which have their own sentences.
+ */
+export function freeManage(
+  access: { archived: boolean; may: { edit: boolean; reason?: string } },
+  kind: Kind,
+  isFolder: boolean,
+): { lead: string; detail: string; cta: string } | undefined {
+  if (access.archived || access.may.edit || access.may.reason !== "licence_required") return undefined;
+  const what = kind === "file" && isFolder ? "folder" : kind;
+  // A folder and a file read the same in the body (what a manager may do), so they share it.
+  return { lead: `access.freeManage.title.${what}`, detail: `access.freeManage.body.${kind}`, cta: `access.freeManage.upsell.${what}` };
+}
+
+/** Who to ask to change the access: the owner, then the administrators, three at most. */
+export function askWho(members: { name: string; role: string; bot?: boolean }[]): string[] {
+  const people = members.filter((m) => !m.bot);
+  return [...people.filter((m) => m.role === "owner"), ...people.filter((m) => m.role === "admin")].slice(0, 3).map((m) => m.name);
 }
 
 export function canEdit(access: AccessLike): boolean {

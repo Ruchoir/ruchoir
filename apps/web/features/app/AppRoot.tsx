@@ -206,7 +206,7 @@ import { oneLine } from "./preview";
 import { PreviewBanner } from "./PreviewBanner";
 import type { Place } from "../settings/usedInLogic.ts";
 import { PlaceNavContext } from "./placeNav";
-import { previewToast } from "./previewLogic.ts";
+import { previewGone, previewToast } from "./previewLogic.ts";
 import { BottomTabs } from "./BottomTabs";
 import { UploadPanel } from "@/features/files/UploadPanel";
 import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchField, QuickLinks, SpaceMark } from "./mobile/MobileScreens";
@@ -2322,6 +2322,21 @@ function AppShell() {
   // The server refuses the real-time connection of a previewing session: the screens do not move on
   // their own until the preview ends. Said once when it starts.
   const previewedRole = workspaces.find((w) => w.id === ws)?.preview?.roleId;
+  // The server ends a preview after 30 idle minutes: while one is shown, ask again on focus and every
+  // minute, and read the screen again as the person when it is gone.
+  useEffect(() => {
+    if (!previewedRole) return;
+    const check = () =>
+      void getWorkspaces()
+        .then((fresh) => previewGone(previewedRole, fresh, ws) && window.location.reload())
+        .catch(() => {});
+    const timer = window.setInterval(check, 60_000);
+    window.addEventListener("focus", check);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", check);
+    };
+  }, [previewedRole, ws]);
   useEffect(() => {
     if (previewedRole) notifyRef.current?.({ tone: "info", title: tRef.current("preview.realtime") });
   }, [previewedRole]);

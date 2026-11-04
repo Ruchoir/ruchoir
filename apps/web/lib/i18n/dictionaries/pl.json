@@ -2431,24 +2431,26 @@
     "guestPurged": "Dostęp dla {{target}} został usunięty po 90 dniach",
     "accessUntil": "Dostęp do {{date}}",
     "accessTo": "Dostęp do {{space}}",
-    "ruleCreated": "{{actor}} nadał dostęp dla {{target}} {{resource}}",
-    "ruleUpdated": "{{actor}} zmienił poziom dla {{target}} {{resource}}",
-    "ruleCustomised": "{{actor}} dostosował dostęp dla {{target}} {{resource}}",
-    "ruleDeleted": "{{actor}} usunął dostęp dla {{target}} {{resource}}",
-    "ruleReserved": "{{actor}} zarezerwował {{resource}}: cała przestrzeń nie ma już dostępu",
+    "ruleCreated": "{{actor}}: nadanie dostępu dla {{target}} {{resource}}",
+    "ruleUpdated": "{{actor}}: zmiana poziomu dla {{target}} {{resource}}",
+    "ruleCustomised": "{{actor}}: dostosowanie dostępu dla {{target}} {{resource}}",
+    "ruleDeleted": "{{actor}}: usunięcie dostępu dla {{target}} {{resource}}",
+    "ruleReserved": "{{actor}}: rezerwacja {{resource}}, cała przestrzeń nie ma już dostępu",
     "onChannel": "w kanale",
     "onFile": "w pliku lub folderze",
     "onCalendar": "w kalendarzu",
     "levelChip": "Poziom {{level}}",
     "readersOfChannel": "czytelnicy kanału",
-    "rolePreviewStarted": "{{actor}} obejrzał przestrzeń jako {{role}}",
-    "rolePreviewEnded": "{{actor}} zakończył podgląd jako {{role}}",
+    "rolePreviewStarted": "{{actor}}: podgląd przestrzeni jako {{role}}",
+    "rolePreviewEnded": "{{actor}}: koniec podglądu jako {{role}}",
     "somebody": "osoba",
     "aGroup": "grupa",
     "aRole": "rola",
     "onUnnamedChannel": "w kanale",
     "onUnnamedFile": "w pliku lub folderze",
-    "onUnnamedCalendar": "w kalendarzu"
+    "onUnnamedCalendar": "w kalendarzu",
+    "theChannel": "kanał",
+    "aChannel": "kanał"
   },
   "guests": {
     "endTitle": "Dostęp do",
@@ -2623,9 +2625,9 @@
     "levelFor": "Poziom: {{name}}",
     "editDetail": "Edytuj szczegóły",
     "readOnly": {
-      "licenceRequired": "Możesz zobaczyć ten dostęp, ale go nie zmienisz: delegowanie zarządzania dostępem należy do edycji Enterprise.",
-      "licenceFrozen": "Zmiany są wstrzymane: licencja tej przestrzeni jest zamrożona. Nadal możesz przeglądać dostęp.",
-      "notAllowed": "Możesz zobaczyć ten dostęp, ale nie możesz go zmienić.",
+      "licenceRequired": "Możesz przeglądać ten dostęp bez zmieniania: delegowanie zarządzania dostępem to część wersji Enterprise.",
+      "licenceFrozen": "Zmiany są zawieszone: licencja tej przestrzeni jest zamrożona. Możesz przeglądać dostęp.",
+      "notAllowed": "Możesz przeglądać ten dostęp, ale nie możesz go zmieniać.",
       "archived": "Ten kanał jest zarchiwizowany: jego dostępu nie można już zmieniać.",
       "trashed": "Ten element jest w koszu: jego dostępu nie można już zmieniać."
     },
@@ -2642,10 +2644,10 @@
     "addSub": "Szukaj wśród grup, ról, członków i gości przestrzeni.",
     "search": "Szukaj grupy, roli lub osoby",
     "alreadyListed": "Już na liście",
-    "guestNotice": "{{name}} jest gościem: jego dostęp nigdy nie przekracza limitu gości, niezależnie od wybranego poziomu.",
+    "guestNotice": "{{name}} ma status gościa: dostęp nigdy nie przekracza limitu gości, niezależnie od wybranego poziomu.",
     "refusal": {
-      "cannotGrant": "Nie możesz nadać uprawnienia, którego sam tu nie masz.",
-      "targetAboveYou": "Ta osoba lub grupa stoi wyżej od Ciebie: nie możesz zmienić jej dostępu.",
+      "cannotGrant": "Nie możesz nadać uprawnienia, którego tu nie masz.",
+      "targetAboveYou": "Ta osoba lub grupa jest powyżej Ciebie: nie możesz zmienić jej dostępu.",
       "reservationAdminsOnly": "Tylko właściciel i administratorzy mogą odebrać dostęp wszystkim.",
       "guestCeiling": "Gość nie może przekroczyć limitu gości.",
       "audienceFilesOnly": "Czytelników kanału można wybrać tylko dla plików.",
@@ -2709,6 +2711,29 @@
       "warnBody": "Najpierw usuń je z każdej reguły poniżej, potem wróć, aby je usunąć.",
       "where": "Gdzie jest używane",
       "hidden": "Element, którego nie możesz otworzyć"
+    },
+    "verify": "Sprawdź",
+    "learnMore": "Dowiedz się więcej",
+    "freeManage": {
+      "subtitle": "Możesz sprawdzić, kto ma tu dostęp, ale nie możesz tego zmieniać.",
+      "noNames": "administratorów przestrzeni",
+      "title": {
+        "folder": "To, kto ma dostęp do folderu, ustawia się w ustawieniach przestrzeni.",
+        "file": "To, kto ma dostęp do pliku, ustawia się w ustawieniach przestrzeni.",
+        "calendar": "To, kto ma dostęp do kalendarza, ustawia się w ustawieniach przestrzeni.",
+        "channel": "To, kto ma dostęp do kanału, ustawia się w ustawieniach przestrzeni."
+      },
+      "body": {
+        "file": "Twój poziom Zarządzaj dla {{name}} pozwala zmienić nazwę, usunąć i utworzyć link publiczny. Aby zmienić dostęp, zwróć się do: {{who}}.",
+        "calendar": "Twój poziom Zarządzaj dla {{name}} pozwala zmienić nazwę, edytować i usunąć. Aby zmienić dostęp, zwróć się do: {{who}}.",
+        "channel": "Twój poziom Zarządzaj dla {{name}} pozwala moderować wiadomości i konfigurować kanał. Aby zmienić dostęp, zwróć się do: {{who}}."
+      },
+      "upsell": {
+        "folder": "Delegowanie udostępniania folderu osobom, które nim zarządzają: wersja Enterprise.",
+        "file": "Delegowanie udostępniania pliku osobom, które nim zarządzają: wersja Enterprise.",
+        "calendar": "Delegowanie udostępniania kalendarza osobom, które nim zarządzają: wersja Enterprise.",
+        "channel": "Delegowanie udostępniania kanału osobom, które nim zarządzają: wersja Enterprise."
+      }
     }
   },
   "customise": {
@@ -2719,11 +2744,11 @@
     "inherited": "Odziedziczone",
     "allowed": "Dozwolone",
     "denied": "Odmówione",
-    "lockNotHeld": "Sam tego tutaj nie masz: nie możesz go nadać ani odmówić.",
+    "lockNotHeld": "Nie masz tego uprawnienia tutaj, więc nie możesz go nadać ani odmówić.",
     "resultLevel": "Wynik: {{level}}",
     "resultExcept": ", z wyjątkiem {{list}}",
     "resultPlus": ", plus {{list}}",
-    "resultNote": "Ustawiasz tylko uprawnienia, które sam masz do tej treści.",
+    "resultNote": "Ustawiasz tylko uprawnienia, które masz do tej treści.",
     "changed": "Zmienione uprawnienia: {{count}}",
     "unchanged": "Bez zmian",
     "upsell": "Ustawianie uprawnień pojedynczo to część wersji Enterprise.",
@@ -2768,14 +2793,14 @@
       },
       "guest_ceiling": {
         "granted": "Limit gości: gość może zachować {{permission}}.",
-        "removed": "Limit gości: {{person}} jest gościem, a {{permission}} to więcej, niż gość może mieć."
+        "removed": "Limit gości: {{person}} ma status gościa, a {{permission}} to więcej, niż może mieć gość."
       },
       "owner": {
         "granted": "Właściciel: {{person}} jest właścicielem przestrzeni, więc {{permission}} jest nadane.",
         "removed": "Właściciel: {{permission}} jest odebrane mimo własności."
       },
       "author": {
-        "granted": "Autor: {{person}} utworzył ten element, więc {{permission}} jest nadane.",
+        "granted": "Autorstwo: element utworzony przez {{person}}, więc {{permission}} jest nadane.",
         "removed": "Autor: {{permission}} jest odebrane mimo utworzenia elementu."
       },
       "archived": {
@@ -2783,7 +2808,7 @@
         "removed": "Zarchiwizowane: element jest zarchiwizowany lub w koszu, więc {{permission}} jest odebrane."
       },
       "joined": {
-        "granted": "Członek kanału: {{person}} dołączył do kanału, więc {{permission}} jest nadane.",
+        "granted": "Członkostwo w kanale: {{person}} jest w kanale, więc {{permission}} jest nadane.",
         "removed": "Członek kanału: {{person}} traci {{permission}} mimo obecności w kanale."
       },
       "unseen": {

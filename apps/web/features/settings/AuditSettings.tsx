@@ -202,7 +202,11 @@ export function AuditSettings({ spaceId, spaceName, members, roles }: AuditSetti
       case "resource":
         return (
           <>
-            {s.name ? (
+            {s.bare ? (
+              <>
+                {s.name ? t("audit.theChannel") : t("audit.aChannel")} {s.name ? <b style={{ color: "var(--text-strong)" }}>#{s.name}</b> : null}
+              </>
+            ) : s.name ? (
               <>
                 {t(RESOURCE_WORD[s.of])} <b style={{ color: "var(--text-strong)" }}>{s.of === "channel" ? `#${s.name}` : s.name}</b>
               </>

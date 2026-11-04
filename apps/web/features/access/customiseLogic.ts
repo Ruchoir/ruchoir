@@ -99,14 +99,13 @@ export function locksOf(kind: Kind, held: string[], guest: boolean): Record<stri
  * in the legacy settings) do not: everyone and the guests of a channel, the members of a calendar,
  * and the Administrator role on both. Files take it everywhere. A channel's readers never do.
  */
-export function canCustomise(kind: Kind, target: { kind: string; id?: string }, isAdministratorRole: boolean): boolean {
+export function canCustomise(kind: Kind, entry: { target: { kind: string }; guest: boolean }, isAdministratorRole: boolean): boolean {
+  const { target } = entry;
   if (target.kind === "audience") return false;
   if (kind === "file") return true;
   if (target.kind === "role" && isAdministratorRole) return false;
-  if (target.kind === "everyone") {
-    const guests = (target.id ?? "").includes("guest");
-    return kind === "calendar" ? guests : false;
-  }
+  // The members line and the guests line are both `everyone`; the entry's `guest` tells them apart.
+  if (target.kind === "everyone") return kind === "calendar" && entry.guest;
   return true;
 }
 
@@ -125,4 +124,26 @@ export function resultOf(
     except: names.filter((n) => draft[n] === "deny" && inLevel.has(n)),
     plus: names.filter((n) => draft[n] === "allow" && !inLevel.has(n)),
   };
+}
+
+/**
+ * The option a key moves to inside a radio group (the WAI-ARIA pattern): arrows move and wrap, Home
+ * and End jump. `undefined` for any other key, so the browser keeps it (Tab leaves the group).
+ */
+export function nextRadio(key: string, index: number, count: number): number | undefined {
+  if (count <= 0) return undefined;
+  switch (key) {
+    case "ArrowRight":
+    case "ArrowDown":
+      return (index + 1) % count;
+    case "ArrowLeft":
+    case "ArrowUp":
+      return (index - 1 + count) % count;
+    case "Home":
+      return 0;
+    case "End":
+      return count - 1;
+    default:
+      return undefined;
+  }
 }

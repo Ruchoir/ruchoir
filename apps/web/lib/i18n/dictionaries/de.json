@@ -2266,7 +2266,9 @@
     "aRole": "eine Rolle",
     "onUnnamedChannel": "in einem Kanal",
     "onUnnamedFile": "bei einer Datei oder einem Ordner",
-    "onUnnamedCalendar": "in einem Kalender"
+    "onUnnamedCalendar": "in einem Kalender",
+    "theChannel": "den Kanal",
+    "aChannel": "einen Kanal"
   },
   "guests": {
     "endTitle": "Zugang bis",
@@ -2441,9 +2443,9 @@
     "levelFor": "Stufe von {{name}}",
     "editDetail": "Details bearbeiten",
     "readOnly": {
-      "licenceRequired": "Sie können diesen Zugriff einsehen, aber nicht ändern: Die Delegation der Zugriffsverwaltung gehört zur Enterprise-Edition.",
-      "licenceFrozen": "Änderungen sind ausgesetzt: Die Lizenz dieses Space ist eingefroren. Sie können den Zugriff weiterhin einsehen.",
-      "notAllowed": "Sie können diesen Zugriff einsehen, aber nicht ändern.",
+      "licenceRequired": "Sie können diesen Zugriff ansehen, aber nicht ändern: Die Delegation der Zugriffsverwaltung gehört zur Enterprise-Edition.",
+      "licenceFrozen": "Änderungen sind ausgesetzt: Die Lizenz dieses Bereichs ist eingefroren. Sie können den Zugriff ansehen.",
+      "notAllowed": "Sie können diesen Zugriff ansehen, aber nicht ändern.",
       "archived": "Dieser Kanal ist archiviert: Sein Zugriff kann nicht mehr geändert werden.",
       "trashed": "Dieses Element liegt im Papierkorb: Sein Zugriff kann nicht mehr geändert werden."
     },
@@ -2454,15 +2456,15 @@
     "loading": "Zugriff wird geladen …",
     "loadFailed": "Der Zugriff konnte nicht geladen werden.",
     "open": "Zugriff verwalten",
-    "summaryPublic": "Öffentlich: Alle im Space sehen diesen Kanal und können beitreten. Legen Sie fest, wer lesen, mitmachen oder verwalten darf.",
+    "summaryPublic": "Öffentlich: Alle im Bereich sehen diesen Kanal und können beitreten. Legen Sie fest, wer lesen, mitmachen oder verwalten darf.",
     "summaryPrivate": "Privat: Nur Personen mit Zugriff sehen diesen Kanal. Legen Sie fest, wer lesen, mitmachen oder verwalten darf.",
     "addTitle": "Zu {{name}} hinzufügen",
-    "addSub": "Suchen Sie unter den Gruppen, Rollen, Mitgliedern und Gästen des Space.",
+    "addSub": "Suchen Sie unter den Gruppen, Rollen, Mitgliedern und Gästen des Bereichs.",
     "search": "Gruppe, Rolle oder Person suchen",
     "alreadyListed": "Bereits in der Liste",
-    "guestNotice": "{{name}} ist Gast: Der Zugriff überschreitet nie die Gäste-Obergrenze, egal welche Stufe gewählt wird.",
+    "guestNotice": "{{name}} ist Gast: Der Zugriff geht nie über die Gästegrenze hinaus, egal welche Stufe gewählt wird.",
     "refusal": {
-      "cannotGrant": "Sie können kein Recht vergeben, das Sie hier nicht selbst haben.",
+      "cannotGrant": "Sie können kein Recht vergeben, das Sie hier selbst nicht haben.",
       "targetAboveYou": "Diese Person oder Gruppe steht über Ihnen: Sie können ihren Zugriff nicht ändern.",
       "reservationAdminsOnly": "Nur der Eigentümer und die Administratoren können allen den Zugriff entziehen.",
       "guestCeiling": "Ein Gast kann die Gäste-Obergrenze nicht überschreiten.",
@@ -2511,6 +2513,29 @@
       "warnBody": "Entfernen Sie es zuerst aus jeder Regel unten und kommen Sie dann zum Löschen zurück.",
       "where": "Wo es verwendet wird",
       "hidden": "Ein Element, das Sie nicht öffnen können"
+    },
+    "verify": "Prüfen",
+    "learnMore": "Mehr erfahren",
+    "freeManage": {
+      "subtitle": "Sie können lesen, wer hier Zugriff hat, aber nicht ändern.",
+      "noNames": "die Administratoren des Bereichs",
+      "title": {
+        "folder": "Wer Zugriff auf einen Ordner hat, wird in den Bereichseinstellungen festgelegt.",
+        "file": "Wer Zugriff auf eine Datei hat, wird in den Bereichseinstellungen festgelegt.",
+        "calendar": "Wer Zugriff auf einen Kalender hat, wird in den Bereichseinstellungen festgelegt.",
+        "channel": "Wer Zugriff auf einen Kanal hat, wird in den Bereichseinstellungen festgelegt."
+      },
+      "body": {
+        "file": "Ihre Stufe Verwalten für {{name}} erlaubt Ihnen, sie umzubenennen, zu löschen und einen öffentlichen Link zu erstellen. Um den Zugriff zu ändern, wenden Sie sich an {{who}}.",
+        "calendar": "Ihre Stufe Verwalten für {{name}} erlaubt Ihnen, ihn umzubenennen, zu bearbeiten und zu löschen. Um den Zugriff zu ändern, wenden Sie sich an {{who}}.",
+        "channel": "Ihre Stufe Verwalten für {{name}} erlaubt Ihnen, Nachrichten zu moderieren und den Kanal einzurichten. Um den Zugriff zu ändern, wenden Sie sich an {{who}}."
+      },
+      "upsell": {
+        "folder": "Das Teilen eines Ordners an dessen Verwalter zu delegieren: Enterprise-Edition.",
+        "file": "Das Teilen einer Datei an deren Verwalter zu delegieren: Enterprise-Edition.",
+        "calendar": "Das Teilen eines Kalenders an dessen Verwalter zu delegieren: Enterprise-Edition.",
+        "channel": "Das Teilen eines Kanals an dessen Verwalter zu delegieren: Enterprise-Edition."
+      }
     }
   },
   "customise": {
