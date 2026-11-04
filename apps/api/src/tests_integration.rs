@@ -12803,3 +12803,6 @@ mod hardening_files_tests;
 
 #[cfg(test)]
 mod hardening_race_tests;
+
+#[cfg(test)]
+mod hardening_limit_tests;

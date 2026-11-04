@@ -308,6 +308,21 @@ pub fn router(state: AppState) -> Router {
     let public_invitations =
         crate::calendar::invitation_page::public_router().layer(GovernorLayer::new(links_governor));
 
+    // A per-person limit on the sensitive authenticated routes (permissions writes and reads, member
+    // roles, imports, the journal, the licence): one bucket shared by all of them, so a script
+    // cannot spread its calls across routes. Generous on purpose, see `RUCHOIR_SENSITIVE_RATE_*`.
+    let sensitive_governor = Arc::new(
+        GovernorConfigBuilder::default()
+            .key_extractor(PersonKey)
+            .period(Duration::from_millis(state.config.sensitive_rate_period_ms))
+            .burst_size(state.config.sensitive_rate_burst)
+            .finish()
+            .expect("valid rate-limit configuration"),
+    );
+    let limited = |routes: Router<AppState>| -> Router<AppState> {
+        routes.layer(GovernorLayer::new(sensitive_governor.clone()))
+    };
+
     let mut router = Router::new()
         .route("/healthz", get(healthz))
         .route("/api/v1/health", get(api_health))
@@ -325,7 +340,7 @@ pub fn router(state: AppState) -> Router {
         // Instance administration: guarded per request by the instance-admin flag, and invisible
         // (a flat 404) to everyone else.
         .merge(crate::admin::router())
-        .merge(crate::importer::routes::router())
+        .merge(limited(crate::importer::routes::router()))
         .merge(crate::realtime::routes::router())
         // Notification delivery past the open page: preferences, Web Push, the email fallback.
         .merge(crate::notify::router())
@@ -344,18 +359,26 @@ pub fn router(state: AppState) -> Router {
         // The calendar: calendars, events, reminders, subscription addresses.
         .merge(crate::calendar::router())
         // A space's audit log, for whoever holds `audit.view` there.
-        .merge(crate::audit::read::router())
+        .merge(limited(crate::audit::read::router()))
         // A space's roles, for whoever reads its member directory.
-        .merge(crate::permissions::roles::router())
+        .merge(limited(crate::permissions::roles::router()))
         // A space's groups: their people, free in every edition.
-        .merge(crate::permissions::group_routes::router())
+        .merge(limited(crate::permissions::group_routes::router()))
         // Who has what on a channel, a file or a calendar: the Access and Share dialogs.
-        .merge(crate::permissions::rule_routes::router())
+        .merge(limited(crate::permissions::rule_routes::router()))
         // A guest's end date, the ended accesses and their reactivation.
-        .merge(crate::permissions::expiry_routes::router())
+        .merge(limited(crate::permissions::expiry_routes::router()))
+        // What one member may do in the space (a role change, the transfer, a removal).
+        .merge(limited(
+            Router::new().route(
+                "/api/v1/spaces/{space_id}/members/{user_id}",
+                axum::routing::patch(crate::messaging::spaces::update_member_role)
+                    .delete(crate::messaging::spaces::remove_member),
+            ),
+        ))
         // What the edition adds (nothing for the community build), guarded per request like the
         // rest.
-        .merge(state.edition.routes());
+        .merge(limited(state.edition.routes()));
 
     // Optional self-hosted emoji pack. `ServeDir` handles path traversal safely and returns 404
     // for missing files, which the client treats as "no asset" and renders the native glyph. The
@@ -526,6 +549,27 @@ fn set_header(name: HeaderName, value: &'static str) -> SetResponseHeaderLayer<H
 /// snippet in `docs/deployment.md` does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ClientIpKey;
+
+/// The bucket of the per-person limit: the session that sent the request (so each signed-in
+/// device has its own allowance, and nobody is slowed by somebody else), or the client address when
+/// no session is presented. Sessions are opaque ids in Valkey, so the person behind one is only
+/// known after the guard runs; the session id is the key a layer can read before that.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PersonKey;
+
+impl KeyExtractor for PersonKey {
+    type Key = String;
+
+    fn extract<T>(
+        &self,
+        req: &axum::http::Request<T>,
+    ) -> Result<Self::Key, tower_governor::GovernorError> {
+        if let Some(id) = crate::auth::session::presented_id(req.headers()) {
+            return Ok(format!("session:{id}"));
+        }
+        ClientIpKey.extract(req).map(|ip| format!("ip:{ip}"))
+    }
+}
 
 impl KeyExtractor for ClientIpKey {
     type Key = std::net::IpAddr;
