@@ -169,6 +169,25 @@ impl From<plan::PeoplePlan> for PeoplePlanResponse {
     }
 }
 
+/// The body of the `402 seats_full` that `POST /api/v1/imports` answers. The other routes that answer
+/// it send `error`, `message`, `seats` and `pricing_url` only.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SeatsFullResponse {
+    pub error: String,
+    pub message: String,
+    /// The seats the licence of the first over space sells.
+    pub seats: u32,
+    pub pricing_url: String,
+    /// That space's name.
+    pub space: String,
+    /// Owners and members already in it.
+    pub used: u32,
+    /// People the archive would add.
+    pub incoming: u32,
+    /// `used + incoming - seats`.
+    pub missing: u32,
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 pub struct WhatDiesResponse {
     pub spaces: u64,
@@ -386,7 +405,7 @@ pub async fn preview(
         (status = 400, description = "The archive does not hold together"),
         (status = 404, description = "No archive of that name for this caller, or a replacement \
                                         asked for by somebody who does not administer the instance"),
-        (status = 402, description = "A space the import fills has too few seats for the people it brings"),
+        (status = 402, description = "A space the import fills has too few seats for the people it brings", body = SeatsFullResponse),
         (status = 409, description = "An import is already running")
     )
 )]
@@ -434,9 +453,12 @@ pub async fn start(
             .into_iter()
             .find(|line| line.over)
         {
-            return Err(ApiError::SeatsFull {
+            return Err(ApiError::SeatsFullFor {
                 seats: line.total,
                 pricing_url: state.config.pricing_url.clone(),
+                space: line.space,
+                used: line.used,
+                incoming: line.incoming,
             });
         }
     }

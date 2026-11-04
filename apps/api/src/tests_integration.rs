@@ -7590,6 +7590,8 @@ use crate::importer::wipe;
 /// A database created for one test, migrated, and dropped afterwards.
 struct ScratchDb {
     db: DatabaseConnection,
+    /// Where to connect to it, for a server booted on it.
+    url: String,
     name: String,
     admin_url: String,
 }
@@ -7611,12 +7613,12 @@ impl ScratchDb {
             .ok()?;
         drop(admin);
 
-        let db = sea_orm::Database::connect(&format!("{prefix}/{name}"))
-            .await
-            .ok()?;
+        let url = format!("{prefix}/{name}");
+        let db = sea_orm::Database::connect(&url).await.ok()?;
         Migrator::up(&db, None).await.ok()?;
         Some(Self {
             db,
+            url,
             name,
             admin_url,
         })
@@ -7627,6 +7629,7 @@ impl ScratchDb {
             db,
             name,
             admin_url,
+            ..
         } = self;
         drop(db);
         if let Ok(admin) = sea_orm::Database::connect(&admin_url).await {
@@ -7819,6 +7822,51 @@ async fn a_replacement_forgets_what_earlier_imports_remembered() {
         mappings(&scratch.db).await.is_empty(),
         "no correspondence may outlive the rows it points at"
     );
+    scratch.drop_it().await;
+}
+
+/// The skip of the seats check in a replacement rests on a licence going with its space.
+#[tokio::test]
+async fn a_replacement_takes_the_licences_with_their_spaces() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let bystander = make_user(&scratch.db, "bystander").await;
+    let (space, _) = crate::messaging::spaces::create_owned_space(&scratch.db, "Ancien", bystander)
+        .await
+        .expect("space");
+    scratch
+        .db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO space_licences (space_id, licence, licence_id, organisation, seats, valid_until) \
+             VALUES ($1, 'x', $2, 'Org', 5, now() + interval '1 year')",
+            [space.into(), Uuid::new_v4().into()],
+        ))
+        .await
+        .expect("licence");
+    record_backup(&scratch.db, OffsetDateTime::now_utc()).await;
+
+    wipe::replace_instance(
+        &scratch.db,
+        admin,
+        "ruchoir.example.org",
+        "https://ruchoir.example.org/",
+    )
+    .await
+    .expect("replacement");
+
+    let left = scratch
+        .db
+        .query_one_raw(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT count(*)::bigint AS n FROM space_licences",
+        ))
+        .await
+        .expect("query")
+        .expect("row");
+    assert_eq!(left.try_get::<i64>("", "n").expect("n"), 0);
     scratch.drop_it().await;
 }
 

@@ -59,23 +59,28 @@ impl Edition for Seats {
 }
 
 struct Harness {
+    scratch: ScratchDb,
     app: TestApp,
     admin: String,
     /// The name of an archive in the import directory that fills the seeded space with `new`
     /// people who are not here yet.
     archive: String,
     space_name: String,
-    alice: Uuid,
 }
 
 /// A licensed instance of `seats` per space, whose seeded "Test Space" holds three members, and an
 /// archive filling that space with `new` accounts nobody has met.
 async fn harness(seats: u32, new: usize) -> Option<Harness> {
+    // A database of its own: the plan and the running-import guard look at the whole instance, and
+    // the shared database holds other tests' spaces and open imports.
+    let scratch = ScratchDb::create().await?;
     let dir = std::env::temp_dir().join(format!("ruchoir-people-plan-{}", Uuid::new_v4().simple()));
     std::fs::create_dir_all(&dir).expect("import dir");
     let place = dir.clone();
+    let url = scratch.url.clone();
     let app = boot_as(Arc::new(Seats(seats)), None, move |c| {
         c.import_dir = Some(place);
+        c.database_url = url;
     })
     .await?;
     let fx = seed(&app.db).await;
@@ -139,11 +144,11 @@ async fn harness(seats: u32, new: usize) -> Option<Harness> {
     .expect("manifest");
     let admin_cookie = app.cookie_for(fx.alice).await;
     Some(Harness {
+        scratch,
         app,
         admin: admin_cookie,
         archive: name,
         space_name,
-        alice: fx.alice,
     })
 }
 
@@ -157,11 +162,15 @@ impl Harness {
             .expect("request")
     }
 
-    /// Jobs this administrator started: the shared database holds everyone else's.
+    async fn finish(self) {
+        let Harness { scratch, app, .. } = self;
+        drop(app);
+        scratch.drop_it().await;
+    }
+
     async fn jobs(&self) -> u64 {
         use sea_orm::PaginatorTrait;
         crate::entities::import_jobs::Entity::find()
-            .filter(crate::entities::import_jobs::Column::CreatedBy.eq(self.alice))
             .count(&self.app.db)
             .await
             .expect("count")
@@ -186,6 +195,7 @@ async fn the_plan_route_carries_the_people_block() {
     assert_eq!(seats["incoming"], 4);
     assert_eq!(seats["total"], 10);
     assert_eq!(seats["over"], false);
+    h.finish().await;
 }
 
 #[tokio::test]
@@ -201,7 +211,13 @@ async fn start_refuses_402_when_the_seats_are_over_and_writes_no_job() {
     assert_eq!(body["error"], "seats_full");
     assert_eq!(body["seats"], 6);
     assert!(body["pricing_url"].is_string());
+    // Three in use, four coming, six sold: one seat short.
+    assert_eq!(body["space"], h.space_name.as_str());
+    assert_eq!(body["used"], 3);
+    assert_eq!(body["incoming"], 4);
+    assert_eq!(body["missing"], 1);
     assert_eq!(h.jobs().await, before, "no job row for a refused start");
+    h.finish().await;
 }
 
 #[tokio::test]
@@ -211,12 +227,6 @@ async fn start_accepts_when_the_seats_just_fit() {
         return;
     };
     let response = h.call("/api/v1/imports").await;
-    // 409 when another test of the shared database has an import open: what matters here is that
-    // the seats did not refuse it.
-    assert!(
-        matches!(response.status().as_u16(), 202 | 409),
-        "{}",
-        response.status()
-    );
-    assert_ne!(response.status(), 402);
+    assert_eq!(response.status(), 202);
+    h.finish().await;
 }

@@ -79,7 +79,7 @@ pub async fn boot_with(
 
     // Start from the process defaults, then point the datastores at the test instances.
     let mut config = Config::from_env().expect("config");
-    config.database_url = database_url;
+    config.database_url = database_url.clone();
     config.valkey_url = valkey_url;
     config.auto_migrate = false;
     // Never the publisher's relay from a test: the phone tests start one of their own.
@@ -105,11 +105,14 @@ pub async fn boot_with(
     configure(&mut config);
 
     let db = crate::db::connect(&config).await.expect("connect db");
-    SCHEMA_READY
-        .get_or_init(|| async {
-            Migrator::up(&db, None).await.expect("migrate");
-        })
-        .await;
+    if config.database_url == database_url {
+        SCHEMA_READY
+            .get_or_init(|| async {
+                Migrator::up(&db, None).await.expect("migrate");
+            })
+            .await;
+    }
+    // A test that points the server at a database of its own has migrated it itself.
     let valkey = crate::cache::connect(&config)
         .await
         .expect("connect valkey");

@@ -160,8 +160,8 @@ All three files are optional, and `counts` may declare them like the others. Ide
 - `moderators` on a conversation of `channels.jsonl`: ids of accounts that must also be in its
   `members`.
 
-Warnings, never errors: a guest carrying `roles`, a guest listed as moderator, a format 2 file
-inside a format 1 archive, and a person listed in a space who is in none of its conversations and
+Warnings, never errors: a guest carrying `roles`, a guest listed as moderator, a format 2 file or
+`moderators` inside a format 1 archive, and a person listed in a space who is in none of its conversations and
 none of its groups. Each new file is covered by the manifest checksum like the others.
 
 ## Calendars

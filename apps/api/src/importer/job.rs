@@ -375,44 +375,70 @@ pub async fn existing_for(
 }
 
 /// The people and seats of every space here, grouped by folded name. Only the plan reads it.
+///
+/// Two grouped queries whatever the number of spaces; the edition is asked about each space's
+/// entitlement because that is the only door it offers.
 async fn space_people(
     db: &DatabaseConnection,
     edition: &dyn crate::edition::Edition,
 ) -> Result<Vec<plan::SpacePeople>, RunError> {
-    use crate::edition::{seats_used, Entitlement};
+    use crate::edition::Entitlement;
     use crate::entities::spaces;
     use sea_orm::{ConnectionTrait, DbBackend, Statement};
+    use std::collections::HashMap;
+
+    // management: ended guests count as people already there (their rows are not erased).
+    let mut emails: HashMap<Uuid, Vec<String>> = HashMap::new();
+    for row in db
+        .query_all_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT m.space_id, u.email FROM space_members m JOIN users u ON u.id = m.user_id",
+        ))
+        .await?
+    {
+        if let (Ok(space), Ok(email)) = (
+            row.try_get::<Uuid>("", "space_id"),
+            row.try_get::<String>("", "email"),
+        ) {
+            emails.entry(space).or_default().push(email);
+        }
+    }
+    // management: the seats a space uses, as `edition::seats_used` counts them, for every space.
+    let mut used: HashMap<Uuid, u32> = HashMap::new();
+    for row in db
+        .query_all_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT space_id, count(*)::bigint AS used FROM space_members \
+             WHERE standing IN ('owner', 'member') GROUP BY space_id",
+        ))
+        .await?
+    {
+        if let (Ok(space), Ok(count)) = (
+            row.try_get::<Uuid>("", "space_id"),
+            row.try_get::<i64>("", "used"),
+        ) {
+            used.insert(space, u32::try_from(count).unwrap_or(u32::MAX));
+        }
+    }
 
     let mut out: Vec<plan::SpacePeople> = Vec::new();
     for space in spaces::Entity::find().all(db).await? {
         let folded = space.name.trim().to_lowercase();
-        // management: ended guests count as people already there (their rows are not erased).
-        let emails: Vec<String> = db
-            .query_all_raw(Statement::from_sql_and_values(
-                DbBackend::Postgres,
-                "SELECT u.email FROM space_members m JOIN users u ON u.id = m.user_id \
-                 WHERE m.space_id = $1",
-                [space.id.into()],
-            ))
-            .await?
-            .iter()
-            .filter_map(|row| row.try_get::<String>("", "email").ok())
-            .collect();
+        let space_emails = emails.remove(&space.id).unwrap_or_default();
+        if let Some(found) = out.iter_mut().find(|p| p.name_folded == folded) {
+            found.ambiguous = true;
+            found.emails.extend(space_emails);
+            continue;
+        }
         let (seats, roles_allowed) = match edition.entitlement(db, space.id).await? {
             Entitlement::Community => (None, false),
             Entitlement::Enterprise { seats, .. } => (Some(seats), true),
             Entitlement::Frozen { seats, .. } => (Some(seats), false),
         };
-        let used = seats_used(db, space.id).await?;
-        if let Some(found) = out.iter_mut().find(|p| p.name_folded == folded) {
-            found.ambiguous = true;
-            found.emails.extend(emails);
-            continue;
-        }
         out.push(plan::SpacePeople {
             name_folded: folded,
-            emails,
-            seats_used: used,
+            emails: space_emails,
+            seats_used: used.get(&space.id).copied().unwrap_or(0),
             seats,
             custom_roles_allowed: roles_allowed,
             ambiguous: false,

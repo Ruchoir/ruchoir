@@ -5099,6 +5099,59 @@
         ],
         "type": "object"
       },
+      "SeatsFullResponse": {
+        "description": "The body of the `402 seats_full` that `POST /api/v1/imports` answers. The other routes that answer\nit send `error`, `message`, `seats` and `pricing_url` only.",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "incoming": {
+            "description": "People the archive would add.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "missing": {
+            "description": "`used + incoming - seats`.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "pricing_url": {
+            "type": "string"
+          },
+          "seats": {
+            "description": "The seats the licence of the first over space sells.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "space": {
+            "description": "That space's name.",
+            "type": "string"
+          },
+          "used": {
+            "description": "Owners and members already in it.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "error",
+          "message",
+          "seats",
+          "pricing_url",
+          "space",
+          "used",
+          "incoming",
+          "missing"
+        ],
+        "type": "object"
+      },
       "SeatsLineResponse": {
         "properties": {
           "incoming": {
@@ -10542,6 +10595,13 @@
             "description": "The archive does not hold together"
           },
           "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeatsFullResponse"
+                }
+              }
+            },
             "description": "A space the import fills has too few seats for the people it brings"
           },
           "404": {
