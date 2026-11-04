@@ -36,6 +36,8 @@ export type RealtimeEvent =
   | { type: "members"; spaceId: string; userId: string }
   /** Someone's name, title or photo changed (mine included, from any device). */
   | { type: "member"; member: MemberIdentity }
+  /** A space's roles, groups, access rules or licence changed, or my own role in it: rights are read again. */
+  | { type: "permissions"; spaceId: string }
   | { type: "calendar" }
   | { type: "files"; spaceId: string }
   /** Some account preferences changed, here or on another device (`null`: back to the default). */
@@ -62,7 +64,9 @@ export function handlersFor(emit: (event: RealtimeEvent) => void, onReconnect: (
     onMemberRoleChanged: (spaceId, userId) => {
       emit({ type: "members", spaceId, userId });
       emit({ type: "spaces" });
+      emit({ type: "permissions", spaceId });
     },
+    onPermissionsChanged: (spaceId) => emit({ type: "permissions", spaceId }),
     onMemberUpdated: (member) => emit({ type: "member", member }),
     onSpaceUpdated: () => emit({ type: "spaces" }),
     onSpaceRemoved: () => emit({ type: "spaces" }),
@@ -98,6 +102,8 @@ export const affects = {
     (e.type === "channels" && inSpace(e, spaceId)),
   /** The people of a space. */
   members: (e: RealtimeEvent, spaceId: string) => e.type === "member" || (e.type === "members" && e.spaceId === spaceId),
+  /** What a space's roles, groups, rules and licence say, and so what I may do in it. */
+  permissions: (e: RealtimeEvent, spaceId: string) => e.type === "permissions" && e.spaceId === spaceId,
   /** The channels of a space. */
   channels: (e: RealtimeEvent, spaceId: string) => e.type === "channels" && inSpace(e, spaceId),
   /** The people of a channel: a face or a name, or the channel itself changed. */

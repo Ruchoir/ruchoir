@@ -61,6 +61,9 @@ import { DefaultChannelSheet } from "../screens/space/DefaultChannelSheet";
 import { DeleteSpaceScreen } from "../screens/space/DeleteSpaceScreen";
 import { MemberSheet } from "../screens/space/MemberSheet";
 import { SpaceNotifySheet } from "../screens/space/SpaceNotifySheet";
+import { SpaceGeneralScreen } from "../screens/space/SpaceGeneralScreen";
+import { SpaceMembersScreen } from "../screens/space/SpaceMembersScreen";
+import { SpaceAuditScreen, SpaceGroupsScreen, SpaceLicenceScreen, SpaceRolesScreen } from "../screens/space/SpacePlaceholders";
 import { SpaceSettingsScreen } from "../screens/space/SpaceSettingsScreen";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
 import { NotificationsIntroScreen } from "../screens/account/NotificationsIntroScreen";
@@ -138,6 +141,12 @@ export function RootNavigator({ instanceId }: { instanceId: string }) {
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={sheet} />
         <Stack.Screen name="joinSpace" component={JoinSpaceModal} options={{ presentation: "modal" }} />
         <Stack.Screen name="spaceSettings" component={SpaceSettingsScreen} />
+        <Stack.Screen name="spaceGeneral" component={SpaceGeneralScreen} />
+        <Stack.Screen name="spaceMembers" component={SpaceMembersScreen} />
+        <Stack.Screen name="spaceRoles" component={SpaceRolesScreen} />
+        <Stack.Screen name="spaceGroups" component={SpaceGroupsScreen} />
+        <Stack.Screen name="spaceAudit" component={SpaceAuditScreen} />
+        <Stack.Screen name="spaceLicence" component={SpaceLicenceScreen} />
         <Stack.Screen name="notificationsIntro" component={NotificationsIntroScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="spaceMember" component={MemberSheet} options={sheet} />
         <Stack.Screen name="spaceDelete" component={DeleteSpaceScreen} options={{ presentation: "modal" }} />

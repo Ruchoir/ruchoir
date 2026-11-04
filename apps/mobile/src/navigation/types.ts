@@ -130,8 +130,15 @@ export type RootParams = {
   fileLinks: { file: SpaceFile };
   uploadConflict: undefined;
   spaceSheet: undefined;
-  /** The current space's settings (owner and admins): general, members. */
+  /** The current space's settings: the list of sections the caller reaches. */
   spaceSettings: undefined;
+  /** The sections, each a plain push from the list. */
+  spaceGeneral: undefined;
+  spaceMembers: undefined;
+  spaceRoles: undefined;
+  spaceGroups: undefined;
+  spaceAudit: undefined;
+  spaceLicence: undefined;
   /** A member of the current space: the roles the caller may give, removing them. */
   spaceMember: { userId: string };
   /** The current space's deletion, its name to type (owner). */

@@ -31,6 +31,8 @@ test("space_and_channel_changes_are_relayed", () => {
     { type: "members", spaceId: "s1", userId: "u2" },
     // A role decides what one may do there: the spaces, which carry mine, are read again.
     { type: "spaces" },
+    // ... and what it may do there changes with it: the settings screens read their rights again.
+    { type: "permissions", spaceId: "s1" },
     { type: "member", member: BOB },
     { type: "channels", spaceId: "s1" },
     { type: "channels", spaceId: "s1", channelId: "c1" },
@@ -126,4 +128,13 @@ test("a_pinned_message_edited_or_deleted_moves_the_pins", () => {
   // A new message is never pinned yet; another conversation's never concerns these pins.
   assert.ok(!affects.pins(changed("created"), "c1"));
   assert.ok(!affects.pins(changed("updated", "c2"), "c1"));
+});
+
+test("a_change_of_permissions_is_relayed_and_only_for_its_space", () => {
+  const { out, handlers } = relay();
+  handlers.onPermissionsChanged!("s1");
+  assert.deepEqual(out, [{ type: "permissions", spaceId: "s1" }]);
+  assert.equal(affects.permissions(out[0], "s1"), true);
+  assert.equal(affects.permissions(out[0], "s2"), false);
+  assert.equal(affects.permissions({ type: "spaces" }, "s1"), false);
 });
