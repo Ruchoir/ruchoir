@@ -12800,3 +12800,6 @@ mod preview_tests;
 /// Regressions of the permissions hardening review, one file per area.
 #[cfg(test)]
 mod hardening_files_tests;
+
+#[cfg(test)]
+mod hardening_race_tests;
