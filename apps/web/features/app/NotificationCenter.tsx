@@ -347,7 +347,8 @@ function NotifRow({
         <span
           style={{
             display: "-webkit-box",
-            WebkitLineClamp: 2,
+            // A guest notice's detail line is a full sentence: it is read whole, not cut.
+            WebkitLineClamp: notif.kind.startsWith("guest_") ? 4 : 2,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
             fontSize: "var(--text-xs)",
@@ -359,7 +360,7 @@ function NotifRow({
             : (notifGuestDetail(notif, t) ?? notif.preview)}
         </span>
         <span style={{ display: "block", marginTop: 3, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
-          {notif.reminder ? [...new Set([notif.spaceName, notif.reminder.calendarName].filter(Boolean))].join(" · ") : notif.label} · {formatStamp(notif.createdAt)}
+          {[notif.reminder ? [...new Set([notif.spaceName, notif.reminder.calendarName].filter(Boolean))].join(" · ") : notif.label, formatStamp(notif.createdAt)].filter(Boolean).join(" · ")}
         </span>
         {notif.kind === "guest_expiry_soon" ? (
           <span style={{ display: "block", marginTop: 4, fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-link, var(--text-strong))" }}>{t("guests.prolong")}</span>
