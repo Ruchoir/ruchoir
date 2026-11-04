@@ -3,6 +3,8 @@
 import { isGuestsOnly } from "./guestLogic.ts";
 import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Card, Dialog, Field, Icon, Input, Tag } from "@/components/ds";
+import { GROUP_NAME_MAX } from "@ruchoir/client/permissionsLogic";
+import { CharCount } from "./CharCount";
 import type { Member } from "@/lib/data/api";
 import { createGroup, refusalOf } from "@/lib/data/api";
 import type { Group, Role, SpaceEdition } from "@/lib/data/types";
@@ -306,10 +308,12 @@ function CreateGroupDialog({ spaceId, onClose, onCreated }: { spaceId: string; o
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <Field label={t("files.name")} htmlFor="new-group-name" error={error || undefined} hint={name.trim() ? t("groups.nameHint", { name: name.trim() }) : undefined}>
-          <Input id="new-group-name" value={name} maxLength={60} autoFocus onChange={(e) => setName(e.target.value)} />
+          <Input id="new-group-name" value={name} maxLength={GROUP_NAME_MAX} autoFocus onChange={(e) => setName(e.target.value)} />
+          <CharCount value={name} max={GROUP_NAME_MAX} />
         </Field>
         <Field label={t("groups.descOptional")} htmlFor="new-group-desc">
           <Input id="new-group-desc" value={description} maxLength={GROUP_DESCRIPTION_MAX} onChange={(e) => setDescription(e.target.value)} />
+          <CharCount value={description} max={GROUP_DESCRIPTION_MAX} />
         </Field>
       </div>
     </Dialog>

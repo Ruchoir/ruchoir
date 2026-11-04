@@ -8,6 +8,7 @@ import type { Channel } from "@/lib/data";
 import type { Group, Role, SpaceEdition, SpaceLicence } from "@/lib/data/types";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { displayZone } from "./guestLogic";
 import { formatUtcDate } from "@/lib/i18n/format";
 import { BackHeading } from "../app/BackHeading";
 import { MembersSettings, type SettingsMember } from "./MembersSettings";
@@ -280,7 +281,7 @@ export function WorkspaceSettings({
   const { t } = useTranslation();
   const [tab, setTab] = useState<NavKey>(prolongGuestId ? "members" : "general");
   // The last 30 days of the licence, said to its owner in every section (the frozen state has its own banner above).
-  const licenceNote = spaceLicenceBanner({ role: canManageLicence ? "owner" : "member", edition, licence });
+  const licenceNote = spaceLicenceBanner({ role: canManageLicence ? "owner" : "member", edition, licence }, new Date(), displayZone());
   const endsBanner = licenceNote?.kind === "ends" ? licenceNote : null;
   // A group opened from elsewhere (a role's people): the Groupes tab shows it straight away.
   const [openGroup, setOpenGroup] = useState<string | null>(null);

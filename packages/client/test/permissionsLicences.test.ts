@@ -53,13 +53,15 @@ test("a_change_of_rights_carries_the_end_date_and_the_preview_too", async () => 
 
 test("the_owner_is_warned_in_the_settings_when_the_licence_ends_within_30_days_or_is_frozen", async () => {
   const { spaceLicenceBanner } = await import("../src/permissionsLogic/index.ts");
-  const licence = (expiresInDays: number) => ({ seats: 5, used: 1, validUntil: "2026-12-01T00:00:00Z", expiresInDays });
-  assert.deepEqual(spaceLicenceBanner({ role: "owner", edition: "enterprise", licence: licence(30) }), { kind: "ends", tone: "warning", days: 30 });
-  assert.deepEqual(spaceLicenceBanner({ role: "owner", edition: "enterprise", licence: licence(7) }), { kind: "ends", tone: "danger", days: 7 });
-  assert.equal(spaceLicenceBanner({ role: "owner", edition: "enterprise", licence: licence(31) }), null);
-  assert.deepEqual(spaceLicenceBanner({ role: "owner", edition: "frozen", licence: licence(0) }), { kind: "frozen" });
-  assert.equal(spaceLicenceBanner({ role: "admin", edition: "frozen" }), null, "the owners alone are told");
-  assert.equal(spaceLicenceBanner({ role: "owner", edition: "community" }), null);
+  const now = new Date("2026-11-01T10:00:00Z");
+  const licence = (days: number) => ({ seats: 5, used: 1, validUntil: new Date(now.getTime() + days * 86400000).toISOString(), expiresInDays: days });
+  const banner = (space: Parameters<typeof spaceLicenceBanner>[0]) => spaceLicenceBanner(space, now, "UTC");
+  assert.deepEqual(banner({ role: "owner", edition: "enterprise", licence: licence(30) }), { kind: "ends", tone: "warning", days: 30 });
+  assert.deepEqual(banner({ role: "owner", edition: "enterprise", licence: licence(7) }), { kind: "ends", tone: "danger", days: 7 });
+  assert.equal(banner({ role: "owner", edition: "enterprise", licence: licence(31) }), null);
+  assert.deepEqual(banner({ role: "owner", edition: "frozen", licence: licence(0) }), { kind: "frozen" });
+  assert.equal(banner({ role: "admin", edition: "frozen" }), null, "the owners alone are told");
+  assert.equal(banner({ role: "owner", edition: "community" }), null);
 });
 
 test("an_unreadable_licence_is_listed_last_flagged_and_never_throws", () => {
@@ -104,4 +106,30 @@ test("a_channel_list_read_after_a_role_edit_keeps_what_only_this_client_knows", 
   assert.equal(out[1].unread, 3);
   assert.deepEqual(out[1].lastMessage, { body: "live" });
   assert.equal(out[0].unread, 0);
+});
+
+test("one_rule_for_the_days_left_of_a_licence_banner_and_list_alike", async () => {
+  const { spaceLicenceBanner, licenceRows } = await import("../src/permissionsLogic/index.ts");
+  // Ends 16 November 00:00 UTC, seen on 5 November 00:27 in Paris: the 16th is the 11th day after the 5th.
+  const now = new Date("2026-11-04T23:27:00Z");
+  const zone = "Europe/Paris";
+  const validUntil = "2026-11-16T00:00:00Z";
+  const banner = spaceLicenceBanner({ role: "owner", edition: "enterprise", licence: { seats: 5, used: 1, validUntil, expiresInDays: 12 } }, now, zone);
+  const row = licenceRows([{ organisation: "X", seats: 5, used: 1, spaceId: "s", spaceName: "S", validUntil, edition: "enterprise" }], now, zone)[0];
+  assert.equal(row?.daysLeft, 11);
+  assert.deepEqual(banner, { kind: "ends", tone: "warning", days: 11 });
+  // The warning window follows the same count: 30 days in the zone shows, 31 does not.
+  const at = (d: string) => spaceLicenceBanner({ role: "owner", edition: "enterprise", licence: { seats: 5, used: 1, validUntil: d, expiresInDays: 99 } }, now, zone);
+  assert.equal(at("2026-12-05T10:00:00Z")?.kind, "ends");
+  assert.equal(at("2026-12-06T10:00:00Z"), null);
+});
+
+test("the_licence_detail_line_names_the_holder_only_when_it_differs_and_says_unreadable_once", async () => {
+  const { licenceDetail } = await import("../src/permissionsLogic/index.ts");
+  const row = { organisation: "Cabinet Morel", spaceName: "Cabinet Morel" };
+  assert.deepEqual(licenceDetail(row, ["Entreprise", "1 sur 10 places", "5 nov. 2026"]), ["Entreprise", "1 sur 10 places", "5 nov. 2026"]);
+  assert.deepEqual(licenceDetail({ ...row, organisation: " cabinet morel " }, ["Entreprise"]), ["Entreprise"]);
+  assert.deepEqual(licenceDetail({ ...row, organisation: "Morel SAS" }, ["Entreprise"]), ["Morel SAS", "Entreprise"]);
+  assert.deepEqual(licenceDetail({ ...row, organisation: "" }, ["Entreprise"]), ["Entreprise"]);
+  assert.deepEqual(licenceDetail(row, ["Illisible", "1 sur 10 places", "Illisible"]), ["Illisible", "1 sur 10 places"]);
 });

@@ -44,7 +44,7 @@ export function RoleName({
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.box}>
-      <TextField label={t("files.name")} value={name} onChangeText={onName} editable={editable} maxLength={NAME_MAX} error={error} autoCapitalize="sentences" />
+      <TextField label={t("files.name")} value={name} onChangeText={onName} editable={editable} maxLength={NAME_MAX} showCount error={error} autoCapitalize="sentences" />
       <RoleColours colour={colour} editable={editable} onColour={onColour} />
       {usedIn ? (
         <View style={styles.used}>

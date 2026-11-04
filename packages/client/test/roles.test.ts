@@ -115,3 +115,14 @@ test("each_refusal_is_named", () => {
   assert.equal(refusal(403, { error: "forbidden" }), undefined);
   assert.equal(refusalOf(new Error("network")), undefined);
 });
+
+test("capped_fields_show_a_count_out_of_their_limit", async () => {
+  const { charCount, ROLE_NAME_MAX, GROUP_NAME_MAX, GROUP_DESCRIPTION_MAX } = await import("../src/permissionsLogic/index.ts");
+  assert.equal(ROLE_NAME_MAX, 40);
+  assert.equal(GROUP_NAME_MAX, 60);
+  assert.equal(GROUP_DESCRIPTION_MAX, 280);
+  assert.equal(charCount("", ROLE_NAME_MAX), "0/40");
+  assert.equal(charCount("Comptable", ROLE_NAME_MAX), "9/40");
+  // Counted like the field's own `maxLength` does (UTF-16 units), so the count and the cap agree.
+  assert.equal(charCount("été 🎉", GROUP_NAME_MAX), "6/60");
+});

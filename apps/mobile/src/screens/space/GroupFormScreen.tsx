@@ -4,7 +4,7 @@
  * Limits and refusals are the web's (60 and 280 characters, a name taken, reserved or invalid).
  */
 import { refusalOf, type Group } from "@ruchoir/client";
-import { GROUP_DESCRIPTION_MAX } from "@ruchoir/client/permissionsLogic";
+import { GROUP_DESCRIPTION_MAX, GROUP_NAME_MAX } from "@ruchoir/client/permissionsLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
@@ -25,7 +25,7 @@ import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
 import { useToast } from "../../ui/Toast";
 
-const NAME_MAX = 60;
+const NAME_MAX = GROUP_NAME_MAX;
 
 export function GroupFormScreen() {
   const { listGroups } = useApi();
@@ -103,11 +103,12 @@ function Form({ spaceId, group }: { spaceId: string; group?: Group }) {
               setError(undefined);
             }}
             maxLength={NAME_MAX}
+            showCount
             autoFocus
             error={error}
             hint={trimmed ? t("groups.nameHint", { name: trimmed }) : undefined}
           />
-          <TextField label={t("groups.descOptional")} value={description} onChangeText={setDescription} maxLength={GROUP_DESCRIPTION_MAX} />
+          <TextField label={t("groups.descOptional")} value={description} onChangeText={setDescription} maxLength={GROUP_DESCRIPTION_MAX} showCount />
         </View>
       </KeyboardForm>
     </View>

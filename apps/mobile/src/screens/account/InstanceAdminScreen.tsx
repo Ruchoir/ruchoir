@@ -7,7 +7,7 @@
  * The API guards both; the entry is only offered to `isInstanceAdmin`.
  */
 import type { AdminUser, InstanceSettings } from "@ruchoir/client";
-import { licenceRows } from "@ruchoir/client/permissionsLogic";
+import { licenceDetail, licenceRows } from "@ruchoir/client/permissionsLogic";
 import { useNavigation } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import { ShieldCheck } from "lucide-react-native";
@@ -138,7 +138,7 @@ export function InstanceAdminScreen() {
                     <ActionRow
                       key={row.spaceId}
                       title={row.spaceName}
-                      subtitle={[row.organisation, edition, t("admin.licenceSeats", { used: row.used, count: row.seats }), end].join(" · ")}
+                      subtitle={licenceDetail(row, [edition, t("admin.licenceSeats", { used: row.used, count: row.seats }), end]).join(" · ")}
                     />
                   );
                 })}

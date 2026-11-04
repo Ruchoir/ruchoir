@@ -2,6 +2,8 @@
 
 import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Card, Field, Icon, IconButton, Input, Switch, Tabs, Tag } from "@/components/ds";
+import { GROUP_NAME_MAX } from "@ruchoir/client/permissionsLogic";
+import { CharCount } from "./CharCount";
 import type { Member } from "@/lib/data/api";
 import { refusalOf, removeGroupMember, setGroupManagers, updateGroup } from "@/lib/data/api";
 import type { Group, Role, SpaceEdition } from "@/lib/data/types";
@@ -235,10 +237,12 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
       {tab === "name" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 420, marginTop: 16 }}>
           <Field label={t("files.name")} htmlFor="group-name" error={nameError || undefined} hint={t("groups.nameHint", { name: name.trim() || group.name })}>
-            <Input id="group-name" value={name} maxLength={60} disabled={!group.may.edit || busy} onChange={(e) => setName(e.target.value)} />
+            <Input id="group-name" value={name} maxLength={GROUP_NAME_MAX} disabled={!group.may.edit || busy} onChange={(e) => setName(e.target.value)} />
+            <CharCount value={name} max={GROUP_NAME_MAX} />
           </Field>
           <Field label={t("groups.descOptional")} htmlFor="group-desc">
             <Input id="group-desc" value={description} maxLength={GROUP_DESCRIPTION_MAX} disabled={!group.may.edit || busy} onChange={(e) => setDescription(e.target.value)} />
+            <CharCount value={description} max={GROUP_DESCRIPTION_MAX} />
           </Field>
           {group.may.edit ? (
             <div>

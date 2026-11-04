@@ -54,11 +54,11 @@ export function applyRights(held: Workspace, fresh: Workspace): Workspace {
 export function spaceLicenceBanner(space: {
   role: string;
   edition: "community" | "enterprise" | "frozen";
-  licence?: { expiresInDays: number };
-}): { kind: "ends"; tone: "warning" | "danger"; days: number } | { kind: "frozen" } | null {
+  licence?: { validUntil?: string; expiresInDays: number };
+}, now: Date, zone: string): { kind: "ends"; tone: "warning" | "danger"; days: number } | { kind: "frozen" } | null {
   if (space.role !== "owner") return null;
   if (space.edition === "frozen") return { kind: "frozen" };
-  const ends = daysLeftBanner(space.licence, space.edition);
+  const ends = daysLeftBanner(space.licence, space.edition, now, zone);
   return ends ? { kind: "ends", ...ends } : null;
 }
 
@@ -75,4 +75,16 @@ export function applyChannelRights(held: Channel[], fresh: Channel[]): Channel[]
     if (!h) return f;
     return { ...f, fav: h.fav, unread: h.unread, ...(h.lastMessage ? { lastMessage: h.lastMessage } : {}), ...(h.notify ? { notify: h.notify } : {}) };
   });
+}
+
+/**
+ * The parts of a licence row's detail line, in order: the holder only when it differs from the
+ * space's name (it is the row's title already), then `parts` (edition, seats, end) with a repeated
+ * part kept once (an unreadable row says "Illisible" a single time).
+ */
+export function licenceDetail(row: { organisation: string; spaceName: string }, parts: string[]): string[] {
+  const holder = row.organisation.trim();
+  const same = holder.toLowerCase() === row.spaceName.trim().toLowerCase();
+  const all = [...(holder && !same ? [holder] : []), ...parts];
+  return all.filter((p, i) => all.indexOf(p) === i);
 }

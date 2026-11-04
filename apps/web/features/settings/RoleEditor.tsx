@@ -14,6 +14,7 @@ import type { Toast } from "../app/types";
 import { GroupIcon } from "../groups/GroupIcon";
 import { rolePeople } from "./groupsLogic.ts";
 import { ROLE_COLOURS, ROLE_NAME_MAX } from "@ruchoir/client/permissionsLogic";
+import { CharCount } from "./CharCount";
 import { refusalMessage, roleColour, roleLabel } from "./roleChips";
 import { FAMILY_TEXT, PERMISSION_TEXT } from "./permissionText";
 import { UsedInDialog } from "./UsedInDialog";
@@ -414,6 +415,7 @@ export function RoleEditor({ spaceId, role, roles, members, groups, onOpenGroup,
         <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 420, marginTop: 16 }}>
           <Field label={t("files.name")} htmlFor="role-name" error={nameError || undefined}>
             <Input id="role-name" value={name} maxLength={ROLE_NAME_MAX} disabled={!editable || busy} onChange={(e) => setName(e.target.value)} />
+            <CharCount value={name} max={ROLE_NAME_MAX} />
           </Field>
           <Field label={t("calendar.colorLabel")}>
             <ColourPicker value={colour} onChange={setColour} disabled={!editable || busy} />

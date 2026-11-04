@@ -25,6 +25,31 @@ const GENDERED = new RegExp(
   "i",
 );
 
+// A pronoun standing for a person ("tant qu'il n'a pas ouvert", "celui qu'il a", "elle a") says a gender:
+// write "la personne", "le mot de passe actuel", or turn the sentence round. Impersonal forms, and
+// the ones that stand for a thing, are not about anyone and are listed here by name: nothing else passes.
+const PRONOUN = /qu['’](il|elle)s? |\b(il|elle)s? a\b/i;
+const IMPERSONAL = ["il faut", "il y a", "il reste", "il suffit", "il s'agit", "s'il vous plaît"];
+// Pronouns standing for a thing (a code, a link, a licence, a group, a file list, a space), never a person.
+const THINGS = [
+  "ou il a expiré",
+  "ou il a déjà été utilisé",
+  "il a peut-être expiré",
+  "qu'il a été copié",
+  "qu'elle a été émise",
+  "elle a été émise",
+  "quand elle a le focus",
+  "jusqu'à ce qu'elle soit vidée",
+  "tant qu'il y est",
+  "tant qu'il est public",
+  "ce qu'il contient",
+  "tel qu'il était",
+  "les rôles qu'il porte",
+  "qu'elle affiche",
+  "qu'elle atteint",
+  "il n'a pas de responsable",
+];
+
 function strings(node: unknown, path: string, out: [string, string][]): void {
   if (typeof node === "string") out.push([path, node]);
   else if (node && typeof node === "object") {
@@ -32,11 +57,23 @@ function strings(node: unknown, path: string, out: [string, string][]): void {
   }
 }
 
+const pronounHits = (text: string) => {
+  let rest = text;
+  for (const ok of [...IMPERSONAL, ...THINGS]) rest = rest.replaceAll(new RegExp(ok.replace(/'/g, "['’]"), "gi"), " ");
+  return PRONOUN.test(rest);
+};
+
 for (const file of DICTIONARIES) {
   test(`no_gendered_sentence_in_${file.includes("/web/") ? "web" : "mobile"}_fr`, () => {
     const all: [string, string][] = [];
     strings(JSON.parse(readFileSync(new URL(file, import.meta.url), "utf8")), "", all);
     const offending = all.filter(([, text]) => GENDERED.test(text)).map(([key, text]) => `${key}: ${text}`);
+    assert.deepEqual(offending, []);
+  });
+  test(`no_gendered_pronoun_for_a_person_in_${file.includes("/web/") ? "web" : "mobile"}_fr`, () => {
+    const all: [string, string][] = [];
+    strings(JSON.parse(readFileSync(new URL(file, import.meta.url), "utf8")), "", all);
+    const offending = all.filter(([, text]) => pronounHits(text)).map(([key, text]) => `${key}: ${text}`);
     assert.deepEqual(offending, []);
   });
 }

@@ -93,6 +93,7 @@ export function RoleCreateScreen() {
               setError(undefined);
             }}
             maxLength={NAME_MAX}
+            showCount
             placeholder={t("roles.namePlaceholder")}
             autoFocus
             error={error}

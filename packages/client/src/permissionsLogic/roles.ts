@@ -8,6 +8,11 @@
 /** The longest name a role takes, the server's own limit (`validate_role_name` in `roles.rs`, checked by a test). */
 export const ROLE_NAME_MAX = 40;
 
+/** The count shown beside a capped field ("9/40"), counted like `maxLength` counts so the two agree. */
+export function charCount(value: string, max: number): string {
+  return `${value.length}/${max}`;
+}
+
 /** The pastels a role may wear, in the server's order (`ROLE_COLOURS` in `roles.rs`, checked by a test): colour keys, not theme values. */
 export const ROLE_COLOURS = ["sky", "mint", "violet", "pink", "peach", "lime", "sun"] as const;
 export type RoleColourKey = (typeof ROLE_COLOURS)[number];

@@ -27,6 +27,7 @@ export {
   roleRowState,
   holdsEverything,
   ROLE_NAME_MAX,
+  charCount,
   ROLE_COLOURS,
   type RoleColourKey,
   groupColour,
@@ -39,6 +40,7 @@ export {
   type GroupLike,
   foldName,
   GROUP_DESCRIPTION_MAX,
+  GROUP_NAME_MAX,
   sortGroups,
   rolesViaGroups,
   groupRow,
@@ -228,4 +230,4 @@ export {
   matchMentionTarget,
   offeredBroadcasts,
 } from "./mentions.ts";
-export { type AdminLicence, type LicenceRow, licenceRows, applyRights, applyChannelRights, spaceLicenceBanner } from "./licences.ts";
+export { type AdminLicence, type LicenceRow, licenceRows, applyRights, applyChannelRights, spaceLicenceBanner, licenceDetail } from "./licences.ts";

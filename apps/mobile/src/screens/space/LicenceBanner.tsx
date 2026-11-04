@@ -9,15 +9,17 @@ import { Clock } from "lucide-react-native";
 import { StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
+import { useLocale } from "../../i18n/useLocale";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Text } from "../../ui/Text";
 
 export function LicenceBanner({ space }: { space: Workspace | null }) {
   const { t } = useTranslation();
+  const { timeZone } = useLocale();
   const { c } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const banner = space ? spaceLicenceBanner(space) : null;
+  const banner = space ? spaceLicenceBanner(space, new Date(), timeZone) : null;
   if (!banner) return null;
   const tone = banner.kind === "frozen" || banner.tone === "danger" ? c.peach : c.sun;
   return (

@@ -5,6 +5,7 @@
  */
 
 import { chipsFor, type Figure, reportLink, sourceLabel } from "./imports.ts";
+import { daysLeft } from "./guests.ts";
 
 /** An entry as the client reads it (`AuditEntry`, the fields used here). */
 export type EntryLike = {
@@ -355,13 +356,19 @@ export function dayKey(at: string, now: Date = new Date()): string {
 /**
  * The licence's last month, said before it ends: from 30 days, sharper in the last week (the owners
  * are mailed at 30, 7 and 1 days). Nothing once it has expired (the frozen banner speaks) or
- * without one.
+ * without one. The days are counted by `daysLeft`, in the person's display `zone`, like the guest
+ * end dates and the instance licence list: one rule everywhere (the server's `expiresInDays` is
+ * only the fallback for an end date that cannot be read).
  */
 export function daysLeftBanner(
-  licence: { expiresInDays: number } | undefined,
+  licence: { validUntil?: string; expiresInDays: number } | undefined,
   edition: "community" | "enterprise" | "frozen",
+  now: Date,
+  zone: string,
 ): { tone: "warning" | "danger"; days: number } | null {
   if (!licence || edition !== "enterprise") return null;
-  if (licence.expiresInDays > 30) return null;
-  return { tone: licence.expiresInDays <= 7 ? "danger" : "warning", days: licence.expiresInDays };
+  const dated = licence.validUntil && !Number.isNaN(Date.parse(licence.validUntil));
+  const days = dated ? daysLeft(licence.validUntil as string, now, zone) : licence.expiresInDays;
+  if (days > 30) return null;
+  return { tone: days <= 7 ? "danger" : "warning", days };
 }
