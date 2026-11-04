@@ -2482,5 +2482,115 @@
     "audienceName": "Readers of #{{name}}",
     "closestWins": "The closest rule wins.",
     "closestWinsBody": "For {{name}}, this item is set to \"{{level}}\" even though the folder above gives \"{{parentLevel}}\". The other entries keep following the folder."
+  },
+  "customise": {
+    "title": "Customise: {{name}}",
+    "subtitle": "Each permission is Inherited, Allowed or Denied. Inherited means no rule here: the permission comes from the base role.",
+    "groupRead": "Reading",
+    "groupParticipate": "Taking part",
+    "inherited": "Inherited",
+    "allowed": "Allowed",
+    "denied": "Denied",
+    "lockNotHeld": "You do not hold this yourself here: you cannot grant or deny it.",
+    "resultLevel": "Result: {{level}}",
+    "resultExcept": ", except {{list}}",
+    "resultPlus": ", plus {{list}}",
+    "resultNote": "You only set the permissions you hold yourself on this item.",
+    "changed": "Permissions changed: {{count}}",
+    "unchanged": "No change",
+    "upsell": "Setting permissions one by one is part of the Enterprise edition.",
+    "saveFailed": "The permissions were not saved.",
+    "openFor": "Customise the permissions of {{name}}"
+  },
+  "why": {
+    "title": "Why? {{person}} on {{resource}}",
+    "titleBare": "Why? On {{resource}}",
+    "subtitle": "Each step is read in the order Ruchoir applies it. Nothing is changed here.",
+    "pick": "Choose a person",
+    "you": "{{name}} (you)",
+    "loading": "Reading the steps...",
+    "failed": "The explanation could not be loaded.",
+    "noSteps": "No step: nothing gives this person a permission here.",
+    "resultFor": "Result for {{name}}",
+    "hiddenPlace": "an item you cannot open",
+    "hiddenTarget": "someone you cannot see",
+    "alreadyVia": "Already has access through {{via}}",
+    "role": {
+      "direct": "{{person}} holds {{role}}.",
+      "viaGroup": "{{person}} gets {{role}} through the group {{groups}}.",
+      "directAndGroup": "{{person}} holds {{role}}, and also gets it through the group {{groups}}."
+    },
+    "step": {
+      "unknown": "Another step changes {{permission}}.",
+      "base": {
+        "granted": "Base: the space's base role gives {{person}} {{permission}}.",
+        "removed": "Base: the space's base role takes {{permission}} from {{person}}."
+      },
+      "role": {
+        "granted": "Role: {{permission}} comes from the role {{role}}.",
+        "removed": "Role: the role {{role}} takes {{permission}} away."
+      },
+      "rule": {
+        "granted": "Rule on {{where}}: {{target}} gets {{permission}}.",
+        "removed": "Rule on {{where}}: {{target}} loses {{permission}}."
+      },
+      "private_lock": {
+        "granted": "Private lock: {{target}} opens this private channel ({{permission}}).",
+        "removed": "Private lock: the channel is private, so {{person}} loses {{permission}} unless a rule opens it."
+      },
+      "guest_ceiling": {
+        "granted": "Guest ceiling: a guest may keep {{permission}}.",
+        "removed": "Guest ceiling: {{person}} is a guest, and {{permission}} is more than a guest can hold."
+      },
+      "owner": {
+        "granted": "Owner: {{person}} owns the space, so {{permission}} is granted.",
+        "removed": "Owner: {{permission}} is taken away despite ownership."
+      },
+      "author": {
+        "granted": "Author: {{person}} created this item, so {{permission}} is granted.",
+        "removed": "Author: {{permission}} is taken away despite having created the item."
+      },
+      "archived": {
+        "granted": "Archived: {{permission}} stays granted despite the archiving.",
+        "removed": "Archived: the item is archived or in the trash, so {{permission}} is taken away."
+      },
+      "joined": {
+        "granted": "Channel member: {{person}} joined the channel, so {{permission}} is granted.",
+        "removed": "Channel member: {{person}} loses {{permission}} despite being in the channel."
+      },
+      "unseen": {
+        "granted": "Path: {{permission}} is granted through what contains the item.",
+        "removed": "Path: {{person}} cannot open what contains the item, so {{permission}} is taken away."
+      },
+      "conversation": {
+        "granted": "Conversation: {{person}} is in the conversation where the item was shared, so {{permission}} is granted.",
+        "removed": "Conversation: {{permission}} is taken away for this conversation."
+      },
+      "message": {
+        "granted": "Message: the item is attached to a message {{person}} can read, so {{permission}} is granted.",
+        "removed": "Message: {{permission}} is taken away for this message."
+      },
+      "event": {
+        "granted": "Event: the item is linked to an event {{person}} can see, so {{permission}} is granted.",
+        "removed": "Event: {{permission}} is taken away for this event."
+      }
+    },
+    "reason": {
+      "none": "No rule grants it",
+      "base": "By the base role",
+      "role": "By a role",
+      "rule": "By a rule",
+      "private_lock": "By the private lock",
+      "guest_ceiling": "By the guest ceiling",
+      "owner": "As the owner",
+      "author": "As the author",
+      "archived": "Because it is archived",
+      "joined": "As a channel member",
+      "unseen": "By the path",
+      "conversation": "By a conversation",
+      "message": "By a message",
+      "event": "By an event",
+      "other": "By another step"
+    }
   }
 }

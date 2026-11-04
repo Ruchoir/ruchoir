@@ -1,0 +1,60 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+import { canCustomise, changedCount, draftOf, groupsOf, locksOf, resultOf, ruleOf, setState, stateOf } from "./customiseLogic.ts";
+
+test("tristate_maps_to_allow_and_deny", () => {
+  let draft = draftOf({ allow: ["message.pin"], deny: ["message.mention_all"] });
+  assert.equal(stateOf(draft, "message.pin"), "allow");
+  assert.equal(stateOf(draft, "message.mention_all"), "deny");
+  assert.equal(stateOf(draft, "message.send"), "inherited");
+  draft = setState(draft, "message.send", "deny");
+  draft = setState(draft, "message.pin", "inherited");
+  // The request lists permissions in the catalogue's order, never both lists for one name.
+  assert.deepEqual(ruleOf("channel", draft), { allow: [], deny: ["message.send", "message.mention_all"] });
+  assert.deepEqual(ruleOf("channel", {}), { allow: [], deny: [] });
+  assert.equal(changedCount({ allow: ["message.pin"], deny: ["message.mention_all"] }, draft), 2);
+  assert.equal(changedCount({ allow: [], deny: [] }, {}), 0);
+});
+
+test("locked_permissions_say_why", () => {
+  // A moderator may give Participer but not Gérer: the Gestion permissions are locked, not held.
+  const locks = locksOf("channel", ["read", "contribute"], false);
+  assert.equal(locks["message.send"], undefined);
+  assert.equal(locks["channel.manage"], "not_held");
+  assert.equal(locks["message.manage"], "not_held");
+  // A guest never holds the manage level, even when the editor does.
+  const guest = locksOf("channel", ["read", "contribute", "manage"], true);
+  assert.equal(guest["channel.manage"], "guest");
+  assert.equal(guest["message.send"], undefined);
+  assert.equal(Object.keys(locksOf("file", ["read", "contribute", "manage"], false)).length, 0);
+  assert.equal(locksOf("calendar", ["read"], false)["calendar.write"], "not_held");
+});
+
+test("groups_follow_the_family_of_the_resource", () => {
+  assert.deepEqual(groupsOf("channel").map((g) => g.group), ["read", "participate", "manage"]);
+  assert.deepEqual(groupsOf("file")[1].permissions, ["files.create", "files.edit"]);
+  assert.deepEqual(groupsOf("calendar").flatMap((g) => g.permissions), ["calendar.view", "calendar.write", "calendar.manage"]);
+});
+
+test("personnaliser_is_hidden_where_only_levels_are_taken", () => {
+  const everyone = { kind: "everyone" as const, id: undefined };
+  const guests = { kind: "everyone" as const, id: "@guests" };
+  const group = { kind: "group" as const, id: "g" };
+  assert.equal(canCustomise("channel", everyone, false), false);
+  assert.equal(canCustomise("channel", guests, false), false);
+  assert.equal(canCustomise("channel", { kind: "role", id: "a" }, true), false);
+  assert.equal(canCustomise("channel", { kind: "role", id: "r" }, false), true);
+  assert.equal(canCustomise("channel", group, false), true);
+  assert.equal(canCustomise("calendar", everyone, false), false);
+  assert.equal(canCustomise("calendar", { kind: "role", id: "a" }, true), false);
+  assert.equal(canCustomise("calendar", guests, false), true);
+  for (const target of [everyone, guests, { kind: "role" as const, id: "a" }, group]) assert.equal(canCustomise("file", target, true), true);
+  assert.equal(canCustomise("channel", { kind: "audience", id: "c" }, false), false);
+});
+
+test("the_result_line_says_the_level_and_its_exceptions", () => {
+  assert.deepEqual(resultOf("channel", "contribute", { "message.mention_all": "deny" }), { level: "contribute", except: ["message.mention_all"], plus: [] });
+  assert.deepEqual(resultOf("channel", "read", { "message.pin": "allow", "channel.view": "deny" }), { level: "read", except: ["channel.view"], plus: ["message.pin"] });
+  assert.deepEqual(resultOf("file", "none", {}), { level: "read", except: [], plus: [] });
+});

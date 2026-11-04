@@ -6,9 +6,11 @@ import type { Member } from "@/lib/data/api";
 import { getAccess, getSpaceMembers, listGroups, listRoles, refusalOf, removeAccessEntry, setAccessLevel } from "@/lib/data/api";
 import type { AccessEntry, AccessKind, AccessLevel, AccessView, Group, Role } from "@/lib/data/types";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
-import { refusalMessage } from "../settings/roleChips";
+import { refusalMessage, roleLabel } from "../settings/roleChips";
 import { canEdit, groupEntries, levelDescKey, levelLabelKey, privateNote, readOnlyReason, withOverrides } from "./accessLogic.ts";
 import { AddTargetDialog } from "./AddTargetDialog";
+import { CustomiseDialog } from "./CustomiseDialog";
+import { WhyDialog } from "./WhyDialog";
 import { EntryRow, targetKey, tk } from "./EntryRow";
 
 type Notify = (toast: { tone: "danger" | "success" | "info"; title: string; description?: string }) => void;
@@ -39,6 +41,19 @@ type PanelProps = {
   /** Told each time the view loads, for whoever draws the title around the panel. */
   onLoaded?: (view: AccessView) => void;
 };
+
+/** The name a line goes by in a title: the person's, the group's, the role's, or what the line itself says. */
+function entryDisplayName(entry: AccessEntry, members: Member[], groups: Group[], roles: Role[], t: ReturnType<typeof useTranslation>["t"]): string {
+  const { target } = entry;
+  if (target.kind === "everyone") return (target.id ?? "").includes("guest") ? t("access.allGuests") : t("channel.everyoneInSpace");
+  if (target.kind === "user") return members.find((m) => m.userId === target.id)?.name ?? target.name ?? t("access.hiddenTarget");
+  if (target.kind === "group") return groups.find((g) => g.id === target.id)?.name ?? target.name ?? t("access.hiddenTarget");
+  if (target.kind === "role") {
+    const role = roles.find((r) => r.id === target.id);
+    return role ? roleLabel(role, t) : (target.name ?? t("access.hiddenTarget"));
+  }
+  return target.name ?? t("access.hiddenTarget");
+}
 
 /** The line under the title: what this dialog is about, for the kind of thing it shares. */
 export function accessSubtitle(kind: AccessKind, isFolder: boolean, view: AccessView | null, fallbackPrivate: boolean): { key: TranslationKey; parent?: string } {
@@ -78,6 +93,7 @@ export function AccessPanel({
   onCustomise,
   onLoaded,
 }: PanelProps) {
+  // Both dialogs belong to the panel; a caller may still take them over with its own handlers.
   const { t } = useTranslation();
   const [access, setAccess] = useState<AccessView | null>(null);
   /** What the parent folder lists: what a file inherits, to tell which of its lines are overrides. */
@@ -93,6 +109,8 @@ export function AccessPanel({
   const [folder, setFolder] = useState<{ id: string; name: string } | null>(null);
   /** Bumped when that dialog closes: what this item inherits may have changed. */
   const [stamp, setStamp] = useState(0);
+  const [customising, setCustomising] = useState<AccessEntry | null>(null);
+  const [explaining, setExplaining] = useState(false);
 
   const loaded = useRef(onLoaded);
   useEffect(() => {
@@ -267,7 +285,7 @@ export function AccessPanel({
                     busy,
                     onLevel,
                     onRemove,
-                    onCustomise,
+                    onCustomise: onCustomise ?? setCustomising,
                     overrides: merged.overrides,
                     onOpenFolder: setFolder,
                     onRestore: onRemove,
@@ -315,15 +333,13 @@ export function AccessPanel({
               </p>
             ) : null}
 
-            {onExplain ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px dashed var(--border-strong)", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", color: "var(--text-body)" }}>
-                <Icon name="user-check" size={16} style={{ flex: "none" }} />
-                <span style={{ flex: 1 }}>
-                  <strong>{t("access.verifyTitle")}</strong> {t("access.verifyBody")}
-                </span>
-                <Button onClick={onExplain}>{t("mfa.verify")}</Button>
-              </div>
-            ) : null}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px dashed var(--border-strong)", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", color: "var(--text-body)" }}>
+              <Icon name="user-check" size={16} style={{ flex: "none" }} />
+              <span style={{ flex: 1 }}>
+                <strong>{t("access.verifyTitle")}</strong> {t("access.verifyBody")}
+              </span>
+              <Button onClick={onExplain ?? (() => setExplaining(true))}>{t("mfa.verify")}</Button>
+            </div>
 
             {!access.may.fine && pricingUrl ? (
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px dashed var(--border-strong)", borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
@@ -358,6 +374,30 @@ export function AccessPanel({
           }}
           onNotify={onNotify}
         />
+      ) : null}
+
+      {customising && access ? (
+        <CustomiseDialog
+          spaceId={spaceId}
+          kind={kind}
+          resourceId={resourceId}
+          entry={customising}
+          entryName={entryDisplayName(customising, members, groups, roles, t)}
+          where={kind === "channel" ? channelName : resourceName}
+          access={access}
+          pricingUrl={pricingUrl}
+          onClose={() => setCustomising(null)}
+          onSaved={(view) => {
+            setAccess(view);
+            loaded.current?.(view);
+            onChanged?.();
+          }}
+          onNotify={onNotify}
+        />
+      ) : null}
+
+      {explaining ? (
+        <WhyDialog spaceId={spaceId} kind={kind} resourceId={resourceId} resourceName={kind === "channel" ? channelName : resourceName} members={members} viewerId={viewerId} onClose={() => setExplaining(false)} />
       ) : null}
 
       {folder ? (

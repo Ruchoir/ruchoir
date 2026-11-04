@@ -295,7 +295,7 @@ function toUsedIn(dto: UsedInDto): UsedIn {
 
 const REFUSAL_CODES = new Set([
   "cannot_grant", "target_above_you", "reservation_admins_only", "guest_ceiling", "audience_files_only",
-  "base_role_not_previewable", "unknown_permission", "wrong_family", "group_has_rules",
+  "base_role_not_previewable", "base_role_levels_only", "permission_in_both", "unknown_permission", "wrong_family", "group_has_rules",
   "preview_read_only", "preview_unavailable",
   "seats_full", "licence_required", "licence_frozen", "licence_invalid", "licence_other_space",
   "licence_expired", "role_above_you", "person_above_you", "permission_not_held",
@@ -2295,6 +2295,26 @@ export function createApi(transport: Transport) {
     );
   }
 
+  /**
+   * `PUT /spaces/{id}/access/{kind}/{resourceId}/rules` (enterprise edition): write one entry as
+   * permissions, `allow` and `deny` by name. Both empty deletes the rule. Answers the whole dialog.
+   */
+  async function setAccessRule(
+    spaceId: string,
+    kind: AccessKind,
+    resourceId: string,
+    target: AccessTargetRef,
+    rule: { allow: string[]; deny: string[] },
+  ): Promise<AccessView> {
+    return toAccessView(
+      await apiPut<AccessDto>(`/spaces/${spaceId}/access/${kind}/${resourceId}/rules`, {
+        target: { kind: target.kind, id: target.id },
+        allow: rule.allow,
+        deny: rule.deny,
+      }),
+    );
+  }
+
   /** `DELETE /spaces/{id}/access/{kind}/{resourceId}/entries/{ruleId}`: what the base roles grant applies again. */
   async function removeAccessEntry(spaceId: string, kind: AccessKind, resourceId: string, ruleId: string): Promise<void> {
     await apiDelete<void>(`/spaces/${spaceId}/access/${kind}/${resourceId}/entries/${ruleId}`);
@@ -2308,8 +2328,8 @@ export function createApi(transport: Transport) {
 
   /** `POST /spaces/{id}/roles/{roleId}/preview` (enterprise edition): look at the space as that role, read only. */
   async function startPreview(spaceId: string, roleId: string): Promise<Preview> {
-    const dto = await apiPost<{ role_id: string; role_name: string }>(`/spaces/${spaceId}/roles/${roleId}/preview`);
-    return { roleId: dto.role_id, roleName: dto.role_name };
+    const dto = await apiPost<{ role_id: string; role_name: string; idle_seconds?: number }>(`/spaces/${spaceId}/roles/${roleId}/preview`);
+    return { roleId: dto.role_id, roleName: dto.role_name, idleSeconds: dto.idle_seconds };
   }
 
   /** `DELETE /spaces/{id}/preview`: back to the person's own rights. */
@@ -4305,7 +4325,7 @@ export function createApi(transport: Transport) {
     getWorkspaces, createSpace, renameSpace, setChannelOrder, setDefaultChannel, setMemberRole,
     leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
     setMemberRoles, listGroups, createGroup, updateGroup, deleteGroup, addGroupMembers,
-    removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAccess, setAccessLevel, removeAccessEntry,
+    removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAccess, setAccessLevel, setAccessRule, removeAccessEntry,
     explainAccess, startPreview, quitPreview, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
     getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
     uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
@@ -4342,7 +4362,7 @@ export const {
   getWorkspaces, createSpace, renameSpace, setChannelOrder, setDefaultChannel, setMemberRole,
   leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
     setMemberRoles, listGroups, createGroup, updateGroup, deleteGroup, addGroupMembers,
-    removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAccess, setAccessLevel, removeAccessEntry,
+    removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAccess, setAccessLevel, setAccessRule, removeAccessEntry,
     explainAccess, startPreview, quitPreview, getAudit, getLicence, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
   getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
   uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,

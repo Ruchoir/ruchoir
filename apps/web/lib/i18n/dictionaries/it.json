@@ -2581,5 +2581,115 @@
     "audienceName": "Lettori di #{{name}}",
     "closestWins": "Vince la regola più vicina.",
     "closestWinsBody": "Per {{name}}, questo elemento è impostato su «{{level}}» anche se la cartella sopra dà «{{parentLevel}}». Le altre voci continuano a seguire la cartella."
+  },
+  "customise": {
+    "title": "Personalizza: {{name}}",
+    "subtitle": "Ogni permesso è Ereditato, Consentito o Negato. Ereditato vuol dire nessuna regola qui: il permesso viene dal ruolo di base.",
+    "groupRead": "Lettura",
+    "groupParticipate": "Partecipazione",
+    "inherited": "Ereditato",
+    "allowed": "Consentito",
+    "denied": "Negato",
+    "lockNotHeld": "Non lo hai tu qui: non puoi né concederlo né negarlo.",
+    "resultLevel": "Risultato: {{level}}",
+    "resultExcept": ", tranne {{list}}",
+    "resultPlus": ", più {{list}}",
+    "resultNote": "Imposti solo i permessi che hai tu su questo contenuto.",
+    "changed": "Permessi modificati: {{count}}",
+    "unchanged": "Nessuna modifica",
+    "upsell": "Impostare i permessi uno per uno fa parte dell'edizione Enterprise.",
+    "saveFailed": "I permessi non sono stati salvati.",
+    "openFor": "Personalizza i permessi di {{name}}"
+  },
+  "why": {
+    "title": "Perché? {{person}} su {{resource}}",
+    "titleBare": "Perché? Su {{resource}}",
+    "subtitle": "Ogni passaggio è letto nell'ordine in cui Ruchoir lo applica. Qui non si modifica nulla.",
+    "pick": "Scegli una persona",
+    "you": "{{name}} (tu)",
+    "loading": "Lettura dei passaggi...",
+    "failed": "Non è stato possibile caricare la spiegazione.",
+    "noSteps": "Nessun passaggio: nulla dà un permesso a questa persona qui.",
+    "resultFor": "Risultato per {{name}}",
+    "hiddenPlace": "un elemento che non puoi aprire",
+    "hiddenTarget": "qualcuno che non puoi vedere",
+    "alreadyVia": "Ha già accesso tramite {{via}}",
+    "role": {
+      "direct": "{{person}} ha il ruolo {{role}}.",
+      "viaGroup": "{{person}} riceve {{role}} dal gruppo {{groups}}.",
+      "directAndGroup": "{{person}} ha {{role}} e lo riceve anche dal gruppo {{groups}}."
+    },
+    "step": {
+      "unknown": "Un altro passaggio modifica {{permission}}.",
+      "base": {
+        "granted": "Base: il ruolo di base dello spazio dà {{permission}} a {{person}}.",
+        "removed": "Base: il ruolo di base dello spazio toglie {{permission}} a {{person}}."
+      },
+      "role": {
+        "granted": "Ruolo: {{permission}} viene dal ruolo {{role}}.",
+        "removed": "Ruolo: il ruolo {{role}} toglie {{permission}}."
+      },
+      "rule": {
+        "granted": "Regola su {{where}}: {{target}} riceve {{permission}}.",
+        "removed": "Regola su {{where}}: {{target}} perde {{permission}}."
+      },
+      "private_lock": {
+        "granted": "Blocco privato: {{target}} apre questo canale privato ({{permission}}).",
+        "removed": "Blocco privato: il canale è privato, {{person}} perde {{permission}} finché una regola non lo apre."
+      },
+      "guest_ceiling": {
+        "granted": "Tetto degli ospiti: un ospite può mantenere {{permission}}.",
+        "removed": "Tetto degli ospiti: {{person}} è un ospite e {{permission}} supera ciò che un ospite può avere."
+      },
+      "owner": {
+        "granted": "Proprietario: {{person}} possiede lo spazio, quindi {{permission}} è concesso.",
+        "removed": "Proprietario: {{permission}} è tolto nonostante la proprietà."
+      },
+      "author": {
+        "granted": "Autore: {{person}} ha creato questo elemento, quindi {{permission}} è concesso.",
+        "removed": "Autore: {{permission}} è tolto nonostante la creazione dell'elemento."
+      },
+      "archived": {
+        "granted": "Archiviato: {{permission}} resta concesso nonostante l'archiviazione.",
+        "removed": "Archiviato: l'elemento è archiviato o nel cestino, quindi {{permission}} è tolto."
+      },
+      "joined": {
+        "granted": "Membro del canale: {{person}} è entrato nel canale, quindi {{permission}} è concesso.",
+        "removed": "Membro del canale: {{person}} perde {{permission}} pur essendo nel canale."
+      },
+      "unseen": {
+        "granted": "Percorso: {{permission}} è concesso da ciò che contiene l'elemento.",
+        "removed": "Percorso: {{person}} non può aprire ciò che contiene l'elemento, quindi {{permission}} è tolto."
+      },
+      "conversation": {
+        "granted": "Conversazione: {{person}} è nella conversazione in cui l'elemento è stato condiviso, quindi {{permission}} è concesso.",
+        "removed": "Conversazione: {{permission}} è tolto per questa conversazione."
+      },
+      "message": {
+        "granted": "Messaggio: l'elemento è allegato a un messaggio che {{person}} può leggere, quindi {{permission}} è concesso.",
+        "removed": "Messaggio: {{permission}} è tolto per questo messaggio."
+      },
+      "event": {
+        "granted": "Evento: l'elemento è collegato a un evento che {{person}} può vedere, quindi {{permission}} è concesso.",
+        "removed": "Evento: {{permission}} è tolto per questo evento."
+      }
+    },
+    "reason": {
+      "none": "Nessuna regola lo concede",
+      "base": "Dal ruolo di base",
+      "role": "Da un ruolo",
+      "rule": "Da una regola",
+      "private_lock": "Dal blocco privato",
+      "guest_ceiling": "Dal tetto degli ospiti",
+      "owner": "Come proprietario",
+      "author": "Come autore",
+      "archived": "Perché archiviato",
+      "joined": "Come membro del canale",
+      "unseen": "Dal percorso",
+      "conversation": "Da una conversazione",
+      "message": "Da un messaggio",
+      "event": "Da un evento",
+      "other": "Da un altro passaggio"
+    }
   }
 }

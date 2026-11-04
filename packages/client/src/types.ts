@@ -190,6 +190,8 @@ export type Refusal =
         | "reservation_admins_only"
         | "guest_ceiling"
         | "audience_files_only"
+        | "base_role_levels_only"
+        | "permission_in_both"
         | "base_role_not_previewable"
         | "unknown_permission"
         | "wrong_family"
@@ -286,7 +288,7 @@ export type WhyView = {
 };
 
 /** "Voir en tant que": the role a space is being previewed as. */
-export type Preview = { roleId: string; roleName: string };
+export type Preview = { roleId: string; roleName: string; /** Seconds without activity before it ends (1800). */ idleSeconds?: number };
 
 /**
  * An outstanding invitation into a space, as listed to an administrator.

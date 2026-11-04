@@ -2680,5 +2680,115 @@
     "audienceName": "Czytelnicy #{{name}}",
     "closestWins": "Wygrywa najbliższa reguła.",
     "closestWinsBody": "Dla {{name}} ten element ma poziom „{{level}}”, nawet jeśli folder wyżej daje „{{parentLevel}}”. Pozostałe wpisy nadal podążają za folderem."
+  },
+  "customise": {
+    "title": "Dostosuj: {{name}}",
+    "subtitle": "Każde uprawnienie jest Odziedziczone, Dozwolone lub Odmówione. Odziedziczone oznacza brak reguły tutaj: uprawnienie pochodzi z roli bazowej.",
+    "groupRead": "Czytanie",
+    "groupParticipate": "Uczestnictwo",
+    "inherited": "Odziedziczone",
+    "allowed": "Dozwolone",
+    "denied": "Odmówione",
+    "lockNotHeld": "Sam tego tutaj nie masz: nie możesz go nadać ani odmówić.",
+    "resultLevel": "Wynik: {{level}}",
+    "resultExcept": ", z wyjątkiem {{list}}",
+    "resultPlus": ", plus {{list}}",
+    "resultNote": "Ustawiasz tylko uprawnienia, które sam masz do tej treści.",
+    "changed": "Zmienione uprawnienia: {{count}}",
+    "unchanged": "Bez zmian",
+    "upsell": "Ustawianie uprawnień pojedynczo to część wersji Enterprise.",
+    "saveFailed": "Nie zapisano uprawnień.",
+    "openFor": "Dostosuj uprawnienia: {{name}}"
+  },
+  "why": {
+    "title": "Dlaczego? {{person}}: {{resource}}",
+    "titleBare": "Dlaczego? {{resource}}",
+    "subtitle": "Każdy krok jest czytany w kolejności, w jakiej Ruchoir go stosuje. Nic tu nie jest zmieniane.",
+    "pick": "Wybierz osobę",
+    "you": "{{name}} (ty)",
+    "loading": "Czytanie kroków...",
+    "failed": "Nie udało się wczytać wyjaśnienia.",
+    "noSteps": "Brak kroków: nic nie daje tej osobie tu żadnych uprawnień.",
+    "resultFor": "Wynik dla {{name}}",
+    "hiddenPlace": "element, którego nie możesz otworzyć",
+    "hiddenTarget": "ktoś, kogo nie możesz zobaczyć",
+    "alreadyVia": "Ma już dostęp przez {{via}}",
+    "role": {
+      "direct": "{{person}} ma rolę {{role}}.",
+      "viaGroup": "{{person}} dostaje rolę {{role}} przez grupę {{groups}}.",
+      "directAndGroup": "{{person}} ma rolę {{role}} i dostaje ją także przez grupę {{groups}}."
+    },
+    "step": {
+      "unknown": "Inny krok zmienia {{permission}}.",
+      "base": {
+        "granted": "Baza: rola bazowa przestrzeni daje {{person}} uprawnienie {{permission}}.",
+        "removed": "Baza: rola bazowa przestrzeni odbiera {{person}} uprawnienie {{permission}}."
+      },
+      "role": {
+        "granted": "Rola: {{permission}} pochodzi z roli {{role}}.",
+        "removed": "Rola: rola {{role}} odbiera {{permission}}."
+      },
+      "rule": {
+        "granted": "Reguła dla {{where}}: {{target}} dostaje {{permission}}.",
+        "removed": "Reguła dla {{where}}: {{target}} traci {{permission}}."
+      },
+      "private_lock": {
+        "granted": "Blokada prywatna: {{target}} otwiera ten kanał prywatny ({{permission}}).",
+        "removed": "Blokada prywatna: kanał jest prywatny, {{person}} traci {{permission}}, dopóki reguła go nie otworzy."
+      },
+      "guest_ceiling": {
+        "granted": "Limit gości: gość może zachować {{permission}}.",
+        "removed": "Limit gości: {{person}} jest gościem, a {{permission}} to więcej, niż gość może mieć."
+      },
+      "owner": {
+        "granted": "Właściciel: {{person}} jest właścicielem przestrzeni, więc {{permission}} jest nadane.",
+        "removed": "Właściciel: {{permission}} jest odebrane mimo własności."
+      },
+      "author": {
+        "granted": "Autor: {{person}} utworzył ten element, więc {{permission}} jest nadane.",
+        "removed": "Autor: {{permission}} jest odebrane mimo utworzenia elementu."
+      },
+      "archived": {
+        "granted": "Zarchiwizowane: {{permission}} pozostaje nadane mimo archiwizacji.",
+        "removed": "Zarchiwizowane: element jest zarchiwizowany lub w koszu, więc {{permission}} jest odebrane."
+      },
+      "joined": {
+        "granted": "Członek kanału: {{person}} dołączył do kanału, więc {{permission}} jest nadane.",
+        "removed": "Członek kanału: {{person}} traci {{permission}} mimo obecności w kanale."
+      },
+      "unseen": {
+        "granted": "Ścieżka: {{permission}} jest nadane przez to, co zawiera element.",
+        "removed": "Ścieżka: {{person}} nie może otworzyć tego, co zawiera element, więc {{permission}} jest odebrane."
+      },
+      "conversation": {
+        "granted": "Rozmowa: {{person}} jest w rozmowie, w której udostępniono element, więc {{permission}} jest nadane.",
+        "removed": "Rozmowa: {{permission}} jest odebrane dla tej rozmowy."
+      },
+      "message": {
+        "granted": "Wiadomość: element jest dołączony do wiadomości, którą {{person}} może czytać, więc {{permission}} jest nadane.",
+        "removed": "Wiadomość: {{permission}} jest odebrane dla tej wiadomości."
+      },
+      "event": {
+        "granted": "Wydarzenie: element jest powiązany z wydarzeniem, które {{person}} może zobaczyć, więc {{permission}} jest nadane.",
+        "removed": "Wydarzenie: {{permission}} jest odebrane dla tego wydarzenia."
+      }
+    },
+    "reason": {
+      "none": "Żadna reguła tego nie nadaje",
+      "base": "Przez rolę bazową",
+      "role": "Przez rolę",
+      "rule": "Przez regułę",
+      "private_lock": "Przez blokadę prywatną",
+      "guest_ceiling": "Przez limit gości",
+      "owner": "Jako właściciel",
+      "author": "Jako autor",
+      "archived": "Bo zarchiwizowane",
+      "joined": "Jako członek kanału",
+      "unseen": "Przez ścieżkę",
+      "conversation": "Przez rozmowę",
+      "message": "Przez wiadomość",
+      "event": "Przez wydarzenie",
+      "other": "Przez inny krok"
+    }
   }
 }

@@ -2482,5 +2482,115 @@
     "audienceName": "Leser von #{{name}}",
     "closestWins": "Die nächstgelegene Regel gilt.",
     "closestWinsBody": "Für {{name}} ist dieses Element auf „{{level}}“ eingestellt, auch wenn der Ordner darüber „{{parentLevel}}“ vergibt. Die übrigen Einträge folgen weiter dem Ordner."
+  },
+  "customise": {
+    "title": "Anpassen: {{name}}",
+    "subtitle": "Jedes Recht ist Geerbt, Erlaubt oder Verweigert. Geerbt heißt: keine Regel hier, das Recht kommt von der Basisrolle.",
+    "groupRead": "Lesen",
+    "groupParticipate": "Mitwirken",
+    "inherited": "Geerbt",
+    "allowed": "Erlaubt",
+    "denied": "Verweigert",
+    "lockNotHeld": "Sie haben dieses Recht hier selbst nicht: Sie können es weder vergeben noch verweigern.",
+    "resultLevel": "Ergebnis: {{level}}",
+    "resultExcept": ", außer {{list}}",
+    "resultPlus": ", plus {{list}}",
+    "resultNote": "Sie stellen nur die Rechte ein, die Sie selbst für diesen Inhalt haben.",
+    "changed": "Geänderte Rechte: {{count}}",
+    "unchanged": "Keine Änderung",
+    "upsell": "Rechte einzeln einzustellen gehört zur Enterprise-Edition.",
+    "saveFailed": "Die Rechte wurden nicht gespeichert.",
+    "openFor": "Rechte von {{name}} anpassen"
+  },
+  "why": {
+    "title": "Warum? {{person}} bei {{resource}}",
+    "titleBare": "Warum? Bei {{resource}}",
+    "subtitle": "Jeder Schritt wird in der Reihenfolge gelesen, in der Ruchoir ihn anwendet. Hier wird nichts geändert.",
+    "pick": "Person auswählen",
+    "you": "{{name}} (Sie)",
+    "loading": "Schritte werden gelesen...",
+    "failed": "Die Erklärung konnte nicht geladen werden.",
+    "noSteps": "Keine Schritte: Nichts gibt dieser Person hier ein Recht.",
+    "resultFor": "Ergebnis für {{name}}",
+    "hiddenPlace": "ein Element, das Sie nicht öffnen können",
+    "hiddenTarget": "jemand, den Sie nicht sehen können",
+    "alreadyVia": "Hat bereits Zugriff über {{via}}",
+    "role": {
+      "direct": "{{person}} hat die Rolle {{role}}.",
+      "viaGroup": "{{person}} erhält {{role}} über die Gruppe {{groups}}.",
+      "directAndGroup": "{{person}} hat {{role}} und erhält die Rolle auch über die Gruppe {{groups}}."
+    },
+    "step": {
+      "unknown": "Ein weiterer Schritt ändert {{permission}}.",
+      "base": {
+        "granted": "Basis: Die Basisrolle des Bereichs gibt {{person}} das Recht {{permission}}.",
+        "removed": "Basis: Die Basisrolle des Bereichs nimmt {{person}} das Recht {{permission}}."
+      },
+      "role": {
+        "granted": "Rolle: {{permission}} kommt von der Rolle {{role}}.",
+        "removed": "Rolle: Die Rolle {{role}} nimmt {{permission}} weg."
+      },
+      "rule": {
+        "granted": "Regel bei {{where}}: {{target}} erhält {{permission}}.",
+        "removed": "Regel bei {{where}}: {{target}} verliert {{permission}}."
+      },
+      "private_lock": {
+        "granted": "Privatsperre: {{target}} öffnet diesen privaten Kanal ({{permission}}).",
+        "removed": "Privatsperre: Der Kanal ist privat, {{person}} verliert {{permission}}, solange keine Regel ihn öffnet."
+      },
+      "guest_ceiling": {
+        "granted": "Gästegrenze: Ein Gast darf {{permission}} behalten.",
+        "removed": "Gästegrenze: {{person}} ist Gast, {{permission}} geht über das hinaus, was ein Gast haben darf."
+      },
+      "owner": {
+        "granted": "Inhaber: {{person}} besitzt den Bereich, {{permission}} wird gewährt.",
+        "removed": "Inhaber: {{permission}} wird trotz Inhaberstatus entzogen."
+      },
+      "author": {
+        "granted": "Autor: {{person}} hat dieses Element erstellt, {{permission}} wird gewährt.",
+        "removed": "Autor: {{permission}} wird trotz Erstellung des Elements entzogen."
+      },
+      "archived": {
+        "granted": "Archiviert: {{permission}} bleibt trotz Archivierung gewährt.",
+        "removed": "Archiviert: Das Element ist archiviert oder im Papierkorb, {{permission}} wird entzogen."
+      },
+      "joined": {
+        "granted": "Kanalmitglied: {{person}} ist dem Kanal beigetreten, {{permission}} wird gewährt.",
+        "removed": "Kanalmitglied: {{person}} verliert {{permission}}, obwohl er im Kanal ist."
+      },
+      "unseen": {
+        "granted": "Pfad: {{permission}} wird durch den Container des Elements gewährt.",
+        "removed": "Pfad: {{person}} kann den Container des Elements nicht öffnen, {{permission}} wird entzogen."
+      },
+      "conversation": {
+        "granted": "Unterhaltung: {{person}} ist in der Unterhaltung, in der das Element geteilt wurde, {{permission}} wird gewährt.",
+        "removed": "Unterhaltung: {{permission}} wird für diese Unterhaltung entzogen."
+      },
+      "message": {
+        "granted": "Nachricht: Das Element hängt an einer Nachricht, die {{person}} lesen kann, {{permission}} wird gewährt.",
+        "removed": "Nachricht: {{permission}} wird für diese Nachricht entzogen."
+      },
+      "event": {
+        "granted": "Termin: Das Element ist mit einem Termin verknüpft, den {{person}} sehen kann, {{permission}} wird gewährt.",
+        "removed": "Termin: {{permission}} wird für diesen Termin entzogen."
+      }
+    },
+    "reason": {
+      "none": "Keine Regel gewährt es",
+      "base": "Durch die Basisrolle",
+      "role": "Durch eine Rolle",
+      "rule": "Durch eine Regel",
+      "private_lock": "Durch die Privatsperre",
+      "guest_ceiling": "Durch die Gästegrenze",
+      "owner": "Als Inhaber",
+      "author": "Als Autor",
+      "archived": "Weil archiviert",
+      "joined": "Als Kanalmitglied",
+      "unseen": "Durch den Pfad",
+      "conversation": "Durch eine Unterhaltung",
+      "message": "Durch eine Nachricht",
+      "event": "Durch einen Termin",
+      "other": "Durch einen anderen Schritt"
+    }
   }
 }

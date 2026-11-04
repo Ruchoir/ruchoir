@@ -117,7 +117,7 @@ test("the_preview_routes", async () => {
   const client = api();
   const started = await client.startPreview("s1", "r2");
   await client.quitPreview("s1");
-  assert.deepEqual(started, { roleId: "r2", roleName: "Design" });
+  assert.deepEqual(started, { roleId: "r2", roleName: "Design", idleSeconds: 1800 });
   assert.deepEqual(calls.map((c) => [c.init.method, path(c.url)]), [
     ["POST", "/spaces/s1/roles/r2/preview"],
     ["DELETE", "/spaces/s1/preview"],
@@ -153,4 +153,26 @@ test("rule_refusals_name_where_a_group_or_role_is_used", () => {
   });
   assert.deepEqual(refusal({ error: "role_has_rules" }), { code: "role_has_rules" });
   assert.deepEqual(refusal({ error: "role_has_rules", used_in: [] }), { code: "role_has_rules", usedIn: [] });
+});
+
+test("a_fine_rule_is_written_to_the_rules_route", async () => {
+  const calls = fakeFetch({ body: accessDto }, { body: accessDto });
+  const client = api();
+  const view = await client.setAccessRule("s1", "channel", "c1", { kind: "group", id: "g1" }, { allow: ["message.pin"], deny: ["message.mention_all"] });
+  await client.setAccessRule("s1", "channel", "c1", { kind: "user", id: "u1" }, { allow: [], deny: [] });
+  assert.equal(calls[0].init.method, "PUT");
+  assert.equal(path(calls[0].url), "/spaces/s1/access/channel/c1/rules");
+  assert.deepEqual(JSON.parse(String(calls[0].init.body)), {
+    target: { kind: "group", id: "g1" },
+    allow: ["message.pin"],
+    deny: ["message.mention_all"],
+  });
+  assert.equal(view.resource.id, "f1");
+  assert.deepEqual(JSON.parse(String(calls[1].init.body)).allow, []);
+});
+
+test("the_fine_rule_refusals_are_named", () => {
+  const refusal = (status: number, body: unknown) => refusalOf(new ApiError(status, "x", body));
+  assert.deepEqual(refusal(400, { error: "base_role_levels_only" }), { code: "base_role_levels_only" });
+  assert.deepEqual(refusal(400, { error: "permission_in_both" }), { code: "permission_in_both" });
 });

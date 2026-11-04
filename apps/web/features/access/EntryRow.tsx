@@ -7,6 +7,7 @@ import type { AccessEntry, AccessKind, AccessLevel, AccessView, Group, Role } fr
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { GroupIcon } from "../groups/GroupIcon";
 import { roleColour } from "../settings/roleChips";
+import { canCustomise } from "./customiseLogic.ts";
 import { entryEditable, entryNote, inheritedLink, levelLabelKey, levelOptions, removable, type OffReason, type Override } from "./accessLogic.ts";
 
 /** A key built by the logic module, as the translator takes it (the keys exist: the tests name them). */
@@ -159,10 +160,11 @@ export function EntryRow({ entry, ctx }: { entry: AccessEntry; ctx: RowContext }
           ) : null}
         </div>
       </div>
-      {ctx.onCustomise && ctx.access.may.fine && editable && target.kind !== "audience" ? (
+      {ctx.onCustomise && ctx.access.may.fine && editable && canCustomise(ctx.kind, target, role?.systemKey === "administrator") ? (
         <button
           type="button"
           onClick={() => ctx.onCustomise?.(entry)}
+          aria-label={t("customise.openFor", { name })}
           style={{ background: "none", border: 0, cursor: "pointer", color: "var(--text-body)", font: "inherit", fontSize: "var(--text-xs)", fontWeight: 600 }}
         >
           <Icon name="settings" size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />

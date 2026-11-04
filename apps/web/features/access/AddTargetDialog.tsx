@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar, Button, Checkbox, Dialog, Icon, Input, Radio } from "@/components/ds";
 import { getAvatar } from "@/lib/data";
 import type { Member } from "@/lib/data/api";
-import { refusalOf, setAccessLevel } from "@/lib/data/api";
+import { explainAccess, refusalOf, setAccessLevel } from "@/lib/data/api";
 import type { AccessKind, AccessLevel, AccessTargetRef, AccessView, Group, Role } from "@/lib/data/types";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { GroupIcon } from "../groups/GroupIcon";
@@ -12,6 +12,10 @@ import { foldName } from "../settings/groupsLogic.ts";
 import { refusalMessage, roleColour, roleLabel } from "../settings/roleChips";
 import { addLevelOptions, levelDescKey, levelLabelKey } from "./accessLogic.ts";
 import { targetKey, tk } from "./EntryRow";
+import { alreadyVia } from "./whyLogic.ts";
+
+/** The view permission of each family: what "has access" means for the note under a person. */
+const VIEW: Record<AccessKind, string> = { channel: "channel.view", file: "files.view", calendar: "calendar.view" };
 
 type Pick = { ref: AccessTargetRef & { kind: "user" | "group" | "role" }; name: string; guest: boolean };
 
@@ -64,6 +68,25 @@ export function AddTargetDialog({
     .filter((r) => r.systemKey === "administrator" || (!r.systemKey && access.may.fine))
     .filter((r) => foldName(roleLabel(r, t)).includes(needle));
 
+  // Under a person already reaching the resource through a group or a role, say which (frame 3). Only
+  // for a short list: each person is one explanation.
+  const [via, setVia] = useState<Record<string, string | null>>({});
+  const askFor = people.length <= 6 ? people.map((m) => m.userId) : [];
+  useEffect(() => {
+    let active = true;
+    for (const userId of askFor) {
+      if (via[userId] !== undefined) continue;
+      explainAccess(spaceId, kind, resourceId, userId)
+        .then((why) => active && setVia((prev) => ({ ...prev, [userId]: alreadyVia(why, VIEW[kind]) ?? null })))
+        .catch(() => active && setVia((prev) => ({ ...prev, [userId]: null })));
+    }
+    return () => {
+      active = false;
+    };
+    // `via` is read to skip what is known; asking again on each answer would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askFor.join(","), spaceId, kind, resourceId]);
+
   const toggle = (id: string, entry: Pick) =>
     setPicked((prev) => {
       const next = new Map(prev);
@@ -110,7 +133,7 @@ export function AddTargetDialog({
       </div>
     );
 
-  const row = (id: string, pick: Pick, lead: React.ReactNode, title: string, sub?: string) => {
+  const row = (id: string, pick: Pick, lead: React.ReactNode, title: string, sub?: string, note?: string) => {
     const already = listed.has(id);
     return (
       <label key={id} style={{ display: "flex", alignItems: "center", gap: 10, opacity: already ? 0.6 : 1, cursor: already ? "default" : "pointer" }}>
@@ -118,7 +141,7 @@ export function AddTargetDialog({
         {lead}
         <span style={{ minWidth: 0 }}>
           <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{title}</div>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{already ? t("access.alreadyListed") : sub}</div>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{already ? t("access.alreadyListed") : (note ?? sub)}</div>
         </span>
       </label>
     );
@@ -172,7 +195,7 @@ export function AddTargetDialog({
             key("gsearch.people"),
             people.map((m) => {
               const guest = m.role === "guest";
-              return row(`user:${m.userId}`, { ref: { kind: "user", id: m.userId }, name: m.name, guest }, <Avatar name={m.name} src={m.avatarUrl ?? getAvatar(m.name)} size={28} />, m.name, [guest ? t("role.guest") : undefined, m.title].filter(Boolean).join(" · "));
+              return row(`user:${m.userId}`, { ref: { kind: "user", id: m.userId }, name: m.name, guest }, <Avatar name={m.name} src={m.avatarUrl ?? getAvatar(m.name)} size={28} />, m.name, [guest ? t("role.guest") : undefined, m.title].filter(Boolean).join(" · "), via[m.userId] ? t("why.alreadyVia", { via: via[m.userId]! }) : undefined);
             }),
             people.length,
           )}
