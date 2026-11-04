@@ -72,6 +72,45 @@ pub async fn seats_used(
     Ok(u32::try_from(used).unwrap_or(u32::MAX))
 }
 
+/// Take the space's seat lock for the rest of the transaction: two writes that take a seat in the
+/// same space (a promotion, an accepted link, an import of people) are served one after the other.
+pub async fn lock_space_seats(txn: &DatabaseTransaction, space_id: Uuid) -> Result<(), DbErr> {
+    txn.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "SELECT pg_advisory_xact_lock(hashtext($1))",
+        [space_id.to_string().into()],
+    ))
+    .await?;
+    Ok(())
+}
+
+/// The base an imported custom role is built on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BasedOn {
+    Member,
+    Admin,
+}
+
+/// A role of the source product that an import wants to bring over as a custom role.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportedRole {
+    /// The role's identifier in the source product, stable across runs of the same import.
+    pub source_id: String,
+    pub name: String,
+    pub based_on: BasedOn,
+}
+
+/// What an edition did with an [`ImportedRole`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImportedRoleOutcome {
+    /// A custom role was created, with this id.
+    Created(Uuid),
+    /// The import had created it already: this id.
+    Existing(Uuid),
+    /// This edition has no custom roles: the people take the base role instead.
+    FallBack,
+}
+
 /// A build of the server: the community one, or one made elsewhere on top of this crate.
 #[async_trait::async_trait]
 pub trait Edition: Send + Sync + 'static {
@@ -103,6 +142,17 @@ pub trait Edition: Send + Sync + 'static {
 
     /// Start this edition's background jobs, once, when the server starts serving.
     fn background(&self, state: AppState);
+
+    /// Bring a role of the source product over as a custom role of `space_id`, inside the
+    /// import's transaction, on behalf of `actor`. Required, with no default, so that an edition
+    /// cannot forget it: one without custom roles answers [`ImportedRoleOutcome::FallBack`].
+    async fn import_custom_role(
+        &self,
+        txn: &DatabaseTransaction,
+        space_id: Uuid,
+        role: &ImportedRole,
+        actor: Uuid,
+    ) -> Result<ImportedRoleOutcome, DbErr>;
 }
 
 /// The community build: every space is `Community`, nobody is ever refused a seat.
@@ -140,4 +190,14 @@ impl Edition for CommunityEdition {
     }
 
     fn background(&self, _state: AppState) {}
+
+    async fn import_custom_role(
+        &self,
+        _txn: &DatabaseTransaction,
+        _space_id: Uuid,
+        _role: &ImportedRole,
+        _actor: Uuid,
+    ) -> Result<ImportedRoleOutcome, DbErr> {
+        Ok(ImportedRoleOutcome::FallBack)
+    }
 }

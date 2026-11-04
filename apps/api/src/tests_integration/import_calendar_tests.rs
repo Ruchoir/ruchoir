@@ -126,10 +126,7 @@ async fn run_import(
         None,
         admin,
         job,
-        crate::importer::job::RunSettings {
-            thumbnail_max_px: THUMBNAIL_MAX_PX,
-            secret_key: [7; 32],
-        },
+        crate::importer::job::RunSettings::community(THUMBNAIL_MAX_PX, [7; 32]),
     )
     .await
     .expect("import")
@@ -317,10 +314,7 @@ async fn a_job_counts_its_calendars_and_events() {
         None,
         fx.alice,
         job,
-        crate::importer::job::RunSettings {
-            thumbnail_max_px: THUMBNAIL_MAX_PX,
-            secret_key: [7; 32],
-        },
+        crate::importer::job::RunSettings::community(THUMBNAIL_MAX_PX, [7; 32]),
     )
     .await
     .expect("import");

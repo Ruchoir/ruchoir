@@ -164,10 +164,7 @@ async fn start(
             std::path::Path::new(&path),
             &admin,
             passphrase.as_deref(),
-            importer::job::RunSettings {
-                thumbnail_max_px: config.thumbnail_max_px,
-                secret_key: secret_key_from_env()?,
-            },
+            importer::job::RunSettings::community(config.thumbnail_max_px, secret_key_from_env()?),
         )
         .await
         .map_err(|e| e.into());

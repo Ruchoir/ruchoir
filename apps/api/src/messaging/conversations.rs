@@ -328,6 +328,9 @@ pub async fn list_members(
                 expires_at: shown
                     .then(|| membership.expires_at.map(super::dto::rfc3339))
                     .flatten(),
+                imported_from: manages_people
+                    .then(|| membership.imported_from.clone())
+                    .flatten(),
             });
         }
     }

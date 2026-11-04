@@ -1,10 +1,7 @@
 //! How a space's edition reads in its DTO (`edition` for every member, `licence` for its owners),
 //! and the seat check every way of adding an owner or a member goes through.
 
-use sea_orm::{
-    ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbBackend, Statement,
-    TransactionTrait,
-};
+use sea_orm::{DatabaseConnection, DatabaseTransaction, TransactionTrait};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -79,12 +76,7 @@ pub async fn ensure_a_seat_locked(
     state: &AppState,
     space_id: Uuid,
 ) -> Result<(), ApiError> {
-    txn.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "SELECT pg_advisory_xact_lock(hashtext($1))",
-        [space_id.to_string().into()],
-    ))
-    .await?;
+    crate::edition::lock_space_seats(txn, space_id).await?;
     // Counted on the transaction's own connection: a waiter on the lock never needs a second one,
     // so a burst of promotions cannot starve the pool of the one holding the lock.
     seat_gate(state, txn, space_id).await

@@ -16,6 +16,7 @@ pub use crate::auth::extract::AuthSession;
 /// Messages in Ruchoir's own layout: [`Notice`] is what the caller writes, [`notice`] draws it,
 /// `AppState::mailer` sends the [`Email`]; [`Locale`] is a reader's language.
 pub use crate::auth::mail_text::{notice, Email, Locale, Notice};
+pub use crate::edition::{lock_space_seats, BasedOn, ImportedRole, ImportedRoleOutcome};
 /// `403` unless the caller owns the space.
 pub use crate::messaging::authz::ensure_space_owner;
 /// The gate of every paid write: `402 licence_required`, `409 licence_frozen`, or through.

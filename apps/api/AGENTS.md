@@ -519,3 +519,17 @@ with the community `ring` provider (never AWS `aws-lc-rs`), per the no-US-depend
   can be large; missing files 404 and the client falls back to native emoji. `ServeDir` guards path
   traversal, and a `Cache-Control: public, max-age=604800` layer caps the pack at a couple of
   requests per client per week (not `immutable`, so a rebuilt pack still propagates).
+
+## Importing people (permissions lot 6)
+
+- Archive format 2 carries `members.jsonl`, `groups.jsonl`, `roles.jsonl` and `moderators` on
+  conversations (`docs/import-archive.md`); a format 1 archive reads exactly as before.
+- `importer/people.rs`: `admit` is the only way an import puts someone in a space (one transaction,
+  `lock_space_seats`, the edition's `seat_check`; a row there, an ended guest included, is `Present`
+  and never touched). Nobody becomes owner. The plan (`plan::people_plan`) and the run count seats
+  the same way; the run counts again under the lock and stops with `RunError::SeatsFull`.
+- Custom roles go through `Edition::import_custom_role` (the community edition answers `FallBack`) and are given to the people a job admits, in the same transaction as their member row (`admit_with_roles`): a person arrives with every role or not at all.
+  Groups are recognised by their archive id (`KIND_GROUP`); only a resume of the same job fills them.
+- `importer/summary.rs` writes the job's `summary` and one `import.applied` journal line per touched
+  space and per attempt of the job (`import_jobs.attempt`, raised by each resume); a line says only
+  what its own attempt wrote, and none is written when that is nothing.

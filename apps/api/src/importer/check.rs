@@ -32,6 +32,12 @@ const SYSTEM_EVENTS: &[&str] = &[
 
 const KINDS: &[&str] = &["channel", "direct"];
 const VISIBILITIES: &[&str] = &["public", "private"];
+/// Format 2: the standing a `members.jsonl` line may give (owners are never imported).
+const MEMBER_ROLES: &[&str] = &["admin", "member", "guest"];
+/// Format 2: what a `roles.jsonl` record may be based on.
+const BASED_ON: &[&str] = &["member", "admin"];
+/// The format 2 files, ignored (with a warning) inside a format 1 archive.
+const PEOPLE_FILES: [&str; 3] = ["members.jsonl", "groups.jsonl", "roles.jsonl"];
 
 /// How many kinds of complaint are spelled out before the rest are only counted.
 ///
@@ -215,6 +221,7 @@ pub fn check(path: &Path, passphrase: Option<&str>) -> Result<(Index, Report), A
     check_manifest(&index, &mut report);
     check_spaces(&index, &mut report);
     check_channels(&index, &spaces, &users, &mut report);
+    check_people(&index, &spaces, &users, &mut report);
     check_files(&index, &spaces, &channels, &mut report);
     let calendars = check_calendars(&index, &users, &mut report);
 
@@ -295,7 +302,7 @@ fn check_manifest(index: &Index, report: &mut Report) {
         }
     }
 
-    let actual: [(&str, usize); 7] = [
+    let mut actual: Vec<(&str, usize)> = vec![
         ("spaces", index.spaces.len()),
         ("users", index.users.len()),
         ("channels", index.channels.len()),
@@ -304,6 +311,25 @@ fn check_manifest(index: &Index, report: &mut Report) {
         ("calendars", index.calendars.len()),
         ("events", index.event_count),
     ];
+    if manifest.format_version >= 2 {
+        actual.push(("members", index.members.len()));
+        actual.push(("groups", index.groups.len()));
+        actual.push(("roles", index.roles.len()));
+    } else {
+        for name in PEOPLE_FILES {
+            if index.digests.contains_key(name) {
+                report.warn(format!(
+                    "{name} belongs to format 2 and this archive says format 1: it is ignored"
+                ));
+            }
+        }
+        if index.moderators_ignored > 0 {
+            report.warn(
+                "moderators belong to format 2 and this archive says format 1: they are ignored"
+                    .into(),
+            );
+        }
+    }
     for (name, count) in actual {
         if let Some(declared) = manifest.counts.get(name) {
             if *declared != count as i64 {
@@ -483,6 +509,147 @@ fn check_channels(
             report.error(format!(
                 "conversation {}: a direct conversation needs at least two people",
                 channel.id
+            ));
+        }
+    }
+}
+
+/// Format 2: who stands where. Nothing here runs for a format 1 archive, whose people files the
+/// reader has already set aside.
+fn check_people(index: &Index, spaces: &HashSet<&str>, users: &HashSet<&str>, report: &mut Report) {
+    let mut defined: HashSet<(&str, &str)> = HashSet::new();
+    let mut role_names: HashSet<(&str, String)> = HashSet::new();
+    for role in &index.roles {
+        if !spaces.contains(role.space.as_str()) {
+            report.error(format!(
+                "role {}: space {:?} is not in this archive",
+                role.id, role.space
+            ));
+        }
+        if !defined.insert((role.space.as_str(), role.id.as_str())) {
+            report.error(format!(
+                "role {}: two roles of space {} share an identifier",
+                role.id, role.space
+            ));
+        }
+        if !BASED_ON.contains(&role.based_on.as_str()) {
+            report.error(format!(
+                "role {}: based_on {:?} is not one we have",
+                role.id, role.based_on
+            ));
+        }
+        if !role_names.insert((role.space.as_str(), role.name.to_lowercase())) {
+            report.error(format!(
+                "role {}: another role of space {} has the same name",
+                role.id, role.space
+            ));
+        }
+    }
+
+    let mut seen: HashSet<(&str, &str)> = HashSet::new();
+    let mut guests: HashSet<(&str, &str)> = HashSet::new();
+    for member in &index.members {
+        if !spaces.contains(member.space.as_str()) {
+            report.error(format!(
+                "member {}: space {:?} is not in this archive",
+                member.user, member.space
+            ));
+        }
+        if !users.contains(member.user.as_str()) {
+            report.error(format!(
+                "member {}: not an account in this archive",
+                member.user
+            ));
+        }
+        if !seen.insert((member.space.as_str(), member.user.as_str())) {
+            report.error(format!(
+                "member {}: listed twice in space {}",
+                member.user, member.space
+            ));
+        }
+        if !MEMBER_ROLES.contains(&member.role.as_str()) {
+            report.error(format!(
+                "member {}: role {:?} is not one we have",
+                member.user, member.role
+            ));
+        }
+        for id in &member.roles {
+            if !defined.contains(&(member.space.as_str(), id.as_str())) {
+                report.error(format!(
+                    "member {}: role {id:?} is not defined for space {}",
+                    member.user, member.space
+                ));
+            }
+        }
+        if member.role == "guest" {
+            guests.insert((member.space.as_str(), member.user.as_str()));
+            if !member.roles.is_empty() {
+                report.warn(format!(
+                    "member {}: a guest carries roles, which are ignored",
+                    member.user
+                ));
+            }
+        }
+    }
+
+    let mut grouped: HashSet<(&str, &str)> = HashSet::new();
+    let mut group_ids: HashSet<&str> = HashSet::new();
+    let mut group_names: HashSet<(&str, String)> = HashSet::new();
+    for group in &index.groups {
+        if !group_ids.insert(group.id.as_str()) {
+            report.error(format!(
+                "group {}: two groups share an identifier",
+                group.id
+            ));
+        }
+        if !spaces.contains(group.space.as_str()) {
+            report.error(format!(
+                "group {}: space {:?} is not in this archive",
+                group.id, group.space
+            ));
+        }
+        if !group_names.insert((group.space.as_str(), group.name.to_lowercase())) {
+            report.error(format!(
+                "group {}: another group of space {} has the same name",
+                group.id, group.space
+            ));
+        }
+        for person in &group.members {
+            if !users.contains(person.as_str()) {
+                report.error(format!(
+                    "group {}: member {person:?} is not an account in this archive",
+                    group.id
+                ));
+            }
+            grouped.insert((group.space.as_str(), person.as_str()));
+        }
+    }
+
+    let mut conversing: HashSet<(&str, &str)> = HashSet::new();
+    for channel in &index.channels {
+        for person in &channel.members {
+            conversing.insert((channel.space.as_str(), person.as_str()));
+        }
+        for moderator in &channel.moderators {
+            if !channel.members.contains(moderator) {
+                report.error(format!(
+                    "conversation {}: moderator {moderator:?} is not one of its members",
+                    channel.id
+                ));
+            } else if guests.contains(&(channel.space.as_str(), moderator.as_str())) {
+                report.warn(format!(
+                    "conversation {}: a guest is listed as moderator, which is ignored",
+                    channel.id
+                ));
+            }
+        }
+    }
+    for member in &index.members {
+        let key = (member.space.as_str(), member.user.as_str());
+        if !conversing.contains(&key) && !grouped.contains(&key) {
+            report.warn(format!(
+                "member {}: listed in space {} but in no conversation and no group of it",
+                member.user, member.space
             ));
         }
     }
@@ -957,5 +1124,365 @@ mod emoji_tests {
         assert!(!is_shortcode("::"));
         assert!(!is_shortcode(":"));
         assert!(!is_shortcode(""));
+    }
+}
+
+/// Format 2 (people, groups and roles), against archives written to a temporary directory.
+#[cfg(test)]
+mod people_tests {
+    use super::*;
+    use serde_json::{json, Value};
+
+    /// An unpacked archive: a space, three accounts, one conversation, and whatever people files
+    /// the test gives. The manifest declares no counts, so a test changes one thing at a time.
+    struct Fixture {
+        dir: std::path::PathBuf,
+    }
+
+    impl Fixture {
+        fn new(format_version: u32, extra: &[(&str, Vec<Value>)]) -> Self {
+            let dir = std::env::temp_dir()
+                .join(format!("ruchoir-people-{}", uuid::Uuid::new_v4().simple()));
+            std::fs::create_dir_all(&dir).expect("dir");
+            let write = |name: &str, rows: &[Value]| {
+                let body: String = rows.iter().map(|r| format!("{r}\n")).collect();
+                std::fs::write(dir.join(name), body).expect("write");
+            };
+            write(
+                "spaces.jsonl",
+                &[json!({"id": "atelier", "name": "Atelier", "visibility": "public"})],
+            );
+            write(
+                "users.jsonl",
+                &[
+                    json!({"id": "alice", "display_name": "Alice"}),
+                    json!({"id": "bob", "display_name": "Bob"}),
+                    json!({"id": "carol", "display_name": "Carol"}),
+                ],
+            );
+            let mut channel = json!({
+                "id": "atelier/general", "space": "atelier", "kind": "channel",
+                "name": "General", "visibility": "public",
+                "members": ["alice", "bob", "carol"],
+            });
+            if let Some((_, rows)) = extra.iter().find(|(n, _)| *n == "moderators") {
+                channel["moderators"] = json!(rows);
+            }
+            write("channels.jsonl", &[channel]);
+            write("messages.jsonl", &[]);
+            write("files.jsonl", &[]);
+            let mut manifest = json!({
+                "format_version": format_version, "source": "mattermost",
+                "producer": "test", "created_at": "2026-09-13T10:00:00Z",
+                "limits": ["nothing in particular"],
+            });
+            for (name, rows) in extra {
+                if *name != "moderators" && *name != "counts" {
+                    write(&format!("{name}.jsonl"), rows);
+                }
+                if *name == "counts" {
+                    manifest["counts"] = rows[0].clone();
+                }
+            }
+            std::fs::write(dir.join("manifest.json"), manifest.to_string()).expect("manifest");
+            Fixture { dir }
+        }
+
+        fn run(&self) -> (Index, Report) {
+            check(&self.dir, None).expect("the archive reads")
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    fn person(space: &str, user: &str, role: &str, roles: &[&str]) -> Value {
+        json!({"space": space, "user": user, "role": role, "roles": roles})
+    }
+
+    fn said(lines: Vec<String>, fragment: &str) -> bool {
+        lines.iter().any(|l| l.contains(fragment))
+    }
+
+    #[test]
+    fn a_format_2_archive_reads_members_groups_and_roles() {
+        let fx = Fixture::new(
+            2,
+            &[
+                (
+                    "members",
+                    vec![
+                        person("atelier", "alice", "admin", &["r1"]),
+                        person("atelier", "bob", "member", &[]),
+                    ],
+                ),
+                (
+                    "groups",
+                    vec![
+                        json!({"id": "g1", "space": "atelier", "name": "Design", "members": ["alice", "bob"]}),
+                    ],
+                ),
+                (
+                    "roles",
+                    vec![
+                        json!({"id": "r1", "space": "atelier", "name": "Moderators", "based_on": "member"}),
+                    ],
+                ),
+                ("moderators", vec![json!("alice")]),
+            ],
+        );
+        let (index, report) = fx.run();
+        assert!(report.is_sound(), "{:?}", report.errors());
+        assert_eq!(index.members.len(), 2);
+        assert_eq!(index.members[0].roles, vec!["r1".to_owned()]);
+        assert_eq!(index.groups[0].members.len(), 2);
+        assert_eq!(index.roles[0].based_on, "member");
+        assert_eq!(index.channels[0].moderators, vec!["alice".to_owned()]);
+    }
+
+    #[test]
+    fn a_format_1_archive_still_reads_and_ignores_people_files() {
+        let fx = Fixture::new(
+            1,
+            &[
+                (
+                    "members",
+                    vec![person("atelier", "ghost", "admin", &["nope"])],
+                ),
+                (
+                    "groups",
+                    vec![json!({"id": "g1", "space": "nowhere", "name": "X"})],
+                ),
+                (
+                    "roles",
+                    vec![json!({"id": "r1", "space": "atelier", "name": "R", "based_on": "king"})],
+                ),
+                ("moderators", vec![json!("ghost")]),
+            ],
+        );
+        let (index, report) = fx.run();
+        assert!(index.members.is_empty() && index.groups.is_empty() && index.roles.is_empty());
+        assert!(index.channels[0].moderators.is_empty());
+        assert!(report.is_sound(), "{:?}", report.errors());
+        assert!(
+            said(report.warnings(), "belongs to format 2"),
+            "{:?}",
+            report.warnings()
+        );
+    }
+
+    #[test]
+    fn format_3_is_refused_with_the_newer_producer_message() {
+        let fx = Fixture::new(3, &[]);
+        match check(&fx.dir, None) {
+            Err(error @ ArchiveError::UnsupportedVersion { .. }) => {
+                let text = error.to_string();
+                assert!(text.contains("format version 3"), "{text}");
+                assert!(text.contains("[1, 2]"), "{text}");
+            }
+            other => panic!("expected a refusal, got {:?}", other.map(|_| ())),
+        }
+    }
+
+    #[test]
+    fn a_member_line_for_an_unknown_user_is_an_error() {
+        let fx = Fixture::new(
+            2,
+            &[("members", vec![person("atelier", "ghost", "member", &[])])],
+        );
+        let (_, report) = fx.run();
+        assert!(
+            said(report.errors(), "member ghost: not an account"),
+            "{:?}",
+            report.errors()
+        );
+        let fx = Fixture::new(
+            2,
+            &[("members", vec![person("nowhere", "alice", "member", &[])])],
+        );
+        assert!(said(
+            fx.run().1.errors(),
+            "space \"nowhere\" is not in this archive"
+        ));
+        let fx = Fixture::new(
+            2,
+            &[("members", vec![person("atelier", "alice", "owner", &[])])],
+        );
+        assert!(said(
+            fx.run().1.errors(),
+            "role \"owner\" is not one we have"
+        ));
+    }
+
+    #[test]
+    fn two_lines_for_one_person_and_space_is_an_error() {
+        let fx = Fixture::new(
+            2,
+            &[(
+                "members",
+                vec![
+                    person("atelier", "alice", "member", &[]),
+                    person("atelier", "alice", "admin", &[]),
+                ],
+            )],
+        );
+        assert!(said(fx.run().1.errors(), "listed twice in space atelier"));
+    }
+
+    #[test]
+    fn one_person_two_spaces_two_roles() {
+        let fx = Fixture::new(
+            2,
+            &[(
+                "members",
+                vec![
+                    person("atelier", "alice", "admin", &[]),
+                    person("bureau", "alice", "guest", &[]),
+                ],
+            )],
+        );
+        // "bureau" is not a space here: the only complaint is about that, never about a duplicate.
+        let (_, report) = fx.run();
+        let errors = report.errors();
+        assert!(said(errors.clone(), "bureau"), "{errors:?}");
+        assert!(!said(errors, "listed twice"));
+        // Two real spaces: nothing to complain about.
+        let dir =
+            std::env::temp_dir().join(format!("ruchoir-people-{}", uuid::Uuid::new_v4().simple()));
+        let base = Fixture::new(
+            2,
+            &[(
+                "members",
+                vec![
+                    person("atelier", "alice", "admin", &[]),
+                    person("bureau", "alice", "guest", &[]),
+                ],
+            )],
+        );
+        std::fs::create_dir_all(&dir).expect("dir");
+        for entry in std::fs::read_dir(&base.dir).expect("read") {
+            let entry = entry.expect("entry");
+            std::fs::copy(entry.path(), dir.join(entry.file_name())).expect("copy");
+        }
+        std::fs::write(
+            dir.join("spaces.jsonl"),
+            format!(
+                "{}\n{}\n",
+                json!({"id": "atelier", "name": "Atelier", "visibility": "public"}),
+                json!({"id": "bureau", "name": "Bureau", "visibility": "private"})
+            ),
+        )
+        .expect("spaces");
+        let (index, report) = check(&dir, None).expect("reads");
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(report.is_sound(), "{:?}", report.errors());
+        assert_eq!(index.members.len(), 2);
+    }
+
+    #[test]
+    fn a_moderator_outside_the_members_is_an_error() {
+        let fx = Fixture::new(2, &[("moderators", vec![json!("stranger")])]);
+        assert!(said(
+            fx.run().1.errors(),
+            "moderator \"stranger\" is not one of its members"
+        ));
+    }
+
+    #[test]
+    fn two_groups_with_one_name_is_an_error() {
+        let fx = Fixture::new(
+            2,
+            &[(
+                "groups",
+                vec![
+                    json!({"id": "g1", "space": "atelier", "name": "Design", "members": []}),
+                    json!({"id": "g2", "space": "atelier", "name": "DESIGN", "members": []}),
+                ],
+            )],
+        );
+        assert!(said(fx.run().1.errors(), "has the same name"));
+    }
+
+    #[test]
+    fn a_role_id_nobody_defined_is_an_error() {
+        let fx = Fixture::new(
+            2,
+            &[(
+                "members",
+                vec![person("atelier", "alice", "member", &["ghost-role"])],
+            )],
+        );
+        assert!(said(
+            fx.run().1.errors(),
+            "role \"ghost-role\" is not defined for space atelier"
+        ));
+    }
+
+    #[test]
+    fn a_guest_with_roles_is_only_a_warning() {
+        let fx = Fixture::new(
+            2,
+            &[
+                (
+                    "members",
+                    vec![person("atelier", "alice", "guest", &["r1"])],
+                ),
+                (
+                    "roles",
+                    vec![json!({"id": "r1", "space": "atelier", "name": "R", "based_on": "admin"})],
+                ),
+                ("moderators", vec![json!("alice")]),
+            ],
+        );
+        let (_, report) = fx.run();
+        assert!(report.is_sound(), "{:?}", report.errors());
+        assert!(said(report.warnings(), "a guest carries roles"));
+        assert!(said(report.warnings(), "a guest is listed as moderator"));
+    }
+
+    #[test]
+    fn a_person_in_no_conversation_and_no_group_is_only_a_warning() {
+        let dir_fx = Fixture::new(
+            2,
+            &[("members", vec![person("atelier", "alice", "member", &[])])],
+        );
+        // Alice is in the conversation: no warning. Remove her from it and she is nowhere.
+        assert!(!said(dir_fx.run().1.warnings(), "no conversation"));
+        std::fs::write(
+            dir_fx.dir.join("channels.jsonl"),
+            format!(
+                "{}\n",
+                json!({"id": "atelier/general", "space": "atelier", "kind": "channel",
+                "name": "General", "visibility": "public", "members": ["bob", "carol"]})
+            ),
+        )
+        .expect("channels");
+        let (_, report) = dir_fx.run();
+        assert!(report.is_sound());
+        assert!(said(report.warnings(), "no conversation and no group"));
+    }
+
+    #[test]
+    fn declared_counts_of_members_groups_roles_are_held() {
+        let fx = Fixture::new(
+            2,
+            &[
+                ("members", vec![person("atelier", "alice", "member", &[])]),
+                (
+                    "counts",
+                    vec![json!({"members": 2, "groups": 1, "roles": 0})],
+                ),
+            ],
+        );
+        let (_, report) = fx.run();
+        let errors = report.errors();
+        assert!(
+            said(errors.clone(), "counts 2 members, the archive holds 1"),
+            "{errors:?}"
+        );
+        assert!(said(errors, "counts 1 groups, the archive holds 0"));
     }
 }

@@ -70,11 +70,14 @@ pub enum Action {
     RuleCreated,
     RuleUpdated,
     RuleDeleted,
+    /// People were brought over from another product. Payload: `{ source, job_id,
+    /// administrators, guests, groups, moderators, custom_roles, fallbacks }`.
+    ImportApplied,
 }
 
 impl Action {
     /// Every action, for the read filter and its tests.
-    pub const ALL: [Action; 30] = [
+    pub const ALL: [Action; 31] = [
         Action::MemberJoined,
         Action::MemberLeft,
         Action::MemberRemoved,
@@ -105,6 +108,7 @@ impl Action {
         Action::RuleCreated,
         Action::RuleUpdated,
         Action::RuleDeleted,
+        Action::ImportApplied,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -139,6 +143,7 @@ impl Action {
             Action::RuleCreated => "rule.created",
             Action::RuleUpdated => "rule.updated",
             Action::RuleDeleted => "rule.deleted",
+            Action::ImportApplied => "import.applied",
         }
     }
 
@@ -150,7 +155,8 @@ impl Action {
             | Action::MemberRemoved
             | Action::MemberRoleChanged
             | Action::OwnershipTransferred
-            | Action::MemberRolesChanged => "members",
+            | Action::MemberRolesChanged
+            | Action::ImportApplied => "members",
             Action::MemberExpired
             | Action::MemberPurged
             | Action::MemberExpirySet
@@ -244,6 +250,30 @@ pub async fn record(
     Ok(())
 }
 
+/// Whether the journal of `space_id` already carries the `import.applied` line of one attempt of
+/// `job_id`: an attempt writes one line per space, however many times it saves.
+pub async fn import_line_exists(
+    db: &impl ConnectionTrait,
+    space_id: Uuid,
+    job_id: Uuid,
+    attempt: i32,
+) -> Result<bool, DbErr> {
+    Ok(db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT 1 AS one FROM space_audit_log \
+             WHERE space_id = $1 AND action = 'import.applied' AND details->>'job_id' = $2 \
+               AND details->>'attempt' = $3",
+            [
+                space_id.into(),
+                job_id.to_string().into(),
+                attempt.to_string().into(),
+            ],
+        ))
+        .await?
+        .is_some())
+}
+
 #[cfg(test)]
 mod tests {
     use super::Action;
@@ -268,5 +298,13 @@ mod tests {
             assert_eq!(action.category(), "access");
             assert!(Action::ALL.contains(&action));
         }
+    }
+
+    #[test]
+    fn import_applied_is_filed_under_members() {
+        assert_eq!(Action::ImportApplied.as_str(), "import.applied");
+        assert_eq!(Action::ImportApplied.category(), "members");
+        assert!(Action::ALL.contains(&Action::ImportApplied));
+        assert_eq!(Action::ALL.len(), 31);
     }
 }

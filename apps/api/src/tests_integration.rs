@@ -4612,6 +4612,7 @@ fn source_channel(id: &str, space: &str, kind: &str, members: &[&str]) -> Channe
         members: members.iter().map(|m| (*m).to_string()).collect(),
         member_state: vec![],
         created_at: None,
+        moderators: vec![],
     }
 }
 
@@ -5026,9 +5027,16 @@ async fn import_up_to_conversations(
     let (_, spaces) = run::import_spaces(&app.db, &mapper, index, admin)
         .await
         .expect("spaces");
-    run::import_conversations(&app.db, &mapper, index, &spaces, admin)
-        .await
-        .expect("conversations");
+    run::import_conversations(
+        &app.db,
+        &mapper,
+        index,
+        &spaces,
+        admin,
+        &crate::edition::CommunityEdition,
+    )
+    .await
+    .expect("conversations");
     (job, spaces)
 }
 
@@ -5280,9 +5288,16 @@ async fn a_channel_that_is_already_here_takes_the_history_rather_than_stopping_t
     assert_eq!(spaces_written.spaces_filled, 1, "the space was adopted");
     assert_eq!(resolved[0].1, space_id);
 
-    let written = run::import_conversations(&app.db, &mapper, &second, &resolved, fx.alice)
-        .await
-        .expect("the import no longer stops on a name that is already here");
+    let written = run::import_conversations(
+        &app.db,
+        &mapper,
+        &second,
+        &resolved,
+        fx.alice,
+        &crate::edition::CommunityEdition,
+    )
+    .await
+    .expect("the import no longer stops on a name that is already here");
 
     assert_eq!(written.conversations_filled, 1);
     assert_eq!(written.conversations_created, 0);
@@ -5385,9 +5400,16 @@ async fn importing_the_conversations_twice_creates_nothing_twice() {
 
     let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
     let mapper = Mapper::new(job, "mattermost");
-    let again = run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice)
-        .await
-        .expect("second run");
+    let again = run::import_conversations(
+        &app.db,
+        &mapper,
+        &index,
+        &spaces,
+        fx.alice,
+        &crate::edition::CommunityEdition,
+    )
+    .await
+    .expect("second run");
 
     assert_eq!(again.conversations_created, 0);
     assert_eq!(
@@ -5501,9 +5523,16 @@ async fn somebody_left_out_gets_no_account_and_their_messages_still_arrive() {
     let (_, spaces) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
         .await
         .expect("spaces");
-    run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice)
-        .await
-        .expect("conversations");
+    run::import_conversations(
+        &app.db,
+        &mapper,
+        &index,
+        &spaces,
+        fx.alice,
+        &crate::edition::CommunityEdition,
+    )
+    .await
+    .expect("conversations");
     run::import_messages(&app.db, &mapper, &dir, None, &spaces)
         .await
         .expect("messages");
@@ -5657,9 +5686,16 @@ async fn import_from_archive(
     let (_, spaces) = run::import_spaces(&app.db, &mapper, &index, admin)
         .await
         .expect("spaces");
-    run::import_conversations(&app.db, &mapper, &index, &spaces, admin)
-        .await
-        .expect("conversations");
+    run::import_conversations(
+        &app.db,
+        &mapper,
+        &index,
+        &spaces,
+        admin,
+        &crate::edition::CommunityEdition,
+    )
+    .await
+    .expect("conversations");
     (job, spaces)
 }
 
@@ -6119,10 +6155,7 @@ async fn an_import_that_was_stopped_still_leaves_the_reading_positions() {
         None,
         fx.alice,
         job,
-        crate::importer::job::RunSettings {
-            thumbnail_max_px: THUMBNAIL_MAX_PX,
-            secret_key: [7; 32],
-        },
+        crate::importer::job::RunSettings::community(THUMBNAIL_MAX_PX, [7; 32]),
     )
     .await
     .expect("the run leaves cleanly");
@@ -7589,6 +7622,8 @@ use crate::importer::wipe;
 /// A database created for one test, migrated, and dropped afterwards.
 struct ScratchDb {
     db: DatabaseConnection,
+    /// Where to connect to it, for a server booted on it.
+    url: String,
     name: String,
     admin_url: String,
 }
@@ -7610,12 +7645,12 @@ impl ScratchDb {
             .ok()?;
         drop(admin);
 
-        let db = sea_orm::Database::connect(&format!("{prefix}/{name}"))
-            .await
-            .ok()?;
+        let url = format!("{prefix}/{name}");
+        let db = sea_orm::Database::connect(&url).await.ok()?;
         Migrator::up(&db, None).await.ok()?;
         Some(Self {
             db,
+            url,
             name,
             admin_url,
         })
@@ -7626,6 +7661,7 @@ impl ScratchDb {
             db,
             name,
             admin_url,
+            ..
         } = self;
         drop(db);
         if let Ok(admin) = sea_orm::Database::connect(&admin_url).await {
@@ -7818,6 +7854,51 @@ async fn a_replacement_forgets_what_earlier_imports_remembered() {
         mappings(&scratch.db).await.is_empty(),
         "no correspondence may outlive the rows it points at"
     );
+    scratch.drop_it().await;
+}
+
+/// The skip of the seats check in a replacement rests on a licence going with its space.
+#[tokio::test]
+async fn a_replacement_takes_the_licences_with_their_spaces() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let bystander = make_user(&scratch.db, "bystander").await;
+    let (space, _) = crate::messaging::spaces::create_owned_space(&scratch.db, "Ancien", bystander)
+        .await
+        .expect("space");
+    scratch
+        .db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO space_licences (space_id, licence, licence_id, organisation, seats, valid_until) \
+             VALUES ($1, 'x', $2, 'Org', 5, now() + interval '1 year')",
+            [space.into(), Uuid::new_v4().into()],
+        ))
+        .await
+        .expect("licence");
+    record_backup(&scratch.db, OffsetDateTime::now_utc()).await;
+
+    wipe::replace_instance(
+        &scratch.db,
+        admin,
+        "ruchoir.example.org",
+        "https://ruchoir.example.org/",
+    )
+    .await
+    .expect("replacement");
+
+    let left = scratch
+        .db
+        .query_one_raw(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT count(*)::bigint AS n FROM space_licences",
+        ))
+        .await
+        .expect("query")
+        .expect("row");
+    assert_eq!(left.try_get::<i64>("", "n").expect("n"), 0);
     scratch.drop_it().await;
 }
 
@@ -12197,6 +12278,9 @@ mod guest_expiry_routes_tests;
 /// A guest becomes a member and a member a guest.
 #[cfg(test)]
 mod guest_standing_tests;
+
+/// The people block of the import plan and the seats refusal, in their own file.
+mod import_people_tests;
 
 // --- The six-digit code sent next to the verification link ---
 

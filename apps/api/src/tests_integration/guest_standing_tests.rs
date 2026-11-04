@@ -49,6 +49,16 @@ impl Edition for Seats {
         &[]
     }
 
+    async fn import_custom_role(
+        &self,
+        _txn: &sea_orm::DatabaseTransaction,
+        _space_id: Uuid,
+        _role: &crate::edition::ImportedRole,
+        _actor: Uuid,
+    ) -> Result<crate::edition::ImportedRoleOutcome, sea_orm::DbErr> {
+        Ok(crate::edition::ImportedRoleOutcome::FallBack)
+    }
+
     fn background(&self, _state: AppState) {}
 }
 

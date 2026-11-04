@@ -28,12 +28,25 @@ pub struct Outcome {
 }
 
 /// What a run needs from the instance besides its database and its object store.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct RunSettings {
     /// The longest side of a generated thumbnail: an imported image gets what an uploaded one gets.
     pub thumbnail_max_px: u32,
     /// The server's key, which seals the token of someone invited by address to an imported event.
     pub secret_key: [u8; 32],
+    /// The edition the server runs as: it decides whether one more person fits in a space.
+    pub edition: std::sync::Arc<dyn crate::edition::Edition>,
+}
+
+impl RunSettings {
+    /// Settings for the community edition, which refuses nobody a seat.
+    pub fn community(thumbnail_max_px: u32, secret_key: [u8; 32]) -> Self {
+        Self {
+            thumbnail_max_px,
+            secret_key,
+            edition: std::sync::Arc::new(crate::edition::CommunityEdition),
+        }
+    }
 }
 
 /// Runs every pass against an archive, from an empty instance or on top of an earlier attempt.
@@ -79,7 +92,7 @@ pub async fn execute<S: BlobSink>(
         )));
     }
 
-    let existing = existing_for(db, admin).await?;
+    let existing = existing_for(db, admin, settings.edition.as_ref()).await?;
     let plan: Plan = plan::build(&index, &existing);
 
     let job_id = run::start_job(db, &source, admin, None, "{}").await?;
@@ -135,7 +148,7 @@ async fn run_into<S: BlobSink>(
         finish(db, job_id, "failed", &reason).await?;
         return Err(RunError::Ambiguous(reason));
     }
-    let existing = existing_for(db, admin).await?;
+    let existing = existing_for(db, admin, settings.edition.as_ref()).await?;
     let plan = plan::build(&index, &existing);
     run_passes(
         db, storage, archive, passphrase, admin, job_id, index, plan, settings,
@@ -168,7 +181,7 @@ async fn run_passes<S: BlobSink>(
         .and_then(|job| serde_json::from_str::<serde_json::Value>(&job.options).ok())
         .and_then(|options| serde_json::from_value(options.get("people")?.clone()).ok())
         .unwrap_or_default();
-    let existing = existing_for(db, admin).await?;
+    let existing = existing_for(db, admin, settings.edition.as_ref()).await?;
     if !choices.is_empty() {
         plan::apply_choices(&mut plan, &choices, &existing);
     }
@@ -209,6 +222,8 @@ async fn run_passes<S: BlobSink>(
         .and_then(|manifest| serde_json::to_string(&manifest.limits).ok()));
     totals.update(db).await?;
 
+    // Which time this job runs: a resume is the next attempt, with its own journal lines.
+    let attempt = begin_attempt(db, job_id).await?;
     let mut written = Written::default();
 
     let accounts = run::import_accounts(db, &mapper, &plan).await?;
@@ -222,11 +237,71 @@ async fn run_passes<S: BlobSink>(
     written.spaces_filled = spaces.spaces_filled;
     written.memberships += spaces.memberships;
 
-    let conversations = run::import_conversations(db, &mapper, &index, &resolved, admin).await?;
+    let stopped = super::people::import_people(
+        db,
+        &mapper,
+        &index,
+        &resolved,
+        settings.edition.as_ref(),
+        admin,
+        &source,
+        &mut written.people,
+    )
+    .await;
+    written.memberships += written.people.added;
+    if let Err(error) = stopped {
+        return stop(
+            db, job_id, &settings, admin, &source, attempt, &written, error,
+        )
+        .await;
+    }
+
+    let conversations = match run::import_conversations(
+        db,
+        &mapper,
+        &index,
+        &resolved,
+        admin,
+        settings.edition.as_ref(),
+    )
+    .await
+    {
+        Ok(conversations) => conversations,
+        Err(error) => {
+            return stop(
+                db, job_id, &settings, admin, &source, attempt, &written, error,
+            )
+            .await;
+        }
+    };
     written.conversations_created = conversations.conversations_created;
     written.conversations_filled = conversations.conversations_filled;
     written.conversations_seen = conversations.conversations_seen;
     written.memberships += conversations.memberships;
+    written.moderators = conversations.moderators;
+    written.people.moderators = conversations.moderators;
+    for (space_id, moderators) in &conversations.moderators_by_space {
+        let name = resolved_name(&index, &resolved, *space_id);
+        written.people.space(*space_id, &name).moderators = *moderators;
+    }
+    note_progress(db, job_id, &written).await?;
+
+    let groups =
+        match super::people::import_groups(db, &mapper, &index, &resolved, admin, &source).await {
+            Ok(groups) => groups,
+            Err(error) => {
+                return stop(
+                    db, job_id, &settings, admin, &source, attempt, &written, error,
+                )
+                .await;
+            }
+        };
+    written.people.groups = groups.groups;
+    written.people.groups_filled = groups.groups_filled;
+    written.people.group_names = groups.group_names;
+    for counts in &groups.spaces {
+        written.people.space(counts.space_id, &counts.name).groups = counts.groups;
+    }
     note_progress(db, job_id, &written).await?;
 
     let messages = run::import_messages(db, &mapper, archive, passphrase, &resolved).await?;
@@ -246,6 +321,16 @@ async fn run_passes<S: BlobSink>(
         let positions = run::import_read_positions(db, &mapper, &index, &resolved).await?;
         written.read_positions = positions.read_positions;
         note_progress(db, job_id, &written).await?;
+        super::summary::save(
+            db,
+            settings.edition.as_ref(),
+            job_id,
+            admin,
+            &source,
+            attempt,
+            &written.people,
+        )
+        .await?;
         run::finish_job(db, job_id, "cancelled").await?;
         return Ok(Outcome {
             written,
@@ -276,6 +361,16 @@ async fn run_passes<S: BlobSink>(
             let positions = run::import_read_positions(db, &mapper, &index, &resolved).await?;
             written.read_positions = positions.read_positions;
             note_progress(db, job_id, &written).await?;
+            super::summary::save(
+                db,
+                settings.edition.as_ref(),
+                job_id,
+                admin,
+                &source,
+                attempt,
+                &written.people,
+            )
+            .await?;
             run::finish_job(db, job_id, "cancelled").await?;
             return Ok(Outcome {
                 written,
@@ -318,6 +413,16 @@ async fn run_passes<S: BlobSink>(
     written.read_positions = positions.read_positions;
 
     note_progress(db, job_id, &written).await?;
+    super::summary::save(
+        db,
+        settings.edition.as_ref(),
+        job_id,
+        admin,
+        &source,
+        attempt,
+        &written.people,
+    )
+    .await?;
     run::finish_job(db, job_id, "completed").await?;
 
     Ok(Outcome {
@@ -326,12 +431,79 @@ async fn run_passes<S: BlobSink>(
     })
 }
 
+/// Raises the job's attempt counter and returns the new value (1 for the first run).
+async fn begin_attempt(db: &DatabaseConnection, job_id: Uuid) -> Result<i32, RunError> {
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+    let row = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE import_jobs SET attempt = attempt + 1 WHERE id = $1 RETURNING attempt",
+            [job_id.into()],
+        ))
+        .await?;
+    Ok(match row {
+        Some(row) => row.try_get("", "attempt")?,
+        None => 1,
+    })
+}
+
+/// A run that stops on an error keeps what it did: the summary and the journal lines for what was
+/// written so far, then the error (a seats refusal also closes the job with its sentence).
+#[allow(clippy::too_many_arguments)]
+async fn stop(
+    db: &DatabaseConnection,
+    job_id: Uuid,
+    settings: &RunSettings,
+    admin: Uuid,
+    source: &str,
+    attempt: i32,
+    written: &Written,
+    error: RunError,
+) -> Result<Outcome, RunError> {
+    if let Err(saving) = super::summary::save(
+        db,
+        settings.edition.as_ref(),
+        job_id,
+        admin,
+        source,
+        attempt,
+        &written.people,
+    )
+    .await
+    {
+        tracing::error!(%saving, %job_id, "the summary of a stopped import could not be kept");
+    }
+    if matches!(error, RunError::SeatsFull { .. }) {
+        // Said in words the administrator can act on; everything already written stays, and the
+        // same archive run again picks up where this stopped.
+        finish(db, job_id, "failed", &error.to_string()).await?;
+    }
+    Err(error)
+}
+
+/// The name of the archive's space that became `space_id`.
+fn resolved_name(
+    index: &super::archive::Index,
+    resolved: &[(String, Uuid)],
+    space_id: Uuid,
+) -> String {
+    resolved
+        .iter()
+        .find(|(_, id)| *id == space_id)
+        .and_then(|(source_id, _)| index.spaces.iter().find(|s| &s.id == source_id))
+        .map_or_else(String::new, |space| space.name.clone())
+}
+
 /// What the instance already holds, as far as an import run by `importer` is concerned.
 ///
 /// An administrator of the instance sees all of it. Anybody else sees only their own address and no
 /// space at all: see [`Existing::scoped`] for why. Shared by the plan screen and the run, so the two
 /// can never disagree about what an import will touch.
-pub async fn existing_for(db: &DatabaseConnection, importer: Uuid) -> Result<Existing, RunError> {
+pub async fn existing_for(
+    db: &DatabaseConnection,
+    importer: Uuid,
+    edition: &dyn crate::edition::Edition,
+) -> Result<Existing, RunError> {
     use crate::entities::{spaces, users};
 
     let Some(me) = users::Entity::find_by_id(importer).one(db).await? else {
@@ -341,6 +513,7 @@ pub async fn existing_for(db: &DatabaseConnection, importer: Uuid) -> Result<Exi
     };
     if !me.is_instance_admin {
         return Ok(Existing {
+            importer_email: me.email.clone(),
             emails: vec![me.email],
             scoped: true,
             ..Default::default()
@@ -360,11 +533,86 @@ pub async fn existing_for(db: &DatabaseConnection, importer: Uuid) -> Result<Exi
         .map(|space| space.name)
         .collect();
     Ok(Existing {
+        importer_email: me.email,
         emails,
         space_names,
         channels: run::existing_channels(db).await?,
         scoped: false,
+        space_people: space_people(db, edition).await?,
     })
+}
+
+/// The people and seats of every space here, grouped by folded name. Only the plan reads it.
+///
+/// Two grouped queries whatever the number of spaces; the edition is asked about each space's
+/// entitlement because that is the only door it offers.
+async fn space_people(
+    db: &DatabaseConnection,
+    edition: &dyn crate::edition::Edition,
+) -> Result<Vec<plan::SpacePeople>, RunError> {
+    use crate::edition::Entitlement;
+    use crate::entities::spaces;
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+    use std::collections::HashMap;
+
+    // management: ended guests count as people already there (their rows are not erased).
+    let mut emails: HashMap<Uuid, Vec<String>> = HashMap::new();
+    for row in db
+        .query_all_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT m.space_id, u.email FROM space_members m JOIN users u ON u.id = m.user_id",
+        ))
+        .await?
+    {
+        if let (Ok(space), Ok(email)) = (
+            row.try_get::<Uuid>("", "space_id"),
+            row.try_get::<String>("", "email"),
+        ) {
+            emails.entry(space).or_default().push(email);
+        }
+    }
+    // management: the seats a space uses, as `edition::seats_used` counts them, for every space.
+    let mut used: HashMap<Uuid, u32> = HashMap::new();
+    for row in db
+        .query_all_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT space_id, count(*)::bigint AS used FROM space_members \
+             WHERE standing IN ('owner', 'member') GROUP BY space_id",
+        ))
+        .await?
+    {
+        if let (Ok(space), Ok(count)) = (
+            row.try_get::<Uuid>("", "space_id"),
+            row.try_get::<i64>("", "used"),
+        ) {
+            used.insert(space, u32::try_from(count).unwrap_or(u32::MAX));
+        }
+    }
+
+    let mut out: Vec<plan::SpacePeople> = Vec::new();
+    for space in spaces::Entity::find().all(db).await? {
+        let folded = space.name.trim().to_lowercase();
+        let space_emails = emails.remove(&space.id).unwrap_or_default();
+        if let Some(found) = out.iter_mut().find(|p| p.name_folded == folded) {
+            found.ambiguous = true;
+            found.emails.extend(space_emails);
+            continue;
+        }
+        let (seats, roles_allowed) = match edition.entitlement(db, space.id).await? {
+            Entitlement::Community => (None, false),
+            Entitlement::Enterprise { seats, .. } => (Some(seats), true),
+            Entitlement::Frozen { seats, .. } => (Some(seats), false),
+        };
+        out.push(plan::SpacePeople {
+            name_folded: folded,
+            emails: space_emails,
+            seats_used: used.get(&space.id).copied().unwrap_or(0),
+            seats,
+            custom_roles_allowed: roles_allowed,
+            ambiguous: false,
+        });
+    }
+    Ok(out)
 }
 
 async fn note_progress(

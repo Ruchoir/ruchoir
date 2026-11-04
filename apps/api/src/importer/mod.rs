@@ -9,10 +9,12 @@ pub mod calendars;
 pub mod check;
 pub mod drops;
 pub mod job;
+pub mod people;
 pub mod plan;
 pub mod routes;
 pub mod run;
 pub mod scripts;
+pub mod summary;
 pub mod wipe;
 
 use std::path::Path;

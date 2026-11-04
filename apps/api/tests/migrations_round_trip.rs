@@ -342,3 +342,51 @@ async fn the_rule_author_migration_round_trips() {
         0
     );
 }
+
+/// Lot 6: the columns an import of people needs come with the migration and leave with it.
+#[tokio::test]
+async fn the_import_people_migration_round_trips() {
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+    let _turn = ONE_AT_A_TIME.lock().await;
+    let Ok(url) = std::env::var("RUCHOIR_TEST_DATABASE_URL") else {
+        eprintln!(
+            "skipping the_import_people_migration_round_trips: RUCHOIR_TEST_DATABASE_URL not set"
+        );
+        return;
+    };
+    let db = Database::connect(url)
+        .await
+        .expect("connect to the test database");
+    Migrator::fresh(&db).await.expect("fresh apply");
+
+    let columns = "SELECT count(*) AS n FROM information_schema.columns \
+         WHERE (table_name = 'space_members' AND column_name = 'imported_from') \
+            OR (table_name = 'space_groups' AND column_name = 'imported_from') \
+            OR (table_name = 'import_jobs' AND column_name IN ('summary', 'attempt'))";
+    let count = |sql: &'static str| {
+        let db = &db;
+        async move {
+            let row = db
+                .query_one_raw(Statement::from_string(DbBackend::Postgres, sql))
+                .await
+                .expect("query")
+                .expect("row");
+            row.try_get::<i64>("", "n").expect("n")
+        }
+    };
+    assert_eq!(count(columns).await, 4);
+
+    let steps = Migrator::get_applied_migrations(&db)
+        .await
+        .expect("applied")
+        .iter()
+        .rev()
+        .take_while(|m| m.name() != "m20261110_000001_import_people")
+        .count()
+        + 1;
+    Migrator::down(&db, Some(steps as u32)).await.expect("down");
+    assert_eq!(count(columns).await, 0, "the four columns are gone");
+
+    Migrator::up(&db, None).await.expect("up again");
+    assert_eq!(count(columns).await, 4);
+}

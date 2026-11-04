@@ -80,6 +80,9 @@ pub struct GroupDto {
     pub description: Option<String>,
     /// `manual`, or `directory` for a group mirrored from a directory (read-only).
     pub source: String,
+    /// The import that made it (`<source>:<job id>`), only for whoever manages groups or people.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub imported_from: Option<String>,
     /// Everyone in it, managers included.
     pub member_ids: Vec<Uuid>,
     /// The members who manage it.
@@ -117,6 +120,11 @@ fn dto_of(actor: &GroupActor, group: &GroupRow) -> GroupDto {
             GroupSource::Directory => "directory",
         }
         .to_owned(),
+        // Who brought it is for the people who manage groups or people, like on a member.
+        imported_from: (actor.rights.contains(Permission::GroupsManage)
+            || actor.rights.contains(Permission::MembersManage))
+        .then(|| group.imported_from.clone())
+        .flatten(),
         member_ids: group.members.iter().map(|m| m.user_id).collect(),
         manager_ids: group
             .members
@@ -633,6 +641,7 @@ mod tests {
             name: "Team".into(),
             description: None,
             source,
+            imported_from: None,
             members,
             roles,
         }

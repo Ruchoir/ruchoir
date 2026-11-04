@@ -39,6 +39,8 @@ pub struct Model {
     pub events_done: i32,
     /// Set only when `status` is `failed`, and phrased for the administrator.
     pub error: Option<String>,
+    /// What the run did with people (counts, fallbacks), written when it finishes.
+    pub summary: Option<Json>,
     pub started_at: Option<TimeDateTimeWithTimeZone>,
     pub finished_at: Option<TimeDateTimeWithTimeZone>,
     pub created_at: TimeDateTimeWithTimeZone,

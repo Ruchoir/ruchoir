@@ -58,6 +58,16 @@ pub enum ApiError {
     /// where to buy more. Only an edition that sells seats ever answers it; guests can still come
     /// in, and nobody already there loses anything.
     SeatsFull { seats: u32, pricing_url: String },
+    /// [`ApiError::SeatsFull`] for a write that brings several people at once (an import): it says
+    /// which space, how many seats it holds in use, how many people come, so the screen can say how
+    /// many are missing.
+    SeatsFullFor {
+        seats: u32,
+        pricing_url: String,
+        space: String,
+        used: u32,
+        incoming: u32,
+    },
     /// A paid change in a space without a licence: `402 licence_required`, with where to get one.
     LicenceRequired { pricing_url: String },
     /// A paid change in a space whose licence has expired: `409 licence_frozen`. What it
@@ -80,6 +90,16 @@ struct SeatsFullBody<'a> {
     message: &'static str,
     seats: u32,
     pricing_url: &'a str,
+    /// Only an import fills these: the space's name, the seats in use, the people coming, and how
+    /// many seats are missing (`used + incoming - seats`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    space: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    used: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    incoming: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    missing: Option<u32>,
 }
 
 impl IntoResponse for ApiError {
@@ -140,6 +160,33 @@ impl IntoResponse for ApiError {
                     message: "Every seat of this space's licence is taken.",
                     seats: *seats,
                     pricing_url,
+                    space: None,
+                    used: None,
+                    incoming: None,
+                    missing: None,
+                }),
+            )
+                .into_response();
+        }
+        if let ApiError::SeatsFullFor {
+            seats,
+            pricing_url,
+            space,
+            used,
+            incoming,
+        } = &self
+        {
+            return (
+                StatusCode::PAYMENT_REQUIRED,
+                Json(SeatsFullBody {
+                    error: "seats_full",
+                    message: "Every seat of this space's licence is taken.",
+                    seats: *seats,
+                    pricing_url,
+                    space: Some(space),
+                    used: Some(*used),
+                    incoming: Some(*incoming),
+                    missing: Some((used + incoming).saturating_sub(*seats)),
                 }),
             )
                 .into_response();
@@ -168,6 +215,7 @@ impl IntoResponse for ApiError {
             ),
             ApiError::Internal
             | ApiError::SeatsFull { .. }
+            | ApiError::SeatsFullFor { .. }
             | ApiError::ForbiddenBecause(_)
             | ApiError::BadRequestCode { .. }
             | ApiError::ConflictCode { .. }

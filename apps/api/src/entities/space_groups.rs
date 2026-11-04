@@ -16,6 +16,8 @@ pub struct Model {
     pub source: String,
     pub external_id: Option<String>,
     pub created_by: Option<Uuid>,
+    /// The import that created this group, as `<source>:<job id>`; `None` for a hand-made one.
+    pub imported_from: Option<String>,
     pub created_at: TimeDateTimeWithTimeZone,
     pub updated_at: TimeDateTimeWithTimeZone,
 }

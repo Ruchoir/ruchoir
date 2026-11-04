@@ -19,6 +19,9 @@ users.jsonl            one account per line
 channels.jsonl         one conversation per line (channels and direct conversations)
 messages.jsonl         one message per line, ordered by conversation then time
 files.jsonl            one file per line, pointing into blobs/
+members.jsonl          one person's standing in a space per line (format 2, optional)
+groups.jsonl           one group per line (format 2, optional)
+roles.jsonl            one role of the source per line (format 2, optional)
 calendars.jsonl        one calendar per line (optional)
 events.jsonl           one calendar object per line, as iCalendar text (optional)
 blobs/<hh>/<hash>      file bytes, addressed by the SHA-256 of their content
@@ -62,8 +65,14 @@ or `synthetic` for one that was generated rather than exported, to run the impor
 size of a real migration. A generated archive says so instead of borrowing a product's name: the
 source is written into every mapping a run records, and a false one there outlives the test.
 
-`format_version` is refused rather than guessed at: an archive from a newer producer is rejected
-with a message saying so.
+`format_version` is `1` or `2`; any other value is refused rather than guessed at: an archive from a
+newer producer is rejected with a message saying so. Format 2 adds the three people files below and
+a `moderators` list on conversations; everything else is unchanged, and a producer that has no
+people to tell about keeps writing format 1.
+
+**A format 1 archive stays exactly as it was.** Whatever it carries of the format 2 files or of
+`moderators` is ignored, and the checkers only warn about it, so an old producer's output reads the
+same on every build.
 
 ## Records
 
@@ -124,6 +133,50 @@ Whatever it cannot map, it drops and declares.
 Message bodies are Markdown, because that is what the product stores. A producer whose source uses
 something else (Slack's `mrkdwn`, Mattermost's flavour) converts, and says so in `limits` if the
 conversion loses anything.
+
+## People, groups and roles (format 2)
+
+All three files are optional, and `counts` may declare them like the others. Identifiers in
+`users.jsonl` are the ones used everywhere else.
+
+```jsonl
+// members.jsonl: one line per person and space
+{"space":"atelier","user":"emma","role":"admin","roles":["moderators"]}
+
+// groups.jsonl
+{"id":"g-design","space":"atelier","name":"Design","description":"","members":["emma","noe"]}
+
+// roles.jsonl: a role of the source product, with the base it behaves like here
+{"id":"moderators","space":"atelier","name":"Moderators","based_on":"member"}
+```
+
+- `members.jsonl`: `role` is `admin`, `member` or `guest` (nobody is imported as an owner). `roles`
+  lists ids of `roles.jsonl` in the same space. The same person may appear once per space, with a
+  different role in each; twice in one space is an error.
+- `groups.jsonl`: ids are unique across the archive, `space` is a space of the archive, `members` are accounts of the
+  archive, and two groups of a space may not share a name once case is folded.
+- `roles.jsonl`: ids are unique within a space, `based_on` is `member` or `admin`, and two roles of
+  a space may not share a name once case is folded.
+- `moderators` on a conversation of `channels.jsonl`: ids of accounts that must also be in its
+  `members`.
+
+What an import does with them on the instance:
+
+- A group is created with the archive's name and description, its members and no rights. A name
+  already taken in the space becomes `Name (Mattermost)`, then `Name (Mattermost) 2`. A group is
+  recognised by its archive id: a group renamed here keeps its new name. Only a resume of the same
+  job fills a group it made; a later run of the archive finds the group and leaves its members as
+  they are, adding nobody and removing nobody, so an administrator's removal stands. Someone whose
+  access in the space has ended is not added to a group.
+- A custom role is created only in a licensed space and only for people the run has just added; in
+  any other space the holders get the fixed role the role is `based_on` (`admin` makes them
+  administrators), and the job's summary lists each such fallback with its space, the role's name
+  and the fixed role it fell back to. A person already in the space is never given a role, and a
+  resumed run does not give a role again to someone it had added, so a change made meanwhile stands.
+
+Warnings, never errors: a guest carrying `roles`, a guest listed as moderator, a format 2 file or
+`moderators` inside a format 1 archive, and a person listed in a space who is in none of its conversations and
+none of its groups. Each new file is covered by the manifest checksum like the others.
 
 ## Calendars
 

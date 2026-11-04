@@ -228,6 +228,7 @@ async fn member_after(
         joined_at: Some(rfc3339(row.joined_at)),
         standing: Some(row.standing),
         expires_at: row.expires_at.map(rfc3339),
+        imported_from: row.imported_from,
     })
 }
 

@@ -48,6 +48,8 @@ pub struct GroupRow {
     pub name: String,
     pub description: Option<String>,
     pub source: GroupSource,
+    /// The import that made it (`<source>:<job id>`), when one did.
+    pub imported_from: Option<String>,
     pub members: Vec<GroupMember>,
     pub roles: Vec<RoleRow>,
 }
@@ -77,7 +79,7 @@ async fn load<C: ConnectionTrait>(
     for row in db
         .query_all_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
-            "SELECT id, name::text AS name, description, source FROM space_groups \
+            "SELECT id, name::text AS name, description, source, imported_from FROM space_groups \
               WHERE space_id = $1 AND ($2::uuid IS NULL OR id = $2) ORDER BY space_groups.name, id",
             [space_id.into(), filter.into()],
         ))
@@ -94,6 +96,7 @@ async fn load<C: ConnectionTrait>(
             } else {
                 GroupSource::Manual
             },
+            imported_from: row.try_get("", "imported_from")?,
             members: Vec::new(),
             roles: Vec::new(),
         });
@@ -529,6 +532,7 @@ mod tests {
             name: "Team".into(),
             description: None,
             source: GroupSource::Manual,
+            imported_from: None,
             members,
             roles,
         }
