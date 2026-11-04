@@ -1,14 +1,15 @@
 /**
  * A space's Journal (mockup frame 12), read only: every change of rights, newest first, grouped by
  * the reader's day, filed under the category pastilles. Each line is the shared `auditLine` drawn as
- * text with the names in bold, the actor's avatar and the time; Voir plus loads the next page, a
- * pull reads the log again. A community space says it keeps thirty days.
+ * text with the names in bold, the actor's avatar and the time; Voir plus loads the next page. A
+ * live change merges the fresh first page into what is loaded (nothing jumps), a pull starts over.
+ * The list is virtualised (a day is a section). A community space says it keeps thirty days.
  */
 import type { AuditEntry, Role } from "@ruchoir/client";
 import { auditLine, AUDIT_CATEGORIES, levelLabelKey, PERMISSION_TEXT, type AuditCategory, type Kind, type Level } from "@ruchoir/client/permissionsLogic";
 import { FileText, Info } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { RefreshControl, SectionList, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useApi } from "../../api/useApi";
@@ -16,7 +17,7 @@ import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
-import { chipsOf, fillFor, groupEntriesByDay, lineRuns, mergePages, type ChipWords, type Words } from "../../logic/auditRender";
+import { chipsOf, fillFor, groupEntriesByDay, lineRuns, mergeFirstPage, mergePages, type ChipWords, type Words } from "../../logic/auditRender";
 import { dayKey, timeOf } from "../../logic/format";
 import { systemRoleKey } from "../../logic/memberScreen";
 import { affects } from "../../realtime/events";
@@ -135,15 +136,31 @@ function Journal({ spaceId, spaceName, community }: { spaceId: string; spaceName
   // A newer request makes an older answer stale: a filter changed, or the log was read again.
   const request = useRef(0);
 
-  const reload = useCallback(() => setTick((n) => n + 1), []);
-  useReloadOn((e) => affects.permissions(e, spaceId), reload, 500);
+  // How the next reading lands: a live change merges the fresh first page into what is loaded, a pull,
+  // a retry or another category starts over.
+  const how = useRef<"merge" | "reset">("reset");
+  const reload = useCallback(() => {
+    how.current = "reset";
+    setTick((n) => n + 1);
+  }, []);
+  const reloadLive = useCallback(() => {
+    how.current = "merge";
+    setTick((n) => n + 1);
+  }, []);
+  useReloadOn((e) => affects.permissions(e, spaceId), reloadLive, 500);
 
   useEffect(() => {
     const mine = ++request.current;
+    const merging = how.current === "merge";
+    how.current = "reset";
     getAudit(spaceId, { category: category || undefined, limit: PAGE }).then(
       (page) => {
         if (mine !== request.current) return;
-        setLoaded({ category, entries: page.entries, next: page.next });
+        setLoaded((prev) =>
+          merging && prev && prev.category === category
+            ? { category, entries: mergeFirstPage(prev.entries, page.entries), next: prev.next }
+            : { category, entries: page.entries, next: page.next },
+        );
         setFailed(false);
       },
       () => {
@@ -236,66 +253,76 @@ function Journal({ spaceId, spaceName, community }: { spaceId: string; spaceName
   return (
     <>
       <BackHeader title={t("spaceSections.audit")} subtitle={t("audit.sub")} />
-      <Chips chips={chips} value={category} onChange={(next) => setCategory(next)} />
+      <Chips chips={chips} value={category} onChange={(next) => {
+          // The other category starts clean: a failure of the last one is not its own.
+          setFailed(false);
+          setCategory(next);
+        }} />
       {!entries ? (
         <LoadState error={failed ? { offline: false } : null} onRetry={reload} />
       ) : (
-        <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={false} onRefresh={pulled} />}>
-          {community ? (
-            <View style={[styles.note, { backgroundColor: s.selected, borderColor: c.lineStrong }]}>
-              <Info size={18} color={c.ink} style={styles.noteIcon} />
-              <Text variant="small" tone="body" style={styles.noteText}>
-                {t("audit.communityBanner")}
-              </Text>
-            </View>
-          ) : null}
-          {failed ? (
-            <Text variant="small" tone="danger" accessibilityRole="alert">
-              {t("audit.failed")}
-            </Text>
-          ) : null}
-          {entries.length === 0 ? (
-            <EmptyState icon={FileText} title={t("audit.empty")} />
-          ) : (
-            days.map(({ day, entries: list }) => (
-              <View key={day} style={styles.day}>
-                <Text variant="label" tone="muted" accessibilityRole="header">
-                  {dayLabel(day, today)}
+        <SectionList
+          sections={days.map(({ day, entries: list }) => ({ day, data: list }))}
+          keyExtractor={(entry) => entry.id}
+          stickySectionHeadersEnabled={false}
+          contentContainerStyle={styles.page}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={pulled} />}
+          ListHeaderComponent={
+            <>
+              {community ? (
+                <View style={[styles.note, { backgroundColor: s.selected, borderColor: c.lineStrong }]}>
+                  <Info size={18} color={c.ink} style={styles.noteIcon} />
+                  <Text variant="small" tone="body" style={styles.noteText}>
+                    {t("audit.communityBanner")}
+                  </Text>
+                </View>
+              ) : null}
+              {failed ? (
+                <Text variant="small" tone="danger" accessibilityRole="alert" style={styles.failed}>
+                  {t("audit.failed")}
                 </Text>
-                {list.map((entry) => {
-                  const { runs, chips: signed } = lineOf(entry);
-                  return (
-                    <View key={entry.id} style={styles.row}>
-                      <Avatar name={entry.actor?.name ?? "?"} src={entry.actor?.avatarUrl} size={36} />
-                      <View style={styles.text}>
-                        <Text variant="small" tone="body">
-                          {runs.map((run, i) => (run.bold ? <Text key={i} variant="smallStrong">{run.text}</Text> : run.text))}
-                        </Text>
-                        {signed.length > 0 ? (
-                          <View style={styles.pastilles}>
-                            {signed.map((chip, i) => (
-                              <View key={`${chip.sign}${i}`} style={[styles.pastille, { backgroundColor: chip.sign === "+" ? s.successBg : s.dangerBg }]}>
-                                <Text variant="tiny">{`${chip.sign === "+" ? "+" : "−"} ${chip.text}`}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        ) : null}
-                        <Text variant="tiny" tone="muted">
-                          {timeOf(entry.at, locale, timeZone)}
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            ))
+              ) : null}
+            </>
+          }
+          ListEmptyComponent={<EmptyState icon={FileText} title={t("audit.empty")} />}
+          renderSectionHeader={({ section }) => (
+            <Text variant="label" tone="muted" accessibilityRole="header" style={styles.dayHead}>
+              {dayLabel(section.day, today)}
+            </Text>
           )}
-          {next ? (
-            <View style={styles.more}>
-              <Button variant="secondary" size="sm" label={t("audit.more")} onPress={() => void loadMore()} busy={more} />
-            </View>
-          ) : null}
-        </ScrollView>
+          renderItem={({ item: entry }) => {
+            const { runs, chips: signed } = lineOf(entry);
+            return (
+              <View style={styles.row}>
+                <Avatar name={entry.actor?.name ?? "?"} src={entry.actor?.avatarUrl} size={36} />
+                <View style={styles.text}>
+                  <Text variant="small" tone="body">
+                    {runs.map((run, i) => (run.bold ? <Text key={i} variant="smallStrong">{run.text}</Text> : run.text))}
+                  </Text>
+                  {signed.length > 0 ? (
+                    <View style={styles.pastilles}>
+                      {signed.map((chip, i) => (
+                        <View key={`${chip.sign}${i}`} style={[styles.pastille, { backgroundColor: chip.sign === "+" ? s.successBg : s.dangerBg }]}>
+                          <Text variant="tiny">{`${chip.sign === "+" ? "+" : "−"} ${chip.text}`}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                  <Text variant="tiny" tone="muted">
+                    {timeOf(entry.at, locale, timeZone)}
+                  </Text>
+                </View>
+              </View>
+            );
+          }}
+          ListFooterComponent={
+            next ? (
+              <View style={styles.more}>
+                <Button variant="secondary" size="sm" label={t("audit.more")} onPress={() => void loadMore()} busy={more} />
+              </View>
+            ) : null
+          }
+        />
       )}
     </>
   );
@@ -304,15 +331,16 @@ function Journal({ spaceId, spaceName, community }: { spaceId: string; spaceName
 const makeStyles = styleCache((shape) =>
   StyleSheet.create({
     fill: { flex: 1 },
-    page: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 32, gap: 16 },
-    note: { flexDirection: "row", gap: 10, padding: 12, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    page: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 32 },
+    failed: { marginBottom: 12 },
+    dayHead: { marginTop: 16, marginBottom: 10 },
+    note: { flexDirection: "row", gap: 10, marginBottom: 4, padding: 12, borderRadius: shape.radius.m, borderWidth: shape.hairline },
     noteIcon: { marginTop: 1 },
     noteText: { flex: 1 },
-    day: { gap: 10 },
-    row: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+    row: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginBottom: 10 },
     text: { flex: 1, minWidth: 0, gap: 2 },
     pastilles: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginVertical: 2 },
     pastille: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: shape.radius.s },
-    more: { alignItems: "center" },
+    more: { alignItems: "center", paddingTop: 12 },
   }),
 );

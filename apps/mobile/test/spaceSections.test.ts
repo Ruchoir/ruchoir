@@ -83,3 +83,14 @@ test("the_licence_line_reads_edition_and_seats", () => {
   assert.deepEqual(free.find((s) => s.key === "licence")!.line, [{ key: "spaceSections.licenceCommunity" }]);
   assert.deepEqual(free.find((s) => s.key === "audit")!.line, [{ key: "spaceSections.auditCommunity" }]);
 });
+
+test("the_journal_line_names_the_last_change_when_the_space_has_a_licence", () => {
+  const enterprise = { role: "owner", members: 12, edition: "enterprise" as const };
+  const line = (list: Section[]) => list.find((s) => s.key === "audit")!.line;
+  assert.deepEqual(line(view(enterprise, true, { counts: { lastChange: { day: "hier", time: "16:42" } } })), [
+    { key: "spaceSections.auditLast", vars: { day: "hier", time: "16:42" } },
+  ]);
+  assert.deepEqual(line(view(enterprise, true)), [{ key: "spaceSections.auditLine" }]);
+  // A community space keeps its thirty days, whatever the log says.
+  assert.deepEqual(line(view(community, true, { counts: { lastChange: { day: "hier", time: "16:42" } } })), [{ key: "spaceSections.auditCommunity" }]);
+});

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { dayKey, dayStamp, fileSize, listStamp } from "../src/logic/format.ts";
+import { dayKey, dayStamp, fileSize, lastChangeStamp, listStamp } from "../src/logic/format.ts";
 
 const PARIS = "Europe/Paris";
 const NOW = new Date("2026-10-13T12:00:00Z");
@@ -36,4 +36,13 @@ test("a_file_changed_today_says_today_not_the_time", () => {
   assert.deepEqual(dayStamp("2026-10-12T08:42:00Z", NOW, "fr", PARIS), { kind: "yesterday" });
   assert.deepEqual(dayStamp("2026-10-10T08:00:00Z", NOW, "fr", PARIS), { kind: "date", text: "sam." });
   assert.deepEqual(dayStamp("2026-09-01T08:00:00Z", NOW, "fr", PARIS), { kind: "date", text: "01/09" });
+});
+
+test("the_last_change_says_the_day_and_the_hour", () => {
+  // NOW is 2026-10-13 in Paris.
+  assert.deepEqual(lastChangeStamp("2026-10-12T14:42:00Z", NOW, "fr", PARIS), { day: { kind: "yesterday" }, time: "16:42" });
+  assert.deepEqual(lastChangeStamp("2026-10-13T08:42:00Z", NOW, "fr", PARIS), { day: { kind: "today" }, time: "10:42" });
+  const week = lastChangeStamp("2026-10-10T08:42:00Z", NOW, "fr", PARIS);
+  assert.deepEqual(week.day, { kind: "date", text: "samedi" });
+  assert.deepEqual(lastChangeStamp("2026-09-01T08:42:00Z", NOW, "fr", PARIS).day, { kind: "date", text: "1 sept." });
 });

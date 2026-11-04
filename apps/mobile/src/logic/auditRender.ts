@@ -154,6 +154,17 @@ export function mergePages<E extends Pick<AuditEntryLike, "at"> & { id: string }
   return [...loaded, ...page.filter((e) => !seen.has(e.id))];
 }
 
+/**
+ * The log read again (a realtime event): its first page is merged into what is loaded, the new entries
+ * on top and every page already loaded kept, so the list neither jumps nor loses its place. A pull
+ * starts over instead.
+ */
+export function mergeFirstPage<E extends { id: string }>(loaded: E[], first: E[]): E[] {
+  const seen = new Set(loaded.map((e) => e.id));
+  const fresh = first.filter((e) => !seen.has(e.id));
+  return fresh.length === 0 ? loaded : [...fresh, ...loaded];
+}
+
 /** The entries of each day of the reader (`YYYY-MM-DD`), in the log's order (newest first). */
 export function groupEntriesByDay<E extends { at: string }>(entries: E[], timeZone: string): { day: string; entries: E[] }[] {
   const out: { day: string; entries: E[] }[] = [];

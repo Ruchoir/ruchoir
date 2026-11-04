@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { auditLine, type Slot } from "@ruchoir/client/permissionsLogic";
 
-import { chipsOf, fillFor, groupEntriesByDay, lineRuns, mergePages, MARK, slotRuns, type Words } from "../src/logic/auditRender.ts";
+import { chipsOf, fillFor, groupEntriesByDay, lineRuns, mergeFirstPage, mergePages, MARK, slotRuns, type Words } from "../src/logic/auditRender.ts";
 
 const words: Words = {
   somebody: "somebody",
@@ -122,4 +122,16 @@ test("entries_group_by_the_reader_s_day_in_the_log_s_order", () => {
   assert.deepEqual(days.map((d) => [d.day, d.entries.map((e) => e.id)]), [["2026-11-04", ["1", "2"]], ["2026-11-03", ["3"]]]);
   // 23:30 UTC is already the next day in Paris.
   assert.equal(groupEntriesByDay([entry("4", "2026-11-03T23:30:00Z")], "Europe/Paris")[0]?.day, "2026-11-04");
+});
+
+test("a_fresh_first_page_adds_the_new_entries_on_top_and_keeps_the_pages_loaded", () => {
+  const a = entry("a", "2026-11-04T10:00:00Z");
+  const b = entry("b", "2026-11-03T10:00:00Z");
+  const c = entry("c", "2026-11-02T10:00:00Z");
+  const fresh = entry("n", "2026-11-04T11:00:00Z");
+  // Two pages were loaded (a, b, c); the first page now reads n, a, b: c stays, n comes first.
+  assert.deepEqual(mergeFirstPage([a, b, c], [fresh, a, b]).map((e) => e.id), ["n", "a", "b", "c"]);
+  // Nothing new: the very same list (no scroll jump, no reorder).
+  assert.deepEqual(mergeFirstPage([a, b, c], [a, b]).map((e) => e.id), ["a", "b", "c"]);
+  assert.deepEqual(mergeFirstPage([], [a]).map((e) => e.id), ["a"]);
 });
