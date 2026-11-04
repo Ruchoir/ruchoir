@@ -11181,6 +11181,17 @@
     "/api/v1/notifications/read": {
       "put": {
         "operationId": "mark_all_read",
+        "parameters": [
+          {
+            "description": "Also mark the guest access notices read",
+            "in": "query",
+            "name": "guest_notices",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "204": {
             "description": "All marked read"

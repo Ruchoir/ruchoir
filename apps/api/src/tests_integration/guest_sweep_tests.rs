@@ -505,3 +505,128 @@ async fn updated_clients_see_the_guest_notices_and_old_ones_do_not() {
     assert!(list[0]["actor_name"].is_string(), "the guest's name");
     assert_eq!(new["unread_count"], 1);
 }
+
+/// Two guests ending in six days, swept: the owner holds two unread guest notices.
+async fn owner_with_two_notices(app: &TestApp) -> (Fx, String, Vec<Uuid>) {
+    let fx = fx(app).await;
+    old_guest(app, fx.space, "6 days", Some(fx.admin)).await;
+    old_guest(app, fx.space, "6 days", Some(fx.admin)).await;
+    assert_eq!(
+        sweep(app, fx.space, OffsetDateTime::now_utc())
+            .await
+            .reminded,
+        2
+    );
+    let ids = notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(fx.owner))
+        .filter(notifications::Column::Kind.like("guest_%"))
+        .all(&app.db)
+        .await
+        .expect("rows")
+        .into_iter()
+        .map(|n| n.id)
+        .collect();
+    let cookie = app.cookie_for(fx.owner).await;
+    (fx, cookie, ids)
+}
+
+#[tokio::test]
+async fn the_guest_notices_are_never_pushed_nor_allowed_by_the_preferences() {
+    use crate::notify::prefs::{allows, Delivery, NotificationPrefs};
+    let prefs = NotificationPrefs::default();
+    for kind in ["guest_expiry_soon", "guest_access_ending"] {
+        for delivery in [Delivery::App, Delivery::Email] {
+            assert!(!allows(kind, &prefs, None, delivery), "{kind}");
+        }
+    }
+    let Some(app) = boot().await else { return };
+    let (_fx, cookie, _ids) = owner_with_two_notices(&app).await;
+    let pending: Value = app
+        .req(reqwest::Method::GET, "/api/v1/push/pending", &cookie)
+        .send()
+        .await
+        .expect("pending")
+        .json()
+        .await
+        .expect("json");
+    let items = pending["items"].as_array().expect("items");
+    assert!(
+        items
+            .iter()
+            .all(|i| !i["kind"].as_str().unwrap_or("").starts_with("guest_")),
+        "{pending}"
+    );
+}
+
+/// The `unread_count` of the next `notification.read` frame on `ws`.
+async fn read_count(ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>) -> Option<i64> {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+    while let Ok(Some(frame)) = tokio::time::timeout_at(deadline, ws.next()).await {
+        if let Ok(WsMessage::Text(text)) = frame {
+            let event: Value = serde_json::from_str(text.as_str()).ok()?;
+            if event["type"] == "notification.read" {
+                return event["payload"]["unread_count"].as_i64();
+            }
+        }
+    }
+    None
+}
+
+#[tokio::test]
+async fn a_read_announces_a_count_without_the_hidden_guest_notices() {
+    let Some(app) = boot().await else { return };
+    let (_fx, cookie, ids) = owner_with_two_notices(&app).await;
+    let mut ws = app.connect_ws(&cookie).await;
+    let status = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/notifications/{}/read", ids[0]),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("read")
+        .status();
+    assert_eq!(status, 204);
+    assert_eq!(
+        read_count(&mut ws).await,
+        Some(0),
+        "the other notice is hidden, not counted"
+    );
+}
+
+async fn unread(app: &TestApp, ids: &[Uuid]) -> u64 {
+    notifications::Entity::find()
+        .filter(notifications::Column::Id.is_in(ids.to_vec()))
+        .filter(notifications::Column::ReadAt.is_null())
+        .count(&app.db)
+        .await
+        .expect("count")
+}
+
+#[tokio::test]
+async fn marking_all_read_leaves_the_guest_notices_to_clients_that_know_them() {
+    let Some(app) = boot().await else { return };
+    let (_fx, cookie, ids) = owner_with_two_notices(&app).await;
+    let put = |path: &'static str| app.req(reqwest::Method::PUT, path, &cookie).send();
+    assert_eq!(
+        put("/api/v1/notifications/read")
+            .await
+            .expect("put")
+            .status(),
+        204
+    );
+    assert_eq!(
+        unread(&app, &ids).await,
+        2,
+        "an app that cannot see them does not clear them"
+    );
+    assert_eq!(
+        put("/api/v1/notifications/read?guest_notices=true")
+            .await
+            .expect("put")
+            .status(),
+        204
+    );
+    assert_eq!(unread(&app, &ids).await, 0);
+}

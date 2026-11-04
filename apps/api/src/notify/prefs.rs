@@ -236,6 +236,11 @@ pub fn allows(
     if !prefs.enabled {
         return false;
     }
+    // The guest notices are read in the inbox when it is asked for, and are neither pushed nor
+    // put in a digest: no switch makes them so.
+    if crate::permissions::guest_expiry::is_guest_notice(kind) {
+        return false;
+    }
     // A reminder or an invitation belongs to no conversation: its own switches decide.
     if kind == "calendar_reminder" {
         return allows_reminder(prefs, delivery);

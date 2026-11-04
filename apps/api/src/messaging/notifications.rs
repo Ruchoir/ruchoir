@@ -439,6 +439,12 @@ fn in_order(mut drawn: Vec<NotificationDto>, order: &[Uuid]) -> Vec<Notification
     drawn
 }
 
+/// The guest notices, which only a client that asks for them sees, counts or clears.
+const GUEST_KINDS: [&str; 2] = [
+    crate::permissions::guest_expiry::KIND_SOON,
+    crate::permissions::guest_expiry::KIND_ENDING,
+];
+
 /// Query for the notification feed.
 #[derive(Debug, Deserialize)]
 pub struct FeedQuery {
@@ -450,6 +456,14 @@ pub struct FeedQuery {
     pub before: Option<Uuid>,
     /// Also return the guest notices (`guest_expiry_soon`, `guest_access_ending`). An app that
     /// does not know them does not ask, and neither sees them nor has them counted as unread.
+    #[serde(default)]
+    pub guest_notices: bool,
+}
+
+/// Query for marking everything read.
+#[derive(Debug, Deserialize)]
+pub struct ReadAllQuery {
+    /// Also mark the guest notices read: only a client that shows them asks.
     #[serde(default)]
     pub guest_notices: bool,
 }
@@ -481,10 +495,7 @@ pub async fn list_notifications(
         if query.guest_notices {
             select
         } else {
-            select.filter(notifications::Column::Kind.is_not_in([
-                crate::permissions::guest_expiry::KIND_SOON,
-                crate::permissions::guest_expiry::KIND_ENDING,
-            ]))
+            select.filter(notifications::Column::Kind.is_not_in(GUEST_KINDS))
         }
     };
     select = known(select);
@@ -569,21 +580,26 @@ pub async fn mark_read(
     put,
     path = "/api/v1/notifications/read",
     tag = "messaging",
+    params(("guest_notices" = Option<bool>, Query, description = "Also mark the guest access notices read")),
     responses((status = 204, description = "All marked read"))
 )]
 pub async fn mark_all_read(
     State(state): State<AppState>,
     session: AuthSession,
+    Query(query): Query<ReadAllQuery>,
 ) -> Result<StatusCode, ApiError> {
-    let marked = notifications::Entity::update_many()
+    let mut update = notifications::Entity::update_many()
         .col_expr(
             notifications::Column::ReadAt,
             Expr::value(OffsetDateTime::now_utc()),
         )
         .filter(notifications::Column::UserId.eq(session.user_id))
-        .filter(notifications::Column::ReadAt.is_null())
-        .exec(&state.db)
-        .await?;
+        .filter(notifications::Column::ReadAt.is_null());
+    // A client that cannot see the guest notices does not clear them.
+    if !query.guest_notices {
+        update = update.filter(notifications::Column::Kind.is_not_in(GUEST_KINDS));
+    }
+    let marked = update.exec(&state.db).await?;
     if marked.rows_affected > 0 {
         announce_read(&state, session.user_id, Vec::new(), true).await;
     }
@@ -606,9 +622,12 @@ struct ReadPayload {
 /// closed (ADR 0006, the sync push). Called only when something actually changed, after it was
 /// saved: it never fails the request, which has done what it was asked.
 async fn announce_read(state: &AppState, user_id: Uuid, ids: Vec<Uuid>, all: bool) {
+    // Counted as a client that has not opted into the guest notices counts: a badge that an older
+    // app could never clear would be worse than a notice that waits for the next fetch.
     let unread_count = match notifications::Entity::find()
         .filter(notifications::Column::UserId.eq(user_id))
         .filter(notifications::Column::ReadAt.is_null())
+        .filter(notifications::Column::Kind.is_not_in(GUEST_KINDS))
         .count(&state.db)
         .await
     {

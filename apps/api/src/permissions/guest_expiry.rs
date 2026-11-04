@@ -29,11 +29,14 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use super::catalogue::Permission;
-use super::check::{self, Resource};
+use super::check;
 use super::{changed, delegation};
 use crate::audit::{self, Action, Target};
 use crate::auth::mail_text::{self, GuestExpiryWords, Locale};
+use crate::calendar::events::FALLBACK_TIME_ZONE;
 use crate::calendar::print_text::long_date;
+use crate::calendar::recurrence;
+use crate::calendar::reminders::reader_time_zone;
 use crate::entities::{channel_members, channels, notifications, space_members, spaces, users};
 use crate::messaging::dto::{rfc3339, NotificationDto};
 use crate::notify::prefs;
@@ -126,6 +129,15 @@ pub async fn sweep_in(
     Ok(report)
 }
 
+/// The end date as `locale` writes it, read in `zone` (the reader's): 23:30 UTC the 19th is the
+/// 20th in Paris. An unknown zone reads in the instance's fallback.
+pub fn end_text(locale: Locale, ends: OffsetDateTime, zone: &str) -> String {
+    let date = recurrence::local_parts(ends, zone)
+        .or_else(|| recurrence::local_parts(ends, FALLBACK_TIME_ZONE))
+        .map_or_else(|| ends.date(), |(date, _, _)| date);
+    long_date(locale, date, false, true)
+}
+
 /// Start a guest's reminders over, after their date moved: the next threshold they are within is
 /// reminded again. Part of the same transaction as the move.
 // Called by the route that moves a guest's date (task 5).
@@ -206,9 +218,11 @@ async fn remind(
         });
     }
 
-    let mut mails: Vec<(Uuid, Due)> = Vec::new();
+    // Everything a mail needs is read here, through the transaction: the sweep holds one
+    // connection, and only the sending waits for the commit.
+    let mut mails: Vec<(Uuid, Locale, String, mail_text::Email)> = Vec::new();
     for guest in due.into_iter().filter(|guest| guest.announce) {
-        let managers = managers_of(state, guest.space_id, guest.user_id).await?;
+        let managers = managers_of(&txn, guest.space_id, guest.user_id).await?;
         for manager in &managers {
             insert_notice(&txn, KIND_SOON, *manager, &guest, now).await?;
         }
@@ -222,48 +236,39 @@ async fn remind(
         };
         report.reminded += 1;
         for to in mailed {
-            mails.push((
-                to,
-                Due {
-                    space_id: guest.space_id,
-                    user_id: guest.user_id,
-                    invited_by: guest.invited_by,
-                    expires_at: guest.expires_at,
-                    days: guest.days,
-                    announce: true,
-                },
-            ));
+            if let Some(mail) = prepare_mail(state, &txn, to, &guest).await {
+                mails.push((to, mail.0, mail.1, mail.2));
+            }
         }
     }
     txn.commit().await?;
 
     // Mail after the commit: a mail that fails is not retried, the notice is there to be read.
-    for (to, guest) in mails {
-        if let Some(locale) = mail_reminder(state, to, &guest).await {
-            report.mailed.push((to, locale));
+    for (to, locale, address, email) in mails {
+        if let Err(error) = state.mailer.send(&address, &email).await {
+            tracing::warn!(%error, "could not send a guest expiry reminder by mail");
         }
+        report.mailed.push((to, locale));
     }
     Ok(())
 }
 
 /// Who may manage `guest` in the space: holds `members.manage` and ranks above them.
-async fn managers_of(state: &AppState, space_id: Uuid, guest: Uuid) -> Result<Vec<Uuid>, DbErr> {
-    let Some(guest_rank) = delegation::rank_of(&state.db, space_id, guest).await? else {
+async fn managers_of<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    guest: Uuid,
+) -> Result<Vec<Uuid>, DbErr> {
+    let Some(guest_rank) = delegation::rank_of(db, space_id, guest).await? else {
         return Ok(Vec::new());
     };
-    let holders = check::holders(
-        &state.db,
-        space_id,
-        Resource::Space,
-        Permission::MembersManage,
-    )
-    .await?;
+    let holders = check::space_holders(db, space_id, Permission::MembersManage).await?;
     let mut found = Vec::new();
     for holder in holders {
         if holder == guest {
             continue;
         }
-        let above = delegation::actor_rank(&state.db, space_id, holder)
+        let above = delegation::actor_rank(db, space_id, holder)
             .await?
             .is_some_and(|rank| rank.outranks(guest_rank));
         if above {
@@ -310,25 +315,30 @@ async fn insert_notice<C: ConnectionTrait>(
     Ok(())
 }
 
-/// Mail the reminder to `to`, in their language, when they want mail. The language it went out in,
-/// or `None` when no mail was decided.
-async fn mail_reminder(state: &AppState, to: Uuid, guest: &Due) -> Option<Locale> {
-    let reader = users::Entity::find_by_id(to).one(&state.db).await.ok()??;
-    let settings = prefs::load(&state.db, to).await.ok()?;
+/// The reminder mail for `to`, in their language, when they want mail: its language, their
+/// address and the message. `None` when no mail is wanted.
+async fn prepare_mail<C: ConnectionTrait>(
+    state: &AppState,
+    db: &C,
+    to: Uuid,
+    guest: &Due,
+) -> Option<(Locale, String, mail_text::Email)> {
+    let reader = users::Entity::find_by_id(to).one(db).await.ok()??;
+    let settings = prefs::load(db, to).await.ok()?;
     if !settings.enabled || !settings.email {
         return None;
     }
     let guest_name = users::Entity::find_by_id(guest.user_id)
-        .one(&state.db)
+        .one(db)
         .await
         .ok()??
         .display_name;
     let space = spaces::Entity::find_by_id(guest.space_id)
-        .one(&state.db)
+        .one(db)
         .await
         .ok()??;
     let locale = Locale::parse(reader.locale.as_deref());
-    let ends = long_date(locale, guest.expires_at.date(), false, true);
+    let ends = end_text(locale, guest.expires_at, &reader_time_zone(Some(&reader)));
     let email = mail_text::guest_expiry_reminder(
         locale,
         &GuestExpiryWords {
@@ -340,10 +350,7 @@ async fn mail_reminder(state: &AppState, to: Uuid, guest: &Due) -> Option<Locale
         },
         &state.mailer.instance_name(),
     );
-    if let Err(error) = state.mailer.send(&reader.email, &email).await {
-        tracing::warn!(%error, "could not send a guest expiry reminder by mail");
-    }
-    Some(locale)
+    Some((locale, reader.email, email))
 }
 
 async fn expire(
@@ -386,7 +393,9 @@ async fn expire(
     }
     txn.commit().await?;
 
-    // After the commit, once per space: the people still in it, and the guests who just left.
+    // After the commit, once per space: the people still in it, and the guests who just left. Best
+    // effort: a crash between the commit and here loses the event, and the clients, which ask
+    // again what they may do on their next request, catch up.
     let spaces: BTreeSet<Uuid> = closed.iter().map(|(space, _)| *space).collect();
     for space in spaces {
         let gone: Vec<Uuid> = closed
@@ -508,4 +517,29 @@ pub async fn hydrate<C: ConnectionTrait>(
         });
     }
     Ok(drawn)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::macros::datetime;
+
+    #[test]
+    fn the_end_is_written_in_the_readers_time_zone() {
+        // 23:30 UTC on 19 November is already the 20th in Paris.
+        let end = datetime!(2026-11-19 23:30 UTC);
+        assert_eq!(
+            end_text(Locale::Fr, end, "Europe/Paris"),
+            "20 novembre 2026"
+        );
+        assert_eq!(
+            end_text(Locale::Fr, end, "America/New_York"),
+            "19 novembre 2026"
+        );
+        // An unknown zone falls back to the instance's, never to a guess in UTC.
+        assert_eq!(
+            end_text(Locale::Fr, end, "Nowhere/Land"),
+            "20 novembre 2026"
+        );
+    }
 }

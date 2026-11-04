@@ -386,6 +386,11 @@ pub async fn pending(
         .filter(notifications::Column::UserId.eq(session.user_id))
         .filter(notifications::Column::ReadAt.is_null())
         .filter(notifications::Column::CreatedAt.gt(since))
+        // The guest notices have no push: an app that did not ask for them must not draw them.
+        .filter(notifications::Column::Kind.is_not_in([
+            crate::permissions::guest_expiry::KIND_SOON,
+            crate::permissions::guest_expiry::KIND_ENDING,
+        ]))
         .order_by_desc(notifications::Column::CreatedAt)
         .limit(50)
         .all(&state.db)

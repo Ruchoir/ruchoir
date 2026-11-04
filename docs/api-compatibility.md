@@ -84,6 +84,19 @@ An invitation may carry the end of a guest's access: `guest_expires_at` (RFC 333
 copied to the guest when they join. An older app sends no such field and gets an invitation with no
 end date, as before; an older instance ignores the field.
 
+Two notices tell the people who manage a guest, and the guest, that access is ending:
+`guest_expiry_soon` (to those who may manage the guest, 7 days then 1 day before) and
+`guest_access_ending` (to the guest, the day before). They carry `space_id`, `space_name`,
+`ends_at` (RFC 3339, UTC) and `days_left` (`7` or `1`), and `actor_id` and `actor_name` name the
+guest for the first. They are **opt-in**: `GET /api/v1/notifications`, its `unread_count`, and
+`PUT /api/v1/notifications/read` handle them only with `guest_notices=true`. Without it they are
+left out of the list, not counted as unread (neither in the list nor in the `unread_count` of
+`notification.read` and of the silent phone sync, which never count them), and not marked read
+by "mark all read", so an app written before them never sees a kind it cannot draw nor a badge
+it cannot clear. They have no live `notification.created` event and no push (`/push/pending`
+leaves them out): an app that asked gets them on its next fetch. The app asks when the instance
+lists the `guest_expiry` feature.
+
 The last two are the enterprise edition's own names, listed after the instance's by that build
 only (`Edition::features`). What every instance of this version answers, whatever its edition,
 needs no name: a space's `edition` and, for its owners, `licence`; `GET .../roles` and

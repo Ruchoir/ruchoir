@@ -226,6 +226,25 @@ pub async fn effective_many(
         .collect())
 }
 
+/// The members of the space who hold `permission` on the space itself, read through any
+/// connection (a sweep reads them inside its transaction).
+pub async fn space_holders<C: sea_orm::ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    permission: Permission,
+) -> Result<Vec<Uuid>, DbErr> {
+    let people = load::people(db, space_id, None).await?;
+    Ok(people
+        .values()
+        .filter(|person| {
+            resolved(person, &[], Facts::default(), false)
+                .granted
+                .contains(permission)
+        })
+        .map(|person| person.user_id)
+        .collect())
+}
+
 /// The members of the space who hold `permission` on `resource`.
 pub async fn holders(
     db: &DatabaseConnection,
@@ -240,22 +259,13 @@ pub async fn holders(
         Resource::Calendar(calendar_id) => {
             return calendar_holders(db, space_id, calendar_id, permission).await;
         }
-        Resource::Space | Resource::File(_) => {}
+        Resource::Space => return space_holders(db, space_id, permission).await,
+        Resource::File(_) => {}
     }
     let people = load::people(db, space_id, None).await?;
     let mut holding = Vec::new();
     match resource {
-        Resource::Space => {
-            for person in people.values() {
-                if resolved(person, &[], Facts::default(), false)
-                    .granted
-                    .contains(permission)
-                {
-                    holding.push(person.user_id);
-                }
-            }
-        }
-        Resource::Channel(_) | Resource::Calendar(_) => {}
+        Resource::Space | Resource::Channel(_) | Resource::Calendar(_) => {}
         Resource::File(_) => {
             // One person at a time: a file's paths through messages and events are per person.
             for person in people.values() {
