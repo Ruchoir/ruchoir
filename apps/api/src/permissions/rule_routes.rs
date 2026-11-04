@@ -54,6 +54,10 @@ pub fn router() -> Router<AppState> {
             get(read_access),
         )
         .route(
+            "/api/v1/spaces/{space_id}/access/{kind}/{resource_id}/why",
+            get(super::why::read_why),
+        )
+        .route(
             "/api/v1/spaces/{space_id}/access/{kind}/{resource_id}/entries",
             put(put_entry),
         )
@@ -171,7 +175,7 @@ pub struct AccessDto {
     pub archived: bool,
 }
 
-fn resource_of(kind: &str, id: Uuid) -> Result<ResourceRef, ApiError> {
+pub(super) fn resource_of(kind: &str, id: Uuid) -> Result<ResourceRef, ApiError> {
     match kind {
         "channel" => Ok(ResourceRef::Channel(id)),
         "file" => Ok(ResourceRef::File(id)),
@@ -455,13 +459,13 @@ async fn line_of(
     }))
 }
 
-struct Header {
-    name: String,
-    private: bool,
-    archived: bool,
+pub(super) struct Header {
+    pub name: String,
+    pub private: bool,
+    pub archived: bool,
 }
 
-async fn header(
+pub(super) async fn header(
     db: &impl ConnectionTrait,
     space_id: Uuid,
     resource: ResourceRef,
@@ -752,7 +756,7 @@ async fn access_dto(
 }
 
 /// Whether `user` may open the resource (the dialog's own door, with the editors).
-async fn can_open(
+pub(super) async fn can_open(
     state: &AppState,
     space_id: Uuid,
     user: Uuid,

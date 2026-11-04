@@ -47,7 +47,6 @@ pub(super) struct Person {
     /// The groups they belong to.
     pub groups: Vec<Uuid>,
     /// Each role they hold through a group, with the groups of theirs that carry it.
-    #[allow(dead_code)]
     pub role_groups: HashMap<Uuid, Vec<Uuid>>,
     /// The channels whose readers they are (filled by the caller that needs it, empty at load).
     pub readable_audiences: HashSet<Uuid>,

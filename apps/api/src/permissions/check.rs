@@ -60,7 +60,7 @@ pub async fn effective(
 }
 
 /// [`effective`] with every step that led to it: "why may they?".
-// Shown by the access screens of permissions lot 4; held to the decision by the tests now.
+// Held to the decision by the tests; the screens ask through [`explain_for`].
 #[allow(dead_code)]
 pub async fn explain(
     db: &DatabaseConnection,
@@ -69,6 +69,36 @@ pub async fn explain(
     resource: Resource,
 ) -> Result<Decision, DbErr> {
     decide(db, space_id, user_id, resource, true).await
+}
+
+/// An explained decision: the steps, and what the explanation needs to name beyond them.
+#[derive(Clone, Debug)]
+pub struct Explained {
+    /// The decision with its trace, from the very path [`effective`] takes.
+    pub decision: Decision,
+    /// Each role the person holds through a group, with the groups of theirs that carry it.
+    pub role_groups: HashMap<Uuid, Vec<Uuid>>,
+    /// Where the person stands in the space.
+    pub standing: Standing,
+}
+
+/// [`explain`] for the "Pourquoi ?" screen. `None` for somebody who is not in the space.
+pub async fn explain_for(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+    resource: Resource,
+) -> Result<Option<Explained>, DbErr> {
+    let people = load::people(db, space_id, Some(user_id)).await?;
+    let Some(person) = people.get(&user_id) else {
+        return Ok(None);
+    };
+    let decision = decide_person(db, space_id, user_id, Some(person), resource, true).await?;
+    Ok(Some(Explained {
+        decision,
+        role_groups: person.role_groups.clone(),
+        standing: person.subject.standing,
+    }))
 }
 
 /// The decision engine over one person and the levels of a resource. Every call goes through here
@@ -639,7 +669,25 @@ async fn decide(
     explain: bool,
 ) -> Result<Decision, DbErr> {
     let people = load::people(db, space_id, Some(user_id)).await?;
-    let person = people.get(&user_id);
+    decide_person(
+        db,
+        space_id,
+        user_id,
+        people.get(&user_id),
+        resource,
+        explain,
+    )
+    .await
+}
+
+async fn decide_person(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+    person: Option<&Person>,
+    resource: Resource,
+    explain: bool,
+) -> Result<Decision, DbErr> {
     match resource {
         Resource::Space => Ok(person
             .map(|person| resolved(person, &[], Facts::default(), explain))

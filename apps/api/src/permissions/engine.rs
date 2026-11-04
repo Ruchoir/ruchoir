@@ -54,6 +54,14 @@ pub enum TargetRef {
     Audience(Uuid),
 }
 
+/// What opened a private channel nobody joined: a rule aimed at a role, a group or the person.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Opener {
+    Role(Uuid),
+    Group(Uuid),
+    User,
+}
+
 /// What a trace line names as the reason for a change.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Source {
@@ -64,6 +72,8 @@ pub enum Source {
     User,
     Group(Uuid),
     Audience(Uuid),
+    /// The private lock of a channel, lifted by a rule: a trace line only, nothing changes.
+    Lifted(Opener),
     /// A fact rather than a rule: `owner`, `guest`, `joined`, `private`, `author`, `archived`.
     Implicit(&'static str),
 }
@@ -233,22 +243,36 @@ pub fn resolve(subject: &Subject, chain: &[Level], facts: Facts, explain: bool) 
         }
     }
 
-    // An allow of the view that opens a private channel, until a later rule takes it away.
-    let mut opened = false;
+    // An allow of the view that opens a private channel, until a later rule takes it away; it
+    // remembers which rule did, for the explanation.
+    let mut opened: Option<Opener> = None;
     for level in chain {
         let at = Some((level.kind, level.id));
         let of =
             |wanted: fn(&TargetRef) -> bool| level.rules.iter().filter(move |r| wanted(&r.target));
         // Whether a rule's allow of the view opens a private channel, here on the channel itself.
         let lifts = |rule: &Rule| {
-            rule.lifts_lock
+            if rule.lifts_lock
                 && level.kind == LevelKind::Channel
                 && rule.allow.contains(Permission::ChannelView)
+            {
+                match rule.source {
+                    Source::Role(id) => Some(Opener::Role(id)),
+                    Source::Group(id) => Some(Opener::Group(id)),
+                    Source::User => Some(Opener::User),
+                    _ => None,
+                }
+            } else {
+                None
+            }
         };
         for rule in of(|t| *t == TargetRef::BaseRole) {
             run.take(rule.deny, rule.source, at);
             run.add(rule.allow, rule.source, at);
-            opened = (opened && !rule.deny.contains(Permission::ChannelView)) || lifts(rule);
+            if rule.deny.contains(Permission::ChannelView) {
+                opened = None;
+            }
+            opened = lifts(rule).or(opened);
         }
         let shared: Vec<&Rule> = of(|t| {
             matches!(
@@ -259,26 +283,35 @@ pub fn resolve(subject: &Subject, chain: &[Level], facts: Facts, explain: bool) 
         .collect();
         for rule in &shared {
             run.take(rule.deny, rule.source, at);
-            opened &= !rule.deny.contains(Permission::ChannelView);
+            if rule.deny.contains(Permission::ChannelView) {
+                opened = None;
+            }
         }
         for rule in &shared {
             run.add(rule.allow, rule.source, at);
-            opened |= lifts(rule);
+            opened = lifts(rule).or(opened);
         }
         for rule in of(|t| *t == TargetRef::User) {
             run.take(rule.deny, rule.source, at);
             run.add(rule.allow, rule.source, at);
-            opened = (opened && !rule.deny.contains(Permission::ChannelView)) || lifts(rule);
+            if rule.deny.contains(Permission::ChannelView) {
+                opened = None;
+            }
+            opened = lifts(rule).or(opened);
         }
     }
 
     if let Some(channel) = channel {
-        if facts.private_channel && !facts.joined && !opened {
-            run.take(
-                CHANNEL_VIEW,
-                Source::Implicit("private"),
-                Some((LevelKind::Channel, channel.id)),
-            );
+        if facts.private_channel && !facts.joined {
+            let at = Some((LevelKind::Channel, channel.id));
+            match opened {
+                None => run.take(CHANNEL_VIEW, Source::Implicit("private"), at),
+                // The lock stayed open: said in the explanation, the decision is unchanged.
+                Some(by) if run.granted.contains(Permission::ChannelView) => {
+                    run.record(CHANNEL_VIEW, Effect::Granted, Source::Lifted(by), at)
+                }
+                Some(_) => {}
+            }
         }
     }
     if guest {

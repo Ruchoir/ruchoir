@@ -29,7 +29,8 @@ pub const API_VERSION: u32 = 1;
 ///   app's origin (`embed_origin` on `POST /files/{id}/office`), and the engine's pages accept it
 ///   as a frame ancestor.
 /// - `resource_rules`: the access of a channel, file or calendar is set by preset levels
-///   (`GET`/`PUT`/`DELETE /spaces/{id}/access/{kind}/{id}`), and deleting a group named by rules
+///   (`GET`/`PUT`/`DELETE /spaces/{id}/access/{kind}/{id}`), `GET .../why?user_id=` explains a
+///   person's access step by step, and deleting a group named by rules
 ///   answers `409 group_has_rules` with `used_in`.
 /// - `permissions`: spaces, channels and listed files carry `my_permissions` (what the caller may
 ///   do there, by permission name), and `permissions.changed` says when to ask again.

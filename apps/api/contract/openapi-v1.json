@@ -5268,6 +5268,81 @@
         ],
         "type": "object"
       },
+      "StepDto": {
+        "description": "One change, in the order the engine applied it.",
+        "properties": {
+          "effect": {
+            "description": "`granted` or `removed`.",
+            "type": "string"
+          },
+          "kind": {
+            "description": "`base`, `role`, `rule`, `private_lock` (taken away, or `granted` when a rule lifted it),\n`guest_ceiling`, `owner`, `author`, `archived`, `joined`, and `unseen`, `conversation`,\n`message`, `event` for the paths to a file that are not rules.",
+            "type": "string"
+          },
+          "level": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NamedRefDto",
+                "description": "Where it happened: a folder, the file, the channel or the calendar."
+              }
+            ]
+          },
+          "n": {
+            "description": "Position, from 1.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "permission": {
+            "type": "string"
+          },
+          "role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WhyRoleDto",
+                "description": "The role (`kind: role`)."
+              }
+            ]
+          },
+          "target": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccessTargetDto",
+                "description": "Whom the rule is about (`kind: rule`, or the rule that lifted a private lock)."
+              }
+            ]
+          }
+        },
+        "required": [
+          "n",
+          "kind",
+          "permission",
+          "effect"
+        ],
+        "type": "object"
+      },
+      "StepRefDto": {
+        "properties": {
+          "n": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "n"
+        ],
+        "type": "object"
+      },
       "SubscriptionKeys": {
         "description": "A browser's subscription keys, as `PushSubscription.toJSON()` lays them out.",
         "properties": {
@@ -5985,6 +6060,122 @@
           "messages",
           "space_names",
           "replacement_allowed"
+        ],
+        "type": "object"
+      },
+      "WhyDto": {
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/WhyPersonDto"
+          },
+          "result": {
+            "description": "One line per permission of the resource's family, the engine's decision.",
+            "items": {
+              "$ref": "#/components/schemas/WhyResultDto"
+            },
+            "type": "array"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "person",
+          "steps",
+          "result"
+        ],
+        "type": "object"
+      },
+      "WhyGroupDto": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "WhyPersonDto": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "standing": {
+            "description": "`owner`, `member` or `guest`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "standing"
+        ],
+        "type": "object"
+      },
+      "WhyResultDto": {
+        "properties": {
+          "granted": {
+            "type": "boolean"
+          },
+          "permission": {
+            "type": "string"
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StepRefDto",
+                "description": "The last step that touched it; absent when nothing did."
+              }
+            ]
+          }
+        },
+        "required": [
+          "permission",
+          "granted"
+        ],
+        "type": "object"
+      },
+      "WhyRoleDto": {
+        "description": "A role a step is about, and the group that carries it when the person holds it that way.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "via_group": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WhyGroupDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name"
         ],
         "type": "object"
       }
@@ -12044,6 +12235,73 @@
           },
           "409": {
             "description": "`licence_frozen`"
+          }
+        },
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
+    "/api/v1/spaces/{space_id}/access/{kind}/{resource_id}/why": {
+      "get": {
+        "operationId": "read_why",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "`channel`, `file` (or a folder) or `calendar`",
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The channel, file, folder or calendar",
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The person to explain; the caller when absent",
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhyDto"
+                }
+              }
+            },
+            "description": "The steps that give or take each permission, then the result"
+          },
+          "403": {
+            "description": "Explaining somebody else needs the right to see members"
+          },
+          "404": {
+            "description": "A resource the caller cannot see, or a person not in the space"
           }
         },
         "tags": [
