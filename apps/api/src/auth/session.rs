@@ -171,6 +171,14 @@ pub async fn delete(valkey: &Pool, id: &str) -> Result<(), AuthError> {
     Ok(())
 }
 
+/// The ids of a user's live sessions.
+pub async fn ids_of(valkey: &Pool, user_id: Uuid) -> Result<Vec<String>, AuthError> {
+    valkey
+        .smembers(format!("{USER_SESSIONS_PREFIX}{user_id}").as_str())
+        .await
+        .map_err(|_| AuthError::Internal)
+}
+
 /// Revoke every session belonging to a user ("log out everywhere").
 /// Returns the ids revoked, so their realtime connections can be closed too.
 pub async fn delete_all(valkey: &Pool, user_id: Uuid) -> Result<Vec<String>, AuthError> {

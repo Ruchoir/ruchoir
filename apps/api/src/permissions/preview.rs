@@ -54,6 +54,40 @@ tokio::task_local! {
     static PREVIEW: PreviewState;
 }
 
+/// A session is signing out (or being signed out): its preview ends with it, and the log says so.
+/// An idle end, the key lapsing in Valkey, is not logged: the "ended" lines come from the person
+/// leaving the preview or signing out. Best effort: signing out must not fail on the log.
+pub(crate) async fn end_on_sign_out(state: &AppState, session_id: &str, user_id: Uuid) {
+    let current = match current(&state.valkey, session_id).await {
+        Ok(Some(current)) => current,
+        Ok(None) => return,
+        Err(error) => {
+            tracing::warn!(%error, "could not read the preview of a session signing out");
+            return;
+        }
+    };
+    if let Err(error) = stop(&state.valkey, session_id).await {
+        tracing::warn!(%error, "could not end the preview of a session signing out");
+    }
+    if let Err(error) = crate::audit::record(
+        &state.db,
+        current.space_id,
+        Some(user_id),
+        crate::audit::Action::RolePreviewed,
+        crate::audit::Target::Role(current.role_id),
+        serde_json::json!({
+            "role_id": current.role_id,
+            "role_name": current.role_name,
+            "phase": "ended",
+            "reason": "signed_out",
+        }),
+    )
+    .await
+    {
+        tracing::warn!(%error, "the end of a preview was not logged");
+    }
+}
+
 fn key(session_id: &str) -> String {
     format!("{KEY_PREFIX}{session_id}")
 }
