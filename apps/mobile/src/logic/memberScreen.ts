@@ -13,15 +13,14 @@ const PARTS_LOCALE = "en-CA";
 /** The three filters of the list, in the order of the chips. */
 export type PeopleFilter = "all" | "members" | "guests";
 
-/** How many people each filter lists (bots sit with the members, as the list shows them). */
-export function filterCounts(people: { role: string }[]): Record<PeopleFilter, number> {
-  const guests = people.filter((p) => p.role === "guest").length;
-  return { all: people.length, members: people.length - guests, guests };
+/** How many each filter lists: Tous is everyone, bots too; Membres and Invités are people only, so each count is the length of its list. */
+export function filterCounts(people: { role: string; bot?: boolean }[]): Record<PeopleFilter, number> {
+  return { all: people.length, members: filterPeople(people, "members").length, guests: filterPeople(people, "guests").length };
 }
 
-export function filterPeople<T extends { role: string }>(people: T[], filter: PeopleFilter): T[] {
+export function filterPeople<T extends { role: string; bot?: boolean }>(people: T[], filter: PeopleFilter): T[] {
   if (filter === "all") return people;
-  return people.filter((p) => (p.role === "guest") === (filter === "guests"));
+  return people.filter((p) => !p.bot && (p.role === "guest") === (filter === "guests"));
 }
 
 /** What the end of a row offers: a chevron (`open`), a lock (`locked`: oneself, or above the caller), nothing (a bot). */

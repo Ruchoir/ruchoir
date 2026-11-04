@@ -5,10 +5,10 @@
  */
 import type { refusalOf } from "@ruchoir/client";
 
+import { key } from "../i18n";
+
 export type Said = { key: string; vars?: Record<string, number | string> };
 
-/** Named `key` like the translation runtime's own, so the i18n audit sees these keys as asked for (this file runs under Node, with no runtime to import). */
-const key = (name: string) => name;
 
 const BY_CODE: Record<string, string> = {
   licence_required: key("roles.refusal.licenceRequired"),

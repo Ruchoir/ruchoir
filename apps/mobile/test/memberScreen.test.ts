@@ -107,10 +107,12 @@ test("filter_counts_split_the_people_into_members_and_guests", () => {
     { role: "guest", bot: false },
     { role: "member", bot: true },
   ];
-  assert.deepEqual(filterCounts(people), { all: 6, members: 4, guests: 2 });
+  assert.deepEqual(filterCounts(people), { all: 6, members: 3, guests: 2 });
   assert.equal(filterPeople(people, "guests").length, 2);
-  assert.equal(filterPeople(people, "members").length, 4);
+  assert.equal(filterPeople(people, "members").length, 3);
   assert.equal(filterPeople(people, "all").length, 6);
+  // Each chip's count is the length of the list it opens; a bot is listed under Tous only.
+  for (const f of ["all", "members", "guests"] as const) assert.equal(filterCounts(people)[f], filterPeople(people, f).length);
 });
 
 test("a_row_shows_a_lock_for_oneself_and_for_those_above_and_a_chevron_otherwise", () => {
