@@ -2538,5 +2538,128 @@
     "refusalAccessEnded": "Ten dostęp już się zakończył: przywróć go, aby nadać nową datę.",
     "refusalNotEnded": "Ten dostęp się nie zakończył: nie ma czego przywracać.",
     "leftNotice": "Nie należysz już do {{space}}"
+  },
+  "access": {
+    "title": "Dostęp do {{name}}",
+    "subtitle": "Kto może czytać, pisać lub zarządzać tym kanałem. Poziomy się sumują: każdy obejmuje poprzedni.",
+    "subtitlePrivate": "Kanał prywatny: widzą go tylko osoby z dostępem.",
+    "subtitleEnterprise": "Role niestandardowe stają się adresatami, a każdy wpis można dostosować uprawnienie po uprawnieniu.",
+    "enterprise": "Enterprise",
+    "typeLabel": "Widoczność kanału",
+    "publicTitle": "Publiczny",
+    "publicBody": "Wszyscy w przestrzeni go widzą i mogą dołączyć.",
+    "privateTitle": "Prywatny",
+    "privateBody": "Widzą go tylko osoby wymienione poniżej.",
+    "colWho": "Kto ma dostęp",
+    "colLevel": "Poziom",
+    "everyoneSub": "Wszyscy członkowie",
+    "allGuests": "Wszyscy goście",
+    "allGuestsSub": "Goście przestrzeni",
+    "customRoleSub": "Rola niestandardowa",
+    "audienceSub": "Czytelnicy kanału",
+    "hiddenTarget": "Ukryty wpis",
+    "justAdded": "Właśnie dodano",
+    "level": {
+      "none": "Brak dostępu",
+      "read": "Czytanie",
+      "manage": "Zarządzanie",
+      "custom": "Niestandardowy",
+      "channel": {
+        "contribute": "Uczestnictwo"
+      },
+      "file": {
+        "contribute": "Edytowanie"
+      },
+      "calendar": {
+        "contribute": "Pisanie"
+      }
+    },
+    "levelDesc": {
+      "channel": {
+        "read": "Widzieć kanał i reagować.",
+        "contribute": "Czytać, pisać, załączać, przypinać, wspominać wszystkich.",
+        "manage": "Moderować, zarządzać członkami i ustawieniami kanału."
+      },
+      "file": {
+        "read": "Widzieć plik lub folder.",
+        "contribute": "Widzieć, tworzyć i edytować.",
+        "manage": "Wszystko to, a także zarządzanie dostępem i linkiem publicznym."
+      },
+      "calendar": {
+        "read": "Widzieć kalendarz.",
+        "contribute": "Widzieć i pisać wydarzenia.",
+        "manage": "Zarządzać wszystkim w kalendarzu."
+      }
+    },
+    "guestCap": "Nie dla gościa: limit gości na to nie pozwala.",
+    "selfLocked": "Nie możesz zmienić własnego dostępu.",
+    "levelNotHeld": "Nie masz tego poziomu tutaj.",
+    "atLeast": "co najmniej {{level}} (cała przestrzeń)",
+    "denyTag": "Odmowa",
+    "denyNote": "Dostęp odmówiony tutaj",
+    "clamped": "jego poziom jest ograniczony dla jego gości",
+    "inheritedFrom": "Odziedziczone z {{folder}}",
+    "inheritedHidden": "Odziedziczone z folderu",
+    "levelFor": "Poziom: {{name}}",
+    "editDetail": "Edytuj szczegóły",
+    "readOnly": {
+      "licenceRequired": "Możesz zobaczyć ten dostęp, ale go nie zmienisz: delegowanie zarządzania dostępem należy do edycji Enterprise.",
+      "licenceFrozen": "Zmiany są wstrzymane: licencja tej przestrzeni jest zamrożona. Nadal możesz przeglądać dostęp.",
+      "notAllowed": "Możesz zobaczyć ten dostęp, ale nie możesz go zmienić.",
+      "archived": "Ten kanał jest zarchiwizowany: jego dostępu nie można już zmieniać."
+    },
+    "verifyTitle": "Sprawdź czyjś dostęp.",
+    "verifyBody": "Wybierz osobę: wyjaśnimy krok po kroku, dlaczego ma lub nie ma dostępu.",
+    "teaser": "Rola niestandardowa jako adresat, odmowa dostępu osobie, ustawianie każdego uprawnienia osobno: edycja Enterprise.",
+    "add": "Dodaj osoby lub grupy",
+    "loading": "Ładowanie dostępu…",
+    "loadFailed": "Nie udało się wczytać dostępu.",
+    "open": "Zarządzaj dostępem",
+    "summaryPublic": "Publiczny: wszyscy w przestrzeni widzą ten kanał i mogą dołączyć. Ustal, kto może czytać, uczestniczyć lub zarządzać.",
+    "summaryPrivate": "Prywatny: ten kanał widzą tylko osoby z dostępem. Ustal, kto może czytać, uczestniczyć lub zarządzać.",
+    "addTitle": "Dodaj do {{name}}",
+    "addSub": "Szukaj wśród grup, ról, członków i gości przestrzeni.",
+    "search": "Szukaj grupy, roli lub osoby",
+    "alreadyListed": "Już na liście",
+    "guestNotice": "{{name}} jest gościem: jego dostęp nigdy nie przekracza limitu gości, niezależnie od wybranego poziomu.",
+    "refusal": {
+      "cannotGrant": "Nie możesz nadać uprawnienia, którego sam tu nie masz.",
+      "targetAboveYou": "Ta osoba lub grupa stoi wyżej od Ciebie: nie możesz zmienić jej dostępu.",
+      "reservationAdminsOnly": "Tylko właściciel i administratorzy mogą odebrać dostęp wszystkim.",
+      "guestCeiling": "Gość nie może przekroczyć limitu gości.",
+      "audienceFilesOnly": "Czytelników kanału można wybrać tylko dla plików."
+    },
+    "groupSub_one": "Grupa · {{count}} osoba",
+    "groupSub_few": "Grupa · {{count}} osoby",
+    "groupSub_many": "Grupa · {{count}} osób",
+    "groupSub_other": "Grupa · {{count}} osób",
+    "customExcept_one": "{{level}} z wyjątkiem {{count}} uprawnienia",
+    "customExcept_few": "{{level}} z wyjątkiem {{count}} uprawnień",
+    "customExcept_many": "{{level}} z wyjątkiem {{count}} uprawnień",
+    "customExcept_other": "{{level}} z wyjątkiem {{count}} uprawnień",
+    "customPlus_one": "{{level}} plus {{count}} uprawnienie",
+    "customPlus_few": "{{level}} plus {{count}} uprawnienia",
+    "customPlus_many": "{{level}} plus {{count}} uprawnień",
+    "customPlus_other": "{{level}} plus {{count}} uprawnień",
+    "customChanges_one": "{{level}}, zmieniono {{count}} uprawnienie",
+    "customChanges_few": "{{level}}, zmieniono {{count}} uprawnienia",
+    "customChanges_many": "{{level}}, zmieniono {{count}} uprawnień",
+    "customChanges_other": "{{level}}, zmieniono {{count}} uprawnień",
+    "levelForSelected_one": "Poziom dla {{count}} zaznaczenia",
+    "levelForSelected_few": "Poziom dla {{count}} zaznaczeń",
+    "levelForSelected_many": "Poziom dla {{count}} zaznaczeń",
+    "levelForSelected_other": "Poziom dla {{count}} zaznaczeń",
+    "addConfirm_one": "Dodaj {{count}} wpis",
+    "addConfirm_few": "Dodaj {{count}} wpisy",
+    "addConfirm_many": "Dodaj {{count}} wpisów",
+    "addConfirm_other": "Dodaj {{count}} wpisów",
+    "guestGroupNotice_one": "W wybranej grupie poziom gości jest ograniczony w ten sam sposób.",
+    "guestGroupNotice_few": "W wybranych grupach poziom gości jest ograniczony w ten sam sposób.",
+    "guestGroupNotice_many": "W wybranych grupach poziom gości jest ograniczony w ten sam sposób.",
+    "guestGroupNotice_other": "W wybranych grupach poziom gości jest ograniczony w ten sam sposób.",
+    "privateNote_one": "{{names}} widzi teraz {{channel}} na swojej liście kanałów i dołącza jednym kliknięciem. Nikt nie jest powiadamiany: ani ta osoba, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo.",
+    "privateNote_few": "{{names}} widzą teraz {{channel}} na swojej liście kanałów i dołączają jednym kliknięciem. Nikt nie jest powiadamiany: ani te osoby, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo.",
+    "privateNote_many": "{{names}} widzą teraz {{channel}} na swojej liście kanałów i dołączają jednym kliknięciem. Nikt nie jest powiadamiany: ani te osoby, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo.",
+    "privateNote_other": "{{names}} widzą teraz {{channel}} na swojej liście kanałów i dołączają jednym kliknięciem. Nikt nie jest powiadamiany: ani te osoby, ani pozostali. Dostęp nadany roli, grupie lub osobie działa tak samo."
   }
 }

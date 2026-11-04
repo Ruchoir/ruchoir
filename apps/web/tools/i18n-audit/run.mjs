@@ -332,6 +332,11 @@ const ALLOWED_DUPLICATES = new Set([
   // The guests section's title is the people it lists; the calendar's attendees are people at an
   // event, and several languages word the two differently.
   "guests.sectionTitle",
+  // A level of an access dialog names what a person may do with the resource: "Modifier" and
+  // "Écrire" are the same French words as the edit button and the permission to send, but a level is
+  // a noun-like label in a list of three, free to be worded otherwise in another language.
+  "access.level.file.contribute",
+  "access.level.calendar.contribute",
   "perm.membersInvite",
   "perm.messagePin",
   "perm.messageReact",

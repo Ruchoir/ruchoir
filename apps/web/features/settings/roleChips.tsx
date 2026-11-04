@@ -125,6 +125,16 @@ export function refusalMessage(refusal: Refusal | undefined, t: T, fallback: str
       return t("groups.refusal.notInSpace");
     case "too_many_people":
       return t("groups.refusal.tooManyPeople");
+    case "cannot_grant":
+      return t("access.refusal.cannotGrant");
+    case "target_above_you":
+      return t("access.refusal.targetAboveYou");
+    case "reservation_admins_only":
+      return t("access.refusal.reservationAdminsOnly");
+    case "guest_ceiling":
+      return t("access.refusal.guestCeiling");
+    case "audience_files_only":
+      return t("access.refusal.audienceFilesOnly");
     default:
       return fallback;
   }

@@ -2356,5 +2356,112 @@
     "refusalAccessEnded": "This access has already ended: reactivate it to give it a new date.",
     "refusalNotEnded": "This access has not ended: there is nothing to reactivate.",
     "leftNotice": "You are no longer part of {{space}}"
+  },
+  "access": {
+    "title": "Access to {{name}}",
+    "subtitle": "Who can read, write in or manage this channel. Levels add up: each one includes the previous.",
+    "subtitlePrivate": "A private channel: it only appears for those who have access.",
+    "subtitleEnterprise": "Custom roles become targets, and each entry can be customised permission by permission.",
+    "enterprise": "Enterprise",
+    "typeLabel": "Channel visibility",
+    "publicTitle": "Public",
+    "publicBody": "Everyone in the space sees it and can join.",
+    "privateTitle": "Private",
+    "privateBody": "Only those listed below see it.",
+    "colWho": "Who has access",
+    "colLevel": "Level",
+    "everyoneSub": "All members",
+    "allGuests": "All guests",
+    "allGuestsSub": "Guests of the space",
+    "customRoleSub": "Custom role",
+    "audienceSub": "Readers of a channel",
+    "hiddenTarget": "Hidden entry",
+    "justAdded": "Just added",
+    "level": {
+      "none": "No access",
+      "read": "Read",
+      "manage": "Manage",
+      "custom": "Custom",
+      "channel": {
+        "contribute": "Take part"
+      },
+      "file": {
+        "contribute": "Edit"
+      },
+      "calendar": {
+        "contribute": "Write"
+      }
+    },
+    "levelDesc": {
+      "channel": {
+        "read": "See the channel and react.",
+        "contribute": "Read, write, attach, pin, mention everyone.",
+        "manage": "Moderate, manage the members and the channel settings."
+      },
+      "file": {
+        "read": "See the file or folder.",
+        "contribute": "See, create and edit.",
+        "manage": "All of that, plus managing access and the public link."
+      },
+      "calendar": {
+        "read": "See the calendar.",
+        "contribute": "See and write events.",
+        "manage": "Manage everything in the calendar."
+      }
+    },
+    "guestCap": "Not for a guest: the guest ceiling forbids it.",
+    "selfLocked": "You cannot change your own access.",
+    "levelNotHeld": "You do not hold this level here.",
+    "atLeast": "at least {{level}} (whole space)",
+    "denyTag": "Denied",
+    "denyNote": "Access denied here",
+    "clamped": "its level is capped for its guests",
+    "inheritedFrom": "Inherited from {{folder}}",
+    "inheritedHidden": "Inherited from a folder",
+    "levelFor": "Level of {{name}}",
+    "editDetail": "Edit the detail",
+    "readOnly": {
+      "licenceRequired": "You can see this access but not change it: delegating who manages access belongs to the Enterprise edition.",
+      "licenceFrozen": "Changes are suspended: this space's licence is frozen. You can still see the access.",
+      "notAllowed": "You can see this access, but not change it.",
+      "archived": "This channel is archived: its access can no longer be changed."
+    },
+    "verifyTitle": "Check someone's access.",
+    "verifyBody": "Pick a person: we explain step by step why they do, or do not, have access.",
+    "teaser": "A custom role as a target, denying a person access, setting each permission one by one: Enterprise edition.",
+    "add": "Add people or groups",
+    "loading": "Loading access…",
+    "loadFailed": "Could not load the access.",
+    "open": "Manage access",
+    "summaryPublic": "Public: everyone in the space sees this channel and can join. Set who can read, take part or manage.",
+    "summaryPrivate": "Private: only those with access see this channel. Set who can read, take part or manage.",
+    "addTitle": "Add to {{name}}",
+    "addSub": "Search the groups, roles, members and guests of the space.",
+    "search": "Search for a group, a role or a person",
+    "alreadyListed": "Already on the list",
+    "guestNotice": "{{name}} is a guest: their access never goes beyond the guest ceiling, whatever level is chosen.",
+    "refusal": {
+      "cannotGrant": "You cannot give a permission you do not hold here yourself.",
+      "targetAboveYou": "This person or group ranks above you: you cannot change their access.",
+      "reservationAdminsOnly": "Only the owner and administrators can take access away from everyone.",
+      "guestCeiling": "A guest cannot go beyond the guest ceiling.",
+      "audienceFilesOnly": "The readers of a channel can only be chosen for files."
+    },
+    "groupSub_one": "Group · {{count}} person",
+    "groupSub_other": "Group · {{count}} people",
+    "customExcept_one": "{{level}} except {{count}} permission",
+    "customExcept_other": "{{level}} except {{count}} permissions",
+    "customPlus_one": "{{level}} plus {{count}} permission",
+    "customPlus_other": "{{level}} plus {{count}} permissions",
+    "customChanges_one": "{{level}}, {{count}} permission changed",
+    "customChanges_other": "{{level}}, {{count}} permissions changed",
+    "levelForSelected_one": "Level for {{count}} selected",
+    "levelForSelected_other": "Level for {{count}} selected",
+    "addConfirm_one": "Add {{count}} entry",
+    "addConfirm_other": "Add {{count}} entries",
+    "guestGroupNotice_one": "In the chosen group, guests' level is capped the same way.",
+    "guestGroupNotice_other": "In the chosen groups, guests' level is capped the same way.",
+    "privateNote_one": "{{names}} now sees {{channel}} in their channel list and joins it in one click. Nobody is notified: not them, not the others. Access given to a role, a group or a person works the same way.",
+    "privateNote_other": "{{names}} now see {{channel}} in their channel list and join it in one click. Nobody is notified: not them, not the others. Access given to a role, a group or a person works the same way."
   }
 }

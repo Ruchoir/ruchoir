@@ -2356,5 +2356,112 @@
     "refusalAccessEnded": "Dieser Zugang ist bereits beendet: Reaktivieren Sie ihn, um ein neues Datum zu setzen.",
     "refusalNotEnded": "Dieser Zugang ist nicht beendet: Es gibt nichts zu reaktivieren.",
     "leftNotice": "Sie gehören nicht mehr zu {{space}}"
+  },
+  "access": {
+    "title": "Zugriff auf {{name}}",
+    "subtitle": "Wer diesen Kanal lesen, darin schreiben oder ihn verwalten darf. Die Stufen bauen aufeinander auf: Jede enthält die vorherige.",
+    "subtitlePrivate": "Ein privater Kanal: Er erscheint nur für Personen mit Zugriff.",
+    "subtitleEnterprise": "Eigene Rollen werden zu Zielen, und jeder Eintrag lässt sich Recht für Recht anpassen.",
+    "enterprise": "Enterprise",
+    "typeLabel": "Sichtbarkeit des Kanals",
+    "publicTitle": "Öffentlich",
+    "publicBody": "Alle im Space sehen ihn und können beitreten.",
+    "privateTitle": "Privat",
+    "privateBody": "Nur die unten Aufgeführten sehen ihn.",
+    "colWho": "Wer hat Zugriff",
+    "colLevel": "Stufe",
+    "everyoneSub": "Alle Mitglieder",
+    "allGuests": "Alle Gäste",
+    "allGuestsSub": "Gäste des Space",
+    "customRoleSub": "Eigene Rolle",
+    "audienceSub": "Leser eines Kanals",
+    "hiddenTarget": "Ausgeblendeter Eintrag",
+    "justAdded": "Gerade hinzugefügt",
+    "level": {
+      "none": "Kein Zugriff",
+      "read": "Lesen",
+      "manage": "Verwalten",
+      "custom": "Angepasst",
+      "channel": {
+        "contribute": "Mitmachen"
+      },
+      "file": {
+        "contribute": "Bearbeiten"
+      },
+      "calendar": {
+        "contribute": "Schreiben"
+      }
+    },
+    "levelDesc": {
+      "channel": {
+        "read": "Den Kanal sehen und reagieren.",
+        "contribute": "Lesen, schreiben, anhängen, anheften, alle erwähnen.",
+        "manage": "Moderieren, Mitglieder und Kanaleinstellungen verwalten."
+      },
+      "file": {
+        "read": "Die Datei oder den Ordner sehen.",
+        "contribute": "Sehen, erstellen und bearbeiten.",
+        "manage": "Alles davon, dazu Zugriff und öffentlichen Link verwalten."
+      },
+      "calendar": {
+        "read": "Den Kalender sehen.",
+        "contribute": "Termine sehen und schreiben.",
+        "manage": "Alles im Kalender verwalten."
+      }
+    },
+    "guestCap": "Nicht für Gäste: Die Gäste-Obergrenze verbietet es.",
+    "selfLocked": "Sie können Ihren eigenen Zugriff nicht ändern.",
+    "levelNotHeld": "Sie haben diese Stufe hier nicht.",
+    "atLeast": "mindestens {{level}} (ganzer Space)",
+    "denyTag": "Verweigert",
+    "denyNote": "Hier verweigert",
+    "clamped": "die Stufe ist für seine Gäste begrenzt",
+    "inheritedFrom": "Geerbt von {{folder}}",
+    "inheritedHidden": "Von einem Ordner geerbt",
+    "levelFor": "Stufe von {{name}}",
+    "editDetail": "Details bearbeiten",
+    "readOnly": {
+      "licenceRequired": "Sie können diesen Zugriff einsehen, aber nicht ändern: Die Delegation der Zugriffsverwaltung gehört zur Enterprise-Edition.",
+      "licenceFrozen": "Änderungen sind ausgesetzt: Die Lizenz dieses Space ist eingefroren. Sie können den Zugriff weiterhin einsehen.",
+      "notAllowed": "Sie können diesen Zugriff einsehen, aber nicht ändern.",
+      "archived": "Dieser Kanal ist archiviert: Sein Zugriff kann nicht mehr geändert werden."
+    },
+    "verifyTitle": "Zugriff einer Person prüfen.",
+    "verifyBody": "Wählen Sie eine Person: Wir erklären Schritt für Schritt, warum sie Zugriff hat oder nicht.",
+    "teaser": "Eine eigene Rolle als Ziel, einer Person den Zugriff verweigern, jedes Recht einzeln festlegen: Enterprise-Edition.",
+    "add": "Personen oder Gruppen hinzufügen",
+    "loading": "Zugriff wird geladen …",
+    "loadFailed": "Der Zugriff konnte nicht geladen werden.",
+    "open": "Zugriff verwalten",
+    "summaryPublic": "Öffentlich: Alle im Space sehen diesen Kanal und können beitreten. Legen Sie fest, wer lesen, mitmachen oder verwalten darf.",
+    "summaryPrivate": "Privat: Nur Personen mit Zugriff sehen diesen Kanal. Legen Sie fest, wer lesen, mitmachen oder verwalten darf.",
+    "addTitle": "Zu {{name}} hinzufügen",
+    "addSub": "Suchen Sie unter den Gruppen, Rollen, Mitgliedern und Gästen des Space.",
+    "search": "Gruppe, Rolle oder Person suchen",
+    "alreadyListed": "Bereits in der Liste",
+    "guestNotice": "{{name}} ist Gast: Der Zugriff überschreitet nie die Gäste-Obergrenze, egal welche Stufe gewählt wird.",
+    "refusal": {
+      "cannotGrant": "Sie können kein Recht vergeben, das Sie hier nicht selbst haben.",
+      "targetAboveYou": "Diese Person oder Gruppe steht über Ihnen: Sie können ihren Zugriff nicht ändern.",
+      "reservationAdminsOnly": "Nur der Eigentümer und die Administratoren können allen den Zugriff entziehen.",
+      "guestCeiling": "Ein Gast kann die Gäste-Obergrenze nicht überschreiten.",
+      "audienceFilesOnly": "Die Leser eines Kanals lassen sich nur für Dateien wählen."
+    },
+    "groupSub_one": "Gruppe · {{count}} Person",
+    "groupSub_other": "Gruppe · {{count}} Personen",
+    "customExcept_one": "{{level}} außer {{count}} Recht",
+    "customExcept_other": "{{level}} außer {{count}} Rechte",
+    "customPlus_one": "{{level}} plus {{count}} Recht",
+    "customPlus_other": "{{level}} plus {{count}} Rechte",
+    "customChanges_one": "{{level}}, {{count}} Recht geändert",
+    "customChanges_other": "{{level}}, {{count}} Rechte geändert",
+    "levelForSelected_one": "Stufe für {{count}} Auswahl",
+    "levelForSelected_other": "Stufe für {{count}} Auswahlen",
+    "addConfirm_one": "{{count}} Eintrag hinzufügen",
+    "addConfirm_other": "{{count}} Einträge hinzufügen",
+    "guestGroupNotice_one": "In der gewählten Gruppe ist die Stufe der Gäste ebenso begrenzt.",
+    "guestGroupNotice_other": "In den gewählten Gruppen ist die Stufe der Gäste ebenso begrenzt.",
+    "privateNote_one": "{{names}} sieht {{channel}} jetzt in der Kanalliste und tritt mit einem Klick bei. Niemand wird benachrichtigt: weder die Person noch die anderen. Zugriffe für eine Rolle, eine Gruppe oder eine Person wirken genauso.",
+    "privateNote_other": "{{names}} sehen {{channel}} jetzt in der Kanalliste und treten mit einem Klick bei. Niemand wird benachrichtigt: weder diese Personen noch die anderen. Zugriffe für eine Rolle, eine Gruppe oder eine Person wirken genauso."
   }
 }

@@ -535,6 +535,8 @@ function AppShell() {
   const [pricingUrl, setPricingUrl] = useState<string>();
   /** Whether the instance runs the licensed edition's licence routes. */
   const [canLicences, setCanLicences] = useState(false);
+  /** The instance lists `resource_rules`: access is set by levels (the Access dialog). */
+  const [canResourceRules, setCanResourceRules] = useState(false);
   /**
    * An invitation the visitor arrived with, held across the whole authentication flow: they may have
    * to sign in or register first, and the token has to survive that. Kept in memory only, like the
@@ -1154,6 +1156,7 @@ function AppShell() {
         setCanHideDms(supports(capabilities, "account_preferences"));
         setPricingUrl(capabilities.pricingUrl);
         setCanLicences(supports(capabilities, "licences"));
+        setCanResourceRules(supports(capabilities, "resource_rules"));
       })
       .catch(() => {});
     return () => {
@@ -3401,6 +3404,10 @@ function AppShell() {
     const group = spaceGroups.find((g) => foldName(g.name) === wanted);
     if (group) openGroup(group.id);
   };
+  /** What the channel Access dialog needs, once the instance lists `resource_rules`. */
+  const accessRules = canResourceRules
+    ? { spaceId: ws, viewerId: session?.id, pricingUrl, onChanged: () => refreshAccessRef.current() }
+    : undefined;
   /** The open group's panel, once the groups are loaded (a group deleted meanwhile just closes it). */
   const openedGroup = openGroupId ? spaceGroups.find((g) => g.id === openGroupId) : undefined;
   const openGroupNode =
@@ -4459,6 +4466,7 @@ function AppShell() {
           }}
           onNotify={showToast}
           onUpdateChannel={(patch) => updateChannel(channelId, patch)}
+          accessRules={accessRules}
           myRole={currentWorkspace?.role ?? "member"}
           myChannelRole={myChannelRole(channelId)}
           canModerateChannels={canModerateChannels}
@@ -4788,6 +4796,7 @@ function AppShell() {
           channel={channels.find((c) => c.id === channelSettingsId)!}
           onClose={() => setChannelSettingsId(null)}
           onUpdate={(patch) => updateChannel(channelSettingsId, patch)}
+          accessRules={accessRules}
           onNotify={showToast}
           myRole={currentWorkspace?.role ?? "member"}
           myChannelRole={canModerateChannels ? myChannelRole(channelSettingsId) : "member"}

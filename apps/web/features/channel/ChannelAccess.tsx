@@ -1,8 +1,10 @@
 "use client";
 
-import { Checkbox, Field, Radio } from "@/components/ds";
+import { useState } from "react";
+import { Button, Checkbox, Field, Radio } from "@/components/ds";
 import type { ChannelType } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { AccessDialog } from "../access/AccessDialog";
 
 /** The space roles, strongest first, as dictionary keys. The order the member list uses. */
 const ROLES: [string, TranslationKey][] = [
@@ -15,7 +17,7 @@ const ROLES: [string, TranslationKey][] = [
 export type ChannelAccessProps = {
   /** `public` (anyone may join) or `private` (added by someone). `archived` is a state, not access. */
   type: ChannelType;
-  onTypeChange: (type: ChannelType) => void;
+  onTypeChange: (type: ChannelType) => void | Promise<unknown>;
   /** The roles the channel admits, or `undefined` while it admits all of them. */
   allowedRoles: string[] | undefined;
   onRolesChange: (roles: string[] | undefined) => void;
@@ -23,6 +25,25 @@ export type ChannelAccessProps = {
   myRole: string;
   /** Archived channels are read-only, so their access is not up for discussion. */
   disabled?: boolean;
+  /**
+   * Set when the instance lists `resource_rules`: access is then a table of levels (who may read,
+   * take part, manage) in its own dialog, and the two legacy questions below give way to it. Absent
+   * (an older server), the legacy dialog stays exactly as it was.
+   */
+  rules?: ChannelAccessRules & {
+    channelId: string;
+    channelName: string;
+    onNotify: (toast: { tone: "danger" | "success" | "info"; title: string; description?: string }) => void;
+  };
+};
+
+/** What the levels dialog needs from the app: the space, who is looking, and what to refresh. */
+export type ChannelAccessRules = {
+  spaceId: string;
+  viewerId: string | undefined;
+  pricingUrl?: string;
+  onChanged?: () => void;
+  onExplain?: () => void;
 };
 
 /**
@@ -45,8 +66,10 @@ export function ChannelAccess({
   onRolesChange,
   myRole,
   disabled = false,
+  rules,
 }: ChannelAccessProps) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
   const reserved = allowedRoles !== undefined;
   // The owner is admitted to every channel of their space whatever the list says, so the list says
   // it too. A channel reserved before this rule existed may have no `owner` row; it is ticked here
@@ -67,6 +90,37 @@ export function ChannelAccess({
     : type === "private"
       ? key("channel.summaryOpenInvite")
       : key("channel.summaryOpenJoinable");
+
+  if (rules) {
+    return (
+      <Field label={t("channel.whoCanBeHere")}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start" }}>
+          <p style={{ margin: 0, fontSize: "var(--text-2xs)", lineHeight: 1.5, color: "var(--text-body)" }}>
+            {t(type === "private" ? key("access.summaryPrivate") : key("access.summaryPublic"))}
+          </p>
+          <Button iconLeft="users" onClick={() => setOpen(true)}>
+            {t("access.open")}
+          </Button>
+        </div>
+        {open ? (
+          <AccessDialog
+            spaceId={rules.spaceId}
+            channelId={rules.channelId}
+            channelName={rules.channelName}
+            isPrivate={type === "private"}
+            archived={disabled}
+            viewerId={rules.viewerId}
+            pricingUrl={rules.pricingUrl}
+            onTypeChange={onTypeChange}
+            onChanged={rules.onChanged}
+            onClose={() => setOpen(false)}
+            onNotify={rules.onNotify}
+            onExplain={rules.onExplain}
+          />
+        ) : null}
+      </Field>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
