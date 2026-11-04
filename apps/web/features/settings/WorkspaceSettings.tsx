@@ -421,6 +421,8 @@ export function WorkspaceSettings({
             <button key={v} style={navItem(v === tab, compact)} onClick={() => {
                 setOpenGroup(null);
                 setOpenRole(null);
+                // The journal's family is a preset for one arrival (the Members banner), not a memory.
+                setAuditCategory("");
                 setTab(v);
               }}>
               <Icon name={i} size={14} style={{ color: v === tab ? "var(--on-pastel)" : "var(--text-muted)" }} />

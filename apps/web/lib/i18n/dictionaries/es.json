@@ -1506,7 +1506,12 @@
     "seatsMissing_one": "Falta {{count}} plaza",
     "seatsMissing_other": "Faltan {{count}} plazas",
     "seatsMissing_many": "Faltan {{count}} plazas",
-    "seatsOverText": "Solo cuentan los miembros y administradores que se van a añadir: los invitados no ocupan plaza y quienes ya están en el espacio conservan la suya. La importación no puede empezar hasta que todos puedan ser acogidos: no se ha escrito nada. Libera plazas o pasa a una oferta con más, y vuelve a esta pantalla."
+    "seatsOverText": "Solo cuentan los miembros y administradores que se van a añadir: los invitados no ocupan plaza y quienes ya están en el espacio conservan la suya. La importación no puede empezar hasta que todos puedan ser acogidos: no se ha escrito nada. Libera plazas o pasa a una oferta con más, y vuelve a esta pantalla.",
+    "seatsPricingNewTab": "Ver las tarifas (se abre en una pestaña nueva)",
+    "seatsNoPricing": "Contacta con quien gestiona la licencia para obtener más plazas.",
+    "seatsOverNeeded_one": "{{count}} plaza necesaria, {{free}} libres",
+    "seatsOverNeeded_many": "{{count}} plazas necesarias, {{free}} libres",
+    "seatsOverNeeded_other": "{{count}} plazas necesarias, {{free}} libres"
   },
   "externalLink": {
     "title": "Atención, estás saliendo de Ruchoir",
@@ -2904,7 +2909,7 @@
     "importWhenDays_other": "hace {{count}} días",
     "importWhenDays_many": "hace {{count}} días",
     "importBannerTitle": "Importación desde {{source}} terminada {{when}}.",
-    "importBannerText": "Se han traído de {{source}} {{figures}} con sus derechos.",
+    "importBannerText": "Traído de {{source}} con sus derechos: {{figures}}.",
     "importBannerLink": "Ver en el registro",
     "importRoles_one": "{{count}} rol personalizado",
     "importRoles_other": "{{count}} roles personalizados",

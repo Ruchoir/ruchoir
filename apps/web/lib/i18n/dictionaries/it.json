@@ -1506,7 +1506,12 @@
     "seatsMissing_one": "Manca {{count}} posto",
     "seatsMissing_other": "Mancano {{count}} posti",
     "seatsMissing_many": "Mancano {{count}} posti",
-    "seatsOverText": "Contano solo i membri e gli amministratori da aggiungere: gli ospiti non occupano un posto e chi è già nello spazio tiene il suo. L'importazione non può iniziare finché tutti non possono essere accolti: non è stato scritto nulla. Libera dei posti, o passa a un'offerta che ne comprende di più, poi torna a questa schermata."
+    "seatsOverText": "Contano solo i membri e gli amministratori da aggiungere: gli ospiti non occupano un posto e chi è già nello spazio tiene il suo. L'importazione non può iniziare finché tutti non possono essere accolti: non è stato scritto nulla. Libera dei posti, o passa a un'offerta che ne comprende di più, poi torna a questa schermata.",
+    "seatsPricingNewTab": "Vedi i prezzi (si apre in una nuova scheda)",
+    "seatsNoPricing": "Contatta chi gestisce la licenza per ottenere più posti.",
+    "seatsOverNeeded_one": "{{count}} posto necessario, {{free}} liberi",
+    "seatsOverNeeded_many": "{{count}} posti necessari, {{free}} liberi",
+    "seatsOverNeeded_other": "{{count}} posti necessari, {{free}} liberi"
   },
   "externalLink": {
     "title": "Attenzione, stai lasciando Ruchoir",
@@ -2904,7 +2909,7 @@
     "importWhenDays_other": "{{count}} giorni fa",
     "importWhenDays_many": "{{count}} giorni fa",
     "importBannerTitle": "Importazione da {{source}} terminata {{when}}.",
-    "importBannerText": "Da {{source}} sono stati ripresi {{figures}} con i loro diritti.",
+    "importBannerText": "Ripreso da {{source}} con i loro diritti: {{figures}}.",
     "importBannerLink": "Vedi nel registro",
     "importRoles_one": "{{count}} ruolo personalizzato",
     "importRoles_other": "{{count}} ruoli personalizzati",

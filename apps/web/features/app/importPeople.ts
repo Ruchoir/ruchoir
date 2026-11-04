@@ -251,3 +251,9 @@ export function doneView(
     limits: job.limits,
   };
 }
+
+/** The bar's accessible name: what is needed against what is free when over, else what is used. */
+export function seatsBarLabel(seats: SeatsView): { key: string; vars: Record<string, string | number> } {
+  if (seats.tone === "over") return { key: "import.seatsOverNeeded", vars: { count: seats.usedAfter, free: seats.left } };
+  return { key: "import.seatsUsed", vars: { count: seats.usedAfter, total: String(seats.total) } };
+}

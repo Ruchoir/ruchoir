@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { blockView, capNames, doneView, fallbackSentence, peopleLines, seatsView, startDisabled, viewFromPlan, viewFromSummary } from "./importPeople.ts";
+import { blockView, capNames, doneView, seatsBarLabel, fallbackSentence, peopleLines, seatsView, startDisabled, viewFromPlan, viewFromSummary } from "./importPeople.ts";
 
 const dict = (locale: string) =>
   JSON.parse(readFileSync(new URL(`../../lib/i18n/dictionaries/${locale}.json`, import.meta.url), "utf8")) as Record<string, Record<string, string>>;
@@ -247,4 +247,40 @@ test("a_job_without_a_summary_shows_no_block", () => {
   assert.equal(old.block, null);
   assert.deepEqual(old.limits, []);
   assert.deepEqual(doneView({ source: "slack", people: null, limits: LIMITS }, null).limits, LIMITS);
+});
+
+// --- review fixes -------------------------------------------------------------------------------------
+
+test("polish_few_forms_take_the_nominative_plural", () => {
+  const pl = dict("pl");
+  assert.match(pl.import.peopleAdminsTitle_few, /administratorzy/);
+  assert.match(pl.import.peopleModsTitle_few, /moderatorzy kanałów/);
+  assert.match(pl.import.seatsOverNeeded_few, /miejsca/);
+});
+
+test("the_banner_text_has_no_agreement_on_the_figure", () => {
+  const bad = /ont été|a été|wurden|wurde|han sido|ha sido|sono stati|were|was /i;
+  for (const locale of ["fr", "en", "de", "es", "it", "pl"]) {
+    const text = dict(locale).members.importBannerText;
+    assert.ok(text.includes("{{figures}}") && text.includes("{{source}}"), locale);
+    assert.ok(!bad.test(text), `${locale} agrees with the figure: ${text}`);
+    assert.ok(text.trimEnd().endsWith("{{figures}}.") || locale === "pl" || /\{\{figures\}\}\.?$/.test(text.trim()), `${locale} ends on the figures`);
+  }
+  // Rendered with one figure it still reads.
+  assert.equal(dict("fr").members.importBannerText.replace("{{source}}", "Slack").replace("{{figures}}", "1 invité"), "Repris de Slack avec leurs droits : 1 invité.");
+});
+
+test("the_over_bar_says_what_is_needed_not_what_is_used", () => {
+  const over = seatsView({ space: "A", usedBefore: 5, added: 21, total: 25 });
+  assert.deepEqual(seatsBarLabel(over), { key: "import.seatsOverNeeded", vars: { count: 26, free: 20 } });
+  const ok = seatsView({ space: "A", usedBefore: 1, added: 11, total: 25 });
+  assert.deepEqual(seatsBarLabel(ok), { key: "import.seatsUsed", vars: { count: 12, total: "25" } });
+});
+
+test("the_pricing_link_has_a_new_tab_name_and_a_fallback_sentence", () => {
+  for (const locale of ["fr", "en", "de", "es", "it", "pl"]) {
+    const d = dict(locale);
+    assert.ok(d.import.seatsPricingNewTab?.trim(), `${locale} link name`);
+    assert.ok(d.import.seatsNoPricing?.trim(), `${locale} no-pricing sentence`);
+  }
 });

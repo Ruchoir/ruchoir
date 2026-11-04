@@ -1442,7 +1442,11 @@
     "seatsMissingInline_other": "il manque {{count}} places",
     "seatsMissing_one": "Il manque {{count}} place",
     "seatsMissing_other": "Il manque {{count}} places",
-    "seatsOverText": "Seuls les membres et les administrateurs à ajouter comptent : les invités ne prennent pas de place et les personnes déjà dans l'espace gardent la leur. L'import ne peut pas commencer tant que toutes les personnes ne peuvent pas être accueillies : rien n'a été écrit. Libérez des places, ou passez à une offre qui en compte davantage, puis revenez sur cet écran."
+    "seatsOverText": "Seuls les membres et les administrateurs à ajouter comptent : les invités ne prennent pas de place et les personnes déjà dans l'espace gardent la leur. L'import ne peut pas commencer tant que toutes les personnes ne peuvent pas être accueillies : rien n'a été écrit. Libérez des places, ou passez à une offre qui en compte davantage, puis revenez sur cet écran.",
+    "seatsPricingNewTab": "Voir les tarifs (s'ouvre dans un nouvel onglet)",
+    "seatsNoPricing": "Contactez la personne qui gère la licence pour obtenir des places.",
+    "seatsOverNeeded_one": "{{count}} place nécessaire, {{free}} libres",
+    "seatsOverNeeded_other": "{{count}} places nécessaires, {{free}} libres"
   },
   "externalLink": {
     "title": "Attention, vous quittez Ruchoir",
@@ -2819,7 +2823,7 @@
     "importWhenDays_one": "il y a {{count}} jour",
     "importWhenDays_other": "il y a {{count}} jours",
     "importBannerTitle": "Import depuis {{source}} terminé {{when}}.",
-    "importBannerText": "{{figures}} ont été repris de {{source}} avec leurs droits.",
+    "importBannerText": "Repris de {{source}} avec leurs droits : {{figures}}.",
     "importBannerLink": "Voir dans le journal",
     "importRoles_one": "{{count}} rôle personnalisé",
     "importRoles_other": "{{count}} rôles personnalisés"

@@ -3,7 +3,7 @@
 import { Icon, Tag } from "@/components/ds";
 import { formatNumber } from "@/lib/i18n/format";
 import { type TranslationKey, useTranslation } from "@/lib/i18n";
-import { blockView, fallbackSentence, type PeopleLine, type PeopleView, type SeatsView, type Translate } from "./importPeople.ts";
+import { blockView, fallbackSentence, seatsBarLabel, type PeopleLine, type PeopleView, type SeatsView, type Translate } from "./importPeople.ts";
 
 /** A key chosen by the logic module (`importPeople.ts`); the tests name every one that exists. */
 const dyn = (name: string) => name as unknown as TranslationKey;
@@ -36,12 +36,15 @@ export function ImportPeopleBlock({
   const view = blockView(people, source.toLowerCase(), ownerName);
   if (!view) return null;
   const tt: Translate = (name, vars) => t(dyn(name), vars);
+  // Always something to say: the link when the instance knows its prices page, else who to ask.
   const pricing = pricingUrl ? (
-    <a className="wc-imp-people__link" href={pricingUrl} target="_blank" rel="noreferrer">
+    <a className="wc-imp-people__link" href={pricingUrl} target="_blank" rel="noreferrer" aria-label={t("import.seatsPricingNewTab")}>
       {t("roles.seePricing")}
       <Icon name="external-link" size={12} />
     </a>
-  ) : null;
+  ) : (
+    <span>{t("import.seatsNoPricing")}</span>
+  );
   return (
     <section className={`wc-imp-card wc-imp-people${view.over ? " wc-imp-people--over" : ""}`} aria-label={t("import.peopleTitle")}>
       <header className="wc-imp-people__head">
@@ -118,7 +121,7 @@ function SeatsRow({ seats, several, tt, pricing }: { seats: SeatsView; several: 
         </div>
       )}
       {several ? <div className="wc-imp-seats__space">{seats.space}</div> : null}
-      <div className="wc-imp-seats__bar" role="img" aria-label={tt("import.seatsUsed", { count: seats.usedAfter, total: formatNumber(seats.total) })}>
+      <div className="wc-imp-seats__bar" role="img" aria-label={tt(seatsBarLabel(seats).key, seatsBarLabel(seats).vars)}>
         <span className="wc-imp-seats__taken" style={{ width: pct(seats.usedBefore) }} />
         <span className="wc-imp-seats__added" style={{ width: pct(over ? seats.left : seats.added) }} />
       </div>

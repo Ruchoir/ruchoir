@@ -1442,7 +1442,11 @@
     "seatsMissingInline_other": "es fehlen {{count}} Plätze",
     "seatsMissing_one": "Es fehlt {{count}} Platz",
     "seatsMissing_other": "Es fehlen {{count}} Plätze",
-    "seatsOverText": "Nur die hinzuzufügenden Mitglieder und Administratoren zählen: Gäste belegen keinen Platz, und wer schon im Bereich ist, behält seinen. Der Import kann erst starten, wenn alle aufgenommen werden können: Es wurde nichts geschrieben. Geben Sie Plätze frei oder wechseln Sie zu einem Angebot mit mehr Plätzen und kehren Sie dann zu diesem Bildschirm zurück."
+    "seatsOverText": "Nur die hinzuzufügenden Mitglieder und Administratoren zählen: Gäste belegen keinen Platz, und wer schon im Bereich ist, behält seinen. Der Import kann erst starten, wenn alle aufgenommen werden können: Es wurde nichts geschrieben. Geben Sie Plätze frei oder wechseln Sie zu einem Angebot mit mehr Plätzen und kehren Sie dann zu diesem Bildschirm zurück.",
+    "seatsPricingNewTab": "Preise ansehen (öffnet in einem neuen Tab)",
+    "seatsNoPricing": "Wenden Sie sich an die Person, die die Lizenz verwaltet, um mehr Plätze zu erhalten.",
+    "seatsOverNeeded_one": "{{count}} Platz nötig, {{free}} frei",
+    "seatsOverNeeded_other": "{{count}} Plätze nötig, {{free}} frei"
   },
   "externalLink": {
     "title": "Achtung, Sie verlassen Ruchoir",
@@ -2785,7 +2789,7 @@
     "importWhenDays_one": "vor {{count}} Tag",
     "importWhenDays_other": "vor {{count}} Tagen",
     "importBannerTitle": "Import aus {{source}} {{when}} abgeschlossen.",
-    "importBannerText": "{{figures}} wurden mit ihren Rechten aus {{source}} übernommen.",
+    "importBannerText": "Mit ihren Rechten aus {{source}} übernommen: {{figures}}.",
     "importBannerLink": "Im Protokoll ansehen",
     "importRoles_one": "{{count}} eigene Rolle",
     "importRoles_other": "{{count}} eigene Rollen"

@@ -1442,7 +1442,11 @@
     "seatsMissingInline_other": "{{count}} seats short",
     "seatsMissing_one": "{{count}} seat short",
     "seatsMissing_other": "{{count}} seats short",
-    "seatsOverText": "Only the members and administrators to add count: guests do not take a seat, and people already in the space keep theirs. The import cannot start until everyone can be welcomed: nothing has been written. Free some seats, or move to a plan with more, then come back to this screen."
+    "seatsOverText": "Only the members and administrators to add count: guests do not take a seat, and people already in the space keep theirs. The import cannot start until everyone can be welcomed: nothing has been written. Free some seats, or move to a plan with more, then come back to this screen.",
+    "seatsPricingNewTab": "See pricing (opens in a new tab)",
+    "seatsNoPricing": "Contact whoever manages the licence to get more seats.",
+    "seatsOverNeeded_one": "{{count}} seat needed, {{free}} free",
+    "seatsOverNeeded_other": "{{count}} seats needed, {{free}} free"
   },
   "externalLink": {
     "title": "Careful, you are leaving Ruchoir",
@@ -2785,7 +2789,7 @@
     "importWhenDays_one": "{{count}} day ago",
     "importWhenDays_other": "{{count}} days ago",
     "importBannerTitle": "Import from {{source}} finished {{when}}.",
-    "importBannerText": "{{figures}} were taken over from {{source}} with their rights.",
+    "importBannerText": "Taken over from {{source}} with their rights: {{figures}}.",
     "importBannerLink": "See in the log",
     "importRoles_one": "{{count}} custom role",
     "importRoles_other": "{{count}} custom roles"

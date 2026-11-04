@@ -203,7 +203,7 @@ export function ImportScreen({
   const [replace, setReplace] = useState(false);
   const [typedAddress, setTypedAddress] = useState("");
   /** The server's `402 seats_full` at the start, said in the same red state as the plan's own count. */
-  const [seatsRefusal, setSeatsRefusal] = useState<{ space?: string; used?: number; incoming?: number; seats: number } | null>(null);
+  const [seatsRefusal, setSeatsRefusal] = useState<{ space?: string; used?: number; incoming?: number; seats: number; pricingUrl?: string } | null>(null);
 
   // --- the run -----------------------------------------------------------------------------------
   const [job, setJob] = useState<ImportJob | null>(null);
@@ -1028,7 +1028,7 @@ export function ImportScreen({
         ))}
       </div>
 
-      <ImportPeopleBlock people={planPeople} source={plan.source} sourceName={sourceName} ownerName={stayingOwner} pricingUrl={pricingUrl} />
+      <ImportPeopleBlock people={planPeople} source={plan.source} sourceName={sourceName} ownerName={stayingOwner} pricingUrl={pricingUrl || seatsRefusal?.pricingUrl || undefined} />
 
       <div className="wc-imp-card">
         {!instanceAdmin ? (
