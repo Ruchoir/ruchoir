@@ -5027,9 +5027,16 @@ async fn import_up_to_conversations(
     let (_, spaces) = run::import_spaces(&app.db, &mapper, index, admin)
         .await
         .expect("spaces");
-    run::import_conversations(&app.db, &mapper, index, &spaces, admin)
-        .await
-        .expect("conversations");
+    run::import_conversations(
+        &app.db,
+        &mapper,
+        index,
+        &spaces,
+        admin,
+        &crate::edition::CommunityEdition,
+    )
+    .await
+    .expect("conversations");
     (job, spaces)
 }
 
@@ -5281,9 +5288,16 @@ async fn a_channel_that_is_already_here_takes_the_history_rather_than_stopping_t
     assert_eq!(spaces_written.spaces_filled, 1, "the space was adopted");
     assert_eq!(resolved[0].1, space_id);
 
-    let written = run::import_conversations(&app.db, &mapper, &second, &resolved, fx.alice)
-        .await
-        .expect("the import no longer stops on a name that is already here");
+    let written = run::import_conversations(
+        &app.db,
+        &mapper,
+        &second,
+        &resolved,
+        fx.alice,
+        &crate::edition::CommunityEdition,
+    )
+    .await
+    .expect("the import no longer stops on a name that is already here");
 
     assert_eq!(written.conversations_filled, 1);
     assert_eq!(written.conversations_created, 0);
@@ -5386,9 +5400,16 @@ async fn importing_the_conversations_twice_creates_nothing_twice() {
 
     let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
     let mapper = Mapper::new(job, "mattermost");
-    let again = run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice)
-        .await
-        .expect("second run");
+    let again = run::import_conversations(
+        &app.db,
+        &mapper,
+        &index,
+        &spaces,
+        fx.alice,
+        &crate::edition::CommunityEdition,
+    )
+    .await
+    .expect("second run");
 
     assert_eq!(again.conversations_created, 0);
     assert_eq!(
@@ -5502,9 +5523,16 @@ async fn somebody_left_out_gets_no_account_and_their_messages_still_arrive() {
     let (_, spaces) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
         .await
         .expect("spaces");
-    run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice)
-        .await
-        .expect("conversations");
+    run::import_conversations(
+        &app.db,
+        &mapper,
+        &index,
+        &spaces,
+        fx.alice,
+        &crate::edition::CommunityEdition,
+    )
+    .await
+    .expect("conversations");
     run::import_messages(&app.db, &mapper, &dir, None, &spaces)
         .await
         .expect("messages");
@@ -5658,9 +5686,16 @@ async fn import_from_archive(
     let (_, spaces) = run::import_spaces(&app.db, &mapper, &index, admin)
         .await
         .expect("spaces");
-    run::import_conversations(&app.db, &mapper, &index, &spaces, admin)
-        .await
-        .expect("conversations");
+    run::import_conversations(
+        &app.db,
+        &mapper,
+        &index,
+        &spaces,
+        admin,
+        &crate::edition::CommunityEdition,
+    )
+    .await
+    .expect("conversations");
     (job, spaces)
 }
 

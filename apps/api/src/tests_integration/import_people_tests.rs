@@ -246,6 +246,21 @@ fn people_archive(
     members: &[(&str, &str, &[&str])],
     channels: &[(&str, &[&str])],
 ) -> std::path::PathBuf {
+    let with_none: Vec<(&str, &[&str], &[&str])> = channels
+        .iter()
+        .map(|(name, people)| (*name, *people, &[][..]))
+        .collect();
+    people_archive_with(version, space_name, accounts, members, &with_none)
+}
+
+/// [`people_archive`] with the moderators of each conversation: (name, members, moderators).
+fn people_archive_with(
+    version: u32,
+    space_name: &str,
+    accounts: &[(&str, &str)],
+    members: &[(&str, &str, &[&str])],
+    channels: &[(&str, &[&str], &[&str])],
+) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!("ruchoir-people-run-{}", Uuid::new_v4().simple()));
     std::fs::create_dir_all(&dir).expect("dir");
     // Source identifiers are remembered across runs of the shared database: every archive spells
@@ -272,10 +287,11 @@ fn people_archive(
         "channels.jsonl",
         channels
             .iter()
-            .map(|(name, people)| {
+            .map(|(name, people, moderators)| {
                 let people: Vec<String> = people.iter().map(|p| q(p)).collect();
+                let moderators: Vec<String> = moderators.iter().map(|p| q(p)).collect();
                 json!({"id": q(name), "space": space_ref, "kind": "channel", "name": name,
-                       "visibility": "public", "members": people})
+                       "visibility": "public", "members": people, "moderators": moderators})
             })
             .collect(),
     );
@@ -972,4 +988,257 @@ async fn a_scoped_import_creates_only_its_own_space_and_roles_still_apply() {
         "bob and the account created for the archive's person"
     );
     assert!(others.iter().any(|m| m.role == "admin"));
+}
+
+// --- channel moderators and channel-only people -----------------------------------------------
+
+async fn channel_role(app: &TestApp, space: Uuid, name: &str, user: Uuid) -> Option<String> {
+    let channel = crate::entities::channels::Entity::find()
+        .filter(crate::entities::channels::Column::SpaceId.eq(space))
+        .filter(crate::entities::channels::Column::Name.eq(name))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("the channel exists");
+    crate::entities::channel_members::Entity::find_by_id((channel.id, user))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .map(|row| row.role)
+}
+
+#[tokio::test]
+async fn a_channel_moderator_gets_the_admin_channel_role() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (name, a, b) = (unique_space(), address("a"), address("b"));
+    let dir = people_archive_with(
+        2,
+        &name,
+        &[("a", &a), ("b", &b)],
+        &[("a", "member", &[]), ("b", "member", &[])],
+        &[("projets", &["a", "b"], &["a"])],
+    );
+    let (_, outcome) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    let outcome = outcome.expect("the run completes");
+    let space = space_named(&app, &name).await;
+    let (a_id, b_id) = (account_of(&app, &a).await, account_of(&app, &b).await);
+    assert_eq!(
+        channel_role(&app, space, "projets", a_id).await.as_deref(),
+        Some("admin")
+    );
+    assert_eq!(
+        channel_role(&app, space, "projets", b_id).await.as_deref(),
+        Some("member")
+    );
+    assert_eq!(outcome.written.moderators, 1);
+}
+
+#[tokio::test]
+async fn moderators_are_the_channel_members_the_rules_call_moderators() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (name, a, b) = (unique_space(), address("a"), address("b"));
+    let dir = people_archive_with(
+        2,
+        &name,
+        &[("a", &a), ("b", &b)],
+        &[("a", "member", &[]), ("b", "member", &[])],
+        &[("projets", &["a", "b"], &["a"])],
+    );
+    run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition))
+        .await
+        .1
+        .expect("the run completes");
+    let space = space_named(&app, &name).await;
+    let channel = crate::entities::channels::Entity::find()
+        .filter(crate::entities::channels::Column::SpaceId.eq(space))
+        .filter(crate::entities::channels::Column::Name.eq("projets"))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("channel")
+        .id;
+    let resource = crate::permissions::rules::ResourceRef::Channel(channel);
+    let editor = |user| crate::permissions::rules::editor_of(&app.state, space, user, resource);
+    let moderator = editor(account_of(&app, &a).await).await.expect("query");
+    assert!(
+        moderator
+            .is_some_and(|e| e.kind == crate::permissions::rules::EditorKind::ChannelModerator),
+        "the engine reads the imported admin role as a moderator"
+    );
+    assert!(editor(account_of(&app, &b).await)
+        .await
+        .expect("query")
+        .is_none());
+}
+
+#[tokio::test]
+async fn a_moderator_who_is_a_guest_arrives_a_plain_member() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (name, g) = (unique_space(), address("g"));
+    let dir = people_archive_with(
+        2,
+        &name,
+        &[("g", &g)],
+        &[("g", "guest", &[])],
+        &[("projets", &["g"], &["g"])],
+    );
+    let (_, outcome) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    let outcome = outcome.expect("the run completes");
+    let space = space_named(&app, &name).await;
+    let g_id = account_of(&app, &g).await;
+    assert_eq!(
+        channel_role(&app, space, "projets", g_id).await.as_deref(),
+        Some("member")
+    );
+    assert_eq!(outcome.written.moderators, 0);
+}
+
+/// A space that already has its "general" channel, with `old` in it as a plain member.
+async fn space_with_general(app: &TestApp, owner: Uuid, old: Uuid) -> (String, Uuid) {
+    let name = unique_space();
+    let (space, _) = crate::messaging::spaces::create_owned_space(&app.db, &name, owner)
+        .await
+        .expect("space");
+    let channel = crate::entities::channels::Entity::find()
+        .filter(crate::entities::channels::Column::SpaceId.eq(space))
+        .filter(crate::entities::channels::Column::Name.eq("general"))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("the default channel")
+        .id;
+    space_members::ActiveModel {
+        space_id: Set(space),
+        user_id: Set(old),
+        role: Set("member".to_owned()),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("space member");
+    crate::entities::channel_members::ActiveModel {
+        channel_id: Set(channel),
+        user_id: Set(old),
+        role: Set("member".to_owned()),
+        notification_level: Set("default".to_owned()),
+        muted: Set(false),
+        favorite: Set(false),
+        joined_at: Set(OffsetDateTime::now_utc()),
+    }
+    .insert(&app.db)
+    .await
+    .expect("channel member");
+    (name, space)
+}
+
+#[tokio::test]
+async fn an_existing_channel_member_keeps_their_channel_role() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let email = address("old");
+    let old = make_user_with(&app, &email).await;
+    let (name, space) = space_with_general(&app, fx.alice, old).await;
+    let dir = people_archive_with(
+        2,
+        &name,
+        &[("old", &email)],
+        &[("old", "member", &[])],
+        &[("general", &["old"], &["old"])],
+    );
+    run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition))
+        .await
+        .1
+        .expect("the run completes");
+    assert_eq!(
+        channel_role(&app, space, "general", old).await.as_deref(),
+        Some("member"),
+        "the archive does not promote somebody who is in the channel already"
+    );
+}
+
+#[tokio::test]
+async fn an_adopted_channel_takes_new_moderators_only() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (old_email, new_email) = (address("old"), address("new"));
+    let old = make_user_with(&app, &old_email).await;
+    let (name, space) = space_with_general(&app, fx.alice, old).await;
+    let dir = people_archive_with(
+        2,
+        &name,
+        &[("old", &old_email), ("new", &new_email)],
+        &[("old", "member", &[]), ("new", "member", &[])],
+        &[("general", &["old", "new"], &["old", "new"])],
+    );
+    run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition))
+        .await
+        .1
+        .expect("the run completes");
+    let new = account_of(&app, &new_email).await;
+    assert_eq!(
+        channel_role(&app, space, "general", old).await.as_deref(),
+        Some("member")
+    );
+    assert_eq!(
+        channel_role(&app, space, "general", new).await.as_deref(),
+        Some("admin")
+    );
+}
+
+#[tokio::test]
+async fn a_channel_only_person_still_arrives_member_and_takes_a_seat_check() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let (space_ref, user_ref) = (unique_ref("s"), unique_ref("u"));
+    let name = unique_space();
+    let (space, _) = crate::messaging::spaces::create_owned_space(&app.db, &name, fx.alice)
+        .await
+        .expect("space");
+    let email = address("u");
+    let index = Index {
+        channels: vec![source_channel(
+            &unique_ref("c"),
+            &space_ref,
+            "channel",
+            &[&user_ref],
+        )],
+        ..import_index(
+            vec![source_user(&user_ref, &email)],
+            vec![source_space(&space_ref, &name)],
+        )
+    };
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_accounts(&app.db, &mapper, &plan::build(&index, &Existing::default()))
+        .await
+        .expect("accounts");
+    let (_, spaces) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
+        .await
+        .expect("spaces");
+
+    // One seat sold and the owner holds it: the person in the channel does not fit.
+    let refused =
+        run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice, &Seats(1)).await;
+    assert!(
+        matches!(refused, Err(RunError::SeatsFull { .. })),
+        "{refused:?}"
+    );
+    let user = account_of(&app, &email).await;
+    assert!(row_of(&app, space, user).await.is_none());
+
+    // With a seat to spare, the same person arrives as a member.
+    run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice, &Seats(2))
+        .await
+        .expect("conversations");
+    assert_eq!(standing_of(&app, space, user).await, "member");
 }

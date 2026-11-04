@@ -124,6 +124,19 @@ pub async fn admit(
     Ok(Admitted::Added)
 }
 
+/// The role a person holds in a space, `None` when they are not in it.
+pub async fn standing_of(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<String>> {
+    // management: sees ended guests (the role is what is asked, not whether access is live).
+    Ok(space_members::Entity::find_by_id((space_id, user_id))
+        .one(db)
+        .await?
+        .map(|row| row.role))
+}
+
 /// Admit everyone the archive puts in a space: the lines of `members.jsonl` with the role they
 /// give, then whoever sits in one of the space's conversations or groups without a line, as a
 /// member. Skipped people (no account) are left out.

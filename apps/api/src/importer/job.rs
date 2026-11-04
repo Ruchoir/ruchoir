@@ -257,11 +257,29 @@ async fn run_passes<S: BlobSink>(
     written.memberships += people.added;
     written.people = people;
 
-    let conversations = run::import_conversations(db, &mapper, &index, &resolved, admin).await?;
+    let conversations = match run::import_conversations(
+        db,
+        &mapper,
+        &index,
+        &resolved,
+        admin,
+        settings.edition.as_ref(),
+    )
+    .await
+    {
+        Ok(conversations) => conversations,
+        Err(error @ RunError::SeatsFull { .. }) => {
+            finish(db, job_id, "failed", &error.to_string()).await?;
+            return Err(error);
+        }
+        Err(error) => return Err(error),
+    };
     written.conversations_created = conversations.conversations_created;
     written.conversations_filled = conversations.conversations_filled;
     written.conversations_seen = conversations.conversations_seen;
     written.memberships += conversations.memberships;
+    written.moderators = conversations.moderators;
+    written.people.moderators = conversations.moderators;
     note_progress(db, job_id, &written).await?;
 
     let messages = run::import_messages(db, &mapper, archive, passphrase, &resolved).await?;

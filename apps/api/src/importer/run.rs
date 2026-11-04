@@ -61,6 +61,8 @@ pub struct Written {
     pub files_created: usize,
     /// What the people pass did.
     pub people: super::people::PeopleWritten,
+    /// Channel members made administrators of their channel because the source moderated it.
+    pub moderators: usize,
     /// What each pass went through, whether it wrote it or found it already here. This is what the
     /// screen shows as progress. Counting only what was created made a resumed run look frozen:
     /// it walks past thousands of messages an earlier run brought over, and every counter stood at
@@ -661,12 +663,13 @@ async fn create_space<C: ConnectionTrait>(db: &C, name: &str, owner: Uuid) -> Re
 /// complete before anybody arrives in it.
 ///
 /// A conversation is scoped to its space, so its mapping carries one, unlike an account or a space.
-pub async fn import_conversations<C: ConnectionTrait>(
-    db: &C,
+pub async fn import_conversations(
+    db: &sea_orm::DatabaseConnection,
     mapper: &Mapper<'_>,
     index: &Index,
     spaces_by_source: &[(String, Uuid)],
     creator: Uuid,
+    edition: &dyn crate::edition::Edition,
 ) -> Result<Written> {
     let mut written = Written::default();
 
@@ -796,23 +799,19 @@ pub async fn import_conversations<C: ConnectionTrait>(
 
         for (source_id, user_id) in &members {
             // Being in a conversation means being in its space: an import that forgets this leaves
-            // people in rooms of a workspace they are not part of.
-            // management: sees ended guests (a row there already blocks the insert below).
-            if space_members::Entity::find_by_id((space_id, *user_id))
-                .one(db)
-                .await?
-                .is_none()
+            // people in rooms of a workspace they are not part of. The people pass already put
+            // the listed ones there; anyone else arrives as a member, within the seats.
+            if super::people::admit(
+                db,
+                edition,
+                space_id,
+                *user_id,
+                "member",
+                &format!("{}:{}", mapper.source, mapper.job_id),
+            )
+            .await?
+                == super::people::Admitted::Added
             {
-                space_members::ActiveModel {
-                    space_id: Set(space_id),
-                    user_id: Set(*user_id),
-                    role: Set("member".to_owned()),
-                    invited_by: Set(None),
-                    joined_at: Set(now),
-                    ..Default::default()
-                }
-                .insert(db)
-                .await?;
                 written.memberships += 1;
             }
 
@@ -839,10 +838,19 @@ pub async fn import_conversations<C: ConnectionTrait>(
             {
                 // Somebody can already be in a channel this import adopted, and their place in it
                 // is theirs: joined when they joined, with the notification level they chose.
+                // A moderator of the source administers the channel here, unless they are a guest
+                // of the space (a guest never moderates). Only on a row written now: somebody who
+                // is in an adopted channel already keeps the place they have.
+                let moderator = channel.moderators.contains(source_id)
+                    && super::people::standing_of(db, space_id, *user_id).await?
+                        != Some("guest".to_owned());
+                if moderator {
+                    written.moderators += 1;
+                }
                 channel_members::ActiveModel {
                     channel_id: Set(conversation_id),
                     user_id: Set(*user_id),
-                    role: Set("member".to_owned()),
+                    role: Set(if moderator { "admin" } else { "member" }.to_owned()),
                     notification_level: Set("default".to_owned()),
                     muted: Set(false),
                     favorite: Set(favourite),
