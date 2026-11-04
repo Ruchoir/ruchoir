@@ -539,7 +539,44 @@ pub async fn existing_for(
         channels: run::existing_channels(db).await?,
         scoped: false,
         space_people: space_people(db, edition).await?,
+        claimed_channels: claimed_channels(db).await?,
     })
+}
+
+/// The channels earlier runs claimed, with who is in them now: what the plan needs to count the
+/// moderators a re-run writes (none, for a channel its mapping finds).
+async fn claimed_channels(
+    db: &DatabaseConnection,
+) -> Result<Vec<(String, String, Vec<String>)>, RunError> {
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+
+    // management: who is in a claimed channel already, to not count a write the run will skip.
+    let mut out: Vec<(String, String, Vec<String>)> = Vec::new();
+    for row in db
+        .query_all_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT im.source, im.external_ref, u.email FROM import_mappings im \
+             LEFT JOIN channel_members cm ON cm.channel_id = im.internal_id \
+             LEFT JOIN users u ON u.id = cm.user_id WHERE im.kind = 'channel'",
+        ))
+        .await?
+    {
+        let (Ok(source), Ok(external)) = (
+            row.try_get::<String>("", "source"),
+            row.try_get::<String>("", "external_ref"),
+        ) else {
+            continue;
+        };
+        let email = row.try_get::<Option<String>>("", "email").ok().flatten();
+        match out
+            .iter_mut()
+            .find(|(s, e, _)| *s == source && *e == external)
+        {
+            Some((_, _, emails)) => emails.extend(email),
+            None => out.push((source, external, email.into_iter().collect())),
+        }
+    }
+    Ok(out)
 }
 
 /// The people and seats of every space here, grouped by folded name. Only the plan reads it.

@@ -199,6 +199,10 @@ pub struct Existing {
     /// What the spaces here hold in people and seats, for the people block of the plan. Filled for an
     /// instance administrator only: a scoped import creates spaces and fills none.
     pub space_people: Vec<SpacePeople>,
+    /// The channels an earlier run of a source already claimed, as (source, the channel's id there,
+    /// addresses of the people in it now). A re-run writes no membership for those: the run finds
+    /// the channel by this mapping, whatever the channel is called here now.
+    pub claimed_channels: Vec<(String, String, Vec<String>)>,
 }
 
 /// The people and seats of the spaces here that share one name (names are what the run matches on).
@@ -498,19 +502,28 @@ pub fn people_plan(index: &Index, plan: &Plan, existing: &Existing) -> PeoplePla
             .filter(|c| c.space == space_id && c.kind != "direct")
         {
             let handle = crate::messaging::slug::slugify(&channel.name);
-            let adopted_members: Option<&[String]> = here.and_then(|h| {
-                existing
-                    .channels
-                    .iter()
-                    .any(|(s, c)| {
-                        s.trim().to_lowercase() == space.name.trim().to_lowercase() && *c == handle
-                    })
-                    .then(|| {
-                        h.channel_members
-                            .iter()
-                            .find(|(name, _)| *name == handle)
-                            .map_or(&[][..], |(_, emails)| emails.as_slice())
-                    })
+            let source = index.manifest.as_ref().map_or("", |m| m.source.as_str());
+            let claimed = existing
+                .claimed_channels
+                .iter()
+                .find(|(s, id, _)| s == source && *id == channel.id)
+                .map(|(_, _, emails)| emails.as_slice());
+            let adopted_members: Option<&[String]> = claimed.or_else(|| {
+                here.and_then(|h| {
+                    existing
+                        .channels
+                        .iter()
+                        .any(|(s, c)| {
+                            s.trim().to_lowercase() == space.name.trim().to_lowercase()
+                                && *c == handle
+                        })
+                        .then(|| {
+                            h.channel_members
+                                .iter()
+                                .find(|(name, _)| *name == handle)
+                                .map_or(&[][..], |(_, emails)| emails.as_slice())
+                        })
+                })
             });
             for moderator in &channel.moderators {
                 if !channel.members.contains(moderator) {

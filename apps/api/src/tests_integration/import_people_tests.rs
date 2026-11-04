@@ -1388,6 +1388,45 @@ async fn the_plan_counts_the_moderators_the_run_writes() {
 }
 
 #[tokio::test]
+async fn a_rerun_plan_counts_no_moderator_the_run_will_not_write() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (name, a, b) = (unique_space(), address("a"), address("b"));
+    let dir = people_archive_with(
+        2,
+        &name,
+        &[("a", &a), ("b", &b)],
+        &[("a", "member", &[]), ("b", "member", &[])],
+        &[("projets", &["a", "b"], &["a", "b"])],
+    );
+    let edition: Arc<dyn Edition> = Arc::new(CommunityEdition);
+    let (_, first) = run_people(&app, fx.alice, &dir, edition.clone()).await;
+    assert_eq!(first.expect("first run").written.moderators, 2);
+
+    // The channel is renamed here, so only its mapping still says it came from this archive.
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE channels SET name = 'renamed' WHERE space_id = $1 AND name = 'projets'",
+            [space_named(&app, &name).await.into()],
+        ))
+        .await
+        .expect("rename");
+
+    let (index, _) = crate::importer::check::check(&dir, None).expect("check");
+    let existing = crate::importer::job::existing_for(&app.db, fx.alice, edition.as_ref())
+        .await
+        .expect("existing");
+    let plan = crate::importer::plan::build(&index, &existing);
+    let planned = crate::importer::plan::people_plan(&index, &plan, &existing).moderators;
+    let (_, second) = run_people(&app, fx.alice, &dir, edition).await;
+    let written = second.expect("second run").written.moderators;
+    assert_eq!(written, 0, "the channel is found by its mapping");
+    assert_eq!(planned, written, "the plan counts what the run writes");
+}
+
+#[tokio::test]
 async fn a_channel_only_person_still_arrives_member_and_takes_a_seat_check() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
