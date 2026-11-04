@@ -104,6 +104,15 @@ export const affects = {
   members: (e: RealtimeEvent, spaceId: string) => e.type === "member" || (e.type === "members" && e.spaceId === spaceId),
   /** What a space's roles, groups, rules and licence say, and so what I may do in it. */
   permissions: (e: RealtimeEvent, spaceId: string) => e.type === "permissions" && e.spaceId === spaceId,
+  /**
+   * What a sharing screen shows (who has what on a channel, a file or folder, a calendar): the rules
+   * changed, or the thing itself did (renamed, or gone, which the next read says as a 404).
+   */
+  access: (e: RealtimeEvent, kind: "channel" | "file" | "calendar", spaceId: string, resourceId: string) =>
+    (e.type === "permissions" && e.spaceId === spaceId) ||
+    (kind === "channel" && e.type === "channels" && inSpace(e, spaceId) && (!e.channelId || e.channelId === resourceId)) ||
+    (kind === "file" && e.type === "files" && e.spaceId === spaceId) ||
+    (kind === "calendar" && e.type === "calendar"),
   /** The channels of a space. */
   channels: (e: RealtimeEvent, spaceId: string) => e.type === "channels" && inSpace(e, spaceId),
   /** The people of a channel: a face or a name, or the channel itself changed. */

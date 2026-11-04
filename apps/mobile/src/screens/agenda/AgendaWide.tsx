@@ -23,6 +23,7 @@ import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
 import type { AgendaData } from "./AgendaScreen";
 import { calendarColor } from "./calendarColor";
+import { CalendarShareButton } from "./CalendarShareButton";
 import { EventSummary } from "./EventSummarySheet";
 import { YearView } from "./YearView";
 
@@ -104,6 +105,7 @@ export function AgendaWide({ view, onView, anchor, onAnchor, today, data, error,
             pick(today);
           }}
         />
+        <CalendarShareButton canShare={data?.canShare} />
         {data?.canCreate ? (
           <Pressable
             accessibilityRole="button"

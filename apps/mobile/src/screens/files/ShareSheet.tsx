@@ -2,8 +2,9 @@ import { canManage } from "@ruchoir/client/filesLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Sharing from "expo-sharing";
-import { Link, MessageSquare, Share as ShareIcon } from "lucide-react-native";
+import { Link, MessageSquare, Share as ShareIcon, Users } from "lucide-react-native";
 
+import { useSupports } from "../../api/features";
 import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { downloadToCache } from "../../files/download";
@@ -35,9 +36,19 @@ export function ShareSheet() {
   const file = params.file;
   const caps = useLoad("capabilities", (signal) => getInstanceCapabilities(signal));
   const manage = canManage(file, me, current?.role);
+  const levels = useSupports("resource_rules");
   return (
     <Sheet>
       <Text variant="heading">{t("files.shareTitle", { name: file.name })}</Text>
+      {levels && file.id ? (
+        <ActionRow
+          icon={Users}
+          tint={c.mint}
+          title={t("access.tab")}
+          subtitle={t("access.subtitleFile")}
+          onPress={() => navigation.replace("access", { kind: "file", resourceId: file.id!, title: file.name })}
+        />
+      ) : null}
       <ActionRow icon={MessageSquare} tint={c.pink} title={t("files.sendToConversation")} onPress={() => navigation.replace("fileSendTo", { file, spaceId: params.spaceId })} />
       <ActionRow
         icon={ShareIcon}

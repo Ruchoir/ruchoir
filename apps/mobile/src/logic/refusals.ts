@@ -38,6 +38,13 @@ const BY_CODE: Record<string, string> = {
   not_in_space: key("groups.refusal.notInSpace"),
   too_many_people: key("groups.refusal.tooManyPeople"),
   group_has_rules: key("groups.refusal.hasRules"),
+  cannot_grant: key("access.refusal.cannotGrant"),
+  target_above_you: key("access.refusal.targetAboveYou"),
+  reservation_admins_only: key("access.refusal.reservationAdminsOnly"),
+  guest_ceiling: key("access.refusal.guestCeiling"),
+  audience_files_only: key("access.refusal.audienceFilesOnly"),
+  base_role_levels_only: key("access.refusal.baseRoleLevelsOnly"),
+  permission_in_both: key("access.refusal.permissionInBoth"),
 };
 
 export function refusalSaid(refusal: ReturnType<typeof refusalOf>): Said | null {

@@ -5,6 +5,7 @@ import * as Sharing from "expo-sharing";
 import { FileUp, FolderInput, FolderOpen, History, Info, PencilLine, PencilRuler, Send, Share as ShareIcon, Star, StarOff, Trash2, type LucideIcon } from "lucide-react-native";
 import { Alert, StyleSheet, View } from "react-native";
 
+import { useSupports } from "../../api/features";
 import { uploadLimit } from "../../api/limits";
 import { useApi } from "../../api/useApi";
 import { pickDocuments } from "../../compose/pick";
@@ -49,6 +50,8 @@ export function EntryMenu() {
   const file = params.file;
   const entry = entryOf(file);
   const manage = canManage(file, me, current?.role);
+  // On an instance that sets access by levels, a folder has Partage too: its access, which holds for all it contains.
+  const levels = useSupports("resource_rules");
   const close = () => navigation.goBack();
   const uploads = useUploads();
   const { emit } = useRealtimeActions();
@@ -82,7 +85,10 @@ export function EntryMenu() {
     },
     rename: () =>
       navigation.replace("fileName", { mode: "rename", spaceId: params.spaceId, folderId: file.parentFolderId, fileId: file.id, name: file.name }),
-    share: () => navigation.replace("fileShare", { file, spaceId: params.spaceId }),
+    share: () =>
+      file.kind === "folder"
+        ? navigation.replace("access", { kind: "file", resourceId: file.id!, title: file.name, folder: true })
+        : navigation.replace("fileShare", { file, spaceId: params.spaceId }),
     move: () => navigation.replace("fileMove", { file, spaceId: params.spaceId }),
     newVersion: () =>
       void pickDocuments(false).then(async (picked) => {
@@ -125,7 +131,9 @@ export function EntryMenu() {
     versions: { icon: History, title: t("files.versions") },
     details: { icon: Info, title: t("details.title") },
   };
-  const actions = actionsFor(entry, manage).filter((a) => a !== "delete" && run[a] && look[a]);
+  const offered = actionsFor(entry, manage);
+  if (levels && entry.isFolder && entry.id && !offered.includes("share")) offered.splice(1, 0, "share");
+  const actions = offered.filter((a) => a !== "delete" && run[a] && look[a]);
   const folder = file.kind === "folder";
   return (
     <Sheet>

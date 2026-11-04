@@ -1373,7 +1373,9 @@
         "file": "Déléguer le partage d'un fichier aux personnes qui le gèrent : édition Entreprise.",
         "calendar": "Déléguer le partage d'un agenda aux personnes qui le gèrent : édition Entreprise.",
         "channel": "Déléguer le partage d'un canal aux personnes qui le gèrent : édition Entreprise."
-      }
+      },
+      "subtitle": "Vous pouvez lire qui a accès ici, mais pas le modifier.",
+      "noNames": "les administrateurs de l'espace"
     },
     "delegation": {
       "folder": "Vous gérez ce dossier : vous en réglez l'accès, dans la limite de vos propres droits.",
@@ -1381,7 +1383,87 @@
       "calendar": "Vous gérez cet agenda : vous en réglez l'accès, dans la limite de vos propres droits.",
       "channel": "Vous gérez ce canal : vous en réglez l'accès, dans la limite de vos propres droits."
     },
-    "tab": "Accès"
+    "tab": "Accès",
+    "title": "Accès à {{name}}",
+    "subtitle": "Qui peut lire, écrire ou gérer ce canal. Les niveaux se cumulent : chacun inclut le précédent.",
+    "subtitlePrivate": "Un canal privé : il n'apparaît que pour les personnes qui y ont accès.",
+    "subtitleEnterprise": "Les rôles sur mesure deviennent des cibles, et chaque entrée peut être personnalisée droit par droit.",
+    "typeLabel": "Visibilité du canal",
+    "publicTitle": "Public",
+    "publicBody": "Tout le monde dans l'espace le voit et le rejoint.",
+    "privateTitle": "Privé",
+    "privateBody": "Seules les personnes listées ci-dessous le voient.",
+    "colWho": "Qui a accès",
+    "everyoneSub": "Tous les membres",
+    "allGuestsSub": "Invités de l'espace",
+    "customRoleSub": "Rôle sur mesure",
+    "audienceSub": "Lecteurs d'un canal",
+    "hiddenTarget": "Entrée masquée",
+    "guestCap": "Pas pour un invité : le plafond des invités s'y oppose.",
+    "selfLocked": "Vous ne pouvez pas modifier votre propre accès.",
+    "levelNotHeld": "Vous n'avez pas ce niveau ici.",
+    "atLeast": "au moins {{level}} (tout l'espace)",
+    "denyNote": "Accès refusé ici",
+    "clamped": "son niveau est limité pour ses invités",
+    "inheritedFrom": "Hérité de {{folder}}",
+    "inheritedHidden": "Hérité d'un dossier parent",
+    "levelFor": "Niveau de {{name}}",
+    "teaser": "Un rôle sur mesure comme cible, refuser l'accès à une personne, régler chaque droit un par un : édition Entreprise.",
+    "add": "Ajouter des personnes ou des groupes",
+    "addTitle": "Ajouter à {{name}}",
+    "addSub": "Cherchez parmi les groupes, les rôles, les membres et les invités de l'espace.",
+    "search": "Rechercher un groupe, un rôle ou une personne",
+    "alreadyListed": "Déjà dans la liste",
+    "guestNotice": "{{name}} a le statut d'invité : son accès ne dépasse jamais le plafond des invités, quel que soit le niveau choisi.",
+    "refusal": {
+      "cannotGrant": "Vous ne pouvez pas donner un droit que vous n'avez pas vous-même ici.",
+      "targetAboveYou": "Cette personne ou ce groupe est au-dessus de vous : vous ne pouvez pas modifier son accès.",
+      "reservationAdminsOnly": "Seuls le propriétaire et les administrateurs peuvent retirer l'accès à tout le monde.",
+      "guestCeiling": "Un invité ne peut pas dépasser le plafond des invités.",
+      "audienceFilesOnly": "Les lecteurs d'un canal ne se choisissent que pour des fichiers.",
+      "baseRoleLevelsOnly": "Cette ligne se règle par niveau uniquement.",
+      "permissionInBoth": "Un droit ne peut pas être à la fois autorisé et refusé."
+    },
+    "customExcept_one": "{{level}} sauf {{count}} droit",
+    "customExcept_other": "{{level}} sauf {{count}} droits",
+    "customPlus_one": "{{level}} plus {{count}} droit",
+    "customPlus_other": "{{level}} plus {{count}} droits",
+    "customChanges_one": "{{level}}, {{count}} droit modifié",
+    "customChanges_other": "{{level}}, {{count}} droits modifiés",
+    "levelForSelected_one": "Niveau pour {{count}} sélection",
+    "levelForSelected_other": "Niveau pour {{count}} sélections",
+    "addConfirm_one": "Ajouter {{count}} entrée",
+    "addConfirm_other": "Ajouter {{count}} entrées",
+    "guestGroupNotice_one": "Dans le groupe choisi, le niveau des invités est limité de la même façon.",
+    "guestGroupNotice_other": "Dans les groupes choisis, le niveau des invités est limité de la même façon.",
+    "subtitleFile": "Ce fichier suit son dossier, sauf pour les entrées modifiées ci-dessous.",
+    "subtitleFileIn": "{{parent}}. Ce fichier suit son dossier, sauf pour les entrées modifiées ci-dessous.",
+    "subtitleFolder": "Ce que vous réglez ici vaut pour tout ce que contient ce dossier.",
+    "subtitleFolderIn": "{{parent}}. Ce que vous réglez ici vaut pour tout ce que contient ce dossier.",
+    "subtitleCalendar": "Qui voit les événements, qui peut en créer, qui gère l'agenda.",
+    "shareFolderTitle": "Partager le dossier {{name}}",
+    "shareCalendarTitle": "Partager l'agenda {{name}}",
+    "overrides": "Remplace « {{level}} » hérité de {{folder}}",
+    "overridesHidden": "Remplace « {{level}} » hérité d'un dossier parent",
+    "restore": "Rétablir l'héritage",
+    "audienceName": "Lecteurs de #{{name}}",
+    "closestWins": "La règle la plus proche gagne.",
+    "closestWinsBody": "Pour {{name}}, cet élément est réglé sur « {{level}} » même si le dossier du dessus donne « {{parentLevel}} ». Les autres entrées continuent de suivre le dossier.",
+    "learnMore": "En savoir plus",
+    "delegationHead": "Vous avez le niveau Gérer sur {{name}}.",
+    "delegationBody": "Il vous permet de régler l'accès des autres ici, sans réserver tout l'espace ni changer votre propre ligne.",
+    "givenBy": "{{name}} le lui a donné",
+    "gone": "Cet élément n'existe plus.",
+    "reserveHint": "Seules les personnes ajoutées ont accès.",
+    "removeLineHint": "Retirer cette ligne : les autres lignes s'appliquent.",
+    "customiseHint": "Régler chaque droit un par un.",
+    "whyLink": "Pourquoi ?",
+    "guestLimited": "limité par le plafond des invités",
+    "rowHint": "Qui peut lire, participer ou gérer ce canal.",
+    "calendarsTitle": "Partage des agendas",
+    "calendarsHint": "Choisissez l'agenda de l'espace dont vous réglez l'accès.",
+    "calendarsEmpty": "Aucun agenda à partager",
+    "calendarsEmptyHint": "Les agendas de l'espace que vous gérez apparaissent ici."
   },
   "licence": {
     "installed": "Licence installée",
@@ -1736,7 +1818,43 @@
     },
     "card": {
       "view": "Voir"
-    }
+    },
+    "subtitle": "Chaque étape est lue dans l'ordre où Ruchoir l'applique. Rien n'est modifié ici.",
+    "noSteps": "Aucune étape : rien ne donne de droit à cette personne ici.",
+    "resultFor": "Résultat pour {{name}}",
+    "hiddenPlace": "un élément que vous ne pouvez pas ouvrir",
+    "hiddenTarget": "quelqu'un que vous ne pouvez pas voir",
+    "locksNone": "Verrous : le verrou privé, le plafond des invités et le statut de propriétaire ne changent rien ici.",
+    "label": {
+      "base": "Base",
+      "roles": "Ses rôles",
+      "space": "Dans l'espace",
+      "hiddenPlace": "Emplacement masqué"
+    },
+    "para": {
+      "base": {
+        "granted": "le rôle de base de l'espace accorde {{permission}} à {{person}}.",
+        "removed": "le rôle de base de l'espace retire {{permission}} à {{person}}."
+      },
+      "space": {
+        "granted": "{{role}} permet : {{permission}}.",
+        "removed": "{{role}} retire : {{permission}}."
+      },
+      "rule": {
+        "grantedNoLevel": "une règle accorde {{permission}} à {{target}}, dont fait partie {{person}}.",
+        "removed": "une règle retire {{permission}} à {{target}}, dont fait partie {{person}}.",
+        "granted_one": "une règle donne {{level}} à {{target}}. {{person}} en fait partie : {{permission}} lui est accordé.",
+        "granted_other": "une règle donne {{level}} à {{target}}. {{person}} en fait partie : {{permission}} lui sont accordés.",
+        "granted_few": "une règle donne {{level}} à {{target}}. {{person}} en fait partie : {{permission}} lui sont accordés."
+      },
+      "level": {
+        "none": "aucune règle pour {{person}}, ses groupes ou ses rôles. La règle du dessus continue de s'appliquer."
+      },
+      "viaGroup": "reçu par le groupe {{groups}}",
+      "viaDirect": "attribué directement",
+      "viaBoth": "attribué directement et reçu par le groupe {{groups}}"
+    },
+    "headSub": "{{person}} sur {{resource}}"
   },
   "channel": {
     "everyoneInSpace": "Tout l'espace"
@@ -1903,5 +2021,24 @@
     "aChannel": "un canal",
     "importApplied": "{{actor}} a importé l'espace depuis {{source}}",
     "communityBanner": "Édition communautaire : le journal garde les 30 derniers jours. L'édition Entreprise le garde sans limite."
+  },
+  "customise": {
+    "title": "Personnaliser : {{name}}",
+    "subtitle": "Chaque droit est Hérité, Autorisé ou Refusé. Hérité veut dire : aucune règle ici, le droit vient du rôle de base.",
+    "groupRead": "Lecture",
+    "groupParticipate": "Participation",
+    "inherited": "Hérité",
+    "allowed": "Autorisé",
+    "denied": "Refusé",
+    "lockNotHeld": "Vous ne l'avez pas vous-même ici : vous ne pouvez pas l'accorder ni le refuser.",
+    "resultLevel": "Résultat : {{level}}",
+    "resultExcept": ", sauf {{list}}",
+    "resultPlus": ", plus {{list}}",
+    "resultNote": "Vous ne réglez que les droits que vous avez vous-même sur ce contenu.",
+    "changed": "Droits modifiés : {{count}}",
+    "unchanged": "Aucun changement",
+    "upsell": "Régler les droits un par un fait partie de l'édition Entreprise.",
+    "saveFailed": "Les droits n'ont pas été enregistrés.",
+    "openFor": "Personnaliser les droits de {{name}}"
   }
 }

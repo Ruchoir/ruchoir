@@ -14,11 +14,12 @@
 import type { ConversationNotify, Member, NotifyLevel } from "@ruchoir/client";
 import { StackActions, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Check, LogOut, Mail, Pencil, Star, Trash2, UserPlus } from "lucide-react-native";
+import { Check, LogOut, Mail, Pencil, Star, Trash2, UserPlus, Users } from "lucide-react-native";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useSupports } from "../../api/features";
 import { useApi } from "../../api/useApi";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
@@ -120,6 +121,8 @@ export function ConversationDetails() {
   const me = state.kind === "signedIn" ? state.user.id : undefined;
   const isChannel = !!channelId && !!channel;
   const guest = current?.role === "guest";
+  // Who reads, takes part in or manages the channel, by levels: an instance that sets access so (the web's channel settings).
+  const levels = useSupports("resource_rules");
   const archived = channel?.type === "archived";
   // The space's owner and admins run every channel; anyone else holds the role of their own row.
   const myChannelRole = canAdminister(current?.role)
@@ -279,6 +282,15 @@ export function ConversationDetails() {
               />
               {!guest ? (
                 <ActionRow icon={Pencil} title={t("details.edit")} subtitle={t("details.editHint")} onPress={() => navigation.navigate("channelEdit", { channelId: channelId! })} />
+              ) : null}
+              {!guest && levels ? (
+                <ActionRow
+                  icon={Users}
+                  tint={c.mint}
+                  title={t("access.tab")}
+                  subtitle={t("access.rowHint")}
+                  onPress={() => navigation.navigate("access", { kind: "channel", resourceId: channelId!, title })}
+                />
               ) : null}
               {runs && !archived && channel?.type === "private" ? (
                 <ActionRow icon={UserPlus} tint={c.pink} title={t("details.addPeople")} subtitle={t("details.addPeopleHint")} onPress={() => setAdding(true)} />

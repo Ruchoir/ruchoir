@@ -1,3 +1,9 @@
+import { AccessLevelSheet } from "../screens/access/AccessLevelSheet";
+import { AccessScreen } from "../screens/access/AccessScreen";
+import { AddTargetScreen } from "../screens/access/AddTargetScreen";
+import { CalendarsSheet } from "../screens/access/CalendarsSheet";
+import { CustomiseScreen } from "../screens/access/CustomiseScreen";
+import { WhySheet } from "../screens/access/WhySheet";
 import { createNavigationContainerRef, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
@@ -159,6 +165,12 @@ export function RootNavigator({ instanceId }: { instanceId: string }) {
         <Stack.Screen name="groupEditor" component={GroupEditorScreen} />
         <Stack.Screen name="groupPeople" component={GroupPeopleSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="groupCreate" component={GroupFormScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="access" component={AccessScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="accessLevel" component={AccessLevelSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
+        <Stack.Screen name="accessAdd" component={AddTargetScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="why" component={WhySheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
+        <Stack.Screen name="customise" component={CustomiseScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="calendarShare" component={CalendarsSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="spaceAudit" component={SpaceAuditScreen} />
         <Stack.Screen name="spaceLicence" component={SpaceLicenceScreen} />
         <Stack.Screen name="licenceInstall" component={LicenceInstallScreen} />
