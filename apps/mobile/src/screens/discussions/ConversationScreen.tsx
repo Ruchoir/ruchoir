@@ -23,6 +23,7 @@ import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { useTabletLayout, useWide } from "../../layout/useWide";
 import { readNotificationsOf } from "../../data/readNotifications";
+import { useBackgroundWrites } from "../../space/useBackgroundWrites";
 import { deletedHere } from "./deletedHere";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
@@ -333,9 +334,10 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
 
   // Reading is the one write of this screen: the newest message on screen is the read cursor.
   const marked = useRef<string | null>(null);
+  const mayWrite = useBackgroundWrites();
   const newest = messages[messages.length - 1]?.id;
   useEffect(() => {
-    if (!newest || marked.current === newest) return;
+    if (!mayWrite || !newest || marked.current === newest) return;
     marked.current = newest;
     void setReadCursor(conversationId, newest).then(
       () => readNotificationsOf(api, conversationId, emit).catch(() => {}),
@@ -343,7 +345,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
         marked.current = null;
       },
     );
-  }, [conversationId, newest, emit, setReadCursor, api]);
+  }, [conversationId, newest, emit, setReadCursor, api, mayWrite]);
 
   const loadOlder = useCallback(async () => {
     if (!nextBefore || older.loading) return;

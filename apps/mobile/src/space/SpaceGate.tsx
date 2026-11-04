@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { View } from "react-native";
 
 import { useApi } from "../api/useApi";
 import { useTranslation } from "../i18n";
@@ -8,7 +9,9 @@ import { BootScreen } from "../screens/boot/BootScreen";
 import { JoinSpaceScreen } from "../screens/space/JoinSpaceScreen";
 import { useSession } from "../session/SessionProvider";
 import { useToast } from "../ui/Toast";
+import { PreviewBanner } from "./PreviewBanner";
 import { useSpace } from "./SpaceProvider";
+import { usePreviewSync } from "./usePreviewSync";
 
 /**
  * What a signed-in person enters: the tabs, or "join or create a space" when the account is in none.
@@ -21,6 +24,7 @@ export function SpaceGate({ instanceId }: { instanceId: string }) {
   const session = useSession();
   const { status, select, spaces } = useSpace();
   const { reload } = spaces;
+  const preview = usePreviewSync(instanceId);
   // Taken once: the session hands the pending invitation to a single taker.
   const [invitation] = useState(() => session.takePendingInvitation());
   const [settled, setSettled] = useState(invitation === null);
@@ -67,5 +71,14 @@ export function SpaceGate({ instanceId }: { instanceId: string }) {
 
   if (!settled) return <BootScreen />;
   if (status === "none") return <JoinSpaceScreen gate />;
-  return <RootNavigator instanceId={instanceId} />;
+  // The banner sits above the navigation, so it stays over every tab and pushed screen. The navigation
+  // starts again when the preview starts or ends: all it showed was read as the other role.
+  return (
+    <View style={{ flex: 1 }} onStartShouldSetResponderCapture={preview.onTouchCapture}>
+      <PreviewBanner onQuit={preview.quit} />
+      <View style={{ flex: 1 }}>
+        <RootNavigator key={preview.navigationKey} instanceId={instanceId} />
+      </View>
+    </View>
+  );
 }

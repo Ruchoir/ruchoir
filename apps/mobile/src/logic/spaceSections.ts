@@ -22,11 +22,19 @@ type Gates = ReturnType<typeof spaceGates>;
 type SpaceView = Pick<Workspace, "role" | "members" | "edition"> & Partial<Pick<Workspace, "myPermissions" | "licence">>;
 
 /** What the screens that load them know, for the lines; absent counts give the plain wording. */
-export type Counts = { people?: number; guests?: number; roles?: number; customRoles?: number; groups?: number };
+export type Counts = {
+  people?: number;
+  guests?: number;
+  roles?: number;
+  customRoles?: number;
+  groups?: number;
+  /** When the log last changed, the day and the time already said in the reader's words. */
+  lastChange?: { day: string; time: string };
+};
 
 /** Sections whose screen exists. Each later task flips its own to true. */
 export type Ready = Record<"roles" | "groups" | "audit" | "licence", boolean>;
-export const READY: Ready = { roles: false, groups: false, audit: false, licence: false };
+export const READY: Ready = { roles: true, groups: false, audit: true, licence: true };
 
 export function sectionsFor(
   gates: Gates,
@@ -68,7 +76,13 @@ export function sectionsFor(
     add("groups", [counts.groups === undefined ? { key: "spaceSections.groupsLine" } : { key: "spaceSections.groupsCount", vars: { count: counts.groups } }]);
   }
   if (ready.audit && gates.readAudit) {
-    add("audit", [{ key: space.edition === "enterprise" ? "spaceSections.auditLine" : "spaceSections.auditCommunity" }]);
+    add("audit", [
+      space.edition !== "enterprise"
+        ? { key: "spaceSections.auditCommunity" }
+        : counts.lastChange
+          ? { key: "spaceSections.auditLast", vars: { day: counts.lastChange.day, time: counts.lastChange.time } }
+          : { key: "spaceSections.auditLine" },
+    ]);
   }
   if (ready.licence && licences && space.role === "owner") {
     add("licence", [

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { key, useTranslation } from "../i18n";
 import { useWide } from "../layout/useWide";
+import { topInsetUnderBanner } from "../logic/preview";
 import { AgendaScreen } from "../screens/agenda/AgendaScreen";
 import { DiscussionsScreen } from "../screens/discussions/DiscussionsScreen";
 import { FilesScreen } from "../screens/files/FilesScreen";
@@ -71,7 +72,7 @@ function Rail({ state, navigation }: BottomTabBarProps) {
     <View
       style={[
         styles.rail,
-        { backgroundColor: s.bar, borderRightColor: c.line, paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 16), paddingLeft: insets.left },
+        { backgroundColor: s.bar, borderRightColor: c.line, paddingTop: topInsetUnderBanner(insets.top, current?.preview !== undefined) + 20, paddingBottom: Math.max(insets.bottom, 16), paddingLeft: insets.left },
       ]}
     >
       {current ? (

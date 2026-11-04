@@ -40,11 +40,11 @@ test("the_licence_is_the_owners_and_needs_an_instance_with_licences", () => {
   assert.ok(!keys(view(community, true, { licences: false })).includes("licence"));
 });
 
-test("the_sections_still_to_come_are_not_listed_by_default", () => {
-  assert.deepEqual(READY, { roles: false, groups: false, audit: false, licence: false });
+test("the_sections_still_to_come_are_not_listed_by_default_but_roles_the_journal_and_licence_are_built", () => {
+  assert.deepEqual(READY, { roles: true, groups: false, audit: true, licence: true });
   const space = { ...community };
   const list = sectionsFor(spaceGates("owner", rightsOf(space)), true, space);
-  assert.deepEqual(keys(list), ["general", "members"]);
+  assert.deepEqual(keys(list), ["general", "members", "roles", "audit", "licence"]);
 });
 
 test("the_lines_say_the_counts", () => {
@@ -82,4 +82,15 @@ test("the_licence_line_reads_edition_and_seats", () => {
   const free = view(community, true);
   assert.deepEqual(free.find((s) => s.key === "licence")!.line, [{ key: "spaceSections.licenceCommunity" }]);
   assert.deepEqual(free.find((s) => s.key === "audit")!.line, [{ key: "spaceSections.auditCommunity" }]);
+});
+
+test("the_journal_line_names_the_last_change_when_the_space_has_a_licence", () => {
+  const enterprise = { role: "owner", members: 12, edition: "enterprise" as const };
+  const line = (list: Section[]) => list.find((s) => s.key === "audit")!.line;
+  assert.deepEqual(line(view(enterprise, true, { counts: { lastChange: { day: "hier", time: "16:42" } } })), [
+    { key: "spaceSections.auditLast", vars: { day: "hier", time: "16:42" } },
+  ]);
+  assert.deepEqual(line(view(enterprise, true)), [{ key: "spaceSections.auditLine" }]);
+  // A community space keeps its thirty days, whatever the log says.
+  assert.deepEqual(line(view(community, true, { counts: { lastChange: { day: "hier", time: "16:42" } } })), [{ key: "spaceSections.auditCommunity" }]);
 });

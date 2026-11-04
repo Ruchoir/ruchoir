@@ -22,6 +22,9 @@ export class InstanceClients {
   private readonly clients = new Map<string, RuchoirClient>();
   private readonly held = new Map<string, string | null>();
   private unauthorized: (id: string, code?: string) => void = () => {};
+  /** The instances whose space on screen is looked at as a role: their background writes are not sent. */
+  private readonly previewing = new Map<string, string | undefined>();
+  private readonly refused = new Map<string, (request: { method: string; path: string }) => void>();
 
   /** The client of an instance, made the first time it is asked for. */
   client(entry: InstanceEntry): RuchoirClient {
@@ -42,6 +45,8 @@ export class InstanceClients {
           return new (WebSocket as unknown as NativeWebSocket)(url, undefined, { headers: authorization ? { authorization } : {} });
         },
         onUnauthorized: (code) => this.unauthorized(entry.id, code),
+        previewActive: () => this.previewing.has(entry.id),
+        onPreviewReadOnly: (request) => this.refused.get(entry.id)?.(request),
       });
       this.clients.set(entry.id, client);
     }
@@ -60,6 +65,35 @@ export class InstanceClients {
   drop(id: string): void {
     this.clients.delete(id);
     this.held.delete(id);
+    this.previewing.delete(id);
+    this.refused.delete(id);
+  }
+
+  /**
+   * Say whether the space shown for an instance is a preview (and which space): the client then sends
+   * no background write.
+   */
+  setPreviewing(id: string, on: boolean, spaceId?: string): void {
+    if (on) this.previewing.set(id, spaceId);
+    else this.previewing.delete(id);
+  }
+
+  /** The space an instance is previewing, when it is. */
+  previewSpace(id: string): string | undefined {
+    return this.previewing.get(id);
+  }
+
+  /** Whether any instance is previewing: what the account does as a whole (preferences) waits then. */
+  anyPreviewing(): boolean {
+    return this.previewing.size > 0;
+  }
+
+  /** Who hears of a write the server refused because of a preview, once per refused request. Returns the way to stop listening. */
+  onPreviewReadOnly(id: string, handler: (request: { method: string; path: string }) => void): () => void {
+    this.refused.set(id, handler);
+    return () => {
+      if (this.refused.get(id) === handler) this.refused.delete(id);
+    };
   }
 
   /** What a 401 on an instance does (the accounts sign it out there). */

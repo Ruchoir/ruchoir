@@ -11,6 +11,7 @@ import { Image, StyleSheet, View } from "react-native";
 import { useSignedInClients } from "../../accounts/AccountsProvider";
 import { useTranslation } from "../../i18n";
 import { enablePhonePush } from "../../push/phone";
+import { isPreviewBlocked } from "../../push/previewGuard";
 import { soft } from "../../theme/lift";
 import { styleCache } from "../../theme/themedStyles";
 import { useTheme, useThemedStyles } from "../../theme/useTheme";
@@ -36,8 +37,8 @@ export function NotificationsIntroScreen() {
     try {
       const state = await enablePhonePush(true, clients);
       if (state === "on") toast(t("push.enabled"), "success");
-    } catch {
-      toast(t("push.failed"), "failure");
+    } catch (err) {
+      toast(isPreviewBlocked(err) ? t("preview.pushBlocked") : t("push.failed"), "failure");
     } finally {
       setBusy(false);
       navigation.goBack();

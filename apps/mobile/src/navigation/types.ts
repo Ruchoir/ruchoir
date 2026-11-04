@@ -136,9 +136,15 @@ export type RootParams = {
   spaceGeneral: undefined;
   spaceMembers: undefined;
   spaceRoles: undefined;
+  /** A role of the current space: its rights, its people, its name (the roles list opens it). */
+  roleEditor: { roleId: string };
+  /** A new role: its name and, optionally, the role it copies. */
+  roleCreate: undefined;
   spaceGroups: undefined;
   spaceAudit: undefined;
   spaceLicence: undefined;
+  /** Installing a licence in the current space: pasted, or read from a file. */
+  licenceInstall: undefined;
   /**
    * A member of the current space: Profil and Gestion. `prolong` opens on the guest's end date;
    * `spaceId` is the space the person belongs to when the caller selected it just before navigating

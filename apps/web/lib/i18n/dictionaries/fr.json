@@ -2235,7 +2235,7 @@
   },
   "licence": {
     "refusal": {
-      "invalid": "Ce texte n'est pas une licence Ruchoir complète. Vérifie qu'il a été copié en entier.",
+      "invalid": "Ce texte n'est pas une licence Ruchoir complète. Vérifiez qu'il a été copié en entier.",
       "otherSpace": "Cette licence a été émise pour un autre espace. Chaque licence ne vaut que pour l'espace pour lequel elle a été émise.",
       "otherSpaceNamed": "Cette licence a été émise pour un autre espace ({{organisation}}). Chaque licence ne vaut que pour l'espace pour lequel elle a été émise.",
       "expired": "Cette licence a expiré."

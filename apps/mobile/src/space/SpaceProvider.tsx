@@ -52,3 +52,8 @@ export function useSpace(): SpaceApi {
   if (!api) throw new Error("useSpace outside SpaceProvider");
   return api;
 }
+
+/** The space on screen, or nothing outside a space (the sign-in flow's sheets read it too). */
+export function useSpaceIfAny(): SpaceApi | null {
+  return useContext(SpaceContext);
+}

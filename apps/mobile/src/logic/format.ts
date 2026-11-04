@@ -58,6 +58,25 @@ export function dayStamp(
   return { kind: "date", text: stamp.text };
 }
 
+/**
+ * When something last happened, for a line of settings ("Dernier changement hier à 16:42"): the day
+ * as a word when it is today or yesterday (the screen says it from the dictionary), the weekday
+ * within the week, the date beyond, and the time of day.
+ */
+export function lastChangeStamp(
+  iso: string,
+  now: Date,
+  locale: string,
+  timeZone: string,
+): { day: { kind: "today" } | { kind: "yesterday" } | { kind: "date"; text: string }; time: string } {
+  const days = daysBetween(dayKey(iso, timeZone), dayKey(now, timeZone));
+  const time = timeOf(iso, locale, timeZone);
+  if (days <= 0) return { day: { kind: "today" }, time };
+  if (days === 1) return { day: { kind: "yesterday" }, time };
+  const options: Intl.DateTimeFormatOptions = days < 7 ? { timeZone, weekday: "long" } : { timeZone, day: "numeric", month: "short" };
+  return { day: { kind: "date", text: new Intl.DateTimeFormat(locale, options).format(new Date(iso)) }, time };
+}
+
 /** A file's size in the reader's units: "240 ko", "3.4 MB". */
 export function fileSize(bytes: number, locale: string): string {
   const [value, unit] =

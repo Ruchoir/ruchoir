@@ -14,6 +14,8 @@ import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
+import { useLocale } from "../../i18n/useLocale";
+import { lastChangeStamp } from "../../logic/format";
 import { memberCounts } from "../../logic/spaceRoles";
 import { sectionsFor, type LinePart, type SectionKey } from "../../logic/spaceSections";
 import type { RootParams } from "../../navigation/types";
@@ -58,7 +60,8 @@ export function SpaceSettingsScreen() {
   const { c } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
-  const { getSpaceMembers } = useApi();
+  const { getSpaceMembers, listRoles, getAudit } = useApi();
+  const { locale, timeZone } = useLocale();
   const { current } = useSpace();
   const { ready: rightsReady, supported, gates } = useRights();
   const licencesFeature = useFeature("licences");
@@ -70,8 +73,26 @@ export function SpaceSettingsScreen() {
   const members = useLoad(current ? `members:${current.id}` : null, (signal) => getSpaceMembers(current!.id, signal));
   useReloadOn((e) => (current ? affects.members(e, current.id) || affects.permissions(e, current.id) : false), members.reload, 500);
   const counts = members.data ? memberCounts(members.data) : undefined;
+  // The roles' figures for the line under Rôles, only for whoever reaches that section.
+  const rolesNeeded = ready && supported && gates.managePeople && current !== null;
+  const roles = useLoad(rolesNeeded ? `roles:${current.id}` : null, () => listRoles(current!.id));
+  useReloadOn((e) => (current ? affects.permissions(e, current.id) : false), roles.reload, 500);
+  const shownRoles = roles.data?.filter((r) => r.systemKey !== "members" && r.systemKey !== "guests");
 
-  const sections = !ready ? [] : sectionsFor(gates, supported, current, { counts: counts ? { people: counts.people, guests: counts.guests } : undefined, licences });
+  // The newest line of the journal for the line under Journal, only where that section says it (a
+  // space with a licence; a community space keeps its thirty days).
+  const auditNeeded = ready && supported && gates.readAudit && current !== null && current.edition === "enterprise";
+  const newest = useLoad(auditNeeded ? `auditLast:${current.id}` : null, () => getAudit(current!.id, { limit: 1 }));
+  useReloadOn((e) => (current ? affects.permissions(e, current.id) : false), newest.reload, 500);
+  const last = newest.data?.entries[0];
+  const lastChange = last
+    ? (() => {
+        const stamp = lastChangeStamp(last.at, new Date(), locale, timeZone);
+        return { day: stamp.day.kind === "today" ? t("files.today") : stamp.day.kind === "yesterday" ? t("files.yesterday") : stamp.day.text, time: stamp.time };
+      })()
+    : undefined;
+
+  const sections = !ready ? [] : sectionsFor(gates, supported, current, { counts: { ...(counts ? { people: counts.people, guests: counts.guests } : {}), ...(shownRoles ? { roles: shownRoles.length, customRoles: shownRoles.filter((r) => !r.systemKey).length } : {}), ...(lastChange ? { lastChange } : {}) }, licences });
   const tint: Record<SectionKey, string> = { general: c.sky, members: c.mint, roles: c.violet, groups: c.pink, audit: c.sun, licence: c.lime };
 
   // Nothing left to open (demoted, or their role edited, while here): back to where they came from.

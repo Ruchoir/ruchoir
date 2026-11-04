@@ -17,6 +17,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { AppState } from "react-native";
 
 import { clearDownloads } from "../files/cache";
+import { holdPrefsFlush } from "../prefs/store";
 import { notifications } from "../push/native";
 import { forgetPhoneOn, refreshPhonePush, shareSessions } from "../push/phone";
 import { refreshWidgets } from "../widgets";
@@ -79,6 +80,10 @@ type AccountsApi = {
   holdToken: (id: string, token: string | null) => Promise<void>;
   /** Check again the instances that could not be reached. */
   retryOffline: () => void;
+  /** Whether an instance's space on screen is a preview: its client then writes nothing on its own. */
+  setPreviewing: (id: string, on: boolean, spaceId?: string) => void;
+  /** Hear of each write refused by a preview on an instance. Returns the way to stop. */
+  onPreviewReadOnly: (id: string, handler: (request: { method: string; path: string }) => void) => () => void;
 };
 
 const AccountsContext = createContext<AccountsApi | null>(null);
@@ -285,6 +290,13 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
       const entry = registryRef.current?.instances.find((e) => e.id === id);
       if (!entry) return;
       const client = clientOf(entry);
+      // A session looking at a role refuses the unregistering below: the preview is quit first.
+      const previewed = live.previewSpace(id);
+      if (previewed) {
+        await client.quitPreview(previewed).catch(() => {});
+        live.setPreviewing(id, false);
+        holdPrefsFlush(live.anyPreviewing());
+      }
       // While the session still opens the door: the instance forgets this phone (ADR 0006).
       await forgetPhoneOn(client);
       try {
@@ -296,7 +308,7 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
       clearDownloads(entry.origin);
       setStatus(id, { kind: "signedOut", reason });
     },
-    [clientOf, forget, setStatus],
+    [clientOf, forget, live, setStatus],
   );
 
   const signOutEverywhere = useCallback(
@@ -330,6 +342,16 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
     else await tokens.clear(id);
   }, [live]);
 
+  const setPreviewing = useCallback(
+    (id: string, on: boolean, spaceId?: string) => {
+      live.setPreviewing(id, on, spaceId);
+      // What the account sends as a whole (its preferences) waits while any instance previews.
+      holdPrefsFlush(live.anyPreviewing());
+    },
+    [live],
+  );
+  const onPreviewReadOnly = useCallback((id: string, handler: (request: { method: string; path: string }) => void) => live.onPreviewReadOnly(id, handler), [live]);
+
   const startAdd = useCallback(() => setFlow({ kind: "add" }), []);
   const renew = useCallback((id: string) => setFlow({ kind: "renew", id }), []);
   const cancelFlow = useCallback(() => setFlow(null), []);
@@ -358,6 +380,8 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
       updateUser,
       holdToken,
       retryOffline,
+      setPreviewing,
+      onPreviewReadOnly,
     }),
     [
       registry,
@@ -382,6 +406,8 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
       updateUser,
       holdToken,
       retryOffline,
+      setPreviewing,
+      onPreviewReadOnly,
     ],
   );
   return <AccountsContext.Provider value={api}>{children}</AccountsContext.Provider>;

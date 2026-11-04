@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 import { initialWindowMetrics, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BandShownHere, PreviewBand } from "../space/PreviewBand";
 import { screenInsets } from "./insets";
 
 /**
@@ -10,7 +11,12 @@ import { screenInsets } from "./insets";
  */
 export function FullScreen({ children, color, bottom = true }: { children: ReactNode; color: string; bottom?: boolean }) {
   const insets = screenInsets(useSafeAreaInsets(), initialWindowMetrics?.insets ?? null);
-  return <View style={[styles.fill, { backgroundColor: color, paddingTop: insets.top, paddingBottom: bottom ? insets.bottom : 0 }]}>{children}</View>;
+  return (
+    <View style={[styles.fill, { backgroundColor: color, paddingTop: insets.top, paddingBottom: bottom ? insets.bottom : 0 }]}>
+      <PreviewBand />
+      <BandShownHere>{children}</BandShownHere>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({ fill: { flex: 1 } });

@@ -63,7 +63,13 @@ import { MemberScreen } from "../screens/space/MemberScreen";
 import { SpaceNotifySheet } from "../screens/space/SpaceNotifySheet";
 import { SpaceGeneralScreen } from "../screens/space/SpaceGeneralScreen";
 import { SpaceMembersScreen } from "../screens/space/SpaceMembersScreen";
-import { SpaceAuditScreen, SpaceGroupsScreen, SpaceLicenceScreen, SpaceRolesScreen } from "../screens/space/SpacePlaceholders";
+import { SpaceAuditScreen } from "../screens/space/SpaceAuditScreen";
+import { SpaceGroupsScreen } from "../screens/space/SpacePlaceholders";
+import { LicenceInstallScreen } from "../screens/space/LicenceInstallScreen";
+import { SpaceLicenceScreen } from "../screens/space/SpaceLicenceScreen";
+import { RoleCreateScreen } from "../screens/space/RoleCreateScreen";
+import { RoleEditorScreen } from "../screens/space/RoleEditorScreen";
+import { SpaceRolesScreen } from "../screens/space/SpaceRolesScreen";
 import { SpaceSettingsScreen } from "../screens/space/SpaceSettingsScreen";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
 import { NotificationsIntroScreen } from "../screens/account/NotificationsIntroScreen";
@@ -144,9 +150,12 @@ export function RootNavigator({ instanceId }: { instanceId: string }) {
         <Stack.Screen name="spaceGeneral" component={SpaceGeneralScreen} />
         <Stack.Screen name="spaceMembers" component={SpaceMembersScreen} />
         <Stack.Screen name="spaceRoles" component={SpaceRolesScreen} />
+        <Stack.Screen name="roleEditor" component={RoleEditorScreen} />
+        <Stack.Screen name="roleCreate" component={RoleCreateScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="spaceGroups" component={SpaceGroupsScreen} />
         <Stack.Screen name="spaceAudit" component={SpaceAuditScreen} />
         <Stack.Screen name="spaceLicence" component={SpaceLicenceScreen} />
+        <Stack.Screen name="licenceInstall" component={LicenceInstallScreen} />
         <Stack.Screen name="notificationsIntro" component={NotificationsIntroScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="spaceMember" component={MemberScreen} />
         <Stack.Screen name="spaceDelete" component={DeleteSpaceScreen} options={{ presentation: "modal" }} />

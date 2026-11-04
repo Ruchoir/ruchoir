@@ -2,6 +2,7 @@ import { X } from "lucide-react-native";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../i18n";
+import { PreviewBand } from "../space/PreviewBand";
 import { useTheme } from "../theme/useTheme";
 import { Text } from "./Text";
 
@@ -10,20 +11,23 @@ export function SheetHeader({ title, onClose }: { title: string; onClose: () => 
   const { t } = useTranslation();
   const { c, s } = useTheme();
   return (
-    <View style={styles.row}>
-      <Text variant="heading" style={styles.title} accessibilityRole="header">
-        {title}
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t("common.close")}
-        hitSlop={8}
-        onPress={onClose}
-        style={({ pressed }) => [styles.close, { backgroundColor: s.sunken }, pressed && { opacity: 0.6 }]}
-      >
-        <X size={18} color={c.ink} />
-      </Pressable>
-    </View>
+    <>
+      <PreviewBand />
+      <View style={styles.row}>
+        <Text variant="heading" style={styles.title} accessibilityRole="header">
+          {title}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("common.close")}
+          hitSlop={8}
+          onPress={onClose}
+          style={({ pressed }) => [styles.close, { backgroundColor: s.sunken }, pressed && { opacity: 0.6 }]}
+        >
+          <X size={18} color={c.ink} />
+        </Pressable>
+      </View>
+    </>
   );
 }
 

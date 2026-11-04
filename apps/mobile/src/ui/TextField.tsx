@@ -11,7 +11,7 @@ import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { Text } from "./Text";
 
 /**
- * A labelled field: 52px tall, 16px text (below that, iOS zooms in on focus), the control outline of
+ * A labelled field: 52px tall (`minHeight` asks for a taller one), 16px text (below that, iOS zooms in on focus), the control outline of
  * the design system. A secret field gets the eye that shows what was typed.
  */
 export function TextField({
@@ -19,8 +19,9 @@ export function TextField({
   hint,
   error,
   secret,
+  minHeight,
   ...input
-}: TextInputProps & { label: string; hint?: string; error?: string; secret?: boolean; ref?: Ref<TextInput> }) {
+}: TextInputProps & { label: string; hint?: string; error?: string; secret?: boolean; minHeight?: number; ref?: Ref<TextInput> }) {
   const { c, s } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { t } = useTranslation();
@@ -42,6 +43,8 @@ export function TextField({
             secret && styles.withEye,
             scale !== 1 && { fontSize: 16 * scale, minHeight: Math.round(52 * scale) },
             input.multiline && styles.multiline,
+            // A taller field than the standard one (a pasted text), grown with the text size like the rest.
+            minHeight !== undefined && { minHeight: Math.round(minHeight * scale) },
           ]}
         />
         {secret && (

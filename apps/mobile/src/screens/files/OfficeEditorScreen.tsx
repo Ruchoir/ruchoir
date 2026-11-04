@@ -14,6 +14,7 @@
  * A legacy format is converted first (`convert`): the engine writes an editable copy, which is looked
  * for every few seconds and then opened instead, as on the web.
  */
+import { useBackgroundWrites } from "../../space/useBackgroundWrites";
 import { isApiError, type FileEditor, type OfficeSession, type SpaceFile } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { X } from "lucide-react-native";
@@ -88,6 +89,7 @@ const newTab = () => `${Date.now().toString(36)}-${Math.random().toString(36).sl
 
 export function OfficeEditorScreen() {
   const { endOfficeHeartbeat, getConvertedCopy, officeHeartbeat, openOfficeSession } = useApi();
+  const mayWrite = useBackgroundWrites();
   const { params } = useRoute<RouteProp<RootParams, "officeEditor">>();
   const navigation = useNavigation();
   const { t } = useTranslation();
@@ -158,7 +160,7 @@ export function OfficeEditorScreen() {
   const editedId = editableId && changed === editableId ? editableId : null;
   const left = useRef(false);
   useEffect(() => {
-    if (!editedId) return;
+    if (!editedId || !mayWrite) return;
     left.current = false;
     const beat = () => {
       if (!left.current) void officeHeartbeat(editedId, tab).catch(() => {});
@@ -169,7 +171,7 @@ export function OfficeEditorScreen() {
       clearInterval(timer);
       if (!left.current) void endOfficeHeartbeat(editedId, tab);
     };
-  }, [editedId, endOfficeHeartbeat, officeHeartbeat, tab]);
+  }, [editedId, endOfficeHeartbeat, officeHeartbeat, tab, mayWrite]);
 
   // Covered until the engine wears Ruchoir's colours, per session; never while a conversion runs.
   const [paintedFor, setPaintedFor] = useState<string | null>(null);
