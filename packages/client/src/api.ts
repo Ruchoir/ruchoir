@@ -98,7 +98,7 @@ type SpaceDto = {
   edition?: string;
   licence?: { seats: number; used: number; valid_until: string; expires_in_days: number };
   expires_at?: string | null;
-  preview?: { role_id: string; role_name: string } | null;
+  preview?: { role_id: string; role_name: string; idle_seconds?: number } | null;
 };
 
 type RoleDto = {
@@ -653,7 +653,13 @@ function toWorkspace(dto: SpaceDto): Workspace {
     licence: dto.licence
       ? { seats: dto.licence.seats, used: dto.licence.used, validUntil: dto.licence.valid_until, expiresInDays: dto.licence.expires_in_days }
       : undefined,
-    preview: dto.preview ? { roleId: dto.preview.role_id, roleName: dto.preview.role_name } : undefined,
+    preview: dto.preview
+      ? {
+          roleId: dto.preview.role_id,
+          roleName: dto.preview.role_name,
+          ...(dto.preview.idle_seconds !== undefined ? { idleSeconds: dto.preview.idle_seconds } : {}),
+        }
+      : undefined,
   };
 }
 

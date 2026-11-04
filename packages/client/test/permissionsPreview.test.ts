@@ -83,3 +83,20 @@ test("the_preview_toast_names_the_refused_action", () => {
   assert.equal(previewToast().bodyKey, "preview.readOnlyBody");
   assert.equal(previewToast({ method: "POST", path: "/channels/c1/messages" }).titleKey, "preview.readOnlyTitle");
 });
+
+test("the_space_preview_carries_the_idle_time_the_server_says", async () => {
+  const { fakeFetch } = await import("./fakeFetch.ts");
+  const { createClient } = await import("../src/index.ts");
+  const space = { id: "s1", name: "Atelier", slug: "atelier", role: "member", members: 2 };
+  fakeFetch({
+    body: [
+      { ...space, preview: { role_id: "r1", role_name: "Comptable", idle_seconds: 900 } },
+      { ...space, id: "s2", preview: { role_id: "r1", role_name: "Comptable" } },
+    ],
+  });
+  const client = createClient({ baseUrl: "https://a.test", authorization: () => "Bearer A" });
+  const [first, second] = await client.getWorkspaces();
+  assert.deepEqual(first.preview, { roleId: "r1", roleName: "Comptable", idleSeconds: 900 });
+  // An older server omits it: the field is absent and the banner falls back to thirty minutes.
+  assert.equal(second.preview?.idleSeconds, undefined);
+});

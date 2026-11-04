@@ -47,6 +47,10 @@ pub struct PreviewState {
 pub struct PreviewDto {
     pub role_id: Uuid,
     pub role_name: String,
+    /// Seconds without activity before the preview ends by itself (the instance's setting), so a
+    /// client can say it in its banner. Absent from an answer of an older build.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idle_seconds: Option<i64>,
 }
 
 tokio::task_local! {
@@ -135,10 +139,11 @@ pub(crate) fn of_space(space_id: Uuid) -> Option<PreviewState> {
 }
 
 /// What the space DTO says: the role being previewed in this space, if any.
-pub(crate) fn dto_of_space(space_id: Uuid) -> Option<PreviewDto> {
+pub(crate) fn dto_of_space(space_id: Uuid, config: &Config) -> Option<PreviewDto> {
     of_space(space_id).map(|preview| PreviewDto {
         role_id: preview.role_id,
         role_name: preview.role_name,
+        idle_seconds: Some(config.preview_idle_ttl_secs),
     })
 }
 

@@ -631,7 +631,11 @@ async fn the_space_dto_says_it_is_previewing() {
     let spaces = spaces_of(&fx.app, &cookie).await;
     assert_eq!(
         entry(&spaces, fx.space)["preview"],
-        json!({ "role_id": fx.notes.to_string(), "role_name": "Notes" })
+        json!({
+            "role_id": fx.notes.to_string(),
+            "role_name": "Notes",
+            "idle_seconds": 1800,
+        })
     );
 }
 
