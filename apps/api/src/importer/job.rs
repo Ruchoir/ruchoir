@@ -241,6 +241,7 @@ async fn run_passes<S: BlobSink>(
         &index,
         &resolved,
         settings.edition.as_ref(),
+        admin,
         &source,
     )
     .await
@@ -280,6 +281,12 @@ async fn run_passes<S: BlobSink>(
     written.memberships += conversations.memberships;
     written.moderators = conversations.moderators;
     written.people.moderators = conversations.moderators;
+    note_progress(db, job_id, &written).await?;
+
+    let groups =
+        super::people::import_groups(db, &mapper, &index, &resolved, admin, &source).await?;
+    written.people.groups = groups.groups;
+    written.people.groups_filled = groups.groups_filled;
     note_progress(db, job_id, &written).await?;
 
     let messages = run::import_messages(db, &mapper, archive, passphrase, &resolved).await?;

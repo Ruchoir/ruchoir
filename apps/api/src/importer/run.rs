@@ -44,6 +44,8 @@ pub const KIND_USER: &str = "user";
 pub const KIND_CHANNEL: &str = "channel";
 pub const KIND_MESSAGE: &str = "message";
 pub const KIND_FILE: &str = "file";
+pub const KIND_GROUP: &str = "group";
+pub const KIND_ROLE: &str = "role";
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Written {
@@ -189,6 +191,8 @@ pub async fn forget_vanished<C: ConnectionTrait>(db: &C) -> Result<u64> {
         (KIND_CHANNEL, "conversations"),
         (KIND_MESSAGE, "messages"),
         (KIND_FILE, "files"),
+        (KIND_GROUP, "space_groups"),
+        (KIND_ROLE, "space_roles"),
         (super::calendars::KIND_CALENDAR, "calendars"),
         (super::calendars::KIND_EVENT, "calendar_events"),
     ] {

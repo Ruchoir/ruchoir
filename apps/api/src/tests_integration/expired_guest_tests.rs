@@ -492,6 +492,8 @@ fn no_bare_space_members_reads() {
         // the people pass: a row there, ended or not, blocks the insert
         ("importer/people.rs", "admit"),
         ("importer/people.rs", "standing_of"),
+        // a group row needs the person's space row, ended or not (the foreign key)
+        ("importer/people.rs", "import_groups"),
         // the plan's count of who is in each space already
         ("importer/job.rs", "space_people"),
     ];
