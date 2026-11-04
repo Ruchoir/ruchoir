@@ -289,7 +289,7 @@ async fn the_loader_still_reads_a_person_in_one_query() {
         .expect("standing");
     assert_eq!(
         crate::permissions::load::queries_issued(space) - before,
-        1,
-        "the shared definition adds no query"
+        2,
+        "the shared definition adds no query (the people, then their groups)"
     );
 }

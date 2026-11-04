@@ -489,6 +489,8 @@ fn no_bare_space_members_reads() {
         ("importer/run.rs", "import_conversations"),
     ];
     const CHANNEL_MEMBERS: &[(&str, &str)] = &[
+        // the editor's own channel role, read only after `editor_of` found them in the space
+        ("permissions/rules.rs", "resource_facts"),
         // filtered by the engine (`channel.view` among the members)
         ("messaging/authz.rs", "channel_audience"),
         // filtered by the active set right after
@@ -883,4 +885,87 @@ async fn an_ended_guest_cannot_act_on_ranks() {
         .await
         .expect("rank");
     assert!(actor.is_none(), "an ended guest has no rank as an actor");
+}
+
+/// The rule routes (lot 4) honour the end date: an ended guest cannot edit or read the access of a
+/// channel, and an entry cannot be aimed at them, exactly as for somebody who was never in the space.
+#[tokio::test]
+async fn an_expired_guest_is_outside_the_rule_routes() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    let owner = app.cookie_for(fx.owner).await;
+    let expired = app.cookie_for(fx.expired).await;
+    let entries = format!(
+        "/api/v1/spaces/{}/access/channel/{}/entries",
+        fx.space, fx.general
+    );
+    let access = format!("/api/v1/spaces/{}/access/channel/{}", fx.space, fx.general);
+    let aim =
+        |user: Uuid| Some(json!({ "target": { "kind": "user", "id": user }, "level": "read" }));
+
+    let (status, _) = call(&app, reqwest::Method::GET, &access, &expired, None).await;
+    assert_eq!(status, 403, "an ended guest reads no access dialog");
+    let (status, _) = call(
+        &app,
+        reqwest::Method::PUT,
+        &entries,
+        &expired,
+        aim(fx.member),
+    )
+    .await;
+    assert_eq!(status, 403, "an ended guest edits no access");
+
+    let (stranger_status, stranger_body) = call(
+        &app,
+        reqwest::Method::PUT,
+        &entries,
+        &owner,
+        aim(fx.stranger),
+    )
+    .await;
+    let (status, body) = call(
+        &app,
+        reqwest::Method::PUT,
+        &entries,
+        &owner,
+        aim(fx.expired),
+    )
+    .await;
+    assert!(
+        stranger_status >= 400,
+        "control: a stranger is no target: {stranger_body}"
+    );
+    assert_eq!(
+        (status, body.as_str()),
+        (stranger_status, stranger_body.as_str()),
+        "an ended guest is refused as a stranger is"
+    );
+    let (status, _) = call(&app, reqwest::Method::PUT, &entries, &owner, aim(fx.active)).await;
+    assert!(status < 300, "control: a running guest is a target");
+}
+
+/// A channel moderator whose guest access ended edits no access: the editor's channel role is no
+/// standing once the person is out of the space.
+#[tokio::test]
+async fn an_ended_guest_who_moderated_a_channel_edits_no_access() {
+    let Some(app) = boot().await else { return };
+    let fx = fx(&app).await;
+    exec(
+        &app.db,
+        "INSERT INTO channel_members (channel_id, user_id, role) VALUES ($1, $2, 'admin')",
+        vec![fx.general.into(), fx.expired.into()],
+    )
+    .await
+    .expect("moderator");
+    let expired = app.cookie_for(fx.expired).await;
+    let base = format!("/api/v1/spaces/{}/access/channel/{}", fx.space, fx.general);
+    let (status, _) = call(
+        &app,
+        reqwest::Method::PUT,
+        &format!("{base}/entries"),
+        &expired,
+        Some(json!({ "target": { "kind": "user", "id": fx.member }, "level": "read" })),
+    )
+    .await;
+    assert_eq!(status, 403, "an ended guest edits no access");
 }

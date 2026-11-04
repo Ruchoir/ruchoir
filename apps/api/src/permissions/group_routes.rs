@@ -23,8 +23,8 @@ use super::groups::{
     actor, decide, group, groups_of, name_taken, validate_group_name, GroupAct, GroupActor,
     GroupRow, GroupSource,
 };
-use super::rules::{hide_unopened, uses_of, Named};
 use super::membership::active_sql;
+use super::rules::{hide_unopened, uses_of, Named};
 use crate::audit::{record, Action, Target};
 use crate::auth::extract::AuthSession;
 use crate::messaging::error::ApiError;
