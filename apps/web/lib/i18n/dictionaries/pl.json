@@ -2489,7 +2489,8 @@
       "revoked": "Unieważniona",
       "unreachable": "Niedostępna",
       "clock": "Sprawdź zegar",
-      "notYet": "Nadchodząca"
+      "notYet": "Nadchodząca",
+      "noStatus": "Niepotwierdzona"
     },
     "mode": {
       "online": "Online",
@@ -2500,7 +2501,8 @@
       "revoked": "Ta licencja została unieważniona. Funkcje Enterprise są zamrożone i wrócą tylko z nową licencją. Nic nie zostaje usunięte.",
       "unreachable": "Usługa licencji Ruchoir jest niedostępna od {{date}}. Funkcje Enterprise są zamrożone do następnej udanej weryfikacji. Sprawdź, czy serwer może otworzyć wychodzące połączenie HTTPS.",
       "unreachableNever": "Nie udało się jeszcze połączyć z usługą licencji Ruchoir. Funkcje Enterprise są zamrożone do pierwszej udanej weryfikacji. Sprawdź, czy serwer może otworzyć wychodzące połączenie HTTPS.",
-      "clock": "Zegar serwera cofnął się o ponad dzień. Funkcje Enterprise są zamrożone, dopóki nie zostanie ustawiony poprawnie."
+      "clock": "Zegar serwera cofnął się o ponad dzień. Funkcje Enterprise są zamrożone, dopóki nie zostanie ustawiony poprawnie.",
+      "noStatus": "Usługa licencji Ruchoir odpowiada, ale nie potwierdza tej licencji. Funkcje Enterprise są zamrożone: skontaktuj się z Ruchoir, licencja mogła zostać zastąpiona."
     },
     "lastCheckIn": "Ostatnia weryfikacja",
     "lastCheckInHint": "Serwer weryfikuje licencję w Ruchoir co 5 minut.",

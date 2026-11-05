@@ -2271,7 +2271,8 @@
       "revoked": "Revoked",
       "unreachable": "Unreachable",
       "clock": "Check the clock",
-      "notYet": "Upcoming"
+      "notYet": "Upcoming",
+      "noStatus": "Not confirmed"
     },
     "mode": {
       "online": "Online",
@@ -2282,7 +2283,8 @@
       "revoked": "This licence has been revoked. Enterprise features are frozen and will only come back with a new licence. Nothing is deleted.",
       "unreachable": "Ruchoir's licence service has been unreachable since {{date}}. Enterprise features are frozen until the next successful check. Make sure the server can open an outbound HTTPS connection.",
       "unreachableNever": "Ruchoir's licence service could not be reached yet. Enterprise features are frozen until the first successful check. Make sure the server can open an outbound HTTPS connection.",
-      "clock": "The server's clock went back more than a day. Enterprise features are frozen until it is set right."
+      "clock": "The server's clock went back more than a day. Enterprise features are frozen until it is set right.",
+      "noStatus": "Ruchoir's licence service answers, but does not confirm this licence. Enterprise features are frozen: contact Ruchoir, the licence may have been replaced."
     },
     "lastCheckIn": "Last check",
     "lastCheckInHint": "The server checks the licence with Ruchoir every 5 minutes.",

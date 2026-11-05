@@ -2380,7 +2380,8 @@
       "revoked": "Revocata",
       "unreachable": "Non raggiungibile",
       "clock": "Controllare l'orologio",
-      "notYet": "In arrivo"
+      "notYet": "In arrivo",
+      "noStatus": "Non confermata"
     },
     "mode": {
       "online": "Online",
@@ -2391,7 +2392,8 @@
       "revoked": "Questa licenza è stata revocata. Le funzioni Enterprise sono congelate e torneranno solo con una nuova licenza. Non viene eliminato nulla.",
       "unreachable": "Il servizio licenze di Ruchoir non è raggiungibile dal {{date}}. Le funzioni Enterprise sono congelate fino alla prossima verifica riuscita. Verifichi che il server possa aprire una connessione HTTPS in uscita.",
       "unreachableNever": "Il servizio licenze di Ruchoir non è ancora stato raggiunto. Le funzioni Enterprise sono congelate fino alla prima verifica riuscita. Verifichi che il server possa aprire una connessione HTTPS in uscita.",
-      "clock": "L'orologio del server è tornato indietro di più di un giorno. Le funzioni Enterprise sono congelate finché non viene rimesso all'ora giusta."
+      "clock": "L'orologio del server è tornato indietro di più di un giorno. Le funzioni Enterprise sono congelate finché non viene rimesso all'ora giusta.",
+      "noStatus": "Il servizio licenze di Ruchoir risponde, ma non conferma questa licenza. Le funzioni Enterprise sono congelate: contatti Ruchoir, forse la licenza è stata sostituita."
     },
     "lastCheckIn": "Ultima verifica",
     "lastCheckInHint": "Il server verifica la licenza presso Ruchoir ogni 5 minuti.",

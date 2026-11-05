@@ -2271,7 +2271,8 @@
       "revoked": "Widerrufen",
       "unreachable": "Nicht erreichbar",
       "clock": "Uhr prüfen",
-      "notYet": "Bevorstehend"
+      "notYet": "Bevorstehend",
+      "noStatus": "Nicht bestätigt"
     },
     "mode": {
       "online": "Online",
@@ -2282,7 +2283,8 @@
       "revoked": "Diese Lizenz wurde widerrufen. Die Enterprise-Funktionen sind eingefroren und kehren erst mit einer neuen Lizenz zurück. Nichts wird gelöscht.",
       "unreachable": "Der Lizenzdienst von Ruchoir ist seit dem {{date}} nicht erreichbar. Die Enterprise-Funktionen sind bis zur nächsten erfolgreichen Prüfung eingefroren. Prüfen Sie, ob der Server eine ausgehende HTTPS-Verbindung öffnen kann.",
       "unreachableNever": "Der Lizenzdienst von Ruchoir konnte noch nicht erreicht werden. Die Enterprise-Funktionen sind bis zur ersten erfolgreichen Prüfung eingefroren. Prüfen Sie, ob der Server eine ausgehende HTTPS-Verbindung öffnen kann.",
-      "clock": "Die Uhr des Servers ist um mehr als einen Tag zurückgegangen. Die Enterprise-Funktionen sind eingefroren, bis sie richtig gestellt ist."
+      "clock": "Die Uhr des Servers ist um mehr als einen Tag zurückgegangen. Die Enterprise-Funktionen sind eingefroren, bis sie richtig gestellt ist.",
+      "noStatus": "Der Lizenzdienst von Ruchoir antwortet, bestätigt diese Lizenz aber nicht. Die Enterprise-Funktionen sind eingefroren: Wenden Sie sich an Ruchoir, die Lizenz wurde vielleicht ersetzt."
     },
     "lastCheckIn": "Letzte Prüfung",
     "lastCheckInHint": "Der Server prüft die Lizenz alle 5 Minuten bei Ruchoir.",

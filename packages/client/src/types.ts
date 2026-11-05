@@ -146,10 +146,10 @@ export type LicenceMode = "online" | "offline";
 
 /**
  * Where a licence stands: in force, suspended or revoked by its issuer, frozen because the licence
- * service has not answered for 7 days, ended, not started yet, or refused because the server's clock
+ * service has not answered for 7 days or answered without confirming this licence, ended, not started yet, or refused because the server's clock
  * went back.
  */
-export type LicenceStatus = "active" | "suspended" | "revoked" | "unreachable" | "expired" | "not_yet" | "clock";
+export type LicenceStatus = "active" | "suspended" | "revoked" | "unreachable" | "no_status" | "expired" | "not_yet" | "clock";
 
 /** A space's licence as its owner manages it. */
 export type LicenceView = {

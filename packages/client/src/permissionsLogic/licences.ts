@@ -110,6 +110,7 @@ export function licenceStanding(view: LicenceView): LicenceStanding {
     status === "suspended" ? { tone: "warning", key: "licence.tag.suspended" }
     : status === "revoked" ? { tone: "danger", key: "licence.tag.revoked" }
     : status === "unreachable" ? { tone: "warning", key: "licence.tag.unreachable" }
+    : status === "no_status" ? { tone: "warning", key: "licence.tag.noStatus" }
     : status === "clock" ? { tone: "danger", key: "licence.tag.clock" }
     : status === "not_yet" ? { tone: "info", key: "licence.tag.notYet" }
     : view.edition === "frozen" ? { tone: "warning", key: "licence.expiredTag" }
@@ -121,6 +122,7 @@ export function licenceStanding(view: LicenceView): LicenceStanding {
       ? view.unreachableSince
         ? { tone: "danger", key: "licence.banner.unreachable", since: view.unreachableSince }
         : { tone: "danger", key: "licence.banner.unreachableNever" }
+    : status === "no_status" ? { tone: "danger", key: "licence.banner.noStatus" }
     : status === "clock" ? { tone: "danger", key: "licence.banner.clock" }
     : null;
   return {

@@ -180,3 +180,10 @@ test("a_first_version_or_older_server_licence_reads_as_before", () => {
   assert.equal(s.canCheck, false);
   assert.equal(s.banner, null);
 });
+
+test("a_service_that_answered_without_confirming_the_licence_has_its_own_sentence", () => {
+  const s = licenceStanding(online({ status: "no_status", edition: "frozen" }));
+  assert.deepEqual(s.tag, { tone: "warning", key: "licence.tag.noStatus" });
+  assert.deepEqual(s.banner, { tone: "danger", key: "licence.banner.noStatus" });
+  assert.equal(s.canCheck, true);
+});

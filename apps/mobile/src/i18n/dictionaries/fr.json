@@ -1547,7 +1547,8 @@
       "revoked": "Révoquée",
       "unreachable": "Injoignable",
       "clock": "Horloge à vérifier",
-      "notYet": "À venir"
+      "notYet": "À venir",
+      "noStatus": "Non confirmée"
     },
     "mode": {
       "online": "En ligne",
@@ -1558,7 +1559,8 @@
       "revoked": "Cette licence a été révoquée. Les fonctions Entreprise sont gelées et ne reviendront qu'avec une nouvelle licence. Rien n'est supprimé.",
       "unreachable": "Le service de licences de Ruchoir est injoignable depuis le {{date}}. Les fonctions Entreprise sont gelées jusqu'à la prochaine vérification réussie. Vérifiez que le serveur peut ouvrir une connexion HTTPS sortante.",
       "unreachableNever": "Le service de licences de Ruchoir n'a pas encore pu être joint. Les fonctions Entreprise sont gelées jusqu'à la première vérification réussie. Vérifiez que le serveur peut ouvrir une connexion HTTPS sortante.",
-      "clock": "L'horloge du serveur a reculé de plus d'un jour. Les fonctions Entreprise sont gelées jusqu'à ce qu'elle soit remise à l'heure."
+      "clock": "L'horloge du serveur a reculé de plus d'un jour. Les fonctions Entreprise sont gelées jusqu'à sa remise à l'heure.",
+      "noStatus": "Le service de licences de Ruchoir répond, mais ne confirme pas cette licence. Les fonctions Entreprise sont gelées : contactez Ruchoir, la licence a peut-être été remplacée."
     },
     "lastCheckIn": "Dernière vérification",
     "lastCheckInHint": "Le serveur vérifie la licence toutes les 5 minutes auprès de Ruchoir.",

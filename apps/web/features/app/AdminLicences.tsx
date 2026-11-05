@@ -37,6 +37,7 @@ const STATUS: Record<Exclude<NonNullable<AdminLicence["status"]>, "invalid">, Tr
   suspended: key("licence.tag.suspended"),
   revoked: key("licence.tag.revoked"),
   unreachable: key("licence.tag.unreachable"),
+  no_status: key("licence.tag.noStatus"),
   expired: key("admin.licenceFrozen"),
   not_yet: key("licence.tag.notYet"),
   clock: key("licence.tag.clock"),

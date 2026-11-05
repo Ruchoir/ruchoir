@@ -15,7 +15,7 @@ const base: LicenceView = { licenceId: "l", organisation: "A", seats: 5, used: 1
 const views: LicenceView[] = [
   base,
   { ...base, edition: "frozen" },
-  ...(["active", "suspended", "revoked", "unreachable", "expired", "not_yet", "clock"] as const).flatMap((status) =>
+  ...(["active", "suspended", "revoked", "unreachable", "no_status", "expired", "not_yet", "clock"] as const).flatMap((status) =>
     (["online", "offline"] as const).map((mode) => ({ ...base, status, mode, unreachableSince: "2026-10-28T00:00:00Z", next: { validFrom: "a", validUntil: "b", seats: 5 } })),
   ),
   { ...base, status: "unreachable", mode: "online" },
