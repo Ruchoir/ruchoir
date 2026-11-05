@@ -180,7 +180,7 @@ impl Edition for LicensedEdition {
     }
 
     fn features(&self) -> &'static [&'static str] {
-        &["custom_roles"]
+        &["custom_roles", "group_roles"]
     }
 
     async fn import_custom_role(
@@ -229,7 +229,7 @@ impl Edition for FrozenEdition {
     }
 
     fn features(&self) -> &'static [&'static str] {
-        &["custom_roles"]
+        &["custom_roles", "group_roles"]
     }
 
     async fn import_custom_role(

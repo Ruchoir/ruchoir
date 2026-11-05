@@ -10,13 +10,17 @@ import { rolesWith } from "./roleEditor.ts";
 
 type Ctx = { licensed: boolean; frozen: boolean };
 
-type GroupView = PanelGroup & { may: PanelGroup["may"] & { edit: boolean; delete: boolean; changeRoles: boolean; addNeedsLicence: boolean } };
+type GroupView = PanelGroup & { may: PanelGroup["may"] & { edit: boolean; delete: boolean; changeRoles: boolean; addNeedsLicence: boolean; addPeopleNeedsLicence: boolean } };
 
 type RoleView = { id: string; name: string; permissions: string[]; manageable: boolean; systemKey?: "administrator" | "members" | "guests" };
 
 /** Whether additions are paid for here (a free or frozen space), and so which sentence says why. Taking away is never locked. */
 export function lockOf(group: Pick<GroupView, "may">, ctx: Ctx): AdditionLock | null {
-  return additionLock(ctx.frozen ? "frozen" : ctx.licensed ? "enterprise" : "community", group.may.addNeedsLicence);
+  return additionLock(editionOf(ctx), group.may.addNeedsLicence);
+}
+
+function editionOf(ctx: Ctx): "community" | "enterprise" | "frozen" {
+  return ctx.frozen ? "frozen" : ctx.licensed ? "enterprise" : "community";
 }
 
 /** What a group offers the viewer as a whole. `roles` and `managers` say whether those blocks are drawn at all. */
@@ -24,8 +28,8 @@ export function groupAbilities(group: GroupView, ctx: Ctx) {
   const directory = group.source === "directory";
   return {
     add: offersManagement(group),
-    // Why adding people is off: the group carries roles, and giving them is paid.
-    addLock: addPeopleLock(group, lockOf(group, ctx)),
+    // Why adding people is off: the server says the licence refuses it (roles carried, or manager-only).
+    addLock: addPeopleLock(editionOf(ctx), group.may.addPeopleNeedsLicence),
     rename: group.may.edit,
     delete: group.may.delete,
     // The roles and managers blocks exist on the licensed editions, and elsewhere while the group still holds some to take away; a directory group has no manager.
@@ -67,7 +71,7 @@ export function rowLine(people: number, carried: string[], licensed: boolean): L
 
 /** Whether a row of the list opens: not when it carries a role above the viewer's and nothing is theirs to change (the web's rule). */
 export function groupOpens(group: Pick<GroupView, "may">, locked: ReturnType<typeof groupRow>["locked"]): boolean {
-  return locked !== "above" || Object.entries(group.may).some(([key, allowed]) => key !== "addNeedsLicence" && allowed);
+  return locked !== "above" || Object.entries(group.may).some(([key, allowed]) => !key.startsWith("add") && allowed);
 }
 
 /** The people who can be picked to join: not bots, not already in, and not oneself in a group that carries roles (unless owner). */

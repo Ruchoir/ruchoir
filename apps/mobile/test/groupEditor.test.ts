@@ -4,9 +4,9 @@ import assert from "node:assert/strict";
 import { ROLE_COLOURS as GROUP_PASTELS } from "@ruchoir/client/permissionsLogic";
 import { groupAbilities, groupColour, groupOpens, pickablePeople, personActions, roleToggleRows, rowLine, settledRoles, togglePayload } from "../src/logic/groupEditor.ts";
 
-type May = { edit: boolean; delete: boolean; changeMembers: boolean; changeRoles: boolean; appoint: boolean; addNeedsLicence: boolean };
-const ALL: May = { edit: true, delete: true, changeMembers: true, changeRoles: true, appoint: true, addNeedsLicence: false };
-const NONE: May = { edit: false, delete: false, changeMembers: false, changeRoles: false, appoint: false, addNeedsLicence: false };
+type May = { edit: boolean; delete: boolean; changeMembers: boolean; changeRoles: boolean; appoint: boolean; addNeedsLicence: boolean; addPeopleNeedsLicence: boolean };
+const ALL: May = { edit: true, delete: true, changeMembers: true, changeRoles: true, appoint: true, addNeedsLicence: false, addPeopleNeedsLicence: false };
+const NONE: May = { edit: false, delete: false, changeMembers: false, changeRoles: false, appoint: false, addNeedsLicence: false, addPeopleNeedsLicence: false };
 const group = (over: Partial<{ source: "manual" | "directory"; memberIds: string[]; managerIds: string[]; roleIds: string[]; may: May }> = {}) => ({
   id: "g1",
   name: "Comptabilité",
@@ -59,7 +59,7 @@ test("a_free_or_frozen_space_keeps_the_removals_and_locks_the_additions", () => 
   assert.equal(bare.roles, false);
   assert.equal(bare.managers, false);
   // A group that still carries a role and a manager shows them, to take away.
-  const g = group({ may: paid, roleIds: ["acc"], managerIds: ["julie"] });
+  const g = group({ may: { ...paid, addPeopleNeedsLicence: true }, roleIds: ["acc"], managerIds: ["julie"] });
   for (const ctx of [{ licensed: false, frozen: false }, { licensed: true, frozen: true }]) {
     const lock = ctx.frozen ? "licence_frozen" : "licence_required";
     const a = groupAbilities(g, ctx);
@@ -78,6 +78,10 @@ test("a_free_or_frozen_space_keeps_the_removals_and_locks_the_additions", () => 
   }
   // A plain group stays open to new people in a free space.
   assert.equal(groupAbilities(group({ may: paid }), { licensed: false, frozen: false }).addLock, null);
+  // A plain group the caller only manages: the server says Add is paid, so the button is locked.
+  const managerOnly = group({ may: { ...paid, addPeopleNeedsLicence: true } });
+  assert.equal(groupAbilities(managerOnly, { licensed: false, frozen: false }).addLock, "licence_required");
+  assert.equal(groupAbilities(managerOnly, { licensed: true, frozen: true }).addLock, "licence_frozen");
   // Paid: nothing locked.
   const full = groupAbilities({ ...g, may: ALL }, pro);
   assert.equal(full.addLock, null);
@@ -106,7 +110,7 @@ test("a_row_opens_unless_it_is_locked_above_with_nothing_allowed", () => {
   assert.equal(groupOpens(group({ may: { ...NONE, changeMembers: true } }), "above"), true);
   assert.equal(groupOpens(group({ may: NONE }), null), true);
   // The licence flag alone is not a right.
-  assert.equal(groupOpens(group({ may: { ...NONE, addNeedsLicence: true } }), "above"), false);
+  assert.equal(groupOpens(group({ may: { ...NONE, addNeedsLicence: true, addPeopleNeedsLicence: true } }), "above"), false);
 });
 
 test("pickable_people_are_those_not_already_in_and_not_bots", () => {

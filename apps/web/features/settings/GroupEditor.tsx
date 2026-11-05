@@ -58,11 +58,11 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
   const { t } = useTranslation();
   const licensed = edition !== "community";
   const frozen = edition === "frozen";
-  // Adding a role, a manager or a person to a group that carries roles is paid; taking away never is.
+  // Adding a role or a manager is paid, and so is adding people where the server says so; taking away never is.
   const lock = additionLock(edition, group.may.addNeedsLicence);
   const showRoles = licensed || group.roleIds.length > 0;
   const showManagers = licensed || group.managerIds.length > 0;
-  const addLock = addPeopleLock(group, lock);
+  const addLock = addPeopleLock(edition, group.may.addPeopleNeedsLicence);
   const directory = group.source === "directory";
   const [tab, setTab] = useState("people");
   const [query, setQuery] = useState("");

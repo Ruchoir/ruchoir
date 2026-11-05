@@ -99,7 +99,7 @@ export function MemberGroups({
   const [pickerOpen, setPickerOpen] = useState(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const mine = groupsOf(member.userId, groups);
-  const addable = sortGroups(groups.filter((g) => g.source !== "directory" && g.may.changeMembers && (g.roleIds.length === 0 || !g.may.addNeedsLicence) && !g.memberIds.includes(member.userId) && addBlockFor({ carriesRoles: g.roleIds.length > 0, viewerId, viewerIsOwner }, member.userId) === null));
+  const addable = sortGroups(groups.filter((g) => g.source !== "directory" && g.may.changeMembers && !g.may.addPeopleNeedsLicence && !g.memberIds.includes(member.userId) && addBlockFor({ carriesRoles: g.roleIds.length > 0, viewerId, viewerIsOwner }, member.userId) === null));
   if (mine.length === 0 && addable.length === 0) return null;
   const first = member.name.split(" ")[0];
   // The group panel's rule: the manager protection holds here too; leaving oneself is always possible.

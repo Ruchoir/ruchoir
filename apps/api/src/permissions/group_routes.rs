@@ -22,7 +22,7 @@ use super::catalogue::Permission;
 use super::delegation::rank_of;
 use super::groups::{
     actor, decide, group, groups_of, name_taken, rests_on_manager, validate_group_name, GroupAct,
-    GroupActor, GroupRow, GroupSource, Paid,
+    GroupActor, GroupRow, GroupSource, Paid, Refusal,
 };
 use super::membership::active_sql;
 use super::rules::{hide_unopened, uses_of, Named};
@@ -70,9 +70,12 @@ pub struct GroupMay {
     pub change_roles: bool,
     /// Name its managers (remove one, or add one where the edition allows); false in a build without the routes.
     pub appoint: bool,
-    /// True when the space's licence would refuse additions the caller may otherwise make (a role,
-    /// a manager, a person in a group that carries roles); a removal still goes through.
+    /// True when the space's licence would refuse additions the caller may otherwise make (a role
+    /// or a manager); a removal still goes through.
     pub add_needs_licence: bool,
+    /// True when the licence refuses putting people in this group for the caller, who would
+    /// otherwise be allowed: the group carries roles, or the caller acts as its manager only.
+    pub add_people_needs_licence: bool,
 }
 
 /// One group of the space.
@@ -98,13 +101,13 @@ pub struct GroupDto {
 
 /// Whether the running edition serves the routes writing a group's roles and managers.
 fn governs_groups(state: &AppState) -> bool {
-    state.edition.features().contains(&"custom_roles")
+    state.edition.features().contains(&"group_roles")
 }
 
 /// What `actor` may do to `group`.
 ///
 /// `governed` is whether the running edition serves the routes that write a group's roles and
-/// managers (the enterprise build's `custom_roles` feature): without them the controls would
+/// managers (the enterprise build's `group_roles` feature): without them the controls would
 /// answer `404`, so they are not offered.
 pub fn may(actor: &GroupActor, group: &GroupRow, governed: bool) -> GroupMay {
     GroupMay {
@@ -125,6 +128,23 @@ pub fn may(actor: &GroupActor, group: &GroupRow, governed: bool) -> GroupMay {
             .is_ok(),
         appoint: governed && decide(actor, group, GroupAct::SetManagers(&[])).is_ok(),
         add_needs_licence: actor.paid != Paid::Enterprise,
+        add_people_needs_licence: add_people_needs_licence(actor, group),
+    }
+}
+
+/// Whether adding people is refused for the licence alone: `decide` answers with a licence code
+/// and would say yes were the space on the paid edition.
+fn add_people_needs_licence(actor: &GroupActor, group: &GroupRow) -> bool {
+    let refused_by_licence = matches!(
+        decide(actor, group, GroupAct::Add(&[])),
+        Err(Refusal::LicenceRequired | Refusal::LicenceFrozen)
+    );
+    refused_by_licence && {
+        let paid = GroupActor {
+            paid: Paid::Enterprise,
+            ..actor.clone()
+        };
+        decide(&paid, group, GroupAct::Add(&[])).is_ok()
     }
 }
 
@@ -719,6 +739,8 @@ mod tests {
             actor_with(&both, Rank::Position(50), false, Paid::Community),
             actor_with(&both, Rank::Position(50), false, Paid::Frozen),
             actor_with(&both, Rank::Owner, true, Paid::Enterprise),
+            // Only a manager of the group, no groups.manage, on the free edition.
+            actor_with(&[], Rank::Position(0), false, Paid::Community),
         ];
         let groups = [
             group_with(GroupSource::Manual, vec![], vec![]),
@@ -757,6 +779,13 @@ mod tests {
                     decide(actor, group, GroupAct::SetManagers(&[])).is_ok()
                 );
                 assert_eq!(got.add_needs_licence, actor.paid != Paid::Enterprise);
+                let refused = matches!(
+                    decide(actor, group, GroupAct::Add(&[])),
+                    Err(Refusal::LicenceRequired | Refusal::LicenceFrozen)
+                );
+                if !refused {
+                    assert!(!got.add_people_needs_licence);
+                }
             }
         }
         // And the flags say what a person would expect of them.
@@ -770,7 +799,8 @@ mod tests {
                 change_members: true,
                 change_roles: true,
                 appoint: true,
-                add_needs_licence: false
+                add_needs_licence: false,
+                add_people_needs_licence: false
             }
         );
         let community = &actors[3];
@@ -782,12 +812,24 @@ mod tests {
                 change_members: true,
                 change_roles: true,
                 appoint: true,
-                add_needs_licence: true
+                add_needs_licence: true,
+                add_people_needs_licence: false
             }
         );
         let frozen = &actors[4];
         let got = may(frozen, plain, true);
         assert!(got.change_roles && got.appoint && got.add_needs_licence);
+        // A manager without groups.manage, on a plain group of a community space: Add is paid.
+        let manager = &actors[6];
+        let managed = &groups[1];
+        assert!(may(manager, managed, true).change_members);
+        assert!(may(manager, managed, true).add_people_needs_licence);
+        // A plain group that GM alone governs is free to fill, and so is one nobody manages.
+        assert!(!may(community, plain, true).add_people_needs_licence);
+        // A group carrying roles: paid too, for GM.
+        assert!(may(community, &groups[2], true).add_people_needs_licence);
+        // A role above the actor refuses for another reason, not the licence.
+        assert!(!may(community, &groups[3], true).add_people_needs_licence);
         let bare = may(hr, plain, false);
         assert!(!bare.change_roles && !bare.appoint && bare.change_members);
         assert!(!may(&actors[0], plain, true).edit);

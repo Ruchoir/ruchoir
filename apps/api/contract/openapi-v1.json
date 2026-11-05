@@ -2440,7 +2440,11 @@
         "description": "What the caller may do to a group, each flag asking [`decide`] about a representative act, so\nthe screen and the server never disagree.",
         "properties": {
           "add_needs_licence": {
-            "description": "True when the space's licence would refuse additions the caller may otherwise make (a role,\na manager, a person in a group that carries roles); a removal still goes through.",
+            "description": "True when the space's licence would refuse additions the caller may otherwise make (a role\nor a manager); a removal still goes through.",
+            "type": "boolean"
+          },
+          "add_people_needs_licence": {
+            "description": "True when the licence refuses putting people in this group for the caller, who would\notherwise be allowed: the group carries roles, or the caller acts as its manager only.",
             "type": "boolean"
           },
           "appoint": {
@@ -2469,7 +2473,8 @@
           "change_members",
           "change_roles",
           "appoint",
-          "add_needs_licence"
+          "add_needs_licence",
+          "add_people_needs_licence"
         ],
         "type": "object"
       },

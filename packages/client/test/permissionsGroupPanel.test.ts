@@ -86,8 +86,9 @@ test("additions_wait_for_a_licence_but_removals_never_do", () => {
   assert.equal(appointLock(g, "julie", "licence_frozen"), null);
   assert.equal(appointLock(g, "hugo", "licence_frozen"), "licence_frozen");
   assert.equal(roleToggleLock(g, "r2", null), null);
-  // Adding people is free to a plain group, paid once it gives a role.
-  assert.equal(addPeopleLock(group(), "licence_required"), null);
-  assert.equal(addPeopleLock(g, "licence_required"), "licence_required");
-  assert.equal(addPeopleLock(g, null), null);
+  // Adding people follows the server's own flag, not the roles the group carries.
+  assert.equal(addPeopleLock("community", false), null);
+  assert.equal(addPeopleLock("community", true), "licence_required");
+  assert.equal(addPeopleLock("frozen", true), "licence_frozen");
+  assert.equal(addPeopleLock("enterprise", false), null);
 });

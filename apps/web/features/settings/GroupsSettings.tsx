@@ -161,7 +161,7 @@ function GroupList({
           ) : (
             shown.map((g, i) => {
               const row = groupRow(g, roles, { frozen });
-              const opens = row.locked !== "above" || Object.entries(g.may).some(([key, allowed]) => key !== "addNeedsLicence" && allowed);
+              const opens = row.locked !== "above" || Object.entries(g.may).some(([key, allowed]) => !key.startsWith("add") && allowed);
               const { people } = groupPeople(g, members);
               const managers = g.managerIds.map((id) => byId.get(id)).filter((m): m is Member => !!m);
               return (

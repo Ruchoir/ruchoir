@@ -174,7 +174,7 @@ async fn members_list_groups_and_guests_cannot() {
     // manager they may take people out (adding is licence-gated in this edition).
     assert_eq!(
         list[0]["may"],
-        json!({ "edit": false, "delete": false, "change_members": true, "change_roles": false, "appoint": false, "add_needs_licence": true })
+        json!({ "edit": false, "delete": false, "change_members": true, "change_roles": false, "appoint": false, "add_needs_licence": true, "add_people_needs_licence": true })
     );
     let (_, list) = call(&app, fx.admin, reqwest::Method::GET, &path, None).await;
     assert_eq!(list[1]["id"], b.to_string());
@@ -1143,6 +1143,11 @@ async fn the_flags_offer_removals_everywhere_and_say_whether_adding_is_paid() {
         assert_eq!(mine["may"]["appoint"], edition != 0, "edition {edition}");
         assert_eq!(
             mine["may"]["add_needs_licence"], paid_needed,
+            "edition {edition}"
+        );
+        // The group carries roles, so putting people in it is paid exactly when adding is.
+        assert_eq!(
+            mine["may"]["add_people_needs_licence"], paid_needed,
             "edition {edition}"
         );
     }

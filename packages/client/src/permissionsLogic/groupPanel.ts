@@ -104,7 +104,7 @@ export function appointLock(group: Pick<GroupLike, "managerIds">, personId: stri
   return group.managerIds.includes(personId) ? null : lock;
 }
 
-/** Putting people in a group is free until it carries a role: then it gives them that role, which is paid. */
-export function addPeopleLock(group: Pick<GroupLike, "roleIds">, lock: AdditionLock | null): AdditionLock | null {
-  return group.roleIds.length > 0 ? lock : null;
+/** Putting people in a group is paid when the server says so (`may.addPeopleNeedsLicence`): the group carries roles, or the caller acts as its manager only. */
+export function addPeopleLock(edition: "community" | "enterprise" | "frozen", addPeopleNeedsLicence: boolean): AdditionLock | null {
+  return additionLock(edition, addPeopleNeedsLicence);
 }
