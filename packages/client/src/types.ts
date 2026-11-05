@@ -141,14 +141,37 @@ export type AuditPage = { entries: AuditEntry[]; next?: string };
 
 export type AuditQuery = { actor?: string; category?: string; since?: string; before?: string; limit?: number };
 
+/** How a licence is kept up to date: checked with the licence service, or never. */
+export type LicenceMode = "online" | "offline";
+
+/**
+ * Where a licence stands: in force, suspended or revoked by its issuer, frozen because the licence
+ * service has not answered for 7 days, ended, not started yet, or refused because the server's clock
+ * went back.
+ */
+export type LicenceStatus = "active" | "suspended" | "revoked" | "unreachable" | "expired" | "not_yet" | "clock";
+
 /** A space's licence as its owner manages it. */
 export type LicenceView = {
   licenceId: string;
   organisation: string;
+  /** The seats in force (an online licence's issuer may change them). */
   seats: number;
   used: number;
+  /** The end in force (RFC 3339). */
   validUntil: string;
-  edition: "enterprise" | "frozen";
+  /** `community` is a licence whose start has not come. */
+  edition: "enterprise" | "frozen" | "community";
+  /** Absent for a licence of the first version, and from an older server. */
+  mode?: LicenceMode;
+  /** Absent from an older server. */
+  status?: LicenceStatus;
+  /** Online licences: the last check-in that got an answer (RFC 3339). */
+  lastCheckInAt?: string;
+  /** When `status` is `unreachable`: since when, if it ever answered. */
+  unreachableSince?: string;
+  /** The next licence, when one waits to take over. */
+  next?: { validFrom: string; validUntil: string; seats: number };
   /** When it was installed (ISO 8601); absent from an instance older than this field. */
   installedAt?: string;
   /** Who installed it; absent once their account is deleted. */
@@ -166,7 +189,10 @@ export type AdminLicence = {
   /** RFC 3339. */
   validUntil: string;
   /** `invalid` is a stored licence this build cannot verify. */
-  edition: "enterprise" | "frozen" | "invalid";
+  edition: "enterprise" | "frozen" | "community" | "invalid";
+  mode?: LicenceMode;
+  status?: LicenceStatus | "invalid";
+  lastCheckInAt?: string;
 };
 
 /**
@@ -185,6 +211,8 @@ export type Refusal =
         | "licence_frozen"
         | "licence_invalid"
         | "licence_expired"
+        | "licence_service_unreachable"
+        | "licence_check_too_soon"
         | "role_above_you"
         | "person_above_you"
         | "permission_not_held"

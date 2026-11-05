@@ -127,3 +127,46 @@ test("capped_fields_show_a_count_out_of_their_limit", async () => {
   // Counted like the field's own `maxLength` does (UTF-16 units), so the count and the cap agree.
   assert.equal(charCount("été 🎉", GROUP_NAME_MAX), "6/60");
 });
+
+test("an_online_licence_says_its_mode_status_check_in_and_next", async () => {
+  const view = {
+    licence_id: "l2", organisation: "Atelier SARL", seats: 25, used: 8, valid_until: "2027-11-04T00:00:00Z", edition: "enterprise",
+    mode: "online", status: "active", last_check_in_at: "2026-11-05T14:00:00Z", unreachable_since: null,
+    next: { valid_from: "2027-11-04T00:00:00Z", valid_until: "2028-11-04T00:00:00Z", seats: 25 },
+  };
+  const calls = fakeFetch({ body: view }, { body: { ...view, status: "suspended", edition: "frozen", next: null } });
+  const client = api();
+  const read = await client.getLicence("s1");
+  assert.equal(read?.mode, "online");
+  assert.equal(read?.status, "active");
+  assert.equal(read?.lastCheckInAt, "2026-11-05T14:00:00Z");
+  assert.equal(read?.unreachableSince, undefined);
+  assert.deepEqual(read?.next, { validFrom: "2027-11-04T00:00:00Z", validUntil: "2028-11-04T00:00:00Z", seats: 25 });
+  const checked = await client.checkLicence("s1");
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(new URL(calls[1].url).pathname, "/api/v1/spaces/s1/licence/check");
+  assert.equal(checked.status, "suspended");
+  assert.equal(checked.next, undefined);
+});
+
+test("an_older_server_s_licence_reads_without_the_new_fields", async () => {
+  fakeFetch({ body: { licence_id: "l1", organisation: "A", seats: 5, used: 1, valid_until: "2027-01-01T00:00:00Z", edition: "frozen" } });
+  const read = await api().getLicence("s1");
+  assert.equal(read?.mode, undefined);
+  assert.equal(read?.status, undefined);
+  assert.equal(read?.next, undefined);
+});
+
+test("the_admin_list_carries_mode_status_and_last_check_in", async () => {
+  fakeFetch({ body: [{ space_id: "s1", space_name: "Atelier", organisation: "A", seats: 5, used: 1, valid_until: "2027-01-01T00:00:00Z", edition: "enterprise", mode: "offline", status: "active", last_check_in_at: null }] });
+  const [row] = await api().getAdminLicences();
+  assert.equal(row.mode, "offline");
+  assert.equal(row.status, "active");
+  assert.equal(row.lastCheckInAt, undefined);
+});
+
+test("the_licence_service_refusals_are_named", () => {
+  const refusal = (status: number, body: unknown) => refusalOf(new ApiError(status, "x", body));
+  assert.deepEqual(refusal(503, { error: "licence_service_unreachable" }), { code: "licence_service_unreachable" });
+  assert.deepEqual(refusal(429, { error: "licence_check_too_soon" }), { code: "licence_check_too_soon" });
+});
