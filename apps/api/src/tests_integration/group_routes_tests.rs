@@ -170,20 +170,20 @@ async fn members_list_groups_and_guests_cannot() {
     assert_eq!(list[0]["manager_ids"], json!([fx.member.to_string()]));
     assert_eq!(list[0]["role_ids"], json!([]));
     assert!(list[0].get("description").is_none());
-    // A plain member may change nothing, not even as a manager of the group (renaming needs the
-    // right itself).
+    // A plain member may not rename, delete or govern the group, even as its manager; as its
+    // manager they may take people out (adding is licence-gated in this edition).
     assert_eq!(
         list[0]["may"],
-        json!({ "edit": false, "delete": false, "change_members": false, "change_roles": false, "appoint": false, "add_needs_licence": true })
+        json!({ "edit": false, "delete": false, "change_members": true, "change_roles": false, "appoint": false, "add_needs_licence": true })
     );
     let (_, list) = call(&app, fx.admin, reqwest::Method::GET, &path, None).await;
     assert_eq!(list[1]["id"], b.to_string());
     assert_eq!(list[1]["may"]["edit"], true);
     assert_eq!(list[1]["may"]["delete"], true);
     assert_eq!(list[1]["may"]["change_members"], true);
-    // Community edition: taking roles and managers away stays offered, adding them is paid.
-    assert_eq!(list[1]["may"]["change_roles"], true);
-    assert_eq!(list[1]["may"]["appoint"], true);
+    // The core alone has no routes for roles and managers: no control is offered for them.
+    assert_eq!(list[1]["may"]["change_roles"], false);
+    assert_eq!(list[1]["may"]["appoint"], false);
     assert_eq!(list[1]["may"]["add_needs_licence"], true);
 
     // A guest never reads the directory; a stranger neither.
@@ -1133,8 +1133,14 @@ async fn the_flags_offer_removals_everywhere_and_say_whether_adding_is_paid() {
             .iter()
             .find(|g| g["id"] == group.to_string())
             .expect("the group");
-        assert_eq!(mine["may"]["change_roles"], true, "edition {edition}");
-        assert_eq!(mine["may"]["appoint"], true, "edition {edition}");
+        assert_eq!(mine["may"]["change_members"], true, "edition {edition}");
+        // Only an edition that carries the routes offers the controls for roles and managers.
+        assert_eq!(
+            mine["may"]["change_roles"],
+            edition != 0,
+            "edition {edition}"
+        );
+        assert_eq!(mine["may"]["appoint"], edition != 0, "edition {edition}");
         assert_eq!(
             mine["may"]["add_needs_licence"], paid_needed,
             "edition {edition}"

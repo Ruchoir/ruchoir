@@ -286,16 +286,25 @@ async fn run_passes<S: BlobSink>(
     }
     note_progress(db, job_id, &written).await?;
 
-    let groups =
-        match super::people::import_groups(db, &mapper, &index, &resolved, admin, &source).await {
-            Ok(groups) => groups,
-            Err(error) => {
-                return stop(
-                    db, job_id, &settings, admin, &source, attempt, &written, error,
-                )
-                .await;
-            }
-        };
+    let groups = match super::people::import_groups(
+        db,
+        settings.edition.as_ref(),
+        &mapper,
+        &index,
+        &resolved,
+        admin,
+        &source,
+    )
+    .await
+    {
+        Ok(groups) => groups,
+        Err(error) => {
+            return stop(
+                db, job_id, &settings, admin, &source, attempt, &written, error,
+            )
+            .await;
+        }
+    };
     written.people.groups = groups.groups;
     written.people.groups_filled = groups.groups_filled;
     written.people.group_names = groups.group_names;

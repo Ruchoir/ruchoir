@@ -2123,6 +2123,63 @@ async fn a_resume_of_the_same_job_counts_its_group_as_created_and_fills_it() {
 }
 
 #[tokio::test]
+async fn a_resume_does_not_fill_a_group_that_now_carries_roles_outside_an_enterprise_space() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    become_admin(&app, fx.alice).await;
+    let (name, a) = (unique_space(), address("a"));
+    let dir = people_archive_full(
+        2,
+        &name,
+        &[("a", &a)],
+        &[("a", "member", &[])],
+        &[],
+        &[("g1", "Design", "", &["a"])],
+        &[],
+    );
+    let (job, first) = run_people(&app, fx.alice, &dir, Arc::new(CommunityEdition)).await;
+    first.expect("first");
+    let space = space_named(&app, &name).await;
+    let group = group_rows(&app, space).await[0].0;
+    // Somebody leaves the group and it gains a role (it was licensed then), then the SAME job
+    // resumes in a space that is community now: adding people to a role-carrying group is paid.
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "DELETE FROM space_group_members WHERE group_id = $1",
+            [group.into()],
+        ))
+        .await
+        .expect("empty it");
+    let role = super::delegation_tests::make_role(&app.db, space, "Comptable", 40, &[]).await;
+    super::groups_tests::give_role_to_group(&app.db, group, space, role)
+        .await
+        .expect("role");
+    let resumed = execute_into(
+        &app.db,
+        Some(&MemorySink::default()),
+        &dir,
+        None,
+        fx.alice,
+        job,
+        settings(Arc::new(CommunityEdition)),
+    )
+    .await
+    .expect("resume");
+    assert_eq!(
+        resumed.written.people.groups_filled, 1,
+        "reported as left as it is"
+    );
+    let members = count(
+        &app,
+        "SELECT count(*)::bigint AS n FROM space_group_members WHERE group_id = $1",
+        vec![group.into()],
+    )
+    .await;
+    assert_eq!(members, 0);
+}
+
+#[tokio::test]
 async fn a_later_job_leaves_an_imported_groups_members_as_they_are() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
