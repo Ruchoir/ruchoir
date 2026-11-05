@@ -133,7 +133,7 @@ export function MemberManage({ space, member, me, roles, groups, people, onChang
   };
   const addable = sortGroups(
     groups.filter(
-      (g) => g.source !== "directory" && g.may.changeMembers && !g.memberIds.includes(member.userId) && addBlockFor({ carriesRoles: g.roleIds.length > 0, viewerId, viewerIsOwner }, member.userId) === null,
+      (g) => g.source !== "directory" && g.may.changeMembers && !g.may.addPeopleNeedsLicence && !g.memberIds.includes(member.userId) && addBlockFor({ carriesRoles: g.roleIds.length > 0, viewerId, viewerIsOwner }, member.userId) === null,
     ),
   );
   const count = choices && draft ? changeCount(draftOf(choices), draft) : 0;

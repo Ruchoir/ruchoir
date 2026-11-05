@@ -4,9 +4,9 @@ import assert from "node:assert/strict";
 import { ROLE_COLOURS as GROUP_PASTELS } from "@ruchoir/client/permissionsLogic";
 import { groupAbilities, groupColour, groupOpens, pickablePeople, personActions, roleToggleRows, rowLine, settledRoles, togglePayload } from "../src/logic/groupEditor.ts";
 
-type May = { edit: boolean; delete: boolean; changeMembers: boolean; changeRoles: boolean; appoint: boolean };
-const ALL: May = { edit: true, delete: true, changeMembers: true, changeRoles: true, appoint: true };
-const NONE: May = { edit: false, delete: false, changeMembers: false, changeRoles: false, appoint: false };
+type May = { edit: boolean; delete: boolean; changeMembers: boolean; changeRoles: boolean; appoint: boolean; addNeedsLicence: boolean; addPeopleNeedsLicence: boolean };
+const ALL: May = { edit: true, delete: true, changeMembers: true, changeRoles: true, appoint: true, addNeedsLicence: false, addPeopleNeedsLicence: false };
+const NONE: May = { edit: false, delete: false, changeMembers: false, changeRoles: false, appoint: false, addNeedsLicence: false, addPeopleNeedsLicence: false };
 const group = (over: Partial<{ source: "manual" | "directory"; memberIds: string[]; managerIds: string[]; roleIds: string[]; may: May }> = {}) => ({
   id: "g1",
   name: "Comptabilité",
@@ -22,7 +22,7 @@ const role = (id: string, manageable: boolean, systemKey?: "administrator" | "me
 
 test("a_manager_who_only_changes_members_sees_only_those_actions", () => {
   const g = group({ may: { ...NONE, changeMembers: true } });
-  assert.deepEqual(groupAbilities(g, pro), { add: true, rename: false, delete: false, roles: true, rolesEditable: false, managers: true });
+  assert.deepEqual(groupAbilities(g, pro), { add: true, addLock: null, rename: false, delete: false, roles: true, rolesEditable: false, managers: true, appointLock: null });
   assert.deepEqual(personActions(g, { viewerId: "me", ...pro }, { userId: "hugo", role: "member" }), ["remove"]);
 });
 
@@ -52,13 +52,40 @@ test("a_directory_group_changes_neither_people_nor_managers", () => {
   assert.equal(a.rolesEditable, true);
 });
 
-test("community_has_no_roles_and_no_managers_and_frozen_locks_them", () => {
-  const community = groupAbilities(group(), { licensed: false, frozen: false });
-  assert.equal(community.roles, false);
-  assert.equal(community.managers, false);
-  const frozen = groupAbilities(group(), { licensed: true, frozen: true });
-  assert.equal(frozen.rolesEditable, false);
-  assert.deepEqual(personActions(group(), { viewerId: "me", licensed: true, frozen: true }, { userId: "hugo", role: "member" }), ["remove"]);
+test("a_free_or_frozen_space_keeps_the_removals_and_locks_the_additions", () => {
+  const paid = { ...ALL, addNeedsLicence: true };
+  // Nothing carried: no roles and no managers blocks on the free edition.
+  const bare = groupAbilities(group({ may: paid, managerIds: [] }), { licensed: false, frozen: false });
+  assert.equal(bare.roles, false);
+  assert.equal(bare.managers, false);
+  // A group that still carries a role and a manager shows them, to take away.
+  const g = group({ may: { ...paid, addPeopleNeedsLicence: true }, roleIds: ["acc"], managerIds: ["julie"] });
+  for (const ctx of [{ licensed: false, frozen: false }, { licensed: true, frozen: true }]) {
+    const lock = ctx.frozen ? "licence_frozen" : "licence_required";
+    const a = groupAbilities(g, ctx);
+    assert.equal(a.roles, true);
+    assert.equal(a.rolesEditable, true);
+    assert.equal(a.managers, true);
+    assert.equal(a.addLock, lock);
+    assert.equal(a.appointLock, lock);
+    // The manager can be taken off, nobody else named.
+    assert.deepEqual(personActions(g, { viewerId: "me", ...ctx }, { userId: "julie", role: "member" }), ["remove", "unappoint"]);
+    assert.deepEqual(personActions(g, { viewerId: "me", ...ctx }, { userId: "hugo", role: "member" }), ["remove"]);
+    // Carried roles switch off, new ones are disabled with the reason.
+    const roles = [role("acc", true), role("com", true)];
+    const rows = roleToggleRows(g, roles, { myTopRoleId: undefined, editable: a.rolesEditable, additions: lock });
+    assert.deepEqual(rows.map((r) => [r.role.id, r.enabled, r.licenceLock]), [["acc", true, null], ["com", false, lock]]);
+  }
+  // A plain group stays open to new people in a free space.
+  assert.equal(groupAbilities(group({ may: paid }), { licensed: false, frozen: false }).addLock, null);
+  // A plain group the caller only manages: the server says Add is paid, so the button is locked.
+  const managerOnly = group({ may: { ...paid, addPeopleNeedsLicence: true } });
+  assert.equal(groupAbilities(managerOnly, { licensed: false, frozen: false }).addLock, "licence_required");
+  assert.equal(groupAbilities(managerOnly, { licensed: true, frozen: true }).addLock, "licence_frozen");
+  // Paid: nothing locked.
+  const full = groupAbilities({ ...g, may: ALL }, pro);
+  assert.equal(full.addLock, null);
+  assert.equal(full.appointLock, null);
 });
 
 test("delete_and_rename_follow_may", () => {
@@ -82,6 +109,8 @@ test("a_row_opens_unless_it_is_locked_above_with_nothing_allowed", () => {
   assert.equal(groupOpens(group({ may: NONE }), "above"), false);
   assert.equal(groupOpens(group({ may: { ...NONE, changeMembers: true } }), "above"), true);
   assert.equal(groupOpens(group({ may: NONE }), null), true);
+  // The licence flag alone is not a right.
+  assert.equal(groupOpens(group({ may: { ...NONE, addNeedsLicence: true, addPeopleNeedsLicence: true } }), "above"), false);
 });
 
 test("pickable_people_are_those_not_already_in_and_not_bots", () => {

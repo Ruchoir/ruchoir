@@ -121,7 +121,7 @@ type GroupDto = {
   manager_ids: string[];
   role_ids: string[];
   imported_from?: string | null;
-  may: { edit: boolean; delete: boolean; change_members: boolean; change_roles: boolean; appoint: boolean };
+  may: { edit: boolean; delete: boolean; change_members: boolean; change_roles: boolean; appoint: boolean; add_needs_licence: boolean; add_people_needs_licence: boolean };
 };
 
 function toGroup(dto: GroupDto): Group {
@@ -140,6 +140,8 @@ function toGroup(dto: GroupDto): Group {
       changeMembers: dto.may.change_members,
       changeRoles: dto.may.change_roles,
       appoint: dto.may.appoint,
+      addNeedsLicence: dto.may.add_needs_licence,
+      addPeopleNeedsLicence: dto.may.add_people_needs_licence,
     },
   };
 }

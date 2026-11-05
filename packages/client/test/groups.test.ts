@@ -11,7 +11,7 @@ const api = () => createClient({ baseUrl: "https://a.test" });
 const dto = {
   id: "g1", name: "Design", description: "The design team", source: "manual",
   member_ids: ["u1", "u2"], manager_ids: ["u1"], role_ids: ["r2"],
-  may: { edit: true, delete: false, change_members: true, change_roles: false, appoint: true },
+  may: { edit: true, delete: false, change_members: true, change_roles: false, appoint: true, add_needs_licence: true, add_people_needs_licence: true },
 };
 
 test("groups_map_from_the_wire", async () => {
@@ -23,7 +23,7 @@ test("groups_map_from_the_wire", async () => {
   assert.deepEqual(design, {
     id: "g1", name: "Design", description: "The design team", source: "manual",
     memberIds: ["u1", "u2"], managerIds: ["u1"], roleIds: ["r2"],
-    may: { edit: true, delete: false, changeMembers: true, changeRoles: false, appoint: true },
+    may: { edit: true, delete: false, changeMembers: true, changeRoles: false, appoint: true, addNeedsLicence: true, addPeopleNeedsLicence: true },
   });
   assert.equal(annuaire.description, undefined);
   assert.equal(annuaire.source, "directory");

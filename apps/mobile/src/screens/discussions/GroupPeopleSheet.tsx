@@ -50,7 +50,7 @@ export function GroupPeopleSheet() {
       .filter((r) => !!r)
       .map((r) => roleLabel(r))
       .join(", ");
-  const canOpen = !!group && gates.manageGroups && Object.values(group.may).some(Boolean);
+  const canOpen = !!group && gates.manageGroups && Object.entries(group.may).some(([key, allowed]) => !key.startsWith("add") && allowed);
 
   return (
     <View style={[styles.fill, { backgroundColor: c.surface }]}>

@@ -61,6 +61,12 @@ export {
   addBlockFor,
   guestCeilingApplies,
   groupHitsFor,
+  type AdditionLock,
+  additionLock,
+  additionLockKey,
+  roleToggleLock,
+  appointLock,
+  addPeopleLock,
 } from "./groupPanel.ts";
 export {
   type Kind,

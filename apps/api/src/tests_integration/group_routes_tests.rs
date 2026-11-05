@@ -170,20 +170,21 @@ async fn members_list_groups_and_guests_cannot() {
     assert_eq!(list[0]["manager_ids"], json!([fx.member.to_string()]));
     assert_eq!(list[0]["role_ids"], json!([]));
     assert!(list[0].get("description").is_none());
-    // A plain member may change nothing, not even as a manager of the group (renaming needs the
-    // right itself).
+    // A plain member may not rename, delete or govern the group, even as its manager; as its
+    // manager they may take people out (adding is licence-gated in this edition).
     assert_eq!(
         list[0]["may"],
-        json!({ "edit": false, "delete": false, "change_members": false, "change_roles": false, "appoint": false })
+        json!({ "edit": false, "delete": false, "change_members": true, "change_roles": false, "appoint": false, "add_needs_licence": true, "add_people_needs_licence": true })
     );
     let (_, list) = call(&app, fx.admin, reqwest::Method::GET, &path, None).await;
     assert_eq!(list[1]["id"], b.to_string());
     assert_eq!(list[1]["may"]["edit"], true);
     assert_eq!(list[1]["may"]["delete"], true);
     assert_eq!(list[1]["may"]["change_members"], true);
-    // Community edition: roles and managers are paid.
+    // The core alone has no routes for roles and managers: no control is offered for them.
     assert_eq!(list[1]["may"]["change_roles"], false);
     assert_eq!(list[1]["may"]["appoint"], false);
+    assert_eq!(list[1]["may"]["add_needs_licence"], true);
 
     // A guest never reads the directory; a stranger neither.
     let stranger = make_user(&app.db, "stranger").await;
@@ -1053,4 +1054,131 @@ async fn a_group_manager_cannot_act_on_people_ranked_above_them_in_a_role_group(
     assert_eq!(status, 200);
     let (status, _) = remove(&app, fx.member, fx.space, group, fx.guest).await;
     assert_eq!(status, 204);
+}
+
+/// A group that still carries a role, with two people (one of them a manager), in a space that no
+/// longer has the paid edition.
+async fn leftover_group(app: &TestApp, fx: &Fx) -> (Uuid, Uuid, Uuid) {
+    let role = make_role(&app.db, fx.space, "Comptable", 40, &[]).await;
+    let group = make_group(&app.db, fx.space, "Compta").await;
+    give_role_to_group(&app.db, group, fx.space, role)
+        .await
+        .expect("role");
+    let first = make_user(&app.db, "first").await;
+    let second = make_user(&app.db, "second").await;
+    for who in [first, second] {
+        crate::testkit::add_member(&app.db, fx.space, who, "member").await;
+        put_in_group(&app.db, group, fx.space, who, false).await;
+    }
+    make_manager(&app.db, group, first).await;
+    (group, first, second)
+}
+
+#[tokio::test]
+async fn taking_away_is_free_in_a_frozen_or_community_space_but_adding_is_not() {
+    for (edition, code, add_status) in [(0, "licence_required", 402), (1, "licence_frozen", 409)] {
+        let app = match edition {
+            0 => boot().await,
+            _ => boot_as(Arc::new(FrozenEdition), None, |_| {}).await,
+        };
+        let Some(app) = app else { return };
+        let fx = fixture(&app).await;
+        let (group, first, second) = leftover_group(&app, &fx).await;
+
+        // Adding a person to a role-carrying group is paid.
+        let (status, body) = add(&app, fx.hr, fx.space, group, &[fx.member]).await;
+        assert_eq!(status, add_status, "edition {edition}: {body}");
+        assert_eq!(body["error"], code);
+
+        // Taking people out (a manager included), then deleting the group, is not.
+        let (status, body) = remove(&app, fx.hr, fx.space, group, first).await;
+        assert_eq!(status, 204, "edition {edition}: {body}");
+        let (status, body) = remove(&app, fx.hr, fx.space, group, second).await;
+        assert_eq!(status, 204, "edition {edition}: {body}");
+        let (status, body) = call(
+            &app,
+            fx.hr,
+            reqwest::Method::DELETE,
+            &group_path(fx.space, group),
+            None,
+        )
+        .await;
+        assert_eq!(status, 204, "edition {edition}: {body}");
+    }
+}
+
+#[tokio::test]
+async fn the_flags_offer_removals_everywhere_and_say_whether_adding_is_paid() {
+    for (edition, paid_needed) in [(0, true), (1, true), (2, false)] {
+        let app = match edition {
+            0 => boot().await,
+            1 => boot_as(Arc::new(FrozenEdition), None, |_| {}).await,
+            _ => licensed().await,
+        };
+        let Some(app) = app else { return };
+        let fx = fixture(&app).await;
+        let (group, _, _) = leftover_group(&app, &fx).await;
+        let (status, list) = call(
+            &app,
+            fx.hr,
+            reqwest::Method::GET,
+            &groups_path(fx.space),
+            None,
+        )
+        .await;
+        assert_eq!(status, 200, "edition {edition}: {list}");
+        let mine = list
+            .as_array()
+            .expect("array")
+            .iter()
+            .find(|g| g["id"] == group.to_string())
+            .expect("the group");
+        assert_eq!(mine["may"]["change_members"], true, "edition {edition}");
+        // Only an edition that carries the routes offers the controls for roles and managers.
+        assert_eq!(
+            mine["may"]["change_roles"],
+            edition != 0,
+            "edition {edition}"
+        );
+        assert_eq!(mine["may"]["appoint"], edition != 0, "edition {edition}");
+        assert_eq!(
+            mine["may"]["add_needs_licence"], paid_needed,
+            "edition {edition}"
+        );
+        // The group carries roles, so putting people in it is paid exactly when adding is.
+        assert_eq!(
+            mine["may"]["add_people_needs_licence"], paid_needed,
+            "edition {edition}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_member_without_groups_manage_gets_the_same_403_in_every_edition() {
+    for edition in 0..3 {
+        let app = match edition {
+            0 => boot().await,
+            1 => boot_as(Arc::new(FrozenEdition), None, |_| {}).await,
+            _ => licensed().await,
+        };
+        let Some(app) = app else { return };
+        let fx = fixture(&app).await;
+        let (group, _, second) = leftover_group(&app, &fx).await;
+        let (status, body) = add(&app, fx.member, fx.space, group, &[fx.guest]).await;
+        assert_eq!(status, 403, "edition {edition}: {body}");
+        assert_eq!(body["error"], "forbidden", "edition {edition}");
+        let (status, body) = remove(&app, fx.member, fx.space, group, second).await;
+        assert_eq!(status, 403, "edition {edition}: {body}");
+        assert_eq!(body["error"], "forbidden", "edition {edition}");
+        let (status, body) = call(
+            &app,
+            fx.member,
+            reqwest::Method::DELETE,
+            &group_path(fx.space, group),
+            None,
+        )
+        .await;
+        assert_eq!(status, 403, "edition {edition}: {body}");
+        assert_eq!(body["error"], "forbidden", "edition {edition}");
+    }
 }

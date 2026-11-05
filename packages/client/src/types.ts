@@ -96,8 +96,12 @@ export type Group = {
   roleIds: string[];
   /** The import that made it (`<source>:<job id>`), only for whoever manages groups. */
   importedFrom?: string;
-  /** What the caller may do to it. */
-  may: { edit: boolean; delete: boolean; changeMembers: boolean; changeRoles: boolean; appoint: boolean };
+  /**
+   * What the caller may do to it. `addNeedsLicence`: the space is free or frozen, so adding a role,
+   * or a manager is refused; taking away is not. `addPeopleNeedsLicence`: putting people in this group is refused
+   * for the caller for the same reason (the group carries roles, or they act as its manager only).
+   */
+  may: { edit: boolean; delete: boolean; changeMembers: boolean; changeRoles: boolean; appoint: boolean; addNeedsLicence: boolean; addPeopleNeedsLicence: boolean };
 };
 
 /** One role of a space, as `GET /spaces/{id}/roles` lists it (strongest first). */

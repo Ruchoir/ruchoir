@@ -22,7 +22,7 @@ use super::catalogue::Permission;
 use super::delegation::rank_of;
 use super::groups::{
     actor, decide, group, groups_of, name_taken, rests_on_manager, validate_group_name, GroupAct,
-    GroupActor, GroupRow, GroupSource,
+    GroupActor, GroupRow, GroupSource, Paid, Refusal,
 };
 use super::membership::active_sql;
 use super::rules::{hide_unopened, uses_of, Named};
@@ -66,10 +66,16 @@ pub struct GroupMay {
     pub delete: bool,
     /// Put people in it and take them out.
     pub change_members: bool,
-    /// Change the roles it carries (enterprise edition).
+    /// Change the roles it carries (take one away, or add one where the edition allows); false in a build without the routes.
     pub change_roles: bool,
-    /// Name its managers (enterprise edition).
+    /// Name its managers (remove one, or add one where the edition allows); false in a build without the routes.
     pub appoint: bool,
+    /// True when the space's licence would refuse additions the caller may otherwise make (a role
+    /// or a manager); a removal still goes through.
+    pub add_needs_licence: bool,
+    /// True when the licence refuses putting people in this group for the caller, who would
+    /// otherwise be allowed: the group carries roles, or the caller acts as its manager only.
+    pub add_people_needs_licence: bool,
 }
 
 /// One group of the space.
@@ -93,25 +99,56 @@ pub struct GroupDto {
     pub may: GroupMay,
 }
 
+/// Whether the running edition serves the routes writing a group's roles and managers.
+fn governs_groups(state: &AppState) -> bool {
+    state.edition.features().contains(&"group_roles")
+}
+
 /// What `actor` may do to `group`.
-pub fn may(actor: &GroupActor, group: &GroupRow) -> GroupMay {
+///
+/// `governed` is whether the running edition serves the routes that write a group's roles and
+/// managers (the enterprise build's `group_roles` feature): without them the controls would
+/// answer `404`, so they are not offered.
+pub fn may(actor: &GroupActor, group: &GroupRow, governed: bool) -> GroupMay {
     GroupMay {
         edit: decide(actor, group, GroupAct::Edit).is_ok(),
         delete: decide(actor, group, GroupAct::Delete).is_ok(),
-        change_members: decide(actor, group, GroupAct::Add(&[])).is_ok(),
-        change_roles: decide(
-            actor,
-            group,
-            GroupAct::SetRoles {
-                after: &group.roles,
-            },
-        )
-        .is_ok(),
-        appoint: decide(actor, group, GroupAct::SetManagers(&[])).is_ok(),
+        // "May change the members at all": an addition can be refused by the licence where a
+        // removal still goes through.
+        change_members: decide(actor, group, GroupAct::Add(&[])).is_ok()
+            || decide(actor, group, GroupAct::Remove(&[])).is_ok(),
+        change_roles: governed
+            && decide(
+                actor,
+                group,
+                GroupAct::SetRoles {
+                    after: &group.roles,
+                },
+            )
+            .is_ok(),
+        appoint: governed && decide(actor, group, GroupAct::SetManagers(&[])).is_ok(),
+        add_needs_licence: actor.paid != Paid::Enterprise,
+        add_people_needs_licence: add_people_needs_licence(actor, group),
     }
 }
 
-fn dto_of(actor: &GroupActor, group: &GroupRow) -> GroupDto {
+/// Whether adding people is refused for the licence alone: `decide` answers with a licence code
+/// and would say yes were the space on the paid edition.
+fn add_people_needs_licence(actor: &GroupActor, group: &GroupRow) -> bool {
+    let refused_by_licence = matches!(
+        decide(actor, group, GroupAct::Add(&[])),
+        Err(Refusal::LicenceRequired | Refusal::LicenceFrozen)
+    );
+    refused_by_licence && {
+        let paid = GroupActor {
+            paid: Paid::Enterprise,
+            ..actor.clone()
+        };
+        decide(&paid, group, GroupAct::Add(&[])).is_ok()
+    }
+}
+
+fn dto_of(state: &AppState, actor: &GroupActor, group: &GroupRow) -> GroupDto {
     GroupDto {
         id: group.id,
         name: group.name.clone(),
@@ -134,7 +171,7 @@ fn dto_of(actor: &GroupActor, group: &GroupRow) -> GroupDto {
             .map(|m| m.user_id)
             .collect(),
         role_ids: group.roles.iter().map(|r| r.id).collect(),
-        may: may(actor, group),
+        may: may(actor, group, governs_groups(state)),
     }
 }
 
@@ -148,7 +185,7 @@ pub async fn group_dto(
     let actor = actor(state, space_id, viewer)
         .await?
         .ok_or(ApiError::Forbidden)?;
-    Ok(dto_of(&actor, group))
+    Ok(dto_of(state, &actor, group))
 }
 
 /// Many groups as `viewer` reads them; the actor is worked out once.
@@ -161,7 +198,7 @@ pub async fn group_dtos(
     let actor = actor(state, space_id, viewer)
         .await?
         .ok_or(ApiError::Forbidden)?;
-    Ok(groups.iter().map(|g| dto_of(&actor, g)).collect())
+    Ok(groups.iter().map(|g| dto_of(state, &actor, g)).collect())
 }
 
 /// The caller as an actor of the space, or `403`.
@@ -265,7 +302,9 @@ pub async fn list_groups(
         return Err(ApiError::Forbidden);
     }
     let groups = groups_of(&state.db, space_id).await?;
-    Ok(Json(groups.iter().map(|g| dto_of(&actor, g)).collect()))
+    Ok(Json(
+        groups.iter().map(|g| dto_of(&state, &actor, g)).collect(),
+    ))
 }
 
 /// A new group.
@@ -330,7 +369,7 @@ pub async fn create_group(
     let created = group(&txn, space_id, id).await?.ok_or(ApiError::NotFound)?;
     txn.commit().await?;
     super::changed::announce(&state, space_id).await;
-    Ok((StatusCode::CREATED, Json(dto_of(&actor, &created))))
+    Ok((StatusCode::CREATED, Json(dto_of(&state, &actor, &created))))
 }
 
 /// What to change about a group; what is absent stays.
@@ -377,7 +416,7 @@ pub async fn update_group(
         None => current.description.clone(),
     };
     if name == current.name && description == current.description {
-        return Ok(Json(dto_of(&actor, &current)));
+        return Ok(Json(dto_of(&state, &actor, &current)));
     }
     txn.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
@@ -407,7 +446,7 @@ pub async fn update_group(
         .ok_or(ApiError::NotFound)?;
     txn.commit().await?;
     super::changed::announce(&state, space_id).await;
-    Ok(Json(dto_of(&actor, &updated)))
+    Ok(Json(dto_of(&state, &actor, &updated)))
 }
 
 #[utoipa::path(
@@ -524,7 +563,7 @@ pub async fn add_group_members(
     decide(&actor, &current, GroupAct::Add(&fresh)).map_err(|r| refused(&state, r))?;
     ensure_outranks(&txn, &actor, &current, space_id, &fresh).await?;
     if fresh.is_empty() {
-        return Ok(Json(dto_of(&actor, &current)));
+        return Ok(Json(dto_of(&state, &actor, &current)));
     }
     let known = txn
         .query_one_raw(Statement::from_sql_and_values(
@@ -566,7 +605,7 @@ pub async fn add_group_members(
         .ok_or(ApiError::NotFound)?;
     txn.commit().await?;
     super::changed::announce(&state, space_id).await;
-    Ok(Json(dto_of(&actor, &updated)))
+    Ok(Json(dto_of(&state, &actor, &updated)))
 }
 
 #[utoipa::path(
@@ -632,7 +671,7 @@ mod tests {
     use super::*;
     use crate::permissions::catalogue::PermissionSet;
     use crate::permissions::delegation::{Rank, RoleRow};
-    use crate::permissions::groups::{GroupMember, Paid};
+    use crate::permissions::groups::GroupMember;
 
     fn id(n: u128) -> Uuid {
         Uuid::from_u128(n)
@@ -700,6 +739,8 @@ mod tests {
             actor_with(&both, Rank::Position(50), false, Paid::Community),
             actor_with(&both, Rank::Position(50), false, Paid::Frozen),
             actor_with(&both, Rank::Owner, true, Paid::Enterprise),
+            // Only a manager of the group, no groups.manage, on the free edition.
+            actor_with(&[], Rank::Position(0), false, Paid::Community),
         ];
         let groups = [
             group_with(GroupSource::Manual, vec![], vec![]),
@@ -714,12 +755,13 @@ mod tests {
         ];
         for actor in &actors {
             for group in &groups {
-                let got = may(actor, group);
+                let got = may(actor, group, true);
                 assert_eq!(got.edit, decide(actor, group, GroupAct::Edit).is_ok());
                 assert_eq!(got.delete, decide(actor, group, GroupAct::Delete).is_ok());
                 assert_eq!(
                     got.change_members,
                     decide(actor, group, GroupAct::Add(&[])).is_ok()
+                        || decide(actor, group, GroupAct::Remove(&[])).is_ok()
                 );
                 assert_eq!(
                     got.change_roles,
@@ -736,35 +778,69 @@ mod tests {
                     got.appoint,
                     decide(actor, group, GroupAct::SetManagers(&[])).is_ok()
                 );
+                assert_eq!(got.add_needs_licence, actor.paid != Paid::Enterprise);
+                let refused = matches!(
+                    decide(actor, group, GroupAct::Add(&[])),
+                    Err(Refusal::LicenceRequired | Refusal::LicenceFrozen)
+                );
+                if !refused {
+                    assert!(!got.add_people_needs_licence);
+                }
             }
         }
         // And the flags say what a person would expect of them.
         let plain = &groups[0];
         let hr = &actors[2];
         assert_eq!(
-            may(hr, plain),
+            may(hr, plain, true),
             GroupMay {
                 edit: true,
                 delete: true,
                 change_members: true,
                 change_roles: true,
-                appoint: true
+                appoint: true,
+                add_needs_licence: false,
+                add_people_needs_licence: false
             }
         );
         let community = &actors[3];
         assert_eq!(
-            may(community, plain),
+            may(community, plain, true),
             GroupMay {
                 edit: true,
                 delete: true,
                 change_members: true,
-                change_roles: false,
-                appoint: false
+                change_roles: true,
+                appoint: true,
+                add_needs_licence: true,
+                add_people_needs_licence: false
             }
         );
-        assert!(!may(&actors[0], plain).edit);
-        assert!(!may(hr, &groups[4]).edit, "a directory group is read-only");
-        assert!(!may(hr, &groups[3]).delete, "a role above the actor");
-        assert!(may(&actors[5], &groups[3]).delete, "an owner needs no rank");
+        let frozen = &actors[4];
+        let got = may(frozen, plain, true);
+        assert!(got.change_roles && got.appoint && got.add_needs_licence);
+        // A manager without groups.manage, on a plain group of a community space: Add is paid.
+        let manager = &actors[6];
+        let managed = &groups[1];
+        assert!(may(manager, managed, true).change_members);
+        assert!(may(manager, managed, true).add_people_needs_licence);
+        // A plain group that GM alone governs is free to fill, and so is one nobody manages.
+        assert!(!may(community, plain, true).add_people_needs_licence);
+        // A group carrying roles: paid too, for GM.
+        assert!(may(community, &groups[2], true).add_people_needs_licence);
+        // A role above the actor refuses for another reason, not the licence.
+        assert!(!may(community, &groups[3], true).add_people_needs_licence);
+        let bare = may(hr, plain, false);
+        assert!(!bare.change_roles && !bare.appoint && bare.change_members);
+        assert!(!may(&actors[0], plain, true).edit);
+        assert!(
+            !may(hr, &groups[4], true).edit,
+            "a directory group is read-only"
+        );
+        assert!(!may(hr, &groups[3], true).delete, "a role above the actor");
+        assert!(
+            may(&actors[5], &groups[3], true).delete,
+            "an owner needs no rank"
+        );
     }
 }

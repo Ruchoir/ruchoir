@@ -28,6 +28,7 @@ use super::archive::Index;
 use super::run::{Mapper, Result, RunError, KIND_GROUP, KIND_ROLE, KIND_USER};
 use crate::edition::{lock_space_seats, Edition, ImportedRole, ImportedRoleOutcome, SeatCheck};
 use crate::entities::{space_groups, space_members, spaces};
+use crate::permissions::groups::Paid;
 use crate::permissions::membership::active_sql;
 use sea_orm::{ColumnTrait, ConnectionTrait, DbBackend, QueryFilter, Statement};
 
@@ -499,6 +500,7 @@ async fn give_role(
 /// (skipped) are left out; members of the space are everyone the people pass admitted.
 pub async fn import_groups(
     db: &DatabaseConnection,
+    edition: &dyn Edition,
     mapper: &Mapper<'_>,
     index: &Index,
     spaces_by_source: &[(String, Uuid)],
@@ -526,7 +528,19 @@ pub async fn import_groups(
                     .is_some_and(|row| {
                         row.imported_from.as_deref() == Some(imported_from.as_str())
                     });
-                if ours {
+                // A group that carries roles takes people in only where the space is licensed: an
+                // addition there is paid, so a resume leaves it as it is, like a later job does.
+                let carries_roles = ours
+                    && Paid::from(&edition.entitlement(db, space_id).await?) != Paid::Enterprise
+                    && txn
+                        .query_one_raw(Statement::from_sql_and_values(
+                            DbBackend::Postgres,
+                            "SELECT 1 AS one FROM space_group_roles WHERE group_id = $1",
+                            [id.into()],
+                        ))
+                        .await?
+                        .is_some();
+                if ours && !carries_roles {
                     // Made by an earlier attempt of this job: in the job's totals, and refilled
                     // now, but this attempt's journal line does not claim it.
                     written.groups += 1;

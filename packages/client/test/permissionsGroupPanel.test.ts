@@ -1,7 +1,7 @@
 // Run with `pnpm --filter @ruchoir/client test` (Node's own runner, types stripped by Node).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addBlockFor, groupHitsFor, guestCeilingApplies, offersLeaving, offersManagement, removalOf, type PanelGroup } from "../src/permissionsLogic/groupPanel.ts";
+import { addPeopleLock, additionLock, additionLockKey, appointLock, roleToggleLock, addBlockFor, groupHitsFor, guestCeilingApplies, offersLeaving, offersManagement, removalOf, type PanelGroup } from "../src/permissionsLogic/groupPanel.ts";
 
 const group = (over: Partial<PanelGroup> = {}): PanelGroup => ({
   id: "g1",
@@ -70,4 +70,25 @@ test("a_guest_gets_no_group_hits", () => {
   assert.equal(hits.length, 1);
   assert.equal(hits[0].members, 4);
   assert.equal(hits[0].inRoom, 2);
+});
+
+test("additions_wait_for_a_licence_but_removals_never_do", () => {
+  // Enterprise, or nothing paid asked: no lock. Free and frozen spaces say why.
+  assert.equal(additionLock("enterprise", false), null);
+  assert.equal(additionLock("community", true), "licence_required");
+  assert.equal(additionLock("frozen", true), "licence_frozen");
+  assert.equal(additionLockKey("licence_required"), "roles.refusal.licenceRequired");
+  assert.equal(additionLockKey("licence_frozen"), "roles.refusal.licenceFrozen");
+  const g = group({ roleIds: ["r1"], managerIds: ["julie"] });
+  // A carried role or a sitting manager can be taken away (and put back); others are locked.
+  assert.equal(roleToggleLock(g, "r1", "licence_required"), null);
+  assert.equal(roleToggleLock(g, "r2", "licence_required"), "licence_required");
+  assert.equal(appointLock(g, "julie", "licence_frozen"), null);
+  assert.equal(appointLock(g, "hugo", "licence_frozen"), "licence_frozen");
+  assert.equal(roleToggleLock(g, "r2", null), null);
+  // Adding people follows the server's own flag, not the roles the group carries.
+  assert.equal(addPeopleLock("community", false), null);
+  assert.equal(addPeopleLock("community", true), "licence_required");
+  assert.equal(addPeopleLock("frozen", true), "licence_frozen");
+  assert.equal(addPeopleLock("enterprise", false), null);
 });

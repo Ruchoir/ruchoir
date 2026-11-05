@@ -7,6 +7,7 @@ import { refusalOf, setGroupRoles } from "@/lib/data/api";
 import type { Group, Role } from "@/lib/data/types";
 import { useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
+import { additionLockKey, roleToggleLock, type AdditionLock } from "@ruchoir/client/permissionsLogic";
 import { refusalMessage, RoleChip, roleLabel } from "./roleChips";
 
 const st: Record<string, CSSProperties> = {
@@ -36,7 +37,7 @@ export function GroupRolesTab({
   group,
   roles,
   me,
-  frozen,
+  lock,
   onChanged,
   onNotify,
 }: {
@@ -44,7 +45,8 @@ export function GroupRolesTab({
   group: Group;
   roles: Role[];
   me?: Member;
-  frozen: boolean;
+  /** Why adding a role is refused here (free or frozen space); taking one away never is. */
+  lock: AdditionLock | null;
   onChanged: () => Promise<void>;
   onNotify: (toast: Toast) => void;
 }) {
@@ -53,7 +55,7 @@ export function GroupRolesTab({
   const [draft, setDraft] = useState<Set<string>>(() => new Set(group.roleIds));
   const [busy, setBusy] = useState(false);
   const myTopRoleId = me?.roleIds?.[0];
-  const editable = group.may.changeRoles && !frozen;
+  const editable = group.may.changeRoles;
   const added = ranked.filter((r) => draft.has(r.id) && !group.roleIds.includes(r.id));
   const removed = ranked.filter((r) => !draft.has(r.id) && group.roleIds.includes(r.id));
   const changeCount = added.length + removed.length;
@@ -76,19 +78,20 @@ export function GroupRolesTab({
     <>
       <div style={st.intro}>
         <Icon name="info" size={14} style={{ color: "var(--text-muted)", marginTop: 1 }} />
-        <span>{frozen ? t("roles.frozenNote") : group.memberIds.length === 0 ? t("groups.rolesIntroEmpty") : t("groups.rolesIntro", { count: group.memberIds.length })}</span>
+        <span>{lock ? t(additionLockKey(lock)) : group.memberIds.length === 0 ? t("groups.rolesIntroEmpty") : t("groups.rolesIntro", { count: group.memberIds.length })}</span>
       </div>
       <Card>
         {ranked.map((role, i) => {
           const on = draft.has(role.id);
-          const reason = !role.manageable ? (role.id === myTopRoleId ? t("roles.yourTopRole") : t("roles.aboveYou")) : t("roles.rightsCount", { count: role.permissions.length });
+          const licenceLock = roleToggleLock(group, role.id, lock);
+          const reason = !role.manageable ? (role.id === myTopRoleId ? t("roles.yourTopRole") : t("roles.aboveYou")) : licenceLock ? t(additionLockKey(licenceLock)) : t("roles.rightsCount", { count: role.permissions.length });
           const change = added.includes(role) ? t("roles.added") : removed.includes(role) ? t("roles.removed") : null;
           return (
             <div key={role.id} style={{ ...st.row, borderTop: i ? "1px solid var(--border-subtle)" : "none", background: change ? "var(--surface-sunken)" : undefined }}>
               <Checkbox
                 aria-label={roleLabel(role, t)}
                 checked={on}
-                disabled={!editable || !role.manageable || busy}
+                disabled={!editable || !role.manageable || licenceLock !== null || busy}
                 onChange={(e) =>
                   setDraft((prev) => {
                     const next = new Set(prev);
@@ -101,7 +104,7 @@ export function GroupRolesTab({
               <span style={{ flex: 1, minWidth: 0 }}>
                 <RoleChip role={role} />
                 <div style={st.reason}>
-                  {!role.manageable ? <Icon name="lock" size={12} /> : null}
+                  {!role.manageable || licenceLock ? <Icon name="lock" size={12} /> : null}
                   {reason}
                 </div>
               </span>

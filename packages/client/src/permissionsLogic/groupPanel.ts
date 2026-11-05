@@ -76,3 +76,35 @@ export function groupHitsFor<G extends GroupLike>(
   if (viewerRole === "guest") return [];
   return groupMentionHits(groups, query, audienceIds);
 }
+
+/** Why an addition is refused: the space is on the free edition, or its licence has expired. */
+export type AdditionLock = "licence_required" | "licence_frozen";
+
+/**
+ * Whether additions to a group are paid for here, from the group's `may.addNeedsLicence`: taking a
+ * role, a manager or a person away stays free in a free or frozen space, adding does not.
+ */
+export function additionLock(edition: "community" | "enterprise" | "frozen", addNeedsLicence: boolean): AdditionLock | null {
+  if (!addNeedsLicence) return null;
+  return edition === "frozen" ? "licence_frozen" : "licence_required";
+}
+
+/** The dictionary key of the sentence that says why (the role editor's own lines). */
+export function additionLockKey(lock: AdditionLock): "roles.refusal.licenceRequired" | "roles.refusal.licenceFrozen" {
+  return lock === "licence_frozen" ? "roles.refusal.licenceFrozen" : "roles.refusal.licenceRequired";
+}
+
+/** A role the group already carries can always be switched off (and on again); a new one waits for a licence. */
+export function roleToggleLock(group: Pick<GroupLike, "roleIds">, roleId: string, lock: AdditionLock | null): AdditionLock | null {
+  return group.roleIds.includes(roleId) ? null : lock;
+}
+
+/** A manager can always be taken off; naming one waits for a licence. */
+export function appointLock(group: Pick<GroupLike, "managerIds">, personId: string, lock: AdditionLock | null): AdditionLock | null {
+  return group.managerIds.includes(personId) ? null : lock;
+}
+
+/** Putting people in a group is paid when the server says so (`may.addPeopleNeedsLicence`): the group carries roles, or the caller acts as its manager only. */
+export function addPeopleLock(edition: "community" | "enterprise" | "frozen", addPeopleNeedsLicence: boolean): AdditionLock | null {
+  return additionLock(edition, addPeopleNeedsLicence);
+}

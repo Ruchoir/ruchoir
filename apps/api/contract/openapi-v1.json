@@ -2439,8 +2439,16 @@
       "GroupMay": {
         "description": "What the caller may do to a group, each flag asking [`decide`] about a representative act, so\nthe screen and the server never disagree.",
         "properties": {
+          "add_needs_licence": {
+            "description": "True when the space's licence would refuse additions the caller may otherwise make (a role\nor a manager); a removal still goes through.",
+            "type": "boolean"
+          },
+          "add_people_needs_licence": {
+            "description": "True when the licence refuses putting people in this group for the caller, who would\notherwise be allowed: the group carries roles, or the caller acts as its manager only.",
+            "type": "boolean"
+          },
           "appoint": {
-            "description": "Name its managers (enterprise edition).",
+            "description": "Name its managers (remove one, or add one where the edition allows); false in a build without the routes.",
             "type": "boolean"
           },
           "change_members": {
@@ -2448,7 +2456,7 @@
             "type": "boolean"
           },
           "change_roles": {
-            "description": "Change the roles it carries (enterprise edition).",
+            "description": "Change the roles it carries (take one away, or add one where the edition allows); false in a build without the routes.",
             "type": "boolean"
           },
           "delete": {
@@ -2464,7 +2472,9 @@
           "delete",
           "change_members",
           "change_roles",
-          "appoint"
+          "appoint",
+          "add_needs_licence",
+          "add_people_needs_licence"
         ],
         "type": "object"
       },
