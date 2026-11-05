@@ -126,6 +126,24 @@ visibility and every right above the guest ceiling. The change between guest and
 as `member.standing_changed` (`before`, `after`: `guest` or `member`) besides `member.role_changed`,
 and announced with `permissions.changed`.
 
+## Invitations and public links: who keeps them alive
+
+An invitation or a public link is only as good as the person who issued it, and it is checked again
+every time it is used, by the very rules that let them issue it. A space-wide invitation needs its
+issuer to hold `members.invite` still (an administrator invitation also `roles.manage` and a rank
+above the administrator role); an invitation into one group needs them to be in the space and to hold
+`channel.members.manage` on that group; a public link needs the file right that created it. An
+invitation that fails is answered like an unknown one (`404`) and spends no use, for a person who is
+already in the space as for a newcomer, and an invitation from someone no longer entitled proves no
+email address at registration.
+
+**A link dies when its creator leaves or loses the right.** Leaving a space or being removed from it
+revokes, in the same transaction, every invitation and public link the person issued there, and the
+audit log says so in one line, `member.issued_revoked` (category `members`, `invitations` and `links`:
+how many were revoked; written only when there was something to revoke, by whoever decided it). An
+older client shows that line with its generic wording. Losing the right without leaving revokes
+nothing in the lists but kills the link at its next use.
+
 Each entry of the access dialog (`GET .../access/{kind}/{id}`, and the answers of its writes) carries
 `set_by` (`{ "id", "name" }`) and `set_at` (RFC 3339): who last created or changed that rule, and
 when. They are filled only for a reader who may edit that resource's access; for everybody else, for
