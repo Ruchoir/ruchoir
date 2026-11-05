@@ -174,16 +174,17 @@ async fn members_list_groups_and_guests_cannot() {
     // right itself).
     assert_eq!(
         list[0]["may"],
-        json!({ "edit": false, "delete": false, "change_members": false, "change_roles": false, "appoint": false })
+        json!({ "edit": false, "delete": false, "change_members": false, "change_roles": false, "appoint": false, "add_needs_licence": true })
     );
     let (_, list) = call(&app, fx.admin, reqwest::Method::GET, &path, None).await;
     assert_eq!(list[1]["id"], b.to_string());
     assert_eq!(list[1]["may"]["edit"], true);
     assert_eq!(list[1]["may"]["delete"], true);
     assert_eq!(list[1]["may"]["change_members"], true);
-    // Community edition: roles and managers are paid.
-    assert_eq!(list[1]["may"]["change_roles"], false);
-    assert_eq!(list[1]["may"]["appoint"], false);
+    // Community edition: taking roles and managers away stays offered, adding them is paid.
+    assert_eq!(list[1]["may"]["change_roles"], true);
+    assert_eq!(list[1]["may"]["appoint"], true);
+    assert_eq!(list[1]["may"]["add_needs_licence"], true);
 
     // A guest never reads the directory; a stranger neither.
     let stranger = make_user(&app.db, "stranger").await;
@@ -1103,6 +1104,41 @@ async fn taking_away_is_free_in_a_frozen_or_community_space_but_adding_is_not() 
         )
         .await;
         assert_eq!(status, 204, "edition {edition}: {body}");
+    }
+}
+
+#[tokio::test]
+async fn the_flags_offer_removals_everywhere_and_say_whether_adding_is_paid() {
+    for (edition, paid_needed) in [(0, true), (1, true), (2, false)] {
+        let app = match edition {
+            0 => boot().await,
+            1 => boot_as(Arc::new(FrozenEdition), None, |_| {}).await,
+            _ => licensed().await,
+        };
+        let Some(app) = app else { return };
+        let fx = fixture(&app).await;
+        let (group, _, _) = leftover_group(&app, &fx).await;
+        let (status, list) = call(
+            &app,
+            fx.hr,
+            reqwest::Method::GET,
+            &groups_path(fx.space),
+            None,
+        )
+        .await;
+        assert_eq!(status, 200, "edition {edition}: {list}");
+        let mine = list
+            .as_array()
+            .expect("array")
+            .iter()
+            .find(|g| g["id"] == group.to_string())
+            .expect("the group");
+        assert_eq!(mine["may"]["change_roles"], true, "edition {edition}");
+        assert_eq!(mine["may"]["appoint"], true, "edition {edition}");
+        assert_eq!(
+            mine["may"]["add_needs_licence"], paid_needed,
+            "edition {edition}"
+        );
     }
 }
 

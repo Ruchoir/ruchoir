@@ -66,10 +66,13 @@ pub struct GroupMay {
     pub delete: bool,
     /// Put people in it and take them out.
     pub change_members: bool,
-    /// Change the roles it carries (enterprise edition).
+    /// Change the roles it carries (take one away, or add one where the edition allows).
     pub change_roles: bool,
-    /// Name its managers (enterprise edition).
+    /// Name its managers (remove one, or add one where the edition allows).
     pub appoint: bool,
+    /// The space is community or frozen: an addition (a role, a manager, a person in a group that
+    /// carries roles) would be refused, a removal still goes through.
+    pub add_needs_licence: bool,
 }
 
 /// One group of the space.
@@ -93,29 +96,22 @@ pub struct GroupDto {
     pub may: GroupMay,
 }
 
-/// The flags `change_roles` and `appoint` open an editor that mostly adds: they need the paid
-/// edition, although [`decide`] lets a removal through in a community or frozen space.
-fn adds_need_a_licence(actor: &GroupActor) -> bool {
-    actor.paid == Paid::Enterprise
-}
-
 /// What `actor` may do to `group`.
 pub fn may(actor: &GroupActor, group: &GroupRow) -> GroupMay {
     GroupMay {
         edit: decide(actor, group, GroupAct::Edit).is_ok(),
         delete: decide(actor, group, GroupAct::Delete).is_ok(),
         change_members: decide(actor, group, GroupAct::Add(&[])).is_ok(),
-        change_roles: adds_need_a_licence(actor)
-            && decide(
-                actor,
-                group,
-                GroupAct::SetRoles {
-                    after: &group.roles,
-                },
-            )
-            .is_ok(),
-        appoint: adds_need_a_licence(actor)
-            && decide(actor, group, GroupAct::SetManagers(&[])).is_ok(),
+        change_roles: decide(
+            actor,
+            group,
+            GroupAct::SetRoles {
+                after: &group.roles,
+            },
+        )
+        .is_ok(),
+        appoint: decide(actor, group, GroupAct::SetManagers(&[])).is_ok(),
+        add_needs_licence: actor.paid != Paid::Enterprise,
     }
 }
 
@@ -729,23 +725,22 @@ mod tests {
                     got.change_members,
                     decide(actor, group, GroupAct::Add(&[])).is_ok()
                 );
-                let enterprise = actor.paid == Paid::Enterprise;
                 assert_eq!(
                     got.change_roles,
-                    enterprise
-                        && decide(
-                            actor,
-                            group,
-                            GroupAct::SetRoles {
-                                after: &group.roles
-                            }
-                        )
-                        .is_ok()
+                    decide(
+                        actor,
+                        group,
+                        GroupAct::SetRoles {
+                            after: &group.roles
+                        }
+                    )
+                    .is_ok()
                 );
                 assert_eq!(
                     got.appoint,
-                    enterprise && decide(actor, group, GroupAct::SetManagers(&[])).is_ok()
+                    decide(actor, group, GroupAct::SetManagers(&[])).is_ok()
                 );
+                assert_eq!(got.add_needs_licence, actor.paid != Paid::Enterprise);
             }
         }
         // And the flags say what a person would expect of them.
@@ -758,7 +753,8 @@ mod tests {
                 delete: true,
                 change_members: true,
                 change_roles: true,
-                appoint: true
+                appoint: true,
+                add_needs_licence: false
             }
         );
         let community = &actors[3];
@@ -768,10 +764,14 @@ mod tests {
                 edit: true,
                 delete: true,
                 change_members: true,
-                change_roles: false,
-                appoint: false
+                change_roles: true,
+                appoint: true,
+                add_needs_licence: true
             }
         );
+        let frozen = &actors[4];
+        let got = may(frozen, plain);
+        assert!(got.change_roles && got.appoint && got.add_needs_licence);
         assert!(!may(&actors[0], plain).edit);
         assert!(!may(hr, &groups[4]).edit, "a directory group is read-only");
         assert!(!may(hr, &groups[3]).delete, "a role above the actor");

@@ -6,7 +6,7 @@
  * A group mirrored from a directory keeps its people and managers there (read only), as on the web.
  */
 import { refusalOf, type Group, type Member, type Role } from "@ruchoir/client";
-import { groupPeople, groupRow, groupTagFor, guestCeilingApplies, usedInRows } from "@ruchoir/client/permissionsLogic";
+import { additionLockKey, groupPeople, groupRow, groupTagFor, guestCeilingApplies, usedInRows } from "@ruchoir/client/permissionsLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react-native";
@@ -160,7 +160,7 @@ function Body({
   const managers = group.managerIds.map((id) => members.find((m) => m.userId === id)).filter((m): m is Member => !!m);
   const pickable = pickablePeople(members, group, { carriesRoles: licensed && carries.length > 0, viewerId, viewerIsOwner: mine?.role === "owner" });
   const shownRoles = settledRoles(pending, group.roleIds) ?? group.roleIds;
-  const toggles = roleToggleRows({ roleIds: shownRoles }, roles, { myTopRoleId: mine?.roleIds?.[0], editable: can.rolesEditable && !busy });
+  const toggles = roleToggleRows({ roleIds: shownRoles }, roles, { myTopRoleId: mine?.roleIds?.[0], editable: can.rolesEditable && !busy, additions: can.appointLock });
   const inGroup = group.memberIds.includes(viewerId);
   const list = (names: string[]) => new Intl.ListFormat(locale, { style: "long", type: "conjunction" }).format(names);
 
@@ -252,7 +252,7 @@ function Body({
   const askDelete = () =>
     Alert.alert(
       t("groups.deleteTitle", { group: group.name }),
-      carries.length > 0 && licensed ? t("groups.deleteRoles", { roles: carries.map(roleLabel).join(", "), group: group.name }) : t("groups.deletePlain", { group: group.name }),
+      carries.length > 0 ? t("groups.deleteRoles", { roles: carries.map(roleLabel).join(", "), group: group.name }) : t("groups.deletePlain", { group: group.name }),
       [
         { text: t("compose.cancel"), style: "cancel" },
         { text: t("groups.delete"), style: "destructive", onPress: () => void remove() },
@@ -275,7 +275,7 @@ function Body({
             {t("groups.peopleHead", { count: people.length })}
           </Text>
           {can.add && pickable.length > 0 ? (
-            <Pressable accessibilityRole="button" accessibilityLabel={t("groups.addTitle", { group: group.name })} disabled={busy} hitSlop={8} onPress={() => setPicking(true)} style={styles.add}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t("groups.addTitle", { group: group.name })} accessibilityState={{ disabled: busy || !!can.addLock }} disabled={busy || !!can.addLock} hitSlop={8} onPress={() => setPicking(true)} style={[styles.add, can.addLock ? { opacity: 0.4 } : null]}>
               <Plus size={16} color={s.link} />
               <Text variant="smallStrong" style={{ color: s.link }}>
                 {t("group.addExternal")}
@@ -283,6 +283,11 @@ function Body({
             </Pressable>
           ) : null}
         </View>
+        {can.add && pickable.length > 0 && can.addLock ? (
+          <Text variant="tiny" tone="muted" style={styles.note}>
+            {t(additionLockKey(can.addLock))}
+          </Text>
+        ) : null}
         {people.map((person) => {
           const actions = personActions(group, { viewerId, ...ctx }, person);
           return (
@@ -320,18 +325,22 @@ function Body({
             <Text variant="label" tone="muted" style={styles.section}>
               {t("groups.membersReceive")}
             </Text>
-            {frozen ? (
+            {can.appointLock ? (
               <Text variant="small" tone="muted" style={styles.note}>
-                {t("roles.frozenNote")}
+                {t(additionLockKey(can.appointLock))}
               </Text>
             ) : null}
-            {toggles.map(({ role, on, lock, enabled }) => (
+            {toggles.map(({ role, on, lock, licenceLock, enabled }) => (
               <View key={role.id} style={styles.row}>
                 <View style={styles.text}>
                   <RoleChip label={roleLabel(role)} colour={roleColourKey(role)} />
                   {lock ? (
                     <Text variant="tiny" tone="muted" style={styles.reason}>
                       {lock === "yourTop" ? t("roles.yourTopRole") : t("roles.aboveYou")}
+                    </Text>
+                  ) : licenceLock ? (
+                    <Text variant="tiny" tone="muted" style={styles.reason}>
+                      {t(additionLockKey(licenceLock))}
                     </Text>
                   ) : null}
                 </View>
@@ -351,6 +360,11 @@ function Body({
             <Text variant="label" tone="muted" style={styles.section}>
               {t("groups.managersHead")}
             </Text>
+            {can.appointLock ? (
+              <Text variant="tiny" tone="muted" style={styles.note}>
+                {t(additionLockKey(can.appointLock))}
+              </Text>
+            ) : null}
             {managers.length === 0 ? (
               <Text variant="small" tone="muted" style={styles.note}>
                 {t("groups.managersEmpty")}

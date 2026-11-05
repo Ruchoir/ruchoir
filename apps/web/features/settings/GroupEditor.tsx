@@ -2,7 +2,7 @@
 
 import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Card, Field, Icon, IconButton, Input, Switch, Tabs, Tag } from "@/components/ds";
-import { GROUP_NAME_MAX } from "@ruchoir/client/permissionsLogic";
+import { GROUP_NAME_MAX, addPeopleLock, additionLock, additionLockKey, appointLock } from "@ruchoir/client/permissionsLogic";
 import { CharCount } from "./CharCount";
 import type { Member } from "@/lib/data/api";
 import { refusalOf, removeGroupMember, setGroupManagers, updateGroup } from "@/lib/data/api";
@@ -58,6 +58,11 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
   const { t } = useTranslation();
   const licensed = edition !== "community";
   const frozen = edition === "frozen";
+  // Adding a role, a manager or a person to a group that carries roles is paid; taking away never is.
+  const lock = additionLock(edition, group.may.addNeedsLicence);
+  const showRoles = licensed || group.roleIds.length > 0;
+  const showManagers = licensed || group.managerIds.length > 0;
+  const addLock = addPeopleLock(group, lock);
   const directory = group.source === "directory";
   const [tab, setTab] = useState("people");
   const [query, setQuery] = useState("");
@@ -129,7 +134,7 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
 
   const tabs = [
     { value: "people", label: t("gsearch.people"), count: people.length },
-    ...(licensed ? [{ value: "roles", label: t("roles.title"), count: group.roleIds.length }] : []),
+    ...(showRoles ? [{ value: "roles", label: t("roles.title"), count: group.roleIds.length }] : []),
     { value: "name", label: t("groups.tabName") },
   ];
   const nameDirty = name.trim() !== group.name || description.trim() !== (group.description ?? "");
@@ -166,7 +171,7 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
                 <b>{t("groups.directoryAlertStrong")}</b> {t("groups.directoryAlertRest")}
               </span>
             </div>
-          ) : licensed && carries.length > 0 ? (
+          ) : carries.length > 0 ? (
             <div style={st.info}>
               <Icon name="info" size={14} style={{ color: "var(--text-muted)", marginTop: 1 }} />
               <span>{t("groups.carriesNote", { count: carries.length, roles: carries.map((r) => roleLabel(r, t)).join(", ") })}</span>
@@ -178,11 +183,13 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
             </div>
             <span style={{ flex: 1 }} />
             {offersManagement(group) ? (
-              <Button size="sm" variant="primary" iconLeft="user-plus" onClick={() => setAdding(true)}>
+              <Button size="sm" variant="primary" iconLeft="user-plus" disabled={!!addLock} onClick={() => setAdding(true)}>
                 {t("groups.addPeople")}
               </Button>
             ) : null}
           </div>
+          {offersManagement(group) && addLock ? <div style={{ ...st.info, margin: "0 0 10px" }}>{t(additionLockKey(addLock))}</div> : null}
+          {!directory && showManagers && lock && group.may.appoint ? <div style={{ ...st.info, margin: "0 0 10px" }}>{t(additionLockKey(lock))}</div> : null}
           <Card>
             {shown.length === 0 ? (
               <div style={{ ...st.person, color: "var(--text-muted)", fontSize: "var(--text-xs)" }}>{t("search.noResult")}</div>
@@ -207,12 +214,12 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
                       </span>
                     ) : (
                       <>
-                        {licensed && m.role !== "guest" ? (
+                        {showManagers && m.role !== "guest" ? (
                           <Switch
                             label={t("groups.manager")}
                             aria-label={t("groups.managerOf", { group: group.name, name: m.name })}
                             checked={manager}
-                            disabled={!group.may.appoint || frozen || busy}
+                            disabled={!group.may.appoint || appointLock(group, m.userId, lock) !== null || busy}
                             onChange={(e) => void setManager(m.userId, e.target.checked)}
                           />
                         ) : null}
@@ -230,8 +237,8 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
         </>
       ) : null}
 
-      {tab === "roles" && licensed ? (
-        <GroupRolesTab key={group.roleIds.join(",")} spaceId={spaceId} group={group} roles={roles} me={me} frozen={frozen} onChanged={onChanged} onNotify={onNotify} />
+      {tab === "roles" && showRoles ? (
+        <GroupRolesTab key={group.roleIds.join(",")} spaceId={spaceId} group={group} roles={roles} me={me} lock={lock} onChanged={onChanged} onNotify={onNotify} />
       ) : null}
 
       {tab === "name" ? (
@@ -254,9 +261,9 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
         </div>
       ) : null}
 
-      {adding ? <AddPeopleDialog spaceId={spaceId} group={group} members={members} carries={licensed ? carries : []} viewerId={viewerId} viewerIsOwner={me?.role === "owner"} onClose={() => setAdding(false)} onChanged={onChanged} onNotify={onNotify} /> : null}
+      {adding ? <AddPeopleDialog spaceId={spaceId} group={group} members={members} carries={carries} viewerId={viewerId} viewerIsOwner={me?.role === "owner"} onClose={() => setAdding(false)} onChanged={onChanged} onNotify={onNotify} /> : null}
       {deleting ? (
-        <DeleteGroupDialog spaceId={spaceId} group={group} carries={licensed ? carries : []} onClose={() => setDeleting(false)} onChanged={onChanged} onNotify={onNotify} onDeleted={onBack} />
+        <DeleteGroupDialog spaceId={spaceId} group={group} carries={carries} onClose={() => setDeleting(false)} onChanged={onChanged} onNotify={onNotify} onDeleted={onBack} />
       ) : null}
     </div>
   );
