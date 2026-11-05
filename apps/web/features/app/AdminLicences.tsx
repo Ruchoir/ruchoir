@@ -46,7 +46,7 @@ const STATUS: Record<Exclude<NonNullable<AdminLicence["status"]>, "invalid">, Tr
 const EDITION: Record<AdminLicence["edition"], TranslationKey> = {
   enterprise: key("licence.enterprise"),
   frozen: key("admin.licenceFrozen"),
-  community: key("admin.licenceCommunity"),
+  community: key("licence.tag.notYet"),
   invalid: key("admin.licenceUnreadable"),
 };
 
@@ -91,9 +91,9 @@ export function AdminLicences() {
                 <th style={st.th}>{t("admin.licenceColEdition")}</th>
                 <th style={st.th}>{t("licence.seats")}</th>
                 <th style={st.th}>{t("admin.licenceColEnd")}</th>
-                <th style={st.th}>{t("admin.licenceColMode")}</th>
+                <th style={st.th}>{t("prefs.mode")}</th>
                 <th style={st.th}>{t("admin.licenceColStatus")}</th>
-                <th style={st.th}>{t("admin.licenceColCheck")}</th>
+                <th style={st.th}>{t("licence.lastCheckIn")}</th>
               </tr>
             </thead>
             <tbody>

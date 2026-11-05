@@ -82,10 +82,7 @@
     "licenceColHolder": "Titulaire",
     "licenceColEdition": "Édition",
     "licenceColEnd": "Échéance",
-    "licenceColMode": "Mode",
-    "licenceColStatus": "État",
-    "licenceColCheck": "Dernière vérification",
-    "licenceCommunity": "À venir"
+    "licenceColStatus": "État"
   },
   "notifPrompt": {
     "title": "Recevoir un avis hors de l'onglet",

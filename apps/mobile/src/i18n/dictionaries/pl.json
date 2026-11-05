@@ -1448,10 +1448,7 @@
     "licenceDaysLeft_other": "zostało {{count}} dnia",
     "licenceLastDay": "ostatni dzień",
     "licenceExpiredOn": "Wygasła {{date}}",
-    "licenceColMode": "Tryb",
-    "licenceColStatus": "Stan",
-    "licenceColCheck": "Ostatnia weryfikacja",
-    "licenceCommunity": "Nadchodząca"
+    "licenceColStatus": "Stan"
   },
   "access": {
     "readOnly": {
@@ -1681,7 +1678,6 @@
       "notText": "Ten plik nie jest tekstem: licencja to jedna linia tekstu.",
       "unreadable": "Nie udało się odczytać tego pliku. Spróbuj ponownie lub wklej tekst licencji."
     },
-    "active": "Aktywna",
     "frozenBanner": "Licencja tej przestrzeni wygasła: istniejące role nadal obowiązują, ale nie można ich już zmieniać. Zainstaluj nową licencję w sekcji Licencja.",
     "tag": {
       "active": "Aktywna",

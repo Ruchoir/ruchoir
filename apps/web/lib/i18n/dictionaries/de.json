@@ -82,10 +82,7 @@
     "licenceColHolder": "Lizenznehmer",
     "licenceColEdition": "Edition",
     "licenceColEnd": "Ablauf",
-    "licenceColMode": "Modus",
-    "licenceColStatus": "Status",
-    "licenceColCheck": "Letzte Prüfung",
-    "licenceCommunity": "Bevorstehend"
+    "licenceColStatus": "Status"
   },
   "notifPrompt": {
     "title": "Bescheid wissen, auch außerhalb des Tabs",

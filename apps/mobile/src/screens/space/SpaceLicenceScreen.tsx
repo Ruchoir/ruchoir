@@ -205,7 +205,7 @@ function StateCard({ view, day, timeZone }: { view: LicenceView; day: (iso: stri
         {view.edition === "frozen" && !view.status ? null : (
           <View style={[styles.pill, { backgroundColor: `${pill}66`, borderColor: pill }]}>
             <Text variant="label" style={{ color: c.onPastel }}>
-              {view.status ? t(standing.tag.key as DictKey) : t("licence.active")}
+              {t(view.status ? (standing.tag.key as DictKey) : "licence.tag.active")}
             </Text>
           </View>
         )}

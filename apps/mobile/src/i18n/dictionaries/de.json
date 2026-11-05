@@ -1324,10 +1324,7 @@
     "licenceDaysLeft_other": "noch {{count}} Tage",
     "licenceLastDay": "letzter Tag",
     "licenceExpiredOn": "Abgelaufen am {{date}}",
-    "licenceColMode": "Modus",
-    "licenceColStatus": "Status",
-    "licenceColCheck": "Letzte Prüfung",
-    "licenceCommunity": "Bevorstehend"
+    "licenceColStatus": "Status"
   },
   "access": {
     "readOnly": {
@@ -1539,7 +1536,6 @@
       "notText": "Diese Datei ist kein Text: Eine Lizenz ist eine Textzeile.",
       "unreadable": "Diese Datei konnte nicht gelesen werden. Versuchen Sie es noch einmal oder fügen Sie den Text der Lizenz ein."
     },
-    "active": "Aktiv",
     "frozenBanner": "Die Lizenz dieses Bereichs ist abgelaufen: Die vorhandenen Rollen gelten weiter, lassen sich aber nicht mehr ändern. Installieren Sie unter Lizenz eine neue Lizenz.",
     "tag": {
       "active": "Aktiv",

@@ -84,10 +84,7 @@
     "licenceColHolder": "Intestatario",
     "licenceColEdition": "Edizione",
     "licenceColEnd": "Scadenza",
-    "licenceColMode": "Modalità",
-    "licenceColStatus": "Stato",
-    "licenceColCheck": "Ultima verifica",
-    "licenceCommunity": "In arrivo"
+    "licenceColStatus": "Stato"
   },
   "notifPrompt": {
     "title": "Ricevere un avviso fuori dalla scheda",

@@ -82,10 +82,7 @@
     "licenceColHolder": "Holder",
     "licenceColEdition": "Edition",
     "licenceColEnd": "Ends",
-    "licenceColMode": "Mode",
-    "licenceColStatus": "Status",
-    "licenceColCheck": "Last check",
-    "licenceCommunity": "Upcoming"
+    "licenceColStatus": "Status"
   },
   "notifPrompt": {
     "title": "Be told while you are elsewhere",

@@ -1324,10 +1324,7 @@
     "licenceDaysLeft_other": "{{count}} jours restants",
     "licenceLastDay": "dernier jour",
     "licenceExpiredOn": "Expirée le {{date}}",
-    "licenceColMode": "Mode",
-    "licenceColStatus": "État",
-    "licenceColCheck": "Dernière vérification",
-    "licenceCommunity": "À venir"
+    "licenceColStatus": "État"
   },
   "access": {
     "readOnly": {
@@ -1539,7 +1536,6 @@
       "notText": "Ce fichier n'est pas un texte : une licence est une ligne de texte.",
       "unreadable": "Ce fichier n'a pas pu être lu. Réessayez, ou collez le texte de la licence."
     },
-    "active": "Active",
     "frozenBanner": "La licence de cet espace a expiré : les rôles en place continuent de s'appliquer, mais ne se modifient plus. Installez une nouvelle licence dans Licence.",
     "tag": {
       "active": "Active",

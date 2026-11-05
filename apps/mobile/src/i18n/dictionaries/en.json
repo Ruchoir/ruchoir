@@ -1324,10 +1324,7 @@
     "licenceDaysLeft_other": "{{count}} days left",
     "licenceLastDay": "last day",
     "licenceExpiredOn": "Expired on {{date}}",
-    "licenceColMode": "Mode",
-    "licenceColStatus": "Status",
-    "licenceColCheck": "Last check",
-    "licenceCommunity": "Upcoming"
+    "licenceColStatus": "Status"
   },
   "access": {
     "readOnly": {
@@ -1539,7 +1536,6 @@
       "notText": "This file is not text: a licence is a line of text.",
       "unreadable": "This file could not be read. Try again, or paste the licence's text."
     },
-    "active": "Active",
     "frozenBanner": "This space's licence has expired: the roles in place still apply, but can no longer be edited. Install a new licence under Licence.",
     "tag": {
       "active": "Active",

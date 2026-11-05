@@ -1386,10 +1386,7 @@
     "licenceDaysLeft_other": "quedan {{count}} días",
     "licenceLastDay": "último día",
     "licenceExpiredOn": "Caducó el {{date}}",
-    "licenceColMode": "Modo",
-    "licenceColStatus": "Estado",
-    "licenceColCheck": "Última comprobación",
-    "licenceCommunity": "Próxima"
+    "licenceColStatus": "Estado"
   },
   "access": {
     "readOnly": {
@@ -1610,7 +1607,6 @@
       "notText": "Este archivo no es texto: una licencia es una línea de texto.",
       "unreadable": "No se ha podido leer este archivo. Vuelve a intentarlo o pega el texto de la licencia."
     },
-    "active": "Activa",
     "frozenBanner": "La licencia de este espacio ha caducado: los roles existentes siguen aplicándose, pero ya no se pueden modificar. Instala una nueva en Licencia.",
     "tag": {
       "active": "Activa",

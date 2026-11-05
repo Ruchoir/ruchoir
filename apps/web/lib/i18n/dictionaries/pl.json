@@ -86,10 +86,7 @@
     "licenceColHolder": "Posiadacz",
     "licenceColEdition": "Edycja",
     "licenceColEnd": "Termin",
-    "licenceColMode": "Tryb",
-    "licenceColStatus": "Stan",
-    "licenceColCheck": "Ostatnia weryfikacja",
-    "licenceCommunity": "Nadchodząca"
+    "licenceColStatus": "Stan"
   },
   "notifPrompt": {
     "title": "Wiedzieć, będąc gdzie indziej",

@@ -84,10 +84,7 @@
     "licenceColHolder": "Titular",
     "licenceColEdition": "Edición",
     "licenceColEnd": "Vencimiento",
-    "licenceColMode": "Modo",
-    "licenceColStatus": "Estado",
-    "licenceColCheck": "Última comprobación",
-    "licenceCommunity": "Próxima"
+    "licenceColStatus": "Estado"
   },
   "notifPrompt": {
     "title": "Enterarte cuando estás en otra parte",

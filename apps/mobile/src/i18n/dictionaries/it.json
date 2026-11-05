@@ -1386,10 +1386,7 @@
     "licenceDaysLeft_other": "{{count}} giorni rimasti",
     "licenceLastDay": "ultimo giorno",
     "licenceExpiredOn": "Scaduta il {{date}}",
-    "licenceColMode": "Modalità",
-    "licenceColStatus": "Stato",
-    "licenceColCheck": "Ultima verifica",
-    "licenceCommunity": "In arrivo"
+    "licenceColStatus": "Stato"
   },
   "access": {
     "readOnly": {
@@ -1610,7 +1607,6 @@
       "notText": "Questo file non è un testo: una licenza è una riga di testo.",
       "unreadable": "Non è stato possibile leggere questo file. Riprova o incolla il testo della licenza."
     },
-    "active": "Attiva",
     "frozenBanner": "La licenza di questo spazio è scaduta: i ruoli esistenti continuano ad applicarsi, ma non si possono più modificare. Installa una nuova licenza in Licenza.",
     "tag": {
       "active": "Attiva",
