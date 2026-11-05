@@ -1054,3 +1054,84 @@ async fn a_group_manager_cannot_act_on_people_ranked_above_them_in_a_role_group(
     let (status, _) = remove(&app, fx.member, fx.space, group, fx.guest).await;
     assert_eq!(status, 204);
 }
+
+/// A group that still carries a role, with two people (one of them a manager), in a space that no
+/// longer has the paid edition.
+async fn leftover_group(app: &TestApp, fx: &Fx) -> (Uuid, Uuid, Uuid) {
+    let role = make_role(&app.db, fx.space, "Comptable", 40, &[]).await;
+    let group = make_group(&app.db, fx.space, "Compta").await;
+    give_role_to_group(&app.db, group, fx.space, role)
+        .await
+        .expect("role");
+    let first = make_user(&app.db, "first").await;
+    let second = make_user(&app.db, "second").await;
+    for who in [first, second] {
+        crate::testkit::add_member(&app.db, fx.space, who, "member").await;
+        put_in_group(&app.db, group, fx.space, who, false).await;
+    }
+    make_manager(&app.db, group, first).await;
+    (group, first, second)
+}
+
+#[tokio::test]
+async fn taking_away_is_free_in_a_frozen_or_community_space_but_adding_is_not() {
+    for (edition, code, add_status) in [(0, "licence_required", 402), (1, "licence_frozen", 409)] {
+        let app = match edition {
+            0 => boot().await,
+            _ => boot_as(Arc::new(FrozenEdition), None, |_| {}).await,
+        };
+        let Some(app) = app else { return };
+        let fx = fixture(&app).await;
+        let (group, first, second) = leftover_group(&app, &fx).await;
+
+        // Adding a person to a role-carrying group is paid.
+        let (status, body) = add(&app, fx.hr, fx.space, group, &[fx.member]).await;
+        assert_eq!(status, add_status, "edition {edition}: {body}");
+        assert_eq!(body["error"], code);
+
+        // Taking people out (a manager included), then deleting the group, is not.
+        let (status, body) = remove(&app, fx.hr, fx.space, group, first).await;
+        assert_eq!(status, 204, "edition {edition}: {body}");
+        let (status, body) = remove(&app, fx.hr, fx.space, group, second).await;
+        assert_eq!(status, 204, "edition {edition}: {body}");
+        let (status, body) = call(
+            &app,
+            fx.hr,
+            reqwest::Method::DELETE,
+            &group_path(fx.space, group),
+            None,
+        )
+        .await;
+        assert_eq!(status, 204, "edition {edition}: {body}");
+    }
+}
+
+#[tokio::test]
+async fn a_member_without_groups_manage_gets_the_same_403_in_every_edition() {
+    for edition in 0..3 {
+        let app = match edition {
+            0 => boot().await,
+            1 => boot_as(Arc::new(FrozenEdition), None, |_| {}).await,
+            _ => licensed().await,
+        };
+        let Some(app) = app else { return };
+        let fx = fixture(&app).await;
+        let (group, _, second) = leftover_group(&app, &fx).await;
+        let (status, body) = add(&app, fx.member, fx.space, group, &[fx.guest]).await;
+        assert_eq!(status, 403, "edition {edition}: {body}");
+        assert_eq!(body["error"], "forbidden", "edition {edition}");
+        let (status, body) = remove(&app, fx.member, fx.space, group, second).await;
+        assert_eq!(status, 403, "edition {edition}: {body}");
+        assert_eq!(body["error"], "forbidden", "edition {edition}");
+        let (status, body) = call(
+            &app,
+            fx.member,
+            reqwest::Method::DELETE,
+            &group_path(fx.space, group),
+            None,
+        )
+        .await;
+        assert_eq!(status, 403, "edition {edition}: {body}");
+        assert_eq!(body["error"], "forbidden", "edition {edition}");
+    }
+}

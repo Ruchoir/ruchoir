@@ -339,11 +339,9 @@ pub fn decide(actor: &GroupActor, group: &GroupRow, act: GroupAct) -> Result<(),
             if !gm {
                 return Err(Refusal::Forbidden);
             }
-            if carries {
-                paid(actor)?;
-                if !all {
-                    return Err(Refusal::Because("role_above_you"));
-                }
+            // Taking a group away is never paid, so a leftover one can always go.
+            if carries && !all {
+                return Err(Refusal::Because("role_above_you"));
             }
             Ok(())
         }
@@ -354,7 +352,8 @@ pub fn decide(actor: &GroupActor, group: &GroupRow, act: GroupAct) -> Result<(),
             }
             // The act rests on the manager's own right when GM with ALL would not allow it.
             let rests_on_mgr = mgr && !(gm && all);
-            if carries || rests_on_mgr {
+            // Only an addition is paid; taking people out never is.
+            if matches!(act, GroupAct::Add(_)) && (carries || rests_on_mgr) {
                 paid(actor)?;
             }
             // On GM alone (not also a manager), a carried role above the actor stops them.
@@ -386,9 +385,13 @@ pub fn decide(actor: &GroupActor, group: &GroupRow, act: GroupAct) -> Result<(),
             Ok(())
         }
         GroupAct::SetRoles { after } => {
-            paid(actor)?;
             if !gm || !actor.rights.contains(Permission::RolesManage) {
                 return Err(Refusal::Forbidden);
+            }
+            // Carrying a new role is paid; detaching one never is.
+            let before_ids = role_ids(&group.roles);
+            if after.iter().any(|r| !before_ids.contains(&r.id)) {
+                paid(actor)?;
             }
             if after
                 .iter()
@@ -396,7 +399,6 @@ pub fn decide(actor: &GroupActor, group: &GroupRow, act: GroupAct) -> Result<(),
             {
                 return Err(Refusal::BaseRole);
             }
-            let before_ids = role_ids(&group.roles);
             let after_ids = role_ids(after);
             let changed = group
                 .roles
@@ -413,9 +415,18 @@ pub fn decide(actor: &GroupActor, group: &GroupRow, act: GroupAct) -> Result<(),
         }
         GroupAct::SetManagers(ids) => {
             from_directory()?;
-            paid(actor)?;
             if !gm {
                 return Err(Refusal::Forbidden);
+            }
+            // Appointing is paid; taking a manager's mandate away never is.
+            let appoints = ids.iter().any(|id| {
+                !group
+                    .members
+                    .iter()
+                    .any(|m| m.user_id == *id && m.is_manager)
+            });
+            if appoints {
+                paid(actor)?;
             }
             if !all {
                 return Err(Refusal::Because("role_above_you"));
@@ -641,19 +652,18 @@ mod tests {
     }
 
     #[test]
-    fn decide_delete_role_carrying_group_needs_a_licence() {
+    fn decide_delete_role_carrying_group_needs_no_licence() {
+        // Taking something away is never paid: a leftover group can always go.
         let g = grp(vec![], vec![role(1, 10)]);
-        let mut a = gm_rm();
-        a.paid = Paid::Community;
-        assert_eq!(
-            decide(&a, &g, GroupAct::Delete),
-            Err(Refusal::LicenceRequired)
-        );
-        a.paid = Paid::Frozen;
-        assert_eq!(
-            decide(&a, &g, GroupAct::Delete),
-            Err(Refusal::LicenceFrozen)
-        );
+        for state in [Paid::Community, Paid::Frozen] {
+            let mut a = gm_rm();
+            a.paid = state;
+            assert_eq!(decide(&a, &g, GroupAct::Delete), Ok(()));
+            // Without the right it is a plain 403, whatever the licence says.
+            let mut p = plain();
+            p.paid = state;
+            assert_eq!(decide(&p, &g, GroupAct::Delete), Err(Refusal::Forbidden));
+        }
     }
 
     #[test]
@@ -683,14 +693,11 @@ mod tests {
     }
 
     #[test]
-    fn decide_delete_licence_is_asked_before_the_roles() {
+    fn decide_delete_in_a_community_space_still_needs_every_role() {
         let mut a = gm();
         a.paid = Paid::Community;
         let g = grp(vec![], vec![role(1, 90)]);
-        assert_eq!(
-            decide(&a, &g, GroupAct::Delete),
-            Err(Refusal::LicenceRequired)
-        );
+        assert_eq!(decide(&a, &g, GroupAct::Delete), because("role_above_you"));
     }
 
     // Add
@@ -867,13 +874,31 @@ mod tests {
             decide(&a, &grp(vec![], vec![]), GroupAct::Remove(&others)),
             Ok(())
         );
+        // Taking people out is never paid, even as a manager.
         let g = grp(vec![member(ME, true, false)], vec![]);
-        let mut a = plain();
-        a.paid = Paid::Community;
-        assert_eq!(
-            decide(&a, &g, GroupAct::Remove(&others)),
-            Err(Refusal::LicenceRequired)
-        );
+        for state in [Paid::Community, Paid::Frozen] {
+            let mut a = plain();
+            a.paid = state;
+            assert_eq!(decide(&a, &g, GroupAct::Remove(&others)), Ok(()));
+        }
+    }
+
+    #[test]
+    fn decide_remove_from_a_carrying_group_needs_no_licence() {
+        let others = [id(OTHER)];
+        let g = grp(vec![], vec![role(1, 10)]);
+        for state in [Paid::Community, Paid::Frozen] {
+            let mut a = gm_rm();
+            a.paid = state;
+            assert_eq!(decide(&a, &g, GroupAct::Remove(&others)), Ok(()));
+            // No right: 403 first.
+            let mut p = plain();
+            p.paid = state;
+            assert_eq!(
+                decide(&p, &g, GroupAct::Remove(&others)),
+                Err(Refusal::Forbidden)
+            );
+        }
     }
 
     #[test]
@@ -972,10 +997,10 @@ mod tests {
     // SetRoles
 
     #[test]
-    fn decide_set_roles_needs_a_licence_first() {
+    fn decide_set_roles_carrying_a_new_role_needs_a_licence() {
         let after = [role(1, 10)];
         let g = grp(vec![], vec![]);
-        let mut a = plain();
+        let mut a = gm_rm();
         a.paid = Paid::Community;
         assert_eq!(
             decide(&a, &g, GroupAct::SetRoles { after: &after }),
@@ -986,6 +1011,54 @@ mod tests {
             decide(&a, &g, GroupAct::SetRoles { after: &after }),
             Err(Refusal::LicenceFrozen)
         );
+    }
+
+    #[test]
+    fn decide_set_roles_that_only_removes_needs_no_licence() {
+        let g = grp(vec![], vec![role(1, 10), role(2, 20)]);
+        for state in [Paid::Community, Paid::Frozen] {
+            let mut a = gm_rm();
+            a.paid = state;
+            assert_eq!(
+                decide(
+                    &a,
+                    &g,
+                    GroupAct::SetRoles {
+                        after: &[role(1, 10)]
+                    }
+                ),
+                Ok(())
+            );
+            assert_eq!(decide(&a, &g, GroupAct::SetRoles { after: &[] }), Ok(()));
+            // Swapping one for another adds one: paid.
+            assert!(
+                decide(
+                    &a,
+                    &g,
+                    GroupAct::SetRoles {
+                        after: &[role(3, 10)]
+                    }
+                )
+                .is_err(),
+                "a new role is an addition"
+            );
+        }
+    }
+
+    #[test]
+    fn decide_set_roles_rights_come_before_the_licence() {
+        let after = [role(1, 10)];
+        let g = grp(vec![], vec![]);
+        for state in [Paid::Community, Paid::Frozen, Paid::Enterprise] {
+            for mut a in [plain(), gm(), actor_with(&[Permission::RolesManage], 50)] {
+                a.paid = state;
+                assert_eq!(
+                    decide(&a, &g, GroupAct::SetRoles { after: &after }),
+                    Err(Refusal::Forbidden),
+                    "{state:?}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -1189,7 +1262,17 @@ mod tests {
             decide(&gm(), &directory(vec![]), GroupAct::SetManagers(&ids)),
             Err(Refusal::FromDirectory)
         );
-        let mut a = plain();
+        // Rights come first: no groups.manage is a 403 whatever the licence.
+        for state in [Paid::Community, Paid::Frozen, Paid::Enterprise] {
+            let mut a = plain();
+            a.paid = state;
+            assert_eq!(
+                decide(&a, &g, GroupAct::SetManagers(&ids)),
+                Err(Refusal::Forbidden)
+            );
+        }
+        // Then the licence, for an appointment.
+        let mut a = gm();
         a.paid = Paid::Community;
         assert_eq!(
             decide(&a, &g, GroupAct::SetManagers(&ids)),
@@ -1200,11 +1283,23 @@ mod tests {
             decide(&a, &g, GroupAct::SetManagers(&ids)),
             Err(Refusal::LicenceFrozen)
         );
-        assert_eq!(
-            decide(&plain(), &g, GroupAct::SetManagers(&ids)),
-            Err(Refusal::Forbidden)
-        );
         assert_eq!(decide(&gm(), &g, GroupAct::SetManagers(&ids)), Ok(()));
+    }
+
+    #[test]
+    fn decide_set_managers_that_only_removes_needs_no_licence() {
+        let g = grp(
+            vec![member(OTHER, true, false), member(THIRD, false, false)],
+            vec![],
+        );
+        for state in [Paid::Community, Paid::Frozen] {
+            let mut a = gm();
+            a.paid = state;
+            assert_eq!(decide(&a, &g, GroupAct::SetManagers(&[])), Ok(()));
+            assert_eq!(decide(&a, &g, GroupAct::SetManagers(&[id(OTHER)])), Ok(()));
+            // Appointing a second one is an addition.
+            assert!(decide(&a, &g, GroupAct::SetManagers(&[id(OTHER), id(THIRD)])).is_err());
+        }
     }
 
     #[test]

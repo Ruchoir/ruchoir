@@ -22,7 +22,7 @@ use super::catalogue::Permission;
 use super::delegation::rank_of;
 use super::groups::{
     actor, decide, group, groups_of, name_taken, rests_on_manager, validate_group_name, GroupAct,
-    GroupActor, GroupRow, GroupSource,
+    GroupActor, GroupRow, GroupSource, Paid,
 };
 use super::membership::active_sql;
 use super::rules::{hide_unopened, uses_of, Named};
@@ -93,21 +93,29 @@ pub struct GroupDto {
     pub may: GroupMay,
 }
 
+/// The flags `change_roles` and `appoint` open an editor that mostly adds: they need the paid
+/// edition, although [`decide`] lets a removal through in a community or frozen space.
+fn adds_need_a_licence(actor: &GroupActor) -> bool {
+    actor.paid == Paid::Enterprise
+}
+
 /// What `actor` may do to `group`.
 pub fn may(actor: &GroupActor, group: &GroupRow) -> GroupMay {
     GroupMay {
         edit: decide(actor, group, GroupAct::Edit).is_ok(),
         delete: decide(actor, group, GroupAct::Delete).is_ok(),
         change_members: decide(actor, group, GroupAct::Add(&[])).is_ok(),
-        change_roles: decide(
-            actor,
-            group,
-            GroupAct::SetRoles {
-                after: &group.roles,
-            },
-        )
-        .is_ok(),
-        appoint: decide(actor, group, GroupAct::SetManagers(&[])).is_ok(),
+        change_roles: adds_need_a_licence(actor)
+            && decide(
+                actor,
+                group,
+                GroupAct::SetRoles {
+                    after: &group.roles,
+                },
+            )
+            .is_ok(),
+        appoint: adds_need_a_licence(actor)
+            && decide(actor, group, GroupAct::SetManagers(&[])).is_ok(),
     }
 }
 
@@ -632,7 +640,7 @@ mod tests {
     use super::*;
     use crate::permissions::catalogue::PermissionSet;
     use crate::permissions::delegation::{Rank, RoleRow};
-    use crate::permissions::groups::{GroupMember, Paid};
+    use crate::permissions::groups::GroupMember;
 
     fn id(n: u128) -> Uuid {
         Uuid::from_u128(n)
@@ -721,20 +729,22 @@ mod tests {
                     got.change_members,
                     decide(actor, group, GroupAct::Add(&[])).is_ok()
                 );
+                let enterprise = actor.paid == Paid::Enterprise;
                 assert_eq!(
                     got.change_roles,
-                    decide(
-                        actor,
-                        group,
-                        GroupAct::SetRoles {
-                            after: &group.roles
-                        }
-                    )
-                    .is_ok()
+                    enterprise
+                        && decide(
+                            actor,
+                            group,
+                            GroupAct::SetRoles {
+                                after: &group.roles
+                            }
+                        )
+                        .is_ok()
                 );
                 assert_eq!(
                     got.appoint,
-                    decide(actor, group, GroupAct::SetManagers(&[])).is_ok()
+                    enterprise && decide(actor, group, GroupAct::SetManagers(&[])).is_ok()
                 );
             }
         }
