@@ -1447,7 +1447,8 @@
     "licenceDaysLeft_many": "zostało {{count}} dni",
     "licenceDaysLeft_other": "zostało {{count}} dnia",
     "licenceLastDay": "ostatni dzień",
-    "licenceExpiredOn": "Wygasła {{date}}"
+    "licenceExpiredOn": "Wygasła {{date}}",
+    "licenceColStatus": "Stan"
   },
   "access": {
     "readOnly": {
@@ -1648,7 +1649,7 @@
     "removeBody": "Przestrzeń wraca do edycji bezpłatnej. Nikt nie traci dostępu, a obecne role nadal obowiązują; zmienić je można tylko z licencją.",
     "removeFailed": "Licencja nie została usunięta",
     "installFailed": "Nie udało się zainstalować licencji. Spróbuj ponownie za chwilę.",
-    "foot": "Sprawdzana na tym serwerze, bez żadnego połączenia z zewnątrz. Usunięcie licencji nie odbiera dostępu: przestrzeń wraca do edycji bezpłatnej, a obecne reguły nadal obowiązują.",
+    "foot": "Sprawdzana na tym serwerze. Licencja offline nie wykonuje żadnych połączeń; licencja online jest też co 5 minut sprawdzana w Ruchoir. Usunięcie licencji nie odbiera dostępu: przestrzeń wraca do edycji bezpłatnej, a obecne reguły nadal obowiązują.",
     "communitySubStrong": "Ta przestrzeń korzysta z edycji bezpłatnej.",
     "communitySubRest": "Licencja Enterprise dodaje własne role, ich kolejność i delegowanie zarządzania nimi.",
     "endsIn_one": "Licencja kończy się za {{count}} dzień: pamiętaj o odnowieniu.",
@@ -1677,8 +1678,47 @@
       "notText": "Ten plik nie jest tekstem: licencja to jedna linia tekstu.",
       "unreadable": "Nie udało się odczytać tego pliku. Spróbuj ponownie lub wklej tekst licencji."
     },
-    "active": "Aktywna",
-    "frozenBanner": "Licencja tej przestrzeni wygasła: istniejące role nadal obowiązują, ale nie można ich już zmieniać. Zainstaluj nową licencję w sekcji Licencja."
+    "frozenBanner": "Licencja tej przestrzeni wygasła: istniejące role nadal obowiązują, ale nie można ich już zmieniać. Zainstaluj nową licencję w sekcji Licencja.",
+    "tag": {
+      "active": "Aktywna",
+      "suspended": "Zawieszona",
+      "revoked": "Unieważniona",
+      "unreachable": "Niedostępna",
+      "clock": "Sprawdź zegar",
+      "notYet": "Nadchodząca",
+      "noStatus": "Niepotwierdzona"
+    },
+    "mode": {
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "banner": {
+      "suspended": "Ruchoir zawiesił tę licencję. Funkcje Enterprise są zamrożone: to, co skonfigurowano, nadal obowiązuje, nic nie można zmienić. Skontaktuj się z Ruchoir, aby ją wznowić.",
+      "revoked": "Ta licencja została unieważniona. Funkcje Enterprise są zamrożone i wrócą tylko z nową licencją. Nic nie zostaje usunięte.",
+      "unreachable": "Usługa licencji Ruchoir jest niedostępna od {{date}}. Funkcje Enterprise są zamrożone do następnej udanej weryfikacji. Sprawdź, czy serwer może otworzyć wychodzące połączenie HTTPS.",
+      "unreachableNever": "Nie udało się jeszcze połączyć z usługą licencji Ruchoir. Funkcje Enterprise są zamrożone do pierwszej udanej weryfikacji. Sprawdź, czy serwer może otworzyć wychodzące połączenie HTTPS.",
+      "clock": "Zegar serwera cofnął się o ponad dzień. Funkcje Enterprise są zamrożone, dopóki nie zostanie ustawiony poprawnie.",
+      "noStatus": "Usługa licencji Ruchoir odpowiada, ale nie potwierdza tej licencji. Funkcje Enterprise są zamrożone: skontaktuj się z Ruchoir, licencja mogła zostać zastąpiona."
+    },
+    "lastCheckIn": "Ostatnia weryfikacja",
+    "lastCheckInHint": "Serwer weryfikuje licencję w Ruchoir co 5 minut.",
+    "checkNever": "Brak",
+    "offlineHint": "Licencja offline nigdy nie łączy się z Ruchoir.",
+    "checkNow": "Sprawdź teraz",
+    "checking": "Sprawdzanie…",
+    "checked": "Licencja sprawdzona",
+    "checkFailed": "Weryfikacja się nie powiodła.",
+    "sentOnly": "Co jest wysyłane: identyfikator licencji, zajęte miejsca i wersja serwera. Nic więcej.",
+    "next": {
+      "online": "Automatyczne odnowienie: następna licencja jest gotowa, od {{from}} do {{until}}, {{count}} miejsc. Przejmie działanie sama.",
+      "offline": "Zainstalowano następną licencję: od {{from}} do {{until}}, {{count}} miejsc. Przejmie działanie {{from}}."
+    },
+    "earlyHint": "Licencję odnowienia można zainstalować od razu po otrzymaniu: czeka na swoją datę rozpoczęcia.",
+    "refusalService": {
+      "serviceUnreachable": "Nie udało się połączyć z usługą licencji Ruchoir: ta licencja online nie została zainstalowana. Spróbuj ponownie za chwilę.",
+      "checkTooSoon": "Licencja została właśnie sprawdzona. Spróbuj ponownie za kilka sekund."
+    },
+    "expiredTag": "Licencja wygasła"
   },
   "groups": {
     "noSelfRole": "Nikt nie nadaje sobie roli, także przez grupę: nie możesz zmieniać ról grupy, do której należysz.",

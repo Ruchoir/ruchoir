@@ -1385,7 +1385,8 @@
     "licenceDaysLeft_many": "quedan {{count}} días",
     "licenceDaysLeft_other": "quedan {{count}} días",
     "licenceLastDay": "último día",
-    "licenceExpiredOn": "Caducó el {{date}}"
+    "licenceExpiredOn": "Caducó el {{date}}",
+    "licenceColStatus": "Estado"
   },
   "access": {
     "readOnly": {
@@ -1578,7 +1579,7 @@
     "removeBody": "El espacio vuelve a la edición gratuita. Nadie pierde su acceso y los roles existentes siguen aplicándose; solo se pueden modificar con una licencia.",
     "removeFailed": "No se ha retirado la licencia",
     "installFailed": "No se ha podido instalar la licencia. Vuelve a intentarlo en un momento.",
-    "foot": "Verificada en este servidor, sin ninguna llamada externa. Retirar la licencia no quita ningún acceso: el espacio vuelve a la edición gratuita y las reglas existentes siguen aplicándose.",
+    "foot": "Verificada en este servidor. Una licencia sin conexión no hace ninguna llamada externa; una licencia en línea también se comprueba con Ruchoir cada 5 minutos. Retirar la licencia no quita ningún acceso: el espacio vuelve a la edición gratuita y las reglas existentes siguen aplicándose.",
     "communitySubStrong": "Este espacio está en la edición gratuita.",
     "communitySubRest": "Una licencia Empresa añade los roles personalizados, su orden y la delegación de su gestión.",
     "endsIn_one": "La licencia termina dentro de {{count}} día: acuérdate de renovarla.",
@@ -1606,8 +1607,47 @@
       "notText": "Este archivo no es texto: una licencia es una línea de texto.",
       "unreadable": "No se ha podido leer este archivo. Vuelve a intentarlo o pega el texto de la licencia."
     },
-    "active": "Activa",
-    "frozenBanner": "La licencia de este espacio ha caducado: los roles existentes siguen aplicándose, pero ya no se pueden modificar. Instala una nueva en Licencia."
+    "frozenBanner": "La licencia de este espacio ha caducado: los roles existentes siguen aplicándose, pero ya no se pueden modificar. Instala una nueva en Licencia.",
+    "tag": {
+      "active": "Activa",
+      "suspended": "Suspendida",
+      "revoked": "Revocada",
+      "unreachable": "Inaccesible",
+      "clock": "Revisar el reloj",
+      "notYet": "Próxima",
+      "noStatus": "Sin confirmar"
+    },
+    "mode": {
+      "online": "En línea",
+      "offline": "Sin conexión"
+    },
+    "banner": {
+      "suspended": "Ruchoir ha suspendido esta licencia. Las funciones Enterprise están congeladas: lo configurado sigue aplicándose, no se puede cambiar nada. Contacte con Ruchoir para reanudarla.",
+      "revoked": "Esta licencia ha sido revocada. Las funciones Enterprise están congeladas y solo volverán con una nueva licencia. No se borra nada.",
+      "unreachable": "El servicio de licencias de Ruchoir está inaccesible desde el {{date}}. Las funciones Enterprise están congeladas hasta la próxima comprobación correcta. Compruebe que el servidor puede abrir una conexión HTTPS saliente.",
+      "unreachableNever": "Todavía no se ha podido contactar con el servicio de licencias de Ruchoir. Las funciones Enterprise están congeladas hasta la primera comprobación correcta. Compruebe que el servidor puede abrir una conexión HTTPS saliente.",
+      "clock": "El reloj del servidor ha retrocedido más de un día. Las funciones Enterprise están congeladas hasta que se ponga en hora.",
+      "noStatus": "El servicio de licencias de Ruchoir responde, pero no confirma esta licencia. Las funciones Enterprise están congeladas: contacte con Ruchoir, quizá la licencia se haya sustituido."
+    },
+    "lastCheckIn": "Última comprobación",
+    "lastCheckInHint": "El servidor comprueba la licencia con Ruchoir cada 5 minutos.",
+    "checkNever": "Ninguna",
+    "offlineHint": "Una licencia sin conexión nunca contacta con Ruchoir.",
+    "checkNow": "Comprobar ahora",
+    "checking": "Comprobando…",
+    "checked": "Licencia comprobada",
+    "checkFailed": "La comprobación no se ha completado.",
+    "sentOnly": "Lo que se envía: el identificador de la licencia, las plazas usadas y la versión del servidor. Nada más.",
+    "next": {
+      "online": "Renovación automática: la próxima licencia está lista, del {{from}} al {{until}}, {{count}} plazas. Tomará el relevo por sí sola.",
+      "offline": "Próxima licencia instalada: del {{from}} al {{until}}, {{count}} plazas. Toma el relevo el {{from}}."
+    },
+    "earlyHint": "Una licencia de renovación puede instalarse en cuanto llega: espera a su fecha de inicio.",
+    "refusalService": {
+      "serviceUnreachable": "No se ha podido contactar con el servicio de licencias de Ruchoir: esta licencia en línea no se ha instalado. Vuelva a intentarlo en un momento.",
+      "checkTooSoon": "La licencia se acaba de comprobar. Vuelva a intentarlo en unos segundos."
+    },
+    "expiredTag": "Licencia caducada"
   },
   "groups": {
     "noSelfRole": "Nadie se da un rol a sí mismo, tampoco a través de un grupo: no puedes cambiar los roles de un grupo del que formas parte.",

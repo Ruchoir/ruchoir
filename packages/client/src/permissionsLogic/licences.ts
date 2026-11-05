@@ -1,6 +1,6 @@
 /** The instance administrator's list of licences: one line per space, soonest end first. */
 
-import type { AdminLicence, Channel, Workspace } from "../types.ts";
+import type { AdminLicence, Channel, LicenceView, Workspace } from "../types.ts";
 import { daysLeftBanner } from "./audit.ts";
 import { daysLeft } from "./guests.ts";
 
@@ -87,4 +87,50 @@ export function licenceDetail(row: { organisation: string; spaceName: string }, 
   const same = holder.toLowerCase() === row.spaceName.trim().toLowerCase();
   const all = [...(holder && !same ? [holder] : []), ...parts];
   return all.filter((p, i) => all.indexOf(p) === i);
+}
+
+/** What a licence's screen shows of where it stands: its tag, its mode, its banner, its check-in. */
+export type LicenceStanding = {
+  tag: { tone: "success" | "warning" | "danger" | "info"; key: string };
+  /** `null` for a licence of the first version (or an older server). */
+  modeKey: "licence.mode.online" | "licence.mode.offline" | null;
+  /** A sentence above the card when the licence does not run as it should. */
+  banner: { tone: "warning" | "danger"; key: string; since?: string } | null;
+  /** Online licences only: "Vérifier maintenant". */
+  canCheck: boolean;
+  lastCheckInAt: string | null;
+  /** The licence waiting to take over, with the sentence that says how it arrives. */
+  next: { key: "licence.next.online" | "licence.next.offline"; validFrom: string; validUntil: string; seats: number } | null;
+};
+
+/** Where `view` stands, for the Licence screen of every app. */
+export function licenceStanding(view: LicenceView): LicenceStanding {
+  const status = view.status;
+  const tag: LicenceStanding["tag"] =
+    status === "suspended" ? { tone: "warning", key: "licence.tag.suspended" }
+    : status === "revoked" ? { tone: "danger", key: "licence.tag.revoked" }
+    : status === "unreachable" ? { tone: "warning", key: "licence.tag.unreachable" }
+    : status === "no_status" ? { tone: "warning", key: "licence.tag.noStatus" }
+    : status === "clock" ? { tone: "danger", key: "licence.tag.clock" }
+    : status === "not_yet" ? { tone: "info", key: "licence.tag.notYet" }
+    : view.edition === "frozen" ? { tone: "warning", key: "licence.expiredTag" }
+    : { tone: "success", key: status ? "licence.tag.active" : "licence.enterprise" };
+  const banner: LicenceStanding["banner"] =
+    status === "suspended" ? { tone: "warning", key: "licence.banner.suspended" }
+    : status === "revoked" ? { tone: "danger", key: "licence.banner.revoked" }
+    : status === "unreachable"
+      ? view.unreachableSince
+        ? { tone: "danger", key: "licence.banner.unreachable", since: view.unreachableSince }
+        : { tone: "danger", key: "licence.banner.unreachableNever" }
+    : status === "no_status" ? { tone: "danger", key: "licence.banner.noStatus" }
+    : status === "clock" ? { tone: "danger", key: "licence.banner.clock" }
+    : null;
+  return {
+    tag,
+    modeKey: view.mode === "online" ? "licence.mode.online" : view.mode === "offline" ? "licence.mode.offline" : null,
+    banner,
+    canCheck: view.mode === "online",
+    lastCheckInAt: view.lastCheckInAt ?? null,
+    next: view.next ? { key: view.mode === "offline" ? "licence.next.offline" : "licence.next.online", ...view.next } : null,
+  };
 }

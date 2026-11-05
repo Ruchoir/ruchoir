@@ -6,6 +6,7 @@ import { Tag } from "@/components/ds";
 import { getAdminLicences } from "@/lib/data/api";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { currentLocale } from "@/lib/i18n/current";
+import { formatDate } from "@/lib/i18n/format";
 import { displayZone, endLabel } from "@/features/settings/guestLogic.ts";
 
 /**
@@ -31,9 +32,21 @@ const st: Record<string, CSSProperties> = {
   td: { padding: "10px 12px", fontSize: "var(--text-xs)", color: "var(--text-body)", borderBottom: "1px solid var(--border-subtle)", verticalAlign: "top" },
 };
 
+const STATUS: Record<Exclude<NonNullable<AdminLicence["status"]>, "invalid">, TranslationKey> = {
+  active: key("licence.tag.active"),
+  suspended: key("licence.tag.suspended"),
+  revoked: key("licence.tag.revoked"),
+  unreachable: key("licence.tag.unreachable"),
+  no_status: key("licence.tag.noStatus"),
+  expired: key("admin.licenceFrozen"),
+  not_yet: key("licence.tag.notYet"),
+  clock: key("licence.tag.clock"),
+};
+
 const EDITION: Record<AdminLicence["edition"], TranslationKey> = {
   enterprise: key("licence.enterprise"),
   frozen: key("admin.licenceFrozen"),
+  community: key("licence.tag.notYet"),
   invalid: key("admin.licenceUnreadable"),
 };
 
@@ -78,6 +91,9 @@ export function AdminLicences() {
                 <th style={st.th}>{t("admin.licenceColEdition")}</th>
                 <th style={st.th}>{t("licence.seats")}</th>
                 <th style={st.th}>{t("admin.licenceColEnd")}</th>
+                <th style={st.th}>{t("prefs.mode")}</th>
+                <th style={st.th}>{t("admin.licenceColStatus")}</th>
+                <th style={st.th}>{t("licence.lastCheckIn")}</th>
               </tr>
             </thead>
             <tbody>
@@ -99,6 +115,9 @@ export function AdminLicences() {
                       <div style={{ color: "var(--text-muted)", marginTop: 2 }}>{r.daysLeft === 0 ? t("admin.licenceLastDay") : t("admin.licenceDaysLeft", { count: r.daysLeft })}</div>
                     )}
                   </td>
+                  <td style={st.td}>{r.mode ? t(r.mode === "online" ? "licence.mode.online" : "licence.mode.offline") : null}</td>
+                  <td style={st.td}>{r.status && r.status !== "invalid" ? <Tag tone={r.status === "active" ? "neutral" : "warning"}>{t(STATUS[r.status])}</Tag> : null}</td>
+                  <td style={st.td}>{r.mode === "online" ? (r.lastCheckInAt ? formatDate(r.lastCheckInAt) : t("licence.checkNever")) : null}</td>
                 </tr>
               ))}
             </tbody>

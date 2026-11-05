@@ -81,7 +81,8 @@
     "licencesLoadFailed": "Les licences n'ont pas pu être chargées.",
     "licenceColHolder": "Titulaire",
     "licenceColEdition": "Édition",
-    "licenceColEnd": "Échéance"
+    "licenceColEnd": "Échéance",
+    "licenceColStatus": "État"
   },
   "notifPrompt": {
     "title": "Recevoir un avis hors de l'onglet",
@@ -2286,7 +2287,46 @@
     "removed": "Licence retirée",
     "installFailed": "La licence n'a pas pu être installée. Réessayez dans un instant.",
     "removeFailed": "La licence n'a pas été retirée",
-    "foot": "Vérifiée sur ce serveur, sans aucun appel extérieur. Retirer la licence ne retire aucun accès : l'espace repasse en édition gratuite et les règles en place s'appliquent toujours."
+    "foot": "Vérifiée sur ce serveur. Une licence hors ligne ne fait aucun appel ; une licence en ligne est aussi vérifiée auprès de Ruchoir toutes les 5 minutes. Retirer la licence ne retire aucun accès : l'espace repasse en édition gratuite et les règles en place s'appliquent toujours.",
+    "tag": {
+      "active": "Active",
+      "suspended": "Suspendue",
+      "revoked": "Révoquée",
+      "unreachable": "Injoignable",
+      "clock": "Horloge à vérifier",
+      "notYet": "À venir",
+      "noStatus": "Non confirmée"
+    },
+    "mode": {
+      "online": "En ligne",
+      "offline": "Hors ligne"
+    },
+    "banner": {
+      "suspended": "Cette licence est suspendue par Ruchoir. Les fonctions Entreprise sont gelées : ce qui est configuré continue de s'appliquer, rien ne peut être modifié. Contactez Ruchoir pour la reprendre.",
+      "revoked": "Cette licence a été révoquée. Les fonctions Entreprise sont gelées et ne reviendront qu'avec une nouvelle licence. Rien n'est supprimé.",
+      "unreachable": "Le service de licences de Ruchoir est injoignable depuis le {{date}}. Les fonctions Entreprise sont gelées jusqu'à la prochaine vérification réussie. Vérifiez que le serveur peut ouvrir une connexion HTTPS sortante.",
+      "unreachableNever": "Le service de licences de Ruchoir n'a pas encore pu être joint. Les fonctions Entreprise sont gelées jusqu'à la première vérification réussie. Vérifiez que le serveur peut ouvrir une connexion HTTPS sortante.",
+      "clock": "L'horloge du serveur a reculé de plus d'un jour. Les fonctions Entreprise sont gelées jusqu'à sa remise à l'heure.",
+      "noStatus": "Le service de licences de Ruchoir répond, mais ne confirme pas cette licence. Les fonctions Entreprise sont gelées : contactez Ruchoir, la licence a peut-être été remplacée."
+    },
+    "lastCheckIn": "Dernière vérification",
+    "lastCheckInHint": "Le serveur vérifie la licence toutes les 5 minutes auprès de Ruchoir.",
+    "checkNever": "Aucune",
+    "offlineHint": "Une licence hors ligne ne contacte jamais Ruchoir.",
+    "checkNow": "Vérifier maintenant",
+    "checking": "Vérification…",
+    "checked": "Licence vérifiée",
+    "checkFailed": "La vérification n'a pas abouti.",
+    "sentOnly": "Ce qui est envoyé : l'identifiant de la licence, les places utilisées et la version du serveur. Rien d'autre.",
+    "next": {
+      "online": "Renouvellement automatique : la prochaine licence est prête, du {{from}} au {{until}}, {{count}} places. Elle prendra le relais d'elle-même.",
+      "offline": "Prochaine licence installée : du {{from}} au {{until}}, {{count}} places. Elle prendra le relais le {{from}}."
+    },
+    "earlyHint": "Une licence de renouvellement peut être installée dès réception : elle attend sa date de début.",
+    "refusalService": {
+      "serviceUnreachable": "Le service de licences de Ruchoir n'a pas pu être joint : cette licence en ligne n'a pas été installée. Réessayez dans un instant.",
+      "checkTooSoon": "La licence vient d'être vérifiée. Réessayez dans quelques secondes."
+    }
   },
   "audit": {
     "title": "Journal",

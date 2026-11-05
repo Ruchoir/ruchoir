@@ -18,6 +18,8 @@ pub mod space_slugs;
 pub mod spaces;
 
 // Roles, their holders and the rules on resources (permissions).
+pub mod licence_instance;
+pub mod licence_kill_notices;
 pub mod permission_overrides;
 pub mod space_group_members;
 pub mod space_group_roles;

@@ -133,3 +133,57 @@ test("the_licence_detail_line_names_the_holder_only_when_it_differs_and_says_unr
   assert.deepEqual(licenceDetail({ ...row, organisation: "" }, ["Entreprise"]), ["Entreprise"]);
   assert.deepEqual(licenceDetail(row, ["Illisible", "1 sur 10 places", "Illisible"]), ["Illisible", "1 sur 10 places"]);
 });
+
+import { licenceStanding } from "../src/permissionsLogic/index.ts";
+import type { LicenceView } from "../src/types.ts";
+
+const online = (over: Partial<LicenceView> = {}): LicenceView => ({
+  licenceId: "l", organisation: "Atelier", seats: 25, used: 8, validUntil: "2027-11-04T00:00:00Z", edition: "enterprise",
+  mode: "online", status: "active", lastCheckInAt: "2026-11-05T14:00:00Z", ...over,
+});
+
+test("an_active_online_licence_shows_its_mode_check_in_and_the_check_button", () => {
+  const s = licenceStanding(online());
+  assert.deepEqual(s.tag, { tone: "success", key: "licence.tag.active" });
+  assert.equal(s.modeKey, "licence.mode.online");
+  assert.equal(s.banner, null);
+  assert.equal(s.canCheck, true);
+  assert.equal(s.lastCheckInAt, "2026-11-05T14:00:00Z");
+  assert.equal(s.next, null);
+});
+
+test("each_status_has_its_tag_and_banner", () => {
+  assert.deepEqual(licenceStanding(online({ status: "suspended", edition: "frozen" })).banner, { tone: "warning", key: "licence.banner.suspended" });
+  assert.deepEqual(licenceStanding(online({ status: "revoked", edition: "frozen" })).banner, { tone: "danger", key: "licence.banner.revoked" });
+  assert.deepEqual(
+    licenceStanding(online({ status: "unreachable", edition: "frozen", unreachableSince: "2026-10-28T14:05:00Z" })).banner,
+    { tone: "danger", key: "licence.banner.unreachable", since: "2026-10-28T14:05:00Z" },
+  );
+  assert.deepEqual(licenceStanding(online({ status: "unreachable", edition: "frozen" })).banner, { tone: "danger", key: "licence.banner.unreachableNever" });
+  assert.deepEqual(licenceStanding(online({ status: "clock", edition: "frozen" })).banner, { tone: "danger", key: "licence.banner.clock" });
+  assert.deepEqual(licenceStanding(online({ status: "revoked" })).tag, { tone: "danger", key: "licence.tag.revoked" });
+  assert.deepEqual(licenceStanding(online({ status: "not_yet", edition: "community" })).tag, { tone: "info", key: "licence.tag.notYet" });
+});
+
+test("an_offline_licence_never_offers_a_check_and_shows_its_next", () => {
+  const s = licenceStanding(online({ mode: "offline", lastCheckInAt: undefined, next: { validFrom: "2026-12-31T00:00:00Z", validUntil: "2027-12-31T00:00:00Z", seats: 60 } }));
+  assert.equal(s.modeKey, "licence.mode.offline");
+  assert.equal(s.canCheck, false);
+  assert.deepEqual(s.next, { key: "licence.next.offline", validFrom: "2026-12-31T00:00:00Z", validUntil: "2027-12-31T00:00:00Z", seats: 60 });
+  assert.equal(licenceStanding(online({ next: { validFrom: "a", validUntil: "b", seats: 25 } })).next?.key, "licence.next.online");
+});
+
+test("a_first_version_or_older_server_licence_reads_as_before", () => {
+  const s = licenceStanding({ licenceId: "l", organisation: "A", seats: 5, used: 1, validUntil: "2027-01-01T00:00:00Z", edition: "frozen" });
+  assert.deepEqual(s.tag, { tone: "warning", key: "licence.expiredTag" });
+  assert.equal(s.modeKey, null);
+  assert.equal(s.canCheck, false);
+  assert.equal(s.banner, null);
+});
+
+test("a_service_that_answered_without_confirming_the_licence_has_its_own_sentence", () => {
+  const s = licenceStanding(online({ status: "no_status", edition: "frozen" }));
+  assert.deepEqual(s.tag, { tone: "warning", key: "licence.tag.noStatus" });
+  assert.deepEqual(s.banner, { tone: "danger", key: "licence.banner.noStatus" });
+  assert.equal(s.canCheck, true);
+});

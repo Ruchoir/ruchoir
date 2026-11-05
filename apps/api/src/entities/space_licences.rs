@@ -21,6 +21,14 @@ pub struct Model {
     pub installed_at: TimeDateTimeWithTimeZone,
     /// The last expiry reminder sent: 30, 7 or 1 days before `valid_until`.
     pub reminded_days: Option<i32>,
+    /// The next document, waiting to take over at its start (a renewal).
+    pub next_licence: Option<String>,
+    /// The latest status the edition accepted for an online licence, as received.
+    pub status_token: Option<String>,
+    pub status_token_issued_at: Option<TimeDateTimeWithTimeZone>,
+    /// The last check-in that got an answer, and the last one tried.
+    pub last_check_in_at: Option<TimeDateTimeWithTimeZone>,
+    pub last_attempt_at: Option<TimeDateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

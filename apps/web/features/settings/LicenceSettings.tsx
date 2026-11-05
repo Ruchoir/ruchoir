@@ -2,9 +2,10 @@
 
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { Button, Card, Dialog, Field, Icon, Tag, Textarea } from "@/components/ds";
-import { deleteLicence, getLicence, putLicence, refusalOf } from "@/lib/data/api";
+import { licenceStanding } from "@ruchoir/client/permissionsLogic";
+import { checkLicence, deleteLicence, getLicence, putLicence, refusalOf } from "@/lib/data/api";
 import type { LicenceView, SpaceEdition, SpaceLicence } from "@/lib/data/types";
-import { useTranslation } from "@/lib/i18n";
+import { type DictKey, useTranslation } from "@/lib/i18n";
 import { formatDate, formatUtcDate } from "@/lib/i18n/format";
 import type { Toast } from "../app/types";
 import { daysLeftBanner } from "./auditLogic";
@@ -22,10 +23,11 @@ const st: Record<string, CSSProperties> = {
   bar: { display: "block", height: 6, borderRadius: "var(--radius-full)", background: "var(--surface-sunken)", overflow: "hidden", margin: "6px 0" },
   foot: { fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 14, lineHeight: "var(--leading-snug)", maxWidth: 560 },
   banner: { display: "flex", gap: 8, alignItems: "flex-start", padding: "10px 14px", borderRadius: "var(--radius-md)", marginBottom: 16, color: "var(--on-pastel)", fontSize: "var(--text-xs)" },
+  next: { marginTop: 16, padding: "12px 14px", borderRadius: "var(--radius-md)", background: "var(--surface-sunken)", fontSize: "var(--text-sm)", color: "var(--text-body)", lineHeight: "var(--leading-snug)" },
 };
 
 /** How every licence begins: shown as the field's example, the same in every language. */
-const LICENCE_PREFIX = "RUCHOIR-LICENCE-1.";
+const LICENCE_PREFIX = "RUCHOIR-LICENCE-2.";
 
 export type LicenceSettingsProps = {
   spaceId: string;
@@ -47,6 +49,7 @@ export function LicenceSettings({ spaceId, spaceName, edition, licence, pricingU
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [checking, setChecking] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const banner = daysLeftBanner(licence, edition, new Date(), displayZone());
 
@@ -105,7 +108,22 @@ export function LicenceSettings({ spaceId, spaceName, edition, licence, pricingU
     setError("");
   };
 
+  const checkNow = async () => {
+    setChecking(true);
+    try {
+      const checked = await checkLicence(spaceId);
+      setView(checked);
+      await onChanged();
+      onNotify({ tone: "success", title: t("licence.checked") });
+    } catch (err) {
+      onNotify({ tone: "danger", title: t("licence.checkFailed"), description: refusalMessage(refusalOf(err), t, t("space.retry")) });
+    } finally {
+      setChecking(false);
+    }
+  };
+
   const share = view ? Math.min(100, Math.round((view.used / Math.max(1, view.seats)) * 100)) : 0;
+  const standing = view ? licenceStanding(view) : null;
 
   return (
     <>
@@ -125,18 +143,20 @@ export function LicenceSettings({ spaceId, spaceName, edition, licence, pricingU
         </div>
       ) : null}
 
-      {view ? (
+      {standing?.banner ? (
+        <div role="alert" style={{ ...st.banner, background: standing.banner.tone === "danger" ? "var(--peach)" : "var(--sun)" }}>
+          <Icon name="alert-triangle" size={15} style={{ flex: "none", marginTop: 1 }} />
+          <span>{t(standing.banner.key as DictKey, standing.banner.since ? { date: formatDate(standing.banner.since) } : undefined)}</span>
+        </div>
+      ) : null}
+
+      {view && standing ? (
         <Card padded>
           <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-            {view.edition === "frozen" ? (
-              <Tag tone="warning" icon="clock">
-                {t("licence.expiredTag")}
-              </Tag>
-            ) : (
-              <Tag tone="success" icon="shield-check">
-                {t("licence.enterprise")}
-              </Tag>
-            )}
+            <Tag tone={standing.tag.tone} icon={standing.tag.tone === "success" ? "shield-check" : "clock"}>
+              {t(standing.tag.key as DictKey)}
+            </Tag>
+            {standing.modeKey ? <Tag tone="info">{t(standing.modeKey)}</Tag> : null}
             <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{view.organisation}</span>
           </div>
           <div style={st.grid}>
@@ -160,7 +180,27 @@ export function LicenceSettings({ spaceId, spaceName, edition, licence, pricingU
                 {view.installedBy ? <span style={st.hint}>{t("licence.installedBy", { name: view.installedBy.name })}</span> : null}
               </div>
             ) : null}
+            {standing.modeKey ? (
+              <div>
+                <span style={st.k}>{t("licence.lastCheckIn")}</span>
+                <span style={st.v}>{standing.lastCheckInAt ? formatDate(standing.lastCheckInAt) : t("licence.checkNever")}</span>
+                <span style={st.hint}>{standing.canCheck ? t("licence.lastCheckInHint") : t("licence.offlineHint")}</span>
+              </div>
+            ) : null}
           </div>
+          {standing.next ? (
+            <div style={st.next}>
+              {t(standing.next.key, { from: formatUtcDate(standing.next.validFrom), until: formatUtcDate(standing.next.validUntil), count: standing.next.seats })}
+            </div>
+          ) : null}
+          {standing.canCheck ? (
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginTop: 16 }}>
+              <Button size="sm" variant={standing.banner ? "primary" : "secondary"} iconLeft="refresh-cw" disabled={checking} onClick={() => void checkNow()}>
+                {checking ? t("licence.checking") : t("licence.checkNow")}
+              </Button>
+              <span style={st.hint}>{t("licence.sentOnly")}</span>
+            </div>
+          ) : null}
         </Card>
       ) : null}
 
@@ -199,6 +239,7 @@ export function LicenceSettings({ spaceId, spaceName, edition, licence, pricingU
           </a>
         ) : null}
       </div>
+      <p style={st.foot}>{t("licence.earlyHint")}</p>
       <p style={st.foot}>{t("licence.foot")}</p>
 
       <Dialog

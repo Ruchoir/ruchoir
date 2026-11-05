@@ -1323,7 +1323,8 @@
     "licenceDaysLeft_one": "{{count}} day left",
     "licenceDaysLeft_other": "{{count}} days left",
     "licenceLastDay": "last day",
-    "licenceExpiredOn": "Expired on {{date}}"
+    "licenceExpiredOn": "Expired on {{date}}",
+    "licenceColStatus": "Status"
   },
   "access": {
     "readOnly": {
@@ -1508,7 +1509,7 @@
     "removeBody": "The space goes back to the free edition. Nobody loses their access, and the roles in place keep applying; they can only be changed with a licence.",
     "removeFailed": "The licence was not removed",
     "installFailed": "The licence could not be installed. Try again in a moment.",
-    "foot": "Checked on this server, with no outside call. Removing the licence removes no access: the space goes back to the free edition and the rules in place still apply.",
+    "foot": "Checked on this server. An offline licence makes no outside call; an online licence is also checked with Ruchoir every 5 minutes. Removing the licence removes no access: the space goes back to the free edition and the rules in place still apply.",
     "communitySubStrong": "This space runs the free edition.",
     "communitySubRest": "An Enterprise licence adds custom roles, their ranking and the delegation of their management.",
     "endsIn_one": "The licence ends in {{count}} day: remember to renew it.",
@@ -1535,8 +1536,47 @@
       "notText": "This file is not text: a licence is a line of text.",
       "unreadable": "This file could not be read. Try again, or paste the licence's text."
     },
-    "active": "Active",
-    "frozenBanner": "This space's licence has expired: the roles in place still apply, but can no longer be edited. Install a new licence under Licence."
+    "frozenBanner": "This space's licence has expired: the roles in place still apply, but can no longer be edited. Install a new licence under Licence.",
+    "tag": {
+      "active": "Active",
+      "suspended": "Suspended",
+      "revoked": "Revoked",
+      "unreachable": "Unreachable",
+      "clock": "Check the clock",
+      "notYet": "Upcoming",
+      "noStatus": "Not confirmed"
+    },
+    "mode": {
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "banner": {
+      "suspended": "Ruchoir has suspended this licence. Enterprise features are frozen: what is configured keeps applying, nothing can be changed. Contact Ruchoir to resume it.",
+      "revoked": "This licence has been revoked. Enterprise features are frozen and will only come back with a new licence. Nothing is deleted.",
+      "unreachable": "Ruchoir's licence service has been unreachable since {{date}}. Enterprise features are frozen until the next successful check. Make sure the server can open an outbound HTTPS connection.",
+      "unreachableNever": "Ruchoir's licence service could not be reached yet. Enterprise features are frozen until the first successful check. Make sure the server can open an outbound HTTPS connection.",
+      "clock": "The server's clock went back more than a day. Enterprise features are frozen until it is set right.",
+      "noStatus": "Ruchoir's licence service answers, but does not confirm this licence. Enterprise features are frozen: contact Ruchoir, the licence may have been replaced."
+    },
+    "lastCheckIn": "Last check",
+    "lastCheckInHint": "The server checks the licence with Ruchoir every 5 minutes.",
+    "checkNever": "None",
+    "offlineHint": "An offline licence never contacts Ruchoir.",
+    "checkNow": "Check now",
+    "checking": "Checking…",
+    "checked": "Licence checked",
+    "checkFailed": "The check did not go through.",
+    "sentOnly": "What is sent: the licence's id, the seats in use and the server's version. Nothing else.",
+    "next": {
+      "online": "Automatic renewal: the next licence is ready, from {{from}} to {{until}}, {{count}} seats. It will take over on its own.",
+      "offline": "Next licence installed: from {{from}} to {{until}}, {{count}} seats. It takes over on {{from}}."
+    },
+    "earlyHint": "A renewal licence can be installed as soon as it arrives: it waits for its start date.",
+    "refusalService": {
+      "serviceUnreachable": "Ruchoir's licence service could not be reached: this online licence was not installed. Try again in a moment.",
+      "checkTooSoon": "The licence was just checked. Try again in a few seconds."
+    },
+    "expiredTag": "Licence expired"
   },
   "groups": {
     "noSelfRole": "Nobody gives themselves a role, through a group either: you cannot change the roles of a group you belong to.",

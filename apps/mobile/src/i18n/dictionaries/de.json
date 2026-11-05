@@ -1323,7 +1323,8 @@
     "licenceDaysLeft_one": "noch {{count}} Tag",
     "licenceDaysLeft_other": "noch {{count}} Tage",
     "licenceLastDay": "letzter Tag",
-    "licenceExpiredOn": "Abgelaufen am {{date}}"
+    "licenceExpiredOn": "Abgelaufen am {{date}}",
+    "licenceColStatus": "Status"
   },
   "access": {
     "readOnly": {
@@ -1508,7 +1509,7 @@
     "removeBody": "Der Bereich wechselt zurück zur kostenlosen Edition. Niemand verliert seinen Zugang, und die bestehenden Rollen gelten weiter; ändern lassen sie sich nur mit einer Lizenz.",
     "removeFailed": "Die Lizenz wurde nicht entfernt",
     "installFailed": "Die Lizenz konnte nicht installiert werden. Versuchen Sie es gleich noch einmal.",
-    "foot": "Auf diesem Server geprüft, ohne jeden Aufruf nach außen. Das Entfernen der Lizenz entzieht keinen Zugang: Der Bereich wechselt zur kostenlosen Edition, und die bestehenden Regeln gelten weiter.",
+    "foot": "Auf diesem Server geprüft. Eine Offline-Lizenz ruft nie nach außen; eine Online-Lizenz wird zusätzlich alle 5 Minuten bei Ruchoir geprüft. Das Entfernen der Lizenz entzieht keinen Zugang: Der Bereich wechselt zur kostenlosen Edition, und die bestehenden Regeln gelten weiter.",
     "communitySubStrong": "Dieser Bereich nutzt die kostenlose Edition.",
     "communitySubRest": "Eine Enterprise-Lizenz fügt eigene Rollen hinzu, ihre Rangfolge und die Delegation ihrer Verwaltung.",
     "endsIn_one": "Die Lizenz endet in {{count}} Tag: Denken Sie an die Verlängerung.",
@@ -1535,8 +1536,47 @@
       "notText": "Diese Datei ist kein Text: Eine Lizenz ist eine Textzeile.",
       "unreadable": "Diese Datei konnte nicht gelesen werden. Versuchen Sie es noch einmal oder fügen Sie den Text der Lizenz ein."
     },
-    "active": "Aktiv",
-    "frozenBanner": "Die Lizenz dieses Bereichs ist abgelaufen: Die vorhandenen Rollen gelten weiter, lassen sich aber nicht mehr ändern. Installieren Sie unter Lizenz eine neue Lizenz."
+    "frozenBanner": "Die Lizenz dieses Bereichs ist abgelaufen: Die vorhandenen Rollen gelten weiter, lassen sich aber nicht mehr ändern. Installieren Sie unter Lizenz eine neue Lizenz.",
+    "tag": {
+      "active": "Aktiv",
+      "suspended": "Ausgesetzt",
+      "revoked": "Widerrufen",
+      "unreachable": "Nicht erreichbar",
+      "clock": "Uhr prüfen",
+      "notYet": "Bevorstehend",
+      "noStatus": "Nicht bestätigt"
+    },
+    "mode": {
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "banner": {
+      "suspended": "Ruchoir hat diese Lizenz ausgesetzt. Die Enterprise-Funktionen sind eingefroren: Was eingerichtet ist, gilt weiter, nichts kann geändert werden. Wenden Sie sich an Ruchoir, um sie fortzusetzen.",
+      "revoked": "Diese Lizenz wurde widerrufen. Die Enterprise-Funktionen sind eingefroren und kehren erst mit einer neuen Lizenz zurück. Nichts wird gelöscht.",
+      "unreachable": "Der Lizenzdienst von Ruchoir ist seit dem {{date}} nicht erreichbar. Die Enterprise-Funktionen sind bis zur nächsten erfolgreichen Prüfung eingefroren. Prüfen Sie, ob der Server eine ausgehende HTTPS-Verbindung öffnen kann.",
+      "unreachableNever": "Der Lizenzdienst von Ruchoir konnte noch nicht erreicht werden. Die Enterprise-Funktionen sind bis zur ersten erfolgreichen Prüfung eingefroren. Prüfen Sie, ob der Server eine ausgehende HTTPS-Verbindung öffnen kann.",
+      "clock": "Die Uhr des Servers ist um mehr als einen Tag zurückgegangen. Die Enterprise-Funktionen sind eingefroren, bis sie richtig gestellt ist.",
+      "noStatus": "Der Lizenzdienst von Ruchoir antwortet, bestätigt diese Lizenz aber nicht. Die Enterprise-Funktionen sind eingefroren: Wenden Sie sich an Ruchoir, die Lizenz wurde vielleicht ersetzt."
+    },
+    "lastCheckIn": "Letzte Prüfung",
+    "lastCheckInHint": "Der Server prüft die Lizenz alle 5 Minuten bei Ruchoir.",
+    "checkNever": "Keine",
+    "offlineHint": "Eine Offline-Lizenz kontaktiert Ruchoir nie.",
+    "checkNow": "Jetzt prüfen",
+    "checking": "Wird geprüft…",
+    "checked": "Lizenz geprüft",
+    "checkFailed": "Die Prüfung ist nicht gelungen.",
+    "sentOnly": "Was gesendet wird: die Kennung der Lizenz, die belegten Plätze und die Version des Servers. Sonst nichts.",
+    "next": {
+      "online": "Automatische Verlängerung: Die nächste Lizenz ist bereit, vom {{from}} bis {{until}}, {{count}} Plätze. Sie übernimmt von selbst.",
+      "offline": "Nächste Lizenz installiert: vom {{from}} bis {{until}}, {{count}} Plätze. Sie übernimmt am {{from}}."
+    },
+    "earlyHint": "Eine Verlängerungslizenz kann sofort nach Erhalt installiert werden: Sie wartet auf ihr Startdatum.",
+    "refusalService": {
+      "serviceUnreachable": "Der Lizenzdienst von Ruchoir war nicht erreichbar: Diese Online-Lizenz wurde nicht installiert. Versuchen Sie es gleich noch einmal.",
+      "checkTooSoon": "Die Lizenz wurde gerade geprüft. Versuchen Sie es in einigen Sekunden erneut."
+    },
+    "expiredTag": "Lizenz abgelaufen"
   },
   "groups": {
     "noSelfRole": "Niemand gibt sich selbst eine Rolle, auch nicht über eine Gruppe: Sie können die Rollen einer Gruppe, der Sie angehören, nicht ändern.",

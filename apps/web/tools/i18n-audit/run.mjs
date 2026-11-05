@@ -324,6 +324,17 @@ function findHardCoded(source, path) {
  * Each entry is that claim, made once, in writing.
  */
 const ALLOWED_DUPLICATES = new Set([
+  // A licence's mode is not a person's presence: "En línea / Sin conexión" against "En línea /
+  // Desconectado", "Offline" against "Non in linea", "Online" against "Dostępny".
+  "licence.mode.online",
+  "licence.mode.offline",
+  // Checking a licence with its issuer, not verifying a code: "Checking…" against "Verifying…".
+  "licence.checking",
+  // A licence not started yet, not an event to come: free to be worded apart.
+  "licence.tag.notYet",
+  // The shared licence logic names the web's "Licence expirée", which the phone also holds as a
+  // section title.
+  "licence.expiredTag",
   // The shared permissions logic names these web keys, so the phone's dictionaries carry them beside
   // the phone's own tab and screen titles with the same French words ("Agenda", "Fichiers", "Canaux",
   // "Canal", "Écrire", "Administrateur"): a family name, a permission name and a role are not a tab.

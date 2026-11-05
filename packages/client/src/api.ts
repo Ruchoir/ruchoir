@@ -30,6 +30,8 @@ import type {
   UsedIn,
   WhyView,
   AuditQuery,
+  LicenceMode,
+  LicenceStatus,
   LicenceView,
   AdminLicence,
   Refusal,
@@ -162,9 +164,14 @@ type LicenceViewDto = {
   seats: number;
   used: number;
   valid_until: string;
-  edition: "enterprise" | "frozen";
+  edition: "enterprise" | "frozen" | "community";
   installed_at?: string;
   installed_by?: { id: string; display_name: string } | null;
+  mode?: LicenceMode | null;
+  status?: LicenceStatus;
+  last_check_in_at?: string | null;
+  unreachable_since?: string | null;
+  next?: { valid_from: string; valid_until: string; seats: number } | null;
 };
 
 type AdminLicenceDto = {
@@ -174,7 +181,10 @@ type AdminLicenceDto = {
   seats: number;
   used: number;
   valid_until: string;
-  edition: "enterprise" | "frozen" | "invalid";
+  edition: "enterprise" | "frozen" | "community" | "invalid";
+  mode?: LicenceMode | null;
+  status?: LicenceStatus | "invalid";
+  last_check_in_at?: string | null;
 };
 
 function toRole(dto: RoleDto): Role {
@@ -200,6 +210,11 @@ function toLicenceView(dto: LicenceViewDto): LicenceView {
     edition: dto.edition,
     installedAt: dto.installed_at || undefined,
     installedBy: dto.installed_by ? { id: dto.installed_by.id, name: dto.installed_by.display_name } : undefined,
+    mode: dto.mode ?? undefined,
+    status: dto.status,
+    lastCheckInAt: dto.last_check_in_at ?? undefined,
+    unreachableSince: dto.unreachable_since ?? undefined,
+    next: dto.next ? { validFrom: dto.next.valid_from, validUntil: dto.next.valid_until, seats: dto.next.seats } : undefined,
   };
 }
 
@@ -334,7 +349,7 @@ const REFUSAL_CODES = new Set([
   "base_role_not_previewable", "base_role_levels_only", "permission_in_both", "unknown_permission", "wrong_family", "group_has_rules",
   "preview_read_only", "preview_unavailable",
   "seats_full", "licence_required", "licence_frozen", "licence_invalid", "licence_other_space",
-  "licence_expired", "role_above_you", "person_above_you", "permission_not_held",
+  "licence_expired", "licence_service_unreachable", "licence_check_too_soon", "role_above_you", "person_above_you", "permission_not_held",
   "role_name_reserved", "role_name_taken", "role_has_rules", "beyond_guest_ceiling",
   "make_them_a_member_first", "no_self_role", "manager_protected", "group_from_directory",
   "group_name_taken", "group_name_reserved", "group_name_invalid", "manager_must_be_member",
@@ -2558,12 +2573,21 @@ export function createApi(transport: Transport) {
       used: d.used,
       validUntil: d.valid_until,
       edition: d.edition,
+      // Only what the server said: an older one says none of these.
+      ...(d.mode ? { mode: d.mode } : {}),
+      ...(d.status ? { status: d.status } : {}),
+      ...(d.last_check_in_at ? { lastCheckInAt: d.last_check_in_at } : {}),
     }));
   }
 
   /** `PUT /spaces/{id}/licence`: install a licence; refusals read with {@link refusalOf}. */
   async function putLicence(spaceId: string, licence: string): Promise<LicenceView> {
     return toLicenceView(await apiPut<LicenceViewDto>(`/spaces/${spaceId}/licence`, { licence }));
+  }
+
+  /** `POST /spaces/{id}/licence/check`: an online licence checks in now; answers the licence as then. */
+  async function checkLicence(spaceId: string): Promise<LicenceView> {
+    return toLicenceView(await apiPost<LicenceViewDto>(`/spaces/${spaceId}/licence/check`, {}));
   }
 
   /** `DELETE /spaces/{id}/licence`: back to the community edition; nothing configured is removed. */
@@ -4509,7 +4533,7 @@ export function createApi(transport: Transport) {
     leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
     setMemberRoles, listGroups, createGroup, updateGroup, deleteGroup, addGroupMembers,
     removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAccess, setAccessLevel, setAccessRule, removeAccessEntry,
-    explainAccess, startPreview, quitPreview, getAudit, getLicence, getAdminLicences, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
+    explainAccess, startPreview, quitPreview, getAudit, getLicence, getAdminLicences, putLicence, checkLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
     getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
     uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
     createChannel, setChannelFavorite, deleteChannel, updateChannel, joinChannel, leaveChannel,
@@ -4546,7 +4570,7 @@ export const {
   leaveSpace, removeMember, listRoles, createRole, updateRole, deleteRole, orderRoles,
     setMemberRoles, listGroups, createGroup, updateGroup, deleteGroup, addGroupMembers,
     removeGroupMember, setGroupRoles, setGroupManagers, setGuestExpiry, reactivateGuest, listEndedAccess, getAccess, setAccessLevel, setAccessRule, removeAccessEntry,
-    explainAccess, startPreview, quitPreview, getAudit, getLicence, getAdminLicences, putLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
+    explainAccess, startPreview, quitPreview, getAudit, getLicence, getAdminLicences, putLicence, checkLicence, deleteLicence, deleteSpace, resolveSpaceSlug, createInvitation, inviteToChannel,
   getInvitations, revokeInvitation, previewInvitation, acceptInvitation, startAttachmentUpload,
   uploadAttachment, setMyAvatar, clearMyAvatar, setSpaceIcon, clearSpaceIcon, getChannels,
   createChannel, setChannelFavorite, deleteChannel, updateChannel, joinChannel, leaveChannel,
