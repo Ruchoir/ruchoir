@@ -710,3 +710,40 @@ async fn lock_space_seats_serialises_two_transactions() {
         .expect("the second proceeds once the first committed")
         .expect("join");
 }
+
+/// The room for check-ins comes and goes: `down` leaves the licence itself untouched.
+#[tokio::test]
+async fn the_licence_check_ins_migration_round_trips() {
+    use super::groups_tests::count;
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let db = &scratch.db;
+    let columns = "SELECT count(*) AS n FROM information_schema.columns WHERE table_name = 'space_licences' AND column_name IN ('next_licence', 'status_token', 'status_token_issued_at', 'last_check_in_at', 'last_attempt_at')";
+    let tables = "SELECT count(*) AS n FROM information_schema.tables WHERE table_name IN ('licence_instance', 'licence_kill_notices')";
+    assert_eq!(count(db, columns, vec![]).await, 5);
+    assert_eq!(count(db, tables, vec![]).await, 2);
+
+    let after = Migrator::get_applied_migrations(db)
+        .await
+        .expect("applied")
+        .iter()
+        .rev()
+        .take_while(|m| m.name() != "m20261110_000002_import_group_mappings")
+        .count();
+    Migrator::down(db, Some(after as u32)).await.expect("down");
+    assert_eq!(count(db, columns, vec![]).await, 0);
+    assert_eq!(count(db, tables, vec![]).await, 0);
+    assert_eq!(
+        count(
+            db,
+            "SELECT count(*) AS n FROM information_schema.columns WHERE table_name = 'space_licences' AND column_name = 'licence'",
+            vec![]
+        )
+        .await,
+        1
+    );
+    Migrator::up(db, None).await.expect("up");
+    assert_eq!(count(db, columns, vec![]).await, 5);
+    assert_eq!(count(db, tables, vec![]).await, 2);
+}

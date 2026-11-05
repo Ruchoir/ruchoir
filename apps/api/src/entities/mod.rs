@@ -22,6 +22,8 @@ pub mod permission_overrides;
 pub mod space_group_members;
 pub mod space_group_roles;
 pub mod space_groups;
+pub mod licence_instance;
+pub mod licence_kill_notices;
 pub mod space_licences;
 pub mod space_role_assignments;
 pub mod space_roles;
