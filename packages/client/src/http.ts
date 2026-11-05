@@ -84,9 +84,39 @@ export type Transport = {
   authInit: () => { credentials: RequestCredentials; headers: Record<string, string> };
 };
 
+/** The longest `Retry-After` a read waits for before its single retry. */
+const MAX_RETRY_WAIT_MS = 5000;
+
+/** The wait the 429's body names (`retry_after`, seconds), or null when it is missing or too long. */
+function retryWaitMs(body: unknown): number | null {
+  const secs = body && typeof body === "object" ? (body as Record<string, unknown>).retry_after : undefined;
+  if (typeof secs !== "number" || !Number.isFinite(secs) || secs < 0) return null;
+  return secs * 1000 <= MAX_RETRY_WAIT_MS ? secs * 1000 : null;
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => { clearTimeout(timer); resolve(); }, { once: true });
+  });
+}
+
 /** A transport over the options `getOptions` returns, read again at every call. */
 export function makeTransport(getOptions: () => ClientOptions): Transport {
   async function apiRequest<T>(method: Method, path: string, opts: RequestOptions = {}): Promise<T> {
+    try {
+      return await attempt<T>(method, path, opts);
+    } catch (err) {
+      // A read refused for rate is tried once more after the wait the server names, when that wait is
+      // short. A write is never repeated: it may have gone through, and the person is told instead.
+      const wait = method === "GET" && err instanceof ApiError && err.status === 429 ? retryWaitMs(err.body) : null;
+      if (wait === null || opts.signal?.aborted) throw err;
+      await sleep(wait, opts.signal);
+      return attempt<T>(method, path, opts);
+    }
+  }
+
+  async function attempt<T>(method: Method, path: string, opts: RequestOptions): Promise<T> {
     const options = getOptions();
     // A preview is read only: what the app writes on its own is not sent (nothing to refuse, nothing to say).
     if (options.previewActive?.() && isBackgroundWrite({ method, path })) return undefined as T;

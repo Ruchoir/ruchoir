@@ -46,6 +46,7 @@ export type Sentence =
   | "memberJoinedGuest"
   | "memberLeft"
   | "memberRemoved"
+  | "memberIssuedRevoked"
   | "memberRoleChanged"
   | "ownershipTransferred"
   | "memberRolesChanged"
@@ -212,6 +213,12 @@ export function auditLine(entry: EntryLike, nameOf: NameOf = () => undefined, re
       return line("memberLeft");
     case "member.removed":
       return line("memberRemoved", { slots: { target } });
+    case "member.issued_revoked":
+      // What the person had issued (invitations and public links) and the server withdrew at their departure.
+      return line("memberIssuedRevoked", {
+        slots: { target },
+        values: { invitations: typeof d.invitations === "number" ? d.invitations : 0, links: typeof d.links === "number" ? d.links : 0 },
+      });
     case "member.role_changed":
       return line("memberRoleChanged", {
         slots: { target, before: { kind: "legacy", roles: [str(d.before)] }, after: { kind: "legacy", roles: [str(d.after)] } },

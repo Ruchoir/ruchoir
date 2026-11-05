@@ -11,6 +11,7 @@ export type Said = { key: string; vars?: Record<string, number | string> };
 
 
 const BY_CODE: Record<string, string> = {
+  rate_limited: key("roles.refusal.rateLimited"),
   licence_required: key("roles.refusal.licenceRequired"),
   licence_frozen: key("roles.refusal.licenceFrozen"),
   role_above_you: key("roles.refusal.roleAboveYou"),

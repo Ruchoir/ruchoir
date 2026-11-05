@@ -7,6 +7,7 @@
  * module holds no fixture data.
  */
 import type { Presence } from "@/components/ds";
+import { broadcastMentionNames } from "@ruchoir/client/permissionsLogic";
 
 // --- Current user ---
 
@@ -194,8 +195,8 @@ export function getAvatar(name: string): string | undefined {
  */
 export function getMentionNames(): string[] {
   // The two room-wide handles are mentions as much as a name is, and are highlighted like one.
-  // Listed in both languages because the server accepts both.
-  const names = new Set<string>(["canal", "ici", "channel", "here", "tous", "everyone", "all"]);
+  // Every word the server accepts, in the six languages (one shared list).
+  const names = new Set<string>(broadcastMentionNames());
   for (const member of liveMembers) {
     names.add(member.name);
     const words = member.name.split(/\s+/).filter(Boolean);

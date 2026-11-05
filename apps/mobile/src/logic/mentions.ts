@@ -5,7 +5,7 @@
  * address), and a mention is the person's display name, whole, which is how the server resolves it.
  */
 
-import { foldMention, prepareGroupNames } from "@ruchoir/client/permissionsLogic";
+import { foldMention, offeredBroadcasts, prepareGroupNames } from "@ruchoir/client/permissionsLogic";
 
 export type ActiveToken = { kind: "@" | "#"; query: string; start: number };
 
@@ -92,6 +92,5 @@ export const BROADCASTS = ["canal", "ici"] as const;
 
 /** The broadcasts that begin with what was typed. */
 export function broadcastsFor(query: string): string[] {
-  const q = fold(query.trim());
-  return BROADCASTS.filter((name) => name.startsWith(q));
+  return offeredBroadcasts(BROADCASTS.map((name) => ({ name })), query.trim(), true).map((b) => b.name);
 }

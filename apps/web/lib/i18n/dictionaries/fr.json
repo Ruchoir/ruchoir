@@ -2149,7 +2149,8 @@
       "nameTaken": "Un autre rôle porte déjà ce nom.",
       "hasRules": "Des règles de canal, de dossier ou d'agenda nomment ce rôle : retirez-les d'abord.",
       "beyondGuestCeiling": "Un invité ne peut jamais avoir ce droit.",
-      "memberFirst": "Faites d'abord passer cette personne en membre."
+      "memberFirst": "Faites d'abord passer cette personne en membre.",
+      "rateLimited": "Trop de demandes d'un coup. Réessayez dans quelques secondes."
     },
     "colPerson": "Personne",
     "directly": "Directement",
@@ -2307,6 +2308,11 @@
     "memberJoinedGuest": "{{actor}} a rejoint l'espace avec un accès invité",
     "memberLeft": "{{actor}} a quitté l'espace",
     "memberRemoved": "{{actor}} a retiré {{target}} de l'espace",
+    "memberIssuedRevoked": "Les invitations et liens publics de {{target}} ont été retirés à son départ : $t(audit.issuedInvitations, {\"count\": {{invitations}} }) et $t(audit.issuedLinks, {\"count\": {{links}} }).",
+    "issuedInvitations_one": "{{count}} invitation",
+    "issuedInvitations_other": "{{count}} invitations",
+    "issuedLinks_one": "{{count}} lien",
+    "issuedLinks_other": "{{count}} liens",
     "memberRoleChanged": "{{actor}} a fait passer {{target}} de {{before}} à {{after}}",
     "ownershipTransferred": "{{actor}} a transmis l'espace à {{target}}",
     "memberRolesChanged": "{{actor}} a changé les rôles de {{target}}",

@@ -172,6 +172,8 @@ export type AdminLicence = {
 export type Refusal =
   | { code: "seats_full"; seats: number; pricingUrl: string; space?: string; used?: number; incoming?: number; missing?: number }
   | { code: "licence_required"; pricingUrl: string }
+  /** HTTP 429: too many requests at once; the wait is the server's (`Retry-After`). */
+  | { code: "rate_limited" }
   | { code: "licence_other_space"; organisation?: string }
   | { code: "group_has_rules" | "role_has_rules"; usedIn?: UsedIn[] }
   | {

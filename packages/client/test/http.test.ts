@@ -91,3 +91,24 @@ test("a_preview_sends_no_background_write_and_toasts_nothing_unasked", async () 
   await apiRequest("PUT", "/conversations/c1/read");
   assert.equal(normal.length, 1);
 });
+
+test("a_get_refused_for_rate_is_tried_once_more_after_the_wait_the_server_names", async () => {
+  const calls = fakeFetch({ status: 429, body: { error: "rate_limited", retry_after: 0 } }, { body: { ok: true } });
+  assert.deepEqual(await apiRequest("GET", "/me/spaces"), { ok: true });
+  assert.equal(calls.length, 2);
+});
+
+test("a_second_429_is_the_answer_and_a_write_is_never_repeated", async () => {
+  const calls = fakeFetch({ status: 429, body: { error: "rate_limited", retry_after: 0 } }, { status: 429, body: { error: "rate_limited", retry_after: 0 } });
+  await assert.rejects(apiRequest("GET", "/x"), (err: { status: number }) => err.status === 429);
+  assert.equal(calls.length, 2);
+  const writes = fakeFetch({ status: 429, body: { error: "rate_limited", retry_after: 0 } }, { body: {} });
+  await assert.rejects(apiRequest("POST", "/x", {}), (err: { status: number }) => err.status === 429);
+  assert.equal(writes.length, 1);
+});
+
+test("a_long_wait_is_not_waited_for", async () => {
+  const calls = fakeFetch({ status: 429, body: { error: "rate_limited", retry_after: 60 } }, { body: {} });
+  await assert.rejects(apiRequest("GET", "/x"), (err: { status: number }) => err.status === 429);
+  assert.equal(calls.length, 1);
+});

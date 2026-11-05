@@ -112,6 +112,7 @@ test("each_refusal_is_named", () => {
   assert.deepEqual(refusal(422, { error: "licence_other_space", organisation: "Cabinet Dubois" }), { code: "licence_other_space", organisation: "Cabinet Dubois" });
   assert.deepEqual(refusal(403, { error: "forbidden", reason: "role_above_you" }), { code: "role_above_you" });
   assert.deepEqual(refusal(409, { error: "role_name_taken" }), { code: "role_name_taken" });
+  assert.deepEqual(refusal(429, { error: "rate_limited", retry_after: 3 }), { code: "rate_limited" });
   assert.equal(refusal(403, { error: "forbidden" }), undefined);
   assert.equal(refusalOf(new Error("network")), undefined);
 });

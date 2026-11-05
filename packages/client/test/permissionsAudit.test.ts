@@ -19,6 +19,7 @@ test("each_action_has_its_sentence", () => {
     ["member.joined", "memberJoined"],
     ["member.left", "memberLeft"],
     ["member.removed", "memberRemoved"],
+    ["member.issued_revoked", "memberIssuedRevoked"],
     ["member.role_changed", "memberRoleChanged"],
     ["space.ownership_transferred", "ownershipTransferred"],
     ["member.roles_changed", "memberRolesChanged"],
@@ -264,4 +265,16 @@ test("rule_lines_use_the_snapshot_names", () => {
   assert.deepEqual(role.slots.target, { kind: "role", name: "Ancien rôle" });
   // Everyone is a base role whatever its stored name.
   assert.deepEqual(auditLine(rule("rule.created", { target_kind: "everyone", target_id: "65396209-6e7e-52e9-b1a0-e513e361c852", target_name: "Guests", resource_name: "x", before: null, after: "read" }), () => undefined, refs).slots.target, { kind: "everyone", guests: true });
+});
+
+test("the_invitations_and_links_withdrawn_with_a_departure_are_counted", () => {
+  const line = auditLine(entry("member.issued_revoked", { details: { invitations: 2, links: 1 } }));
+  assert.equal(line.sentence, "memberIssuedRevoked");
+  assert.deepEqual(line.slots.target, { kind: "person", name: "Hugo" });
+  assert.equal(line.values.invitations, 2);
+  assert.equal(line.values.links, 1);
+  // A line from an older server carries no figures: zero, not a hole in the sentence.
+  const bare = auditLine(entry("member.issued_revoked")).values;
+  assert.equal(bare.invitations, 0);
+  assert.equal(bare.links, 0);
 });

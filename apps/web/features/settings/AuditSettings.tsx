@@ -21,6 +21,7 @@ const SENTENCE: Record<Sentence, TranslationKey> = {
   memberJoinedGuest: key("audit.memberJoinedGuest"),
   memberLeft: key("audit.memberLeft"),
   memberRemoved: key("audit.memberRemoved"),
+  memberIssuedRevoked: key("audit.memberIssuedRevoked"),
   memberRoleChanged: key("audit.memberRoleChanged"),
   ownershipTransferred: key("audit.ownershipTransferred"),
   memberRolesChanged: key("audit.memberRolesChanged"),
