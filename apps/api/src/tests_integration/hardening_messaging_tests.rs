@@ -135,3 +135,69 @@ async fn a_room_wide_mention_notifies_only_for_a_sender_who_holds_mention_all() 
     );
     assert!(mention_rows(&app, general, "channel").await > before);
 }
+
+#[tokio::test]
+async fn the_room_wide_right_is_enforced_whatever_language_the_handle_is_written_in() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Languages").await;
+    let member = make_user(&app.db, "member").await;
+    crate::testkit::add_member(&app.db, space, member, "member").await;
+    let reader = make_user(&app.db, "reader").await;
+    crate::testkit::add_member(&app.db, space, reader, "member").await;
+    let general: Uuid = spaces::Entity::find_by_id(space)
+        .one(&app.db)
+        .await
+        .expect("space")
+        .expect("row")
+        .default_channel_id
+        .expect("general");
+    for user in [member, reader] {
+        exec(
+            &app.db,
+            "INSERT INTO channel_members (channel_id, user_id, role, notification_level, muted, favorite, joined_at) \
+             VALUES ($1, $2, 'member', 'default', false, false, now()) ON CONFLICT DO NOTHING",
+            vec![general.into(), user.into()],
+        )
+        .await
+        .expect("joined");
+    }
+    let words = [
+        ("@Kanal", "channel"),
+        ("@hier", "here"),
+        ("@aquí", "here"),
+        ("@canale", "channel"),
+        ("@qui", "here"),
+        ("@Kanał", "channel"),
+        ("@tutaj", "here"),
+    ];
+    // `here` reaches the people connected now: the reader is.
+    crate::realtime::presence::heartbeat(&app.valkey, reader, 300).await;
+    // Held: each word of each language is a room-wide mention, so the right below has something to
+    // refuse (a word the server did not know would be a plain name and prove nothing).
+    for (word, kind) in words {
+        let before = mention_rows(&app, general, kind).await;
+        assert_eq!(
+            say(&app, owner, general, &format!("{word} bonjour")).await,
+            201
+        );
+        assert!(
+            mention_rows(&app, general, kind).await > before,
+            "{word} notifies the room"
+        );
+    }
+    // Taken away: none of them records anything for a member.
+    take_from_base_role(&app, space, "members", "message.mention_all").await;
+    let total = |kind: &'static str| {
+        let app = &app;
+        async move { mention_rows(app, general, kind).await }
+    };
+    let before = total("channel").await + total("here").await;
+    for (word, _) in words {
+        assert_eq!(
+            say(&app, member, general, &format!("{word} encore")).await,
+            201
+        );
+    }
+    assert_eq!(total("channel").await + total("here").await, before);
+}

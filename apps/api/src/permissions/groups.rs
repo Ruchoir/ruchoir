@@ -432,7 +432,10 @@ pub fn decide(actor: &GroupActor, group: &GroupRow, act: GroupAct) -> Result<(),
 }
 
 /// Words a group name may never be: they would shadow a broadcast mention.
-const RESERVED: [&str; 7] = ["here", "ici", "channel", "everyone", "all", "canal", "tous"];
+fn is_reserved(folded: &str) -> bool {
+    use crate::messaging::mentions::{CHANNEL_HANDLES, HERE_HANDLES};
+    HERE_HANDLES.contains(&folded) || CHANNEL_HANDLES.contains(&folded)
+}
 
 /// The longest group name, in characters.
 const NAME_MAX: usize = 60;
@@ -456,7 +459,7 @@ pub fn validate_group_name(name: &str) -> Result<String, ApiError> {
             "a group name cannot start with @ or #",
         ));
     }
-    if RESERVED.contains(&fold_ascii(name).as_str()) {
+    if is_reserved(fold_ascii(name).as_str()) {
         return Err(ApiError::BadRequestCode {
             code: "group_name_reserved",
             message: "This name is reserved for a mention of everyone.",
@@ -1307,7 +1310,8 @@ mod tests {
     #[test]
     fn group_name_reserved_words_are_refused_folded() {
         for name in [
-            "here", "ICI", "Channel", "everyone", "All", "canal", "Tous", " tous ", "ICÏ",
+            "here", "ICI", "Channel", "everyone", "All", "canal", "Tous", " tous ", "ICÏ", "Kanał",
+            "Hier", "Aquí", "canale", "Qui", "tutaj",
         ] {
             assert!(
                 matches!(
