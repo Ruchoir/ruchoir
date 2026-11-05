@@ -485,8 +485,15 @@ async fn invitation_proves(state: &AppState, token: Option<&str>, email: &str) -
         return false;
     };
     let usable = crate::messaging::invitations::is_usable(&invitation, OffsetDateTime::now_utc());
+    // An invitation proves the address only while whoever issued it could still issue it: one from
+    // somebody removed or demoted since proves nothing, and the registration falls back to the
+    // ordinary confirmation.
+    let entitled = usable
+        && crate::messaging::invitations::issuer_entitled_now(&state.db, &invitation)
+            .await
+            .unwrap_or(false);
 
-    usable
+    entitled
         && invitation
             .email
             .as_deref()

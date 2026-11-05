@@ -4459,6 +4459,9 @@ async fn register(
 async fn an_invitation_claims_the_account_the_import_left_waiting() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
+    // The issuer is somebody who may invite: a link from anyone else is dead, which is not
+    // what this test is about.
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
     let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
     let waiting = make_waiting_account(&app.db, &email).await;
     let token = make_invitation(&app.db, fx.space_id, fx.alice, Some(&email)).await;
@@ -4491,6 +4494,9 @@ async fn a_shareable_link_cannot_claim_somebody_elses_account() {
     // no address, so anyone holding one could otherwise type any address and take the account.
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
+    // The issuer is somebody who may invite: a link from anyone else is dead, which is not
+    // what this test is about.
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
     let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
     make_waiting_account(&app.db, &email).await;
     let token = make_invitation(&app.db, fx.space_id, fx.alice, None).await;
@@ -4503,6 +4509,9 @@ async fn a_shareable_link_cannot_claim_somebody_elses_account() {
 async fn an_invitation_addressed_to_someone_else_cannot_claim_it() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
+    // The issuer is somebody who may invite: a link from anyone else is dead, which is not
+    // what this test is about.
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
     let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
     make_waiting_account(&app.db, &email).await;
     let token = make_invitation(
@@ -4521,6 +4530,9 @@ async fn an_invitation_addressed_to_someone_else_cannot_claim_it() {
 async fn a_revoked_invitation_claims_nothing() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
+    // The issuer is somebody who may invite: a link from anyone else is dead, which is not
+    // what this test is about.
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
     let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
     make_waiting_account(&app.db, &email).await;
     let token = make_invitation(&app.db, fx.space_id, fx.alice, Some(&email)).await;
@@ -4544,6 +4556,9 @@ async fn an_account_someone_already_uses_is_never_claimed() {
     // account to whoever holds the token.
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
+    // The issuer is somebody who may invite: a link from anyone else is dead, which is not
+    // what this test is about.
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
     let email = format!("inuse-{}@example.test", Uuid::new_v4().simple());
     let account = make_waiting_account(&app.db, &email).await;
     let mut model: users::ActiveModel = users::Entity::find_by_id(account)
@@ -12796,3 +12811,19 @@ mod file_share_tests;
 /// "Voir en tant que": the preview door. It reads, it never writes, it never shows more than the
 /// viewer holds, and it stays with its request.
 mod preview_tests;
+
+/// Regressions of the permissions hardening review, one file per area.
+#[cfg(test)]
+mod hardening_files_tests;
+
+#[cfg(test)]
+mod hardening_race_tests;
+
+#[cfg(test)]
+mod hardening_invitations_tests;
+
+#[cfg(test)]
+mod hardening_limit_tests;
+
+#[cfg(test)]
+mod hardening_messaging_tests;

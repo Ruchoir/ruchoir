@@ -22,8 +22,8 @@ use axum::http::StatusCode;
 use axum::Json;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
-    QueryOrder, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait,
+    IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder, Statement, TransactionTrait,
 };
 use std::collections::HashMap;
 use time::{Duration, OffsetDateTime};
@@ -426,6 +426,9 @@ pub async fn preview_invitation(
     Path(token): Path<String>,
 ) -> Result<Json<InvitationPreviewDto>, ApiError> {
     let record = usable_invitation(&state, &token).await?;
+    if !issuer_entitled_now(&state.db, &record).await? {
+        return Err(ApiError::NotFound);
+    }
     let space = spaces::Entity::find_by_id(record.space_id)
         .one(&state.db)
         .await?
@@ -485,6 +488,13 @@ pub async fn accept_invitation(
             Some(row) if row.ended => return Err(ApiError::NotFound),
             other => other.map(|row| row.model),
         };
+    // A link is only as good as the person who issued it, and that holds for somebody already in
+    // the space as much as for a newcomer: asked before anything is written, so that an invitation
+    // whose issuer was removed, demoted or lost the group lets nobody in (a group included) and
+    // spends nothing.
+    if !issuer_entitled_now(&state.db, &record).await? {
+        return Err(ApiError::NotFound);
+    }
     let already_member = existing.is_some();
     // The arrival notice written into the channel, when there was a real arrival and the space has a
     // public channel to write it in. Published after the commit, like every other message.
@@ -516,9 +526,35 @@ pub async fn accept_invitation(
                 return Err(ApiError::NotFound);
             }
             let txn = state.db.begin().await?;
+            // The space's lock order (see `spaces::lock_space`): the space's row, then the seat
+            // lock, then the rows. Taken first, so a promotion, a removal and this acceptance in
+            // the same space wait for one another instead of for each other.
+            super::spaces::lock_space(&txn, record.space_id).await?;
+            // A link is only as good as the person who issued it: they must still be in the space
+            // and still hold what issuing it asks (an administrator link from an owner who was
+            // demoted mints no administrator; one from somebody removed mints nobody). Asked again
+            // under the lock: the check above was taken on what was read before it.
+            if !issuer_still_entitled(&txn, &record).await? {
+                return Err(ApiError::NotFound);
+            }
             // Issued while there was room is not enough: the seat is taken now, under the lock.
             if super::edition_view::takes_a_seat(&record.role) {
                 super::edition_view::ensure_a_seat_locked(&txn, &state, record.space_id).await?;
+            }
+            // The use is spent in one statement that re-checks the cap, so two people racing for
+            // the last use cannot both get in: the second waits for the first's commit, then
+            // finds no use left.
+            let spent = txn
+                .execute_raw(Statement::from_sql_and_values(
+                    DbBackend::Postgres,
+                    "UPDATE space_invitations SET uses = uses + 1 \
+                      WHERE id = $1 AND revoked_at IS NULL \
+                        AND (max_uses IS NULL OR uses < max_uses)",
+                    [record.id.into()],
+                ))
+                .await?;
+            if spent.rows_affected() != 1 {
+                return Err(ApiError::NotFound);
             }
             space_members::ActiveModel {
                 space_id: Set(record.space_id),
@@ -532,9 +568,6 @@ pub async fn accept_invitation(
             .insert(&txn)
             .await?;
 
-            let mut active = record.clone().into_active_model();
-            active.uses = Set(record.uses + 1);
-            active.update(&txn).await?;
             crate::audit::record(
                 &txn,
                 record.space_id,
@@ -763,6 +796,72 @@ async fn usable_invitation(
     } else {
         Err(ApiError::NotFound)
     }
+}
+
+/// Whether whoever issued `record` could still issue it, by the very rules that let them issue it:
+///
+/// - a space-wide invitation (`create_invitation`) needs `members.invite`, and an administrator one
+///   also `roles.manage` and a rank above the administrator role (an owner demoted since mints no
+///   administrator). A member or guest invitation asks for nothing more than `members.invite`,
+///   however the right was obtained (a custom role, a group): the rank of a role that is not handed
+///   out is not the issuer's to lose;
+/// - a group invitation (`invite_to_channel`) needs the issuer to be in the space still, and to run
+///   the group, which [`issuer_runs_channel`] asks.
+///
+/// A link whose issuer's account is gone has nobody to answer for it and is dead too.
+pub(crate) async fn issuer_still_entitled(
+    db: &impl ConnectionTrait,
+    record: &space_invitations::Model,
+) -> Result<bool, ApiError> {
+    use crate::permissions::{catalogue::Permission, check::space_rights, delegation};
+    let Some(issuer) = record.created_by else {
+        return Ok(false);
+    };
+    let Some(rank) = delegation::actor_rank(db, record.space_id, issuer).await? else {
+        return Ok(false);
+    };
+    if record.channel_id.is_some() {
+        return Ok(true);
+    }
+    let rights = space_rights(db, record.space_id, issuer).await?;
+    if !rights.contains(Permission::MembersInvite) {
+        return Ok(false);
+    }
+    if record.role == "admin" {
+        let above = delegation::fixed_role_position(db, record.space_id, "admin")
+            .await?
+            .is_some_and(|position| rank.outranks_position(position));
+        return Ok(above && rights.contains(Permission::RolesManage));
+    }
+    Ok(true)
+}
+
+/// The group half of [`issuer_still_entitled`]: for an invitation into one group, whether the issuer
+/// still holds `channel.members.manage` on it (creating it asked for that). Always true for a
+/// space-wide invitation.
+pub(crate) async fn issuer_runs_channel(
+    db: &DatabaseConnection,
+    record: &space_invitations::Model,
+) -> Result<bool, ApiError> {
+    let (Some(channel_id), Some(issuer)) = (record.channel_id, record.created_by) else {
+        return Ok(record.channel_id.is_none());
+    };
+    Ok(crate::permissions::check::can(
+        db,
+        record.space_id,
+        issuer,
+        crate::permissions::check::Resource::Channel(channel_id),
+        crate::permissions::catalogue::Permission::ChannelMembersManage,
+    )
+    .await?)
+}
+
+/// Both halves of the issuer's entitlement, for a caller outside any transaction.
+pub(crate) async fn issuer_entitled_now(
+    db: &DatabaseConnection,
+    record: &space_invitations::Model,
+) -> Result<bool, ApiError> {
+    Ok(issuer_still_entitled(db, record).await? && issuer_runs_channel(db, record).await?)
 }
 
 /// Whether an invitation would be accepted at `now`: not revoked, not expired, uses left.

@@ -4652,6 +4652,14 @@
       "PreviewDto": {
         "description": "What a space tells its viewer while a preview is on.",
         "properties": {
+          "idle_seconds": {
+            "description": "Seconds without activity before the preview ends by itself (the instance's setting), so a\nclient can say it in its banner. Absent from an answer of an older build.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "role_id": {
             "format": "uuid",
             "type": "string"

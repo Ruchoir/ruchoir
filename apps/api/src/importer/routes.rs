@@ -36,8 +36,14 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/imports/{id}/cancel", post(cancel))
         .route("/api/v1/imports/{id}/invitations", post(invite))
         .route("/api/v1/imports/{id}/people", get(people))
-        // Auto-delivery and the served command-line tools.
-        .merge(super::drops::router())
+        // The drop token and the list of archives already present: for the signed-in administrator.
+        .merge(super::drops::session_router())
+}
+
+/// What needs no session and is not rate limited per person: the served command-line tools (public
+/// downloads) and the drop, which is guarded by its single-use token.
+pub fn public_router() -> Router<AppState> {
+    super::drops::public_router()
 }
 
 /// An archive an administrator points at, and the passphrase that opens it.

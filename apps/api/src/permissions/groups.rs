@@ -52,6 +52,8 @@ pub struct GroupRow {
     pub imported_from: Option<String>,
     pub members: Vec<GroupMember>,
     pub roles: Vec<RoleRow>,
+    /// Some access rule names this group: being in it opens (or closes) something, as a role does.
+    pub named_by_rules: bool,
 }
 
 /// Every group of `space_id` by name, with members and roles: three queries whatever the count.
@@ -79,7 +81,11 @@ async fn load<C: ConnectionTrait>(
     for row in db
         .query_all_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
-            "SELECT id, name::text AS name, description, source, imported_from FROM space_groups \
+            "SELECT id, name::text AS name, description, source, imported_from, \
+                    EXISTS (SELECT 1 FROM permission_overrides o \
+                             WHERE o.space_id = space_groups.space_id \
+                               AND o.group_id = space_groups.id) AS named_by_rules \
+               FROM space_groups \
               WHERE space_id = $1 AND ($2::uuid IS NULL OR id = $2) ORDER BY space_groups.name, id",
             [space_id.into(), filter.into()],
         ))
@@ -99,6 +105,7 @@ async fn load<C: ConnectionTrait>(
             imported_from: row.try_get("", "imported_from")?,
             members: Vec::new(),
             roles: Vec::new(),
+            named_by_rules: row.try_get("", "named_by_rules")?,
         });
     }
     let at: HashMap<Uuid, usize> = groups.iter().enumerate().map(|(i, g)| (g.id, i)).collect();
@@ -290,6 +297,21 @@ fn role_ids(roles: &[RoleRow]) -> HashSet<Uuid> {
     roles.iter().map(|r| r.id).collect()
 }
 
+/// Whether an add or a remove on `group` rests on the actor being its manager rather than on
+/// `groups.manage` with every carried role under their rank. Such an act, on a group that carries
+/// roles, also needs the actor to outrank each person it touches (see
+/// [`super::group_routes`]), which is a question about other people and so not asked here.
+pub fn rests_on_manager(actor: &GroupActor, group: &GroupRow) -> bool {
+    let gm = actor.rights.contains(Permission::GroupsManage);
+    let all = group.roles.iter().all(|r| manages_role(actor, r));
+    let mgr = group
+        .members
+        .iter()
+        .find(|m| m.user_id == actor.user_id)
+        .is_some_and(|m| m.is_manager && !m.guest);
+    mgr && !(gm && all)
+}
+
 /// Whether `actor` may do `act` to `group`; see the table in the permissions design (section 4).
 pub fn decide(actor: &GroupActor, group: &GroupRow, act: GroupAct) -> Result<(), Refusal> {
     let gm = actor.rights.contains(Permission::GroupsManage);
@@ -339,7 +361,10 @@ pub fn decide(actor: &GroupActor, group: &GroupRow, act: GroupAct) -> Result<(),
             if carries && !all && !mgr {
                 return Err(Refusal::Because("role_above_you"));
             }
-            if carries && !actor.owner && ids.contains(&actor.user_id) {
+            // Nobody puts themselves in a group that gives something: a role it carries, or an
+            // access rule that names it (a group rule lifts a private lock). An owner may.
+            let gives_access = carries || (group.named_by_rules && matches!(act, GroupAct::Add(_)));
+            if gives_access && !actor.owner && ids.contains(&actor.user_id) {
                 return Err(Refusal::Because("no_self_role"));
             }
             if matches!(act, GroupAct::Remove(_))
@@ -407,7 +432,10 @@ pub fn decide(actor: &GroupActor, group: &GroupRow, act: GroupAct) -> Result<(),
 }
 
 /// Words a group name may never be: they would shadow a broadcast mention.
-const RESERVED: [&str; 7] = ["here", "ici", "channel", "everyone", "all", "canal", "tous"];
+fn is_reserved(folded: &str) -> bool {
+    use crate::messaging::mentions::{CHANNEL_HANDLES, HERE_HANDLES};
+    HERE_HANDLES.contains(&folded) || CHANNEL_HANDLES.contains(&folded)
+}
 
 /// The longest group name, in characters.
 const NAME_MAX: usize = 60;
@@ -431,7 +459,7 @@ pub fn validate_group_name(name: &str) -> Result<String, ApiError> {
             "a group name cannot start with @ or #",
         ));
     }
-    if RESERVED.contains(&fold_ascii(name).as_str()) {
+    if is_reserved(fold_ascii(name).as_str()) {
         return Err(ApiError::BadRequestCode {
             code: "group_name_reserved",
             message: "This name is reserved for a mention of everyone.",
@@ -535,6 +563,7 @@ mod tests {
             imported_from: None,
             members,
             roles,
+            named_by_rules: false,
         }
     }
 
@@ -665,6 +694,30 @@ mod tests {
     }
 
     // Add
+
+    #[test]
+    fn decide_add_refuses_oneself_to_a_group_that_a_rule_names() {
+        let mine = [id(ME)];
+        let others = [id(OTHER)];
+        let mut g = grp(vec![], vec![]);
+        g.named_by_rules = true;
+        assert_eq!(
+            decide(&gm(), &g, GroupAct::Add(&mine)),
+            because("no_self_role")
+        );
+        assert_eq!(decide(&gm(), &g, GroupAct::Add(&others)), Ok(()));
+        assert_eq!(
+            decide(&owner_with_rights(), &g, GroupAct::Add(&mine)),
+            Ok(())
+        );
+        // Taking oneself out of it is not giving oneself anything.
+        assert_eq!(decide(&gm(), &g, GroupAct::Remove(&mine)), Ok(()));
+        // A group no rule names stays free.
+        assert_eq!(
+            decide(&gm(), &grp(vec![], vec![]), GroupAct::Add(&mine)),
+            Ok(())
+        );
+    }
 
     #[test]
     fn decide_add_directory_first_then_neither_gm_nor_manager() {
@@ -1257,7 +1310,8 @@ mod tests {
     #[test]
     fn group_name_reserved_words_are_refused_folded() {
         for name in [
-            "here", "ICI", "Channel", "everyone", "All", "canal", "Tous", " tous ", "ICÏ",
+            "here", "ICI", "Channel", "everyone", "All", "canal", "Tous", " tous ", "ICÏ", "Kanał",
+            "Hier", "Aquí", "canale", "Qui", "tutaj",
         ] {
             assert!(
                 matches!(

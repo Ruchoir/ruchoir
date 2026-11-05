@@ -26,6 +26,17 @@ use crate::entities::users;
 use crate::permissions::catalogue::Permission;
 use crate::permissions::check::space_rights;
 
+/// The words that address the people connected now, folded (see [`fold_ascii`]): what the clients
+/// show in each interface language (`kindBroadcasts`: `@here`, `@ici`, `@hier`, `@aquí`, `@qui`,
+/// `@tutaj`). Adding a language to the clients means adding its words here.
+pub(crate) const HERE_HANDLES: [&str; 6] = ["here", "ici", "hier", "aqui", "qui", "tutaj"];
+
+/// The words that address the whole room, folded: `@channel`, `@canal` (fr, es), `@Kanal` (de, pl),
+/// `@canale` (it), and the older `@everyone`, `@all`, `@tous` the clients still recognise.
+pub(crate) const CHANNEL_HANDLES: [&str; 7] = [
+    "channel", "everyone", "all", "canal", "tous", "kanal", "canale",
+];
+
 /// The distinct mention tokens found in a body.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct MentionTokens {
@@ -85,11 +96,12 @@ pub fn extract_mention_tokens(body: &str) -> MentionTokens {
         }
         // Folded here so the set holds one spelling per handle: `@Théo`, `@theo` and `@THEO` are
         // the same mention, and the members are compared in the same folded form.
-        // Both languages of the interface, because a French reader writes `@canal`, not `@channel`,
-        // and a token nobody can guess is a token nobody uses.
+        // Every interface language, because a reader writes the word the clients show them
+        // (`@canal`, `@Kanal`, `@aquí`, `@canale`, `@kanał`), and a right enforced for one spelling
+        // only is a right anyone can walk around by changing language.
         match fold_ascii(handle).as_str() {
-            "here" | "ici" => tokens.here = true,
-            "channel" | "everyone" | "all" | "canal" | "tous" => tokens.channel = true,
+            h if HERE_HANDLES.contains(&h) => tokens.here = true,
+            h if CHANNEL_HANDLES.contains(&h) => tokens.channel = true,
             other => {
                 tokens.users.insert(other.to_string());
             }
@@ -361,6 +373,7 @@ pub(crate) fn fold_ascii(s: &str) -> String {
                 'è' | 'é' | 'ê' | 'ë' => out.push('e'),
                 'ì' | 'í' | 'î' | 'ï' => out.push('i'),
                 'ñ' => out.push('n'),
+                'ł' => out.push('l'),
                 'ò' | 'ó' | 'ô' | 'õ' | 'ö' => out.push('o'),
                 'œ' => out.push_str("oe"),
                 'ù' | 'ú' | 'û' | 'ü' => out.push('u'),
@@ -535,6 +548,34 @@ mod tests {
         assert!(display_name_matches("Marc Lévêque", "leveque"));
         assert!(display_name_matches("Sofía Nadir", "sofia"));
         assert!(display_name_matches("Chloé", "chloe"));
+    }
+
+    /// The words the clients tell people to write for the whole room and for the people connected,
+    /// in each interface language (the dictionaries' `kindBroadcasts`), as people type them: case,
+    /// accents or none.
+    const OFFERED: [(&str, &[&str], &[&str]); 6] = [
+        ("en", &["@channel", "@Channel"], &["@here", "@HERE"]),
+        ("fr", &["@canal", "@Canal"], &["@ici", "@ICI"]),
+        ("de", &["@Kanal", "@kanal"], &["@hier", "@Hier"]),
+        ("es", &["@canal", "@Canal"], &["@aquí", "@aqui"]),
+        ("it", &["@canale", "@Canale"], &["@qui", "@Qui"]),
+        ("pl", &["@kanał", "@Kanał", "@kanal"], &["@tutaj", "@Tutaj"]),
+    ];
+
+    #[test]
+    fn the_room_wide_handles_are_recognised_in_every_interface_language() {
+        for (language, channel, here) in OFFERED {
+            for handle in channel {
+                let tokens = extract_mention_tokens(&format!("{handle} hello"));
+                assert!(tokens.channel, "{language}: {handle} is the whole room");
+                assert!(tokens.users.is_empty(), "{language}: {handle}");
+            }
+            for handle in here {
+                let tokens = extract_mention_tokens(&format!("{handle} hello"));
+                assert!(tokens.here, "{language}: {handle} is the people connected");
+                assert!(tokens.users.is_empty(), "{language}: {handle}");
+            }
+        }
     }
 
     #[test]

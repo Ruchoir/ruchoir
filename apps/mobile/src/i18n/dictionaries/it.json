@@ -2034,7 +2034,8 @@
       "beyondGuestCeiling": "Un ospite non può mai avere questo diritto.",
       "memberFirst": "Prima fai diventare membro questa persona.",
       "nameReserved": "Questo nome è riservato ai ruoli di base.",
-      "nameTaken": "Un altro ruolo ha già questo nome."
+      "nameTaken": "Un altro ruolo ha già questo nome.",
+      "rateLimited": "Troppe richieste in una volta. Riprova tra qualche secondo."
     },
     "handOver": "Cedergli lo spazio",
     "aboveShort": "Sopra il tuo ruolo",
@@ -2104,6 +2105,13 @@
     "memberJoinedGuest": "{{actor}} ha fatto ingresso nello spazio come ospite",
     "memberLeft": "{{actor}} è uscito dallo spazio",
     "memberRemoved": "{{actor}} ha rimosso {{target}} dallo spazio",
+    "memberIssuedRevoked": "Gli inviti e i link pubblici di {{target}} sono stati ritirati all'uscita: $t(audit.issuedInvitations, {\"count\": {{invitations}} }) e $t(audit.issuedLinks, {\"count\": {{links}} }).",
+    "issuedInvitations_one": "{{count}} invito",
+    "issuedInvitations_many": "{{count}} inviti",
+    "issuedInvitations_other": "{{count}} inviti",
+    "issuedLinks_one": "{{count}} link",
+    "issuedLinks_many": "{{count}} link",
+    "issuedLinks_other": "{{count}} link",
     "memberRoleChanged": "{{actor}} ha portato {{target}} da {{before}} a {{after}}",
     "ownershipTransferred": "{{actor}} ha ceduto lo spazio a {{target}}",
     "memberRolesChanged": "{{actor}} ha cambiato i ruoli di {{target}}",

@@ -2222,7 +2222,8 @@
       "nameTaken": "Otro rol ya lleva este nombre.",
       "hasRules": "Hay reglas de canal, carpeta o calendario que nombran este rol: quítalas primero.",
       "beyondGuestCeiling": "Un invitado nunca puede tener este permiso.",
-      "memberFirst": "Primero haz miembro a esta persona."
+      "memberFirst": "Primero haz miembro a esta persona.",
+      "rateLimited": "Demasiadas solicitudes a la vez. Inténtalo de nuevo en unos segundos."
     },
     "colPerson": "Persona",
     "directly": "Directamente",
@@ -2390,6 +2391,13 @@
     "memberJoinedGuest": "{{actor}} se ha unido al espacio como invitado",
     "memberLeft": "{{actor}} ha salido del espacio",
     "memberRemoved": "{{actor}} ha retirado a {{target}} del espacio",
+    "memberIssuedRevoked": "Las invitaciones y los enlaces públicos de {{target}} se retiraron al salir: $t(audit.issuedInvitations, {\"count\": {{invitations}} }) y $t(audit.issuedLinks, {\"count\": {{links}} }).",
+    "issuedInvitations_one": "{{count}} invitación",
+    "issuedInvitations_many": "{{count}} invitaciones",
+    "issuedInvitations_other": "{{count}} invitaciones",
+    "issuedLinks_one": "{{count}} enlace",
+    "issuedLinks_many": "{{count}} enlaces",
+    "issuedLinks_other": "{{count}} enlaces",
     "memberRoleChanged": "{{actor}} ha pasado a {{target}} de {{before}} a {{after}}",
     "ownershipTransferred": "{{actor}} ha transferido el espacio a {{target}}",
     "memberRolesChanged": "{{actor}} ha cambiado los roles de {{target}}",

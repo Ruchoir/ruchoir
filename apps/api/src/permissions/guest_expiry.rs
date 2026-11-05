@@ -398,6 +398,10 @@ async fn expire(state: &AppState, space: Option<Uuid>, report: &mut Report) -> R
             serde_json::json!({ "role": role, "expires_at": rfc3339(reached) }),
         )
         .await?;
+        // What they handed out in the space's name stops with their access.
+        crate::messaging::spaces::revoke_issued_by(&txn, space_id, user_id)
+            .await
+            .map_err(|_| DbErr::Custom("could not revoke what an ended guest issued".to_owned()))?;
         closed.push((space_id, user_id));
     }
     txn.commit().await?;

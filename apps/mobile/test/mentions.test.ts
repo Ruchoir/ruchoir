@@ -67,3 +67,9 @@ test("a_group_name_with_symbols_digits_or_a_double_space_keeps_the_token_open", 
   assert.equal(at("@Chantier\nRe"), null);
   assert.equal(at("mail@R&D"), null);
 });
+
+test("a_broadcast_is_found_by_any_word_of_its_kind_in_any_language", () => {
+  assert.deepEqual(broadcastsFor("kan"), ["canal"]);
+  assert.deepEqual(broadcastsFor("tut"), ["ici"]);
+  assert.deepEqual(broadcastsFor("aqu"), ["ici"]);
+});

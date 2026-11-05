@@ -79,21 +79,6 @@ pub(super) struct StoredRule {
 }
 
 impl Person {
-    /// Somebody who is not in the space, with only the rights that `subject` carries and no rules
-    /// aimed at them (a participant of a direct conversation they were left out of).
-    pub fn bare(user_id: Uuid, subject: Subject) -> Person {
-        Person {
-            user_id,
-            subject,
-            base_role: None,
-            groups: Vec::new(),
-            role_groups: HashMap::new(),
-            readable_audiences: HashSet::new(),
-            custom_roles: HashSet::new(),
-            ceiling: None,
-        }
-    }
-
     /// The stored rules that apply to this person, as the engine's rules, `first` ahead of the
     /// personal ones (a channel role is a personal rule that a rule on the person can still undo).
     pub fn rules<'a>(

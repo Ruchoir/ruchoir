@@ -1,5 +1,6 @@
 import type { Member } from "@ruchoir/client";
 import { useMemo } from "react";
+import { broadcastMentionNames } from "@ruchoir/client/permissionsLogic";
 
 import { useApi } from "../api/useApi";
 import { useLoad } from "./useLoad";
@@ -26,10 +27,10 @@ export function useSpaceMembers(spaceId: string | undefined) {
 
 /**
  * Every spelling a mention can take, as the server resolves them (the web's `getMentionNames`): the
- * display name, its first word, the name without spaces, and the room-wide handles in both languages.
+ * display name, its first word, the name without spaces, and the room-wide handles in the six languages.
  */
 export function mentionNames(members: Pick<Member, "name">[]): string[] {
-  const names = new Set(["canal", "ici", "channel", "here", "tous", "everyone", "all"]);
+  const names = new Set(broadcastMentionNames());
   for (const { name } of members) {
     names.add(name);
     const words = name.split(/\s+/).filter(Boolean);

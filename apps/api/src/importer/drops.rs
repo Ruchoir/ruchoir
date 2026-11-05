@@ -37,7 +37,15 @@ const DROP_TOKEN_TTL_SECS: i64 = 6 * 3600;
 /// is only here so a broken or hostile uploader cannot fill the disk without any limit at all.
 const MAX_DROP_BYTES: u64 = 200 * 1024 * 1024 * 1024;
 
-pub fn router() -> Router<AppState> {
+/// The routes of a signed-in administrator: the drop token and the list of archives present.
+pub fn session_router() -> Router<AppState> {
+    Router::new()
+        .route("/api/v1/imports/drop-tokens", post(issue_drop_token))
+        .route("/api/v1/imports/files", get(list_files))
+}
+
+/// The routes that carry no session: the drop (a single-use token) and the served tools.
+pub fn public_router() -> Router<AppState> {
     // The drop is the one route that takes a workspace-sized body, so the default request-body cap
     // is lifted for it alone rather than for the whole surface.
     let drop = Router::new()
@@ -45,8 +53,6 @@ pub fn router() -> Router<AppState> {
         .layer(DefaultBodyLimit::disable());
 
     Router::new()
-        .route("/api/v1/imports/drop-tokens", post(issue_drop_token))
-        .route("/api/v1/imports/files", get(list_files))
         .merge(drop)
         .route("/tools/export-nextcloud.sh", get(script_export_nextcloud))
         .route(

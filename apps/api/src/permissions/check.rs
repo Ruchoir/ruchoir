@@ -24,7 +24,7 @@ use uuid::Uuid;
 
 use super::catalogue::{Family, Permission, PermissionSet};
 use super::engine::{
-    resolve, Decision, Effect, Facts, Level, LevelKind, Source, Standing, Step, Subject, Whom,
+    resolve, Decision, Effect, Facts, Level, LevelKind, Source, Standing, Step, Whom,
 };
 use super::load::{self, Person, StoredRule};
 use crate::entities::{
@@ -855,11 +855,6 @@ enum Conversation {
     Direct(bool),
 }
 
-/// What a person not (or no longer) in the space holds on a direct message's file they take part
-/// in: what they held before leaving, as the participant rule always gave it.
-const OUTSIDE_PARTICIPANT: PermissionSet =
-    PermissionSet::of(&[Permission::FilesView, Permission::FilesEdit]);
-
 async fn file_decision(
     db: &DatabaseConnection,
     space_id: Uuid,
@@ -899,35 +894,21 @@ async fn file_decision(
         }
     };
 
-    let outsider;
-    let (subject, owner): (Option<&Subject>, Option<&Person>) = match (person, &conversation) {
-        (Some(person), _) => (Some(&person.subject), Some(person)),
-        (None, Conversation::Direct(true)) => {
-            outsider = Subject {
-                standing: Standing::Member,
-                base: OUTSIDE_PARTICIPANT,
-                roles: Vec::new(),
-            };
-            (Some(&outsider), None)
-        }
-        (None, _) => (None, None),
-    };
+    // Somebody who is not (or no longer) in the space holds nothing on a file, even one from a
+    // direct message they once took part in: a participant row outlives the membership (so that
+    // coming back gives the history back) but grants nothing alone.
 
     let mut decision = Decision::default();
-    if let Some(subject) = subject {
+    if let Some(person) = person {
         let ids: Vec<Uuid> = chain.iter().map(|row| row.id).collect();
         let stored = load::rules(db, space_id, permission_overrides::Column::FileId, &ids).await?;
-        let audiences = match owner {
-            Some(person) => Some(with_audiences(db, space_id, person, &stored).await?),
-            None => None,
-        };
-        let owner = audiences.as_ref();
+        let person = &with_audiences(db, space_id, person, &stored).await?;
         let mut levels = Vec::new();
         let mut facts = Facts {
             author: file.owner_id == Some(user_id),
             ..Facts::default()
         };
-        if let (Conversation::Channel(channel), Some(person)) = (&conversation, owner) {
+        if let Conversation::Channel(channel) = &conversation {
             let ids = [channel.id];
             let rules =
                 load::rules(db, space_id, permission_overrides::Column::ChannelId, &ids).await?;
@@ -939,13 +920,6 @@ async fn file_decision(
             levels.push(level);
         }
         for row in &chain {
-            let rules = match owner {
-                Some(person) => person.rules(
-                    stored.iter().filter(|rule| rule.file_id == Some(row.id)),
-                    None,
-                ),
-                None => Vec::new(),
-            };
             levels.push(Level {
                 kind: if row.kind == "folder" {
                     LevelKind::Folder
@@ -953,19 +927,13 @@ async fn file_decision(
                     LevelKind::File
                 },
                 id: row.id,
-                rules,
+                rules: person.rules(
+                    stored.iter().filter(|rule| rule.file_id == Some(row.id)),
+                    None,
+                ),
             });
         }
-        decision = match owner {
-            Some(person) => resolved(person, &levels, facts, explain),
-            // Somebody who left the space: only the participant's right, no rules.
-            None => resolved(
-                &Person::bare(user_id, subject.clone()),
-                &levels,
-                facts,
-                explain,
-            ),
-        };
+        decision = resolved(person, &levels, facts, explain);
         // A conversation's file is its readers', whatever the space-wide right says.
         let view = match conversation {
             Conversation::None => None,
@@ -997,7 +965,7 @@ async fn file_decision(
     if let (false, None, Some(person)) = (
         decision.granted.contains(Permission::FilesView),
         file.conversation_id,
-        owner,
+        person,
     ) {
         if reaches_through_a_message(db, space_id, person, file_id).await? {
             set(

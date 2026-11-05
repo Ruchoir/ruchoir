@@ -229,5 +229,8 @@ export {
   matchGroupMention,
   matchMentionTarget,
   offeredBroadcasts,
+  ROOM_HANDLES,
+  PRESENT_HANDLES,
+  broadcastMentionNames,
 } from "./mentions.ts";
 export { type AdminLicence, type LicenceRow, licenceRows, applyRights, applyChannelRights, spaceLicenceBanner, licenceDetail } from "./licences.ts";

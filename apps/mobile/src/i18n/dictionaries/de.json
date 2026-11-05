@@ -1936,7 +1936,8 @@
       "beyondGuestCeiling": "Ein Gast kann dieses Recht nie haben.",
       "memberFirst": "Machen Sie diese Person zuerst zum Mitglied.",
       "nameReserved": "Dieser Name ist den Grundrollen vorbehalten.",
-      "nameTaken": "Eine andere Rolle trägt diesen Namen bereits."
+      "nameTaken": "Eine andere Rolle trägt diesen Namen bereits.",
+      "rateLimited": "Zu viele Anfragen auf einmal. Versuchen Sie es in ein paar Sekunden erneut."
     },
     "handOver": "Den Bereich übergeben",
     "aboveShort": "Über Ihrer Rolle",
@@ -2004,6 +2005,11 @@
     "memberJoinedGuest": "{{actor}} ist dem Bereich als Gast beigetreten",
     "memberLeft": "{{actor}} hat den Bereich verlassen",
     "memberRemoved": "{{actor}} hat {{target}} aus dem Bereich entfernt",
+    "memberIssuedRevoked": "Die Einladungen und öffentlichen Links von {{target}} wurden beim Ausscheiden entfernt: $t(audit.issuedInvitations, {\"count\": {{invitations}} }) und $t(audit.issuedLinks, {\"count\": {{links}} }).",
+    "issuedInvitations_one": "{{count}} Einladung",
+    "issuedInvitations_other": "{{count}} Einladungen",
+    "issuedLinks_one": "{{count}} Link",
+    "issuedLinks_other": "{{count}} Links",
     "memberRoleChanged": "{{actor}} hat {{target}} von {{before}} zu {{after}} geändert",
     "ownershipTransferred": "{{actor}} hat den Bereich an {{target}} übergeben",
     "memberRolesChanged": "{{actor}} hat die Rollen von {{target}} geändert",

@@ -219,7 +219,8 @@ pub async fn send_message(
     }
 
     let audience = authz::conversation_audience(&state.db, &access).await?;
-    let tokens = mentions::extract_mention_tokens(text);
+    let mut tokens = mentions::extract_mention_tokens(text);
+    drop_unheld_broadcasts(&state, &access, session.user_id, &mut tokens).await?;
     let mut resolved =
         mentions::resolve_mentions(&state.db, session.user_id, &audience, text, &tokens).await?;
 
@@ -477,7 +478,8 @@ pub async fn edit_message(
     let conversation_id = message.conversation_id;
     let also_in_channel = message.also_in_channel;
     let audience = authz::conversation_audience(&state.db, &access).await?;
-    let tokens = mentions::extract_mention_tokens(text);
+    let mut tokens = mentions::extract_mention_tokens(text);
+    drop_unheld_broadcasts(&state, &access, session.user_id, &mut tokens).await?;
     let mut resolved =
         mentions::resolve_mentions(&state.db, session.user_id, &audience, text, &tokens).await?;
     let group_mentions = mentions::resolve_group_mentions(
@@ -584,6 +586,34 @@ pub async fn edit_message(
     }
 
     Ok(Json(dto))
+}
+
+/// `@here` and `@channel` (and their translations) notify the whole room, which takes
+/// `message.mention_all` in that channel. Without it the message is still sent and the handle stays
+/// plain text: nobody is pulled out of their afternoon by it. Naming a person or a group needs no
+/// right. A direct conversation's room is its participants, who are all notified anyway.
+async fn drop_unheld_broadcasts(
+    state: &AppState,
+    access: &authz::ConversationAccess,
+    author: Uuid,
+    tokens: &mut mentions::MentionTokens,
+) -> Result<(), ApiError> {
+    if !(tokens.here || tokens.channel) || access.kind != ConversationKind::Channel {
+        return Ok(());
+    }
+    let may = crate::permissions::check::can(
+        &state.db,
+        access.space_id,
+        author,
+        crate::permissions::check::Resource::Channel(access.conversation_id),
+        crate::permissions::catalogue::Permission::MessageMentionAll,
+    )
+    .await?;
+    if !may {
+        tokens.here = false;
+        tokens.channel = false;
+    }
+    Ok(())
 }
 
 /// Who an edited message would notify if it were sent now (see [`send_message`]): the people it

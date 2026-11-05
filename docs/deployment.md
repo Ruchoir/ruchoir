@@ -40,6 +40,14 @@ $remote_addr;`), or append to it as `$proxy_add_x_forwarded_for` does; it must n
 client's own header through untouched. Exactly one trusted proxy is assumed in front of the API.
 `infra/hardening/shield/nginx/proxy-common.conf` is a ready-made nginx snippet doing this.
 
+Signed-in routes that decide on who may do what are limited per session (a made-up cookie is limited
+by address like an anonymous request): the writes of the roles, groups, access and member routes,
+the journal, the imports and the licence share one strict bucket (`RUCHOIR_SENSITIVE_RATE_BURST`,
+`RUCHOIR_SENSITIVE_RATE_PERIOD_MS`, default a burst of 60 then 1 a second); the plain reads of the
+same screens have a looser one (`RUCHOIR_READ_RATE_BURST`, `RUCHOIR_READ_RATE_PERIOD_MS`, default
+240 then 4 a second). Beyond it the API answers `429` with `Retry-After`. The command-line tools
+served for imports are not limited.
+
 The first `docker compose up -d --build` compiles the API from source and takes several minutes on a
 modest machine. Later ones reuse the cargo cache and are much shorter.
 

@@ -67,6 +67,8 @@ export function refusalMessage(refusal: Refusal | undefined, t: T, fallback: str
   switch (refusal?.code) {
     case "seats_full":
       return t("roles.refusal.seatsFull", { count: refusal.seats });
+    case "rate_limited":
+      return t("roles.refusal.rateLimited");
     case "licence_required":
       return t("roles.refusal.licenceRequired");
     case "licence_frozen":

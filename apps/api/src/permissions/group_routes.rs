@@ -19,9 +19,10 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::catalogue::Permission;
+use super::delegation::rank_of;
 use super::groups::{
-    actor, decide, group, groups_of, name_taken, validate_group_name, GroupAct, GroupActor,
-    GroupRow, GroupSource,
+    actor, decide, group, groups_of, name_taken, rests_on_manager, validate_group_name, GroupAct,
+    GroupActor, GroupRow, GroupSource,
 };
 use super::membership::active_sql;
 use super::rules::{hide_unopened, uses_of, Named};
@@ -190,6 +191,30 @@ async fn lock(
     group(txn, space_id, group_id)
         .await?
         .ok_or(ApiError::NotFound)
+}
+
+/// A manager who works a role-carrying group on their own authority (not on `groups.manage` with
+/// every role under their rank) does so only on people they outrank: taking someone above them out
+/// of it, or putting them in, would be acting on a rank they do not have. `403 person_above_you`.
+async fn ensure_outranks(
+    txn: &impl ConnectionTrait,
+    actor: &GroupActor,
+    group: &GroupRow,
+    space_id: Uuid,
+    people: &[Uuid],
+) -> Result<(), ApiError> {
+    if group.roles.is_empty() || actor.owner || !rests_on_manager(actor, group) {
+        return Ok(());
+    }
+    for person in people {
+        let rank = rank_of(txn, space_id, *person)
+            .await?
+            .ok_or(ApiError::NotFound)?;
+        if !actor.rank.outranks(rank) {
+            return Err(ApiError::ForbiddenBecause("person_above_you"));
+        }
+    }
+    Ok(())
 }
 
 fn refused(state: &AppState, refusal: super::groups::Refusal) -> ApiError {
@@ -497,6 +522,7 @@ pub async fn add_group_members(
         .filter(|id| !current.members.iter().any(|m| m.user_id == *id))
         .collect();
     decide(&actor, &current, GroupAct::Add(&fresh)).map_err(|r| refused(&state, r))?;
+    ensure_outranks(&txn, &actor, &current, space_id, &fresh).await?;
     if fresh.is_empty() {
         return Ok(Json(dto_of(&actor, &current)));
     }
@@ -575,6 +601,9 @@ pub async fn remove_group_member(
         GroupAct::Remove(&ids)
     };
     decide(&actor, &current, act).map_err(|r| refused(&state, r))?;
+    if user_id != session.user_id && current.members.iter().any(|m| m.user_id == user_id) {
+        ensure_outranks(&txn, &actor, &current, space_id, &ids).await?;
+    }
     if !current.members.iter().any(|m| m.user_id == user_id) {
         return Ok(StatusCode::NO_CONTENT);
     }
@@ -644,6 +673,7 @@ mod tests {
             imported_from: None,
             members,
             roles,
+            named_by_rules: false,
         }
     }
 

@@ -308,6 +308,28 @@ pub fn router(state: AppState) -> Router {
     let public_invitations =
         crate::calendar::invitation_page::public_router().layer(GovernorLayer::new(links_governor));
 
+    // A per-person limit on the sensitive authenticated routes, in two buckets (see `RateLimits`):
+    // the strict one, shared by every write of those routes and by the journal, the imports and the
+    // licence (so a script cannot spread its calls across routes), and a looser one for the plain
+    // reads the screens make on every reload (roles, groups, access, "why"). Both are generous on
+    // purpose, see `RUCHOIR_SENSITIVE_RATE_*` and `RUCHOIR_READ_RATE_*`.
+    let limits = RateLimits::new(&state.config);
+    limits.spawn_cleanup();
+    // Every method counts against the strict bucket.
+    let limited = |routes: Router<AppState>| -> Router<AppState> {
+        routes.layer(axum::middleware::from_fn_with_state(
+            (state.clone(), limits.clone(), false),
+            rate_limit,
+        ))
+    };
+    // Writes count against the strict bucket, plain reads against the looser one.
+    let limited_reads_apart = |routes: Router<AppState>| -> Router<AppState> {
+        routes.layer(axum::middleware::from_fn_with_state(
+            (state.clone(), limits.clone(), true),
+            rate_limit,
+        ))
+    };
+
     let mut router = Router::new()
         .route("/healthz", get(healthz))
         .route("/api/v1/health", get(api_health))
@@ -325,7 +347,10 @@ pub fn router(state: AppState) -> Router {
         // Instance administration: guarded per request by the instance-admin flag, and invisible
         // (a flat 404) to everyone else.
         .merge(crate::admin::router())
-        .merge(crate::importer::routes::router())
+        // The imports screen and its API are limited; the command-line tools it serves and the
+        // token-guarded drop are not (public downloads, one upload).
+        .merge(limited(crate::importer::routes::router()))
+        .merge(crate::importer::routes::public_router())
         .merge(crate::realtime::routes::router())
         // Notification delivery past the open page: preferences, Web Push, the email fallback.
         .merge(crate::notify::router())
@@ -344,18 +369,32 @@ pub fn router(state: AppState) -> Router {
         // The calendar: calendars, events, reminders, subscription addresses.
         .merge(crate::calendar::router())
         // A space's audit log, for whoever holds `audit.view` there.
-        .merge(crate::audit::read::router())
+        .merge(limited(crate::audit::read::router()))
         // A space's roles, for whoever reads its member directory.
-        .merge(crate::permissions::roles::router())
+        .merge(limited_reads_apart(crate::permissions::roles::router()))
         // A space's groups: their people, free in every edition.
-        .merge(crate::permissions::group_routes::router())
+        .merge(limited_reads_apart(
+            crate::permissions::group_routes::router(),
+        ))
         // Who has what on a channel, a file or a calendar: the Access and Share dialogs.
-        .merge(crate::permissions::rule_routes::router())
+        .merge(limited_reads_apart(
+            crate::permissions::rule_routes::router(),
+        ))
         // A guest's end date, the ended accesses and their reactivation.
-        .merge(crate::permissions::expiry_routes::router())
+        .merge(limited_reads_apart(
+            crate::permissions::expiry_routes::router(),
+        ))
+        // What one member may do in the space (a role change, the transfer, a removal).
+        .merge(limited(
+            Router::new().route(
+                "/api/v1/spaces/{space_id}/members/{user_id}",
+                axum::routing::patch(crate::messaging::spaces::update_member_role)
+                    .delete(crate::messaging::spaces::remove_member),
+            ),
+        ))
         // What the edition adds (nothing for the community build), guarded per request like the
         // rest.
-        .merge(state.edition.routes());
+        .merge(limited(state.edition.routes()));
 
     // Optional self-hosted emoji pack. `ServeDir` handles path traversal safely and returns 404
     // for missing files, which the client treats as "no asset" and renders the native glyph. The
@@ -526,6 +565,144 @@ fn set_header(name: HeaderName, value: &'static str) -> SetResponseHeaderLayer<H
 /// snippet in `docs/deployment.md` does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ClientIpKey;
+
+/// The key type of the per-person buckets: a string, `session:<id>` for a session that exists and
+/// `ip:<address>` for everything else. The key itself is worked out in [`rate_limit`], which can
+/// ask Valkey whether a session is real; this extractor only gives the limiter its type, and is the
+/// address fallback.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BucketKey;
+
+impl KeyExtractor for BucketKey {
+    type Key = String;
+
+    fn extract<T>(
+        &self,
+        req: &axum::http::Request<T>,
+    ) -> Result<Self::Key, tower_governor::GovernorError> {
+        ClientIpKey.extract(req).map(|ip| format!("ip:{ip}"))
+    }
+}
+
+/// One bucket: whether a key may pass now, and the sweep that forgets the keys that recovered. Type
+/// erased because the library does not name the limiter's middleware type.
+#[derive(Clone)]
+struct Bucket {
+    allows: Arc<dyn Fn(&String) -> bool + Send + Sync>,
+    forget_recovered: Arc<dyn Fn() + Send + Sync>,
+    retry_secs: u64,
+}
+
+impl Bucket {
+    fn new(period_ms: u64, burst: u32) -> Self {
+        let config = Arc::new(
+            GovernorConfigBuilder::default()
+                .key_extractor(BucketKey)
+                .period(Duration::from_millis(period_ms))
+                .burst_size(burst)
+                .finish()
+                .expect("valid rate-limit configuration"),
+        );
+        let checking = config.clone();
+        Self {
+            allows: Arc::new(move |key| checking.limiter().check_key(key).is_ok()),
+            forget_recovered: Arc::new(move || config.limiter().retain_recent()),
+            retry_secs: period_ms.div_ceil(1000).max(1),
+        }
+    }
+}
+
+/// The two per-person buckets of the sensitive routes.
+///
+/// - **strict** (`RUCHOIR_SENSITIVE_RATE_*`, default a burst of 60 then 1/s): the writes of the
+///   permissions routes and the member-role route, and every call to the journal, the imports and
+///   the licence. One bucket for all of them.
+/// - **reads** (`RUCHOIR_READ_RATE_*`, default a burst of 240 then 4/s): the plain `GET`s of roles,
+///   groups, access and "why". A web or phone session that reloads on every realtime change reads
+///   these a few times a second without ever being close to abusing anything, so they get their own
+///   allowance and never use up the strict one.
+///
+/// Memory: a key exists only for a real session or an address, never for a made-up cookie (see
+/// [`rate_limit`]), and an interval task forgets the keys that have fully recovered.
+#[derive(Clone)]
+pub struct RateLimits {
+    strict: Bucket,
+    reads: Bucket,
+}
+
+impl RateLimits {
+    pub fn new(config: &crate::config::Config) -> Self {
+        Self {
+            strict: Bucket::new(config.sensitive_rate_period_ms, config.sensitive_rate_burst),
+            reads: Bucket::new(config.read_rate_period_ms, config.read_rate_burst),
+        }
+    }
+
+    /// Forget, every minute, the keys whose allowance is back to full: a bucket that nobody is using
+    /// costs nothing, whatever the traffic of the past hours was.
+    pub fn spawn_cleanup(&self) {
+        let (strict, reads) = (self.strict.clone(), self.reads.clone());
+        // Outside a runtime (a unit test building the router) there is nothing to clean.
+        let Ok(handle) = tokio::runtime::Handle::try_current() else {
+            return;
+        };
+        handle.spawn(async move {
+            let mut tick = tokio::time::interval(Duration::from_secs(60));
+            tick.tick().await;
+            loop {
+                tick.tick().await;
+                (strict.forget_recovered)();
+                (reads.forget_recovered)();
+            }
+        });
+    }
+}
+
+/// The per-person limit. The bucket is the session's (each signed-in device has its own allowance,
+/// and nobody is slowed by somebody else), but only when the session exists: a request carrying a
+/// made-up cookie or token is keyed by its address like an anonymous one, so nobody can fill the
+/// limiter's memory with keys by sending random values. The guard of each route answers the 401.
+///
+/// `reads_apart`: a `GET` or `HEAD` is counted against the looser reads bucket, everything else
+/// against the strict one.
+async fn rate_limit(
+    State((state, limits, reads_apart)): State<(AppState, RateLimits, bool)>,
+    req: Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let reads = reads_apart
+        && matches!(
+            *req.method(),
+            axum::http::Method::GET | axum::http::Method::HEAD
+        );
+    let bucket = if reads { &limits.reads } else { &limits.strict };
+    let retry = bucket.retry_secs;
+    let session = match crate::auth::session::presented_id(req.headers()) {
+        Some(id) => crate::auth::session::get(&state.valkey, &id)
+            .await
+            .ok()
+            .flatten()
+            .map(|_| format!("session:{id}")),
+        None => None,
+    };
+    let key = session.or_else(|| BucketKey.extract(&req).ok());
+    // A request whose address cannot be told is not counted: the guard of the route still decides.
+    if let Some(key) = key {
+        if !(bucket.allows)(&key) {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                [(header::RETRY_AFTER, retry.to_string())],
+                Json(serde_json::json!({
+                    "error": "rate_limited",
+                    "message": "Too many requests: wait a moment and try again.",
+                    "retry_after": retry,
+                })),
+            )
+                .into_response();
+        }
+    }
+    next.run(req).await
+}
 
 impl KeyExtractor for ClientIpKey {
     type Key = std::net::IpAddr;

@@ -151,11 +151,8 @@ pub fn router() -> Router<AppState> {
             "/api/v1/spaces/{space_id}/members",
             get(conversations::list_members),
         )
-        // What one member may do in the space. Ownership moves through here and nowhere else.
-        .route(
-            "/api/v1/spaces/{space_id}/members/{user_id}",
-            patch(spaces::update_member_role).delete(spaces::remove_member),
-        )
+        // What one member may do in the space (`PATCH` and `DELETE` on a member) is routed in
+        // `http.rs`, behind the per-person limit. Ownership moves through there and nowhere else.
         .route(
             "/api/v1/spaces/{space_id}/dm",
             post(conversations::create_dm),

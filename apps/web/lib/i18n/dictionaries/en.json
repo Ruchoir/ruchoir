@@ -2123,7 +2123,8 @@
       "nameTaken": "Another role already has this name.",
       "hasRules": "Channel, folder or calendar rules name this role: remove them first.",
       "beyondGuestCeiling": "A guest can never hold this right.",
-      "memberFirst": "Make this person a member first."
+      "memberFirst": "Make this person a member first.",
+      "rateLimited": "Too many requests at once. Try again in a few seconds."
     },
     "colPerson": "Person",
     "directly": "Directly",
@@ -2281,6 +2282,11 @@
     "memberJoinedGuest": "{{actor}} joined the space as a guest",
     "memberLeft": "{{actor}} left the space",
     "memberRemoved": "{{actor}} removed {{target}} from the space",
+    "memberIssuedRevoked": "The invitations and public links of {{target}} were withdrawn when they left: $t(audit.issuedInvitations, {\"count\": {{invitations}} }) and $t(audit.issuedLinks, {\"count\": {{links}} }).",
+    "issuedInvitations_one": "{{count}} invitation",
+    "issuedInvitations_other": "{{count}} invitations",
+    "issuedLinks_one": "{{count}} link",
+    "issuedLinks_other": "{{count}} links",
     "memberRoleChanged": "{{actor}} moved {{target}} from {{before}} to {{after}}",
     "ownershipTransferred": "{{actor}} handed the space over to {{target}}",
     "memberRolesChanged": "{{actor}} changed the roles of {{target}}",

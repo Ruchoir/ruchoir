@@ -98,7 +98,7 @@ type SpaceDto = {
   edition?: string;
   licence?: { seats: number; used: number; valid_until: string; expires_in_days: number };
   expires_at?: string | null;
-  preview?: { role_id: string; role_name: string } | null;
+  preview?: { role_id: string; role_name: string; idle_seconds?: number } | null;
 };
 
 type RoleDto = {
@@ -337,7 +337,7 @@ const REFUSAL_CODES = new Set([
   "make_them_a_member_first", "no_self_role", "manager_protected", "group_from_directory",
   "group_name_taken", "group_name_reserved", "group_name_invalid", "manager_must_be_member",
   "base_role_not_allowed", "not_in_space", "too_many_people", "bad_expiry", "guest_only", "access_ended", "not_ended",
-  "access_ended_for_good",
+  "access_ended_for_good", "rate_limited",
 ]);
 
 /**
@@ -653,7 +653,13 @@ function toWorkspace(dto: SpaceDto): Workspace {
     licence: dto.licence
       ? { seats: dto.licence.seats, used: dto.licence.used, validUntil: dto.licence.valid_until, expiresInDays: dto.licence.expires_in_days }
       : undefined,
-    preview: dto.preview ? { roleId: dto.preview.role_id, roleName: dto.preview.role_name } : undefined,
+    preview: dto.preview
+      ? {
+          roleId: dto.preview.role_id,
+          roleName: dto.preview.role_name,
+          ...(dto.preview.idle_seconds !== undefined ? { idleSeconds: dto.preview.idle_seconds } : {}),
+        }
+      : undefined,
   };
 }
 

@@ -26,7 +26,7 @@ use crate::entities::{
 };
 use crate::state::AppState;
 
-use super::authz::{ensure_space_member, is_space_member};
+use super::authz::{ensure_permission, ensure_space_member, is_space_member};
 use super::dto::{
     ChannelDto, ConversationRef, CreateDmRequest, DirectMessageDto, DmHiddenRequest,
     LastMessageDto, MemberDto, SpaceDto,
@@ -75,7 +75,7 @@ pub async fn list_my_spaces(
             session.user_id,
         )
         .await?;
-        let preview = crate::permissions::preview::dto_of_space(space.id);
+        let preview = crate::permissions::preview::dto_of_space(space.id, &state.config);
         out.push(SpaceDto {
             id: space.id,
             name: space.name,
@@ -508,6 +508,16 @@ pub async fn create_dm(
     Json(body): Json<CreateDmRequest>,
 ) -> Result<(StatusCode, Json<ConversationRef>), ApiError> {
     ensure_space_member(&state.db, space_id, session.user_id).await?;
+    // Opening a direct conversation is `dm.start`, which a licensed space can take away from a role
+    // (from guests, say). Reopening one that exists needs it too: the picker is the same door.
+    ensure_permission(
+        &state.db,
+        space_id,
+        session.user_id,
+        crate::permissions::check::Resource::Space,
+        crate::permissions::catalogue::Permission::DmStart,
+    )
+    .await?;
 
     // The full participant set: the caller plus the requested users, de-duplicated.
     let mut participants: BTreeSet<Uuid> = body.user_ids.into_iter().collect();
