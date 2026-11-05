@@ -81,7 +81,11 @@
     "licencesLoadFailed": "The licences could not be loaded.",
     "licenceColHolder": "Holder",
     "licenceColEdition": "Edition",
-    "licenceColEnd": "Ends"
+    "licenceColEnd": "Ends",
+    "licenceColMode": "Mode",
+    "licenceColStatus": "Status",
+    "licenceColCheck": "Last check",
+    "licenceCommunity": "Upcoming"
   },
   "notifPrompt": {
     "title": "Be told while you are elsewhere",
@@ -2260,7 +2264,44 @@
     "removed": "Licence removed",
     "installFailed": "The licence could not be installed. Try again in a moment.",
     "removeFailed": "The licence was not removed",
-    "foot": "Checked on this server, with no outside call. Removing the licence removes no access: the space goes back to the free edition and the rules in place still apply."
+    "foot": "Checked on this server. An offline licence makes no outside call; an online licence is also checked with Ruchoir every 5 minutes. Removing the licence removes no access: the space goes back to the free edition and the rules in place still apply.",
+    "tag": {
+      "active": "Active",
+      "suspended": "Suspended",
+      "revoked": "Revoked",
+      "unreachable": "Unreachable",
+      "clock": "Check the clock",
+      "notYet": "Upcoming"
+    },
+    "mode": {
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "banner": {
+      "suspended": "Ruchoir has suspended this licence. Enterprise features are frozen: what is configured keeps applying, nothing can be changed. Contact Ruchoir to resume it.",
+      "revoked": "This licence has been revoked. Enterprise features are frozen and will only come back with a new licence. Nothing is deleted.",
+      "unreachable": "Ruchoir's licence service has been unreachable since {{date}}. Enterprise features are frozen until the next successful check. Make sure the server can open an outbound HTTPS connection.",
+      "unreachableNever": "Ruchoir's licence service could not be reached yet. Enterprise features are frozen until the first successful check. Make sure the server can open an outbound HTTPS connection.",
+      "clock": "The server's clock went back more than a day. Enterprise features are frozen until it is set right."
+    },
+    "lastCheckIn": "Last check",
+    "lastCheckInHint": "The server checks the licence with Ruchoir every 5 minutes.",
+    "checkNever": "None",
+    "offlineHint": "An offline licence never contacts Ruchoir.",
+    "checkNow": "Check now",
+    "checking": "Checking…",
+    "checked": "Licence checked",
+    "checkFailed": "The check did not go through.",
+    "sentOnly": "What is sent: the licence's id, the seats in use and the server's version. Nothing else.",
+    "next": {
+      "online": "Automatic renewal: the next licence is ready, from {{from}} to {{until}}, {{count}} seats. It will take over on its own.",
+      "offline": "Next licence installed: from {{from}} to {{until}}, {{count}} seats. It takes over on {{from}}."
+    },
+    "earlyHint": "A renewal licence can be installed as soon as it arrives: it waits for its start date.",
+    "refusalService": {
+      "serviceUnreachable": "Ruchoir's licence service could not be reached: this online licence was not installed. Try again in a moment.",
+      "checkTooSoon": "The licence was just checked. Try again in a few seconds."
+    }
   },
   "audit": {
     "title": "Log",

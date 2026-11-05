@@ -81,6 +81,10 @@ export function refusalMessage(refusal: Refusal | undefined, t: T, fallback: str
         : t("licence.refusal.otherSpace");
     case "licence_expired":
       return t("licence.refusal.expired");
+    case "licence_service_unreachable":
+      return t("licence.refusalService.serviceUnreachable");
+    case "licence_check_too_soon":
+      return t("licence.refusalService.checkTooSoon");
     case "role_above_you":
       return t("roles.refusal.roleAboveYou");
     case "person_above_you":

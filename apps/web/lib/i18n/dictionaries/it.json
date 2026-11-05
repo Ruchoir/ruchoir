@@ -83,7 +83,11 @@
     "licencesLoadFailed": "Non è stato possibile caricare le licenze.",
     "licenceColHolder": "Intestatario",
     "licenceColEdition": "Edizione",
-    "licenceColEnd": "Scadenza"
+    "licenceColEnd": "Scadenza",
+    "licenceColMode": "Modalità",
+    "licenceColStatus": "Stato",
+    "licenceColCheck": "Ultima verifica",
+    "licenceCommunity": "In arrivo"
   },
   "notifPrompt": {
     "title": "Ricevere un avviso fuori dalla scheda",
@@ -2369,7 +2373,44 @@
     "removed": "Licenza rimossa",
     "installFailed": "Non è stato possibile installare la licenza. Riprova tra un attimo.",
     "removeFailed": "La licenza non è stata rimossa",
-    "foot": "Verificata su questo server, senza alcuna chiamata esterna. Rimuovere la licenza non toglie alcun accesso: lo spazio torna all'edizione gratuita e le regole esistenti continuano ad applicarsi."
+    "foot": "Verificata su questo server. Una licenza offline non fa alcuna chiamata esterna; una licenza online viene anche verificata presso Ruchoir ogni 5 minuti. Rimuovere la licenza non toglie alcun accesso: lo spazio torna all'edizione gratuita e le regole esistenti continuano ad applicarsi.",
+    "tag": {
+      "active": "Attiva",
+      "suspended": "Sospesa",
+      "revoked": "Revocata",
+      "unreachable": "Non raggiungibile",
+      "clock": "Controllare l'orologio",
+      "notYet": "In arrivo"
+    },
+    "mode": {
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "banner": {
+      "suspended": "Ruchoir ha sospeso questa licenza. Le funzioni Enterprise sono congelate: ciò che è configurato continua ad applicarsi, non si può modificare nulla. Contatti Ruchoir per riprenderla.",
+      "revoked": "Questa licenza è stata revocata. Le funzioni Enterprise sono congelate e torneranno solo con una nuova licenza. Non viene eliminato nulla.",
+      "unreachable": "Il servizio licenze di Ruchoir non è raggiungibile dal {{date}}. Le funzioni Enterprise sono congelate fino alla prossima verifica riuscita. Verifichi che il server possa aprire una connessione HTTPS in uscita.",
+      "unreachableNever": "Il servizio licenze di Ruchoir non è ancora stato raggiunto. Le funzioni Enterprise sono congelate fino alla prima verifica riuscita. Verifichi che il server possa aprire una connessione HTTPS in uscita.",
+      "clock": "L'orologio del server è tornato indietro di più di un giorno. Le funzioni Enterprise sono congelate finché non viene rimesso all'ora giusta."
+    },
+    "lastCheckIn": "Ultima verifica",
+    "lastCheckInHint": "Il server verifica la licenza presso Ruchoir ogni 5 minuti.",
+    "checkNever": "Nessuna",
+    "offlineHint": "Una licenza offline non contatta mai Ruchoir.",
+    "checkNow": "Verifica ora",
+    "checking": "Verifica in corso…",
+    "checked": "Licenza verificata",
+    "checkFailed": "La verifica non è andata a buon fine.",
+    "sentOnly": "Ciò che viene inviato: l'identificativo della licenza, i posti usati e la versione del server. Nient'altro.",
+    "next": {
+      "online": "Rinnovo automatico: la prossima licenza è pronta, dal {{from}} al {{until}}, {{count}} posti. Subentrerà da sola.",
+      "offline": "Prossima licenza installata: dal {{from}} al {{until}}, {{count}} posti. Subentra il {{from}}."
+    },
+    "earlyHint": "Una licenza di rinnovo può essere installata appena arriva: attende la sua data di inizio.",
+    "refusalService": {
+      "serviceUnreachable": "Il servizio licenze di Ruchoir non è stato raggiunto: questa licenza online non è stata installata. Riprovi tra un momento.",
+      "checkTooSoon": "La licenza è appena stata verificata. Riprovi tra qualche secondo."
+    }
   },
   "audit": {
     "title": "Registro",
