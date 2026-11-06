@@ -14,6 +14,21 @@ existing Nextcloud or Mattermost instance into Ruchoir in under two minutes.
 A web interface, and iOS and Android apps in progress (`apps/mobile`, Expo; see ADR 0005). The core
 is open source under **AGPLv3**.
 
+## Restructuring freeze (since 2026-11-06)
+
+Ruchoir is being split into separate products, each in its own repository (`chat`, `drive`,
+`calendar`), around `propolis` (identity and organisations) and `hub` (notifications and real time).
+The decisions that span several repositories are in
+[Ruchoir/.github, `docs/adr`](https://github.com/Ruchoir/.github/tree/main/docs/adr).
+
+Until the split is done:
+
+- **No new feature here.** This repository is the reference the products are taken from, one at a
+  time, and it stays as it is until then.
+- **Golden rule 7 is suspended.** Splitting the API breaks `/api/v1` once. Each product's contract only
+  grows again from the moment that product runs on its own (ADR 0005 of `Ruchoir/.github`).
+- Every other golden rule still applies.
+
 ## Golden rules (read first)
 
 1. **No AI references anywhere in this repository - ever.** Not in code, comments, commit
